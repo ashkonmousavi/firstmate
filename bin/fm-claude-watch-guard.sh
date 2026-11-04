@@ -40,8 +40,6 @@ SESSION=$FM_SESSION_LOCK_PID
 fm_harness_pid_alive "$SESSION" && [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || exit 0
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
-# shellcheck source=bin/fm-supervision-lib.sh
-. "$SCRIPT_DIR/fm-supervision-lib.sh"
 # shellcheck source=bin/fm-afk-contract.sh
 . "$SCRIPT_DIR/fm-afk-contract.sh"
 GRACE=${FM_GUARD_GRACE:-300}
@@ -57,7 +55,6 @@ attended_owner || exit 0
 
 if [ "$MODE" = check ]; then
   CMD=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // empty')
-  fm_supervision_needed "$STATE" "$GRACE" || exit 0
   age=$(fm_path_age "$STATE/.last-watcher-beat")
   fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME" && exit 0
   repair=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-supervision-instructions.sh" --harness claude --repair-line)
@@ -110,8 +107,7 @@ while attended_owner; do
     rm -f "$OUT"
     OUT=
   fi
-  if fm_supervision_needed "$STATE" "$GRACE" \
-    && ! fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME" \
+  if ! fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME" \
     && ! fm_autoarm_claim_open "$STATE" "$GRACE"; then
     OUT=$(mktemp "$STATE/.claude-watch-guard.XXXXXX") || exit 1
     # One tracked child, reaped here. The arm owns singleton arbitration,

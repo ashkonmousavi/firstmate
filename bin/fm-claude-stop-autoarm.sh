@@ -495,12 +495,10 @@ trap 'handle_autoarm_signal INT' INT
 ARM_PID=
 CLOSED_ARM_PID=
 run_arm() {  # <output file, or empty for none>
-  local arm_mode=arm
-  [ ! -s "$STATE/.wake-queue" ] || arm_mode=--restart
   if [ -n "$1" ]; then
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$arm_mode" >"$1" 2>&1 &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" ${RESTART:+"$RESTART"} >"$1" 2>&1 &
   else
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$arm_mode" >/dev/null 2>&1 &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" ${RESTART:+"$RESTART"} >/dev/null 2>&1 &
   fi
   ARM_PID=$!
   wait "$ARM_PID" || true
@@ -572,12 +570,19 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
   fi
   attempt=$((attempt + 1))
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
+  RESTART=
+  if [ -s "$STATE/.wake-queue" ] \
+    && fm_recovery_marker_snapshot "$STATE/.watcher-down" \
+    && [[ "$FM_RECOVERY_MARKER_TOKEN" == announced:downtime:* ]] \
+    && fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME"; then
+    RESTART=--restart
+  fi
   if [ "$HOST_MODE" -eq 1 ]; then
     HOST_RC=0
     FM_SUPERVISION_HOST_AUTOARM_GEN=$MY_GEN FM_SUPERVISION_HOST_OWNER_PID=$$ \
       FM_SUPERVISION_HOST_PRIMARY=claude FM_GUARD_GRACE="$GRACE" \
       FM_WARM_COMPACT_TRANSCRIPT=$(printf '%s' "$PAYLOAD" | jq -r '.transcript_path // empty' 2>/dev/null) \
-      "$SCRIPT_DIR/fm-supervision-host.sh" park >"${OUT:-/dev/null}" 2>&1 || HOST_RC=$?
+      "$SCRIPT_DIR/fm-supervision-host.sh" park ${RESTART:+"$RESTART"} >"${OUT:-/dev/null}" 2>&1 || HOST_RC=$?
   else
     run_arm "$OUT"
   fi

@@ -47,6 +47,46 @@ test_stale_refusal_and_recovery() {
   pass "stale spawns and sends refuse; repair and reads remain available; fresh clears"
 }
 
+test_empty_home_admission() {
+  local beat home command out rc
+  for beat in absent stale; do
+    home="$TMP_ROOT/empty-$beat"
+    make_guard_home "$home"
+    rm "$home/state/task.meta"
+    if [ "$beat" = stale ]; then touch -t 200001010000 "$home/state/.last-watcher-beat"; fi
+    for command in 'bin/fm-spawn.sh ship' 'bin/fm-send.sh worker hello'; do
+      rc=0
+      out=$(run_check "$home" "$command" 2>&1) || rc=$?
+      [ "$rc" -eq 2 ] || fail "$beat beat allowed fleet admission in an empty home"
+      [[ "$out" == *'FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart'* ]] || fail "refusal omitted the home-scoped repair"
+    done
+    run_check "$home" 'cat bin/fm-send.sh' >/dev/null || fail "empty-home read refused"
+    run_check "$home" 'FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart' >/dev/null || fail "empty-home repair refused"
+    FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+      FM_TEST_CLAUDE_WATCH_INTERVAL=0.05 "$FAKE_CLAUDE" -c '
+      echo "$$" > "$FM_HOME/state/.lock"
+      printf "{}" | "$FM_HOME/bin/fm-claude-watch-guard.sh" > "$FM_HOME/state/guard.out" 2>&1 &
+      guard=$!
+      fresh_watcher() {
+        . "$FM_HOME/bin/fm-wake-lib.sh"
+        fm_watcher_healthy "$FM_HOME/state" "$FM_HOME/bin/fm-watch.sh" 300 "$FM_HOME"
+      }
+      rc=0
+      wait_until_deadline 30 fresh_watcher || rc=1
+      if [ "$rc" -eq 0 ]; then
+        for command in "bin/fm-spawn.sh ship" "bin/fm-send.sh worker hello"; do
+          jq -cn --arg command "$command" "{tool_input:{command:\$command}}" |
+            "$FM_HOME/bin/fm-claude-watch-guard.sh" --check || rc=1
+        done
+      fi
+      touch "$FM_HOME/state/.afk"
+      wait "$guard"
+      [ "$rc" -eq 0 ] || { cat "$FM_HOME/state/guard.out"; exit 1; }
+    ' || fail "$beat empty home did not recover and admit fleet commands"
+  done
+  pass "absent and stale beats block empty-home fleet admission; async coverage repairs it"
+}
+
 test_twenty_minute_turn() {
   local home="$TMP_ROOT/continuity" baseline="$TMP_ROOT/baseline"
   make_guard_home "$home"
@@ -96,6 +136,11 @@ test_command_positions() {
     'for id in a b; do bin/fm-send.sh "$id" hello; done' \
     'if true; then bin/fm-spawn.sh x; fi' \
     'while bin/fm-send.sh x y; do :; done' \
+    'if bin/fm-send.sh x y; then :; else :; fi' \
+    'if false; then :; elif bin/fm-spawn.sh x; then :; fi' \
+    'until bin/fm-send.sh x y; do :; done' \
+    'FM_HOME="$PWD" env -S "bin/fm-send.sh x y"' \
+    'dash -c "bin/fm-send.sh x y"' \
     '! bin/fm-send.sh x y' 'time bin/fm-spawn.sh x' \
     'env -S "bin/fm-send.sh x y"' \
     'eval "bin/fm-send.sh x y"' '. bin/fm-send.sh' \
@@ -118,6 +163,14 @@ EOF_PROGRAM' \
   for command in 'cat bin/fm-spawn.sh' 'echo "bin/fm-send.sh x y"' \
     'bash bin/fm-watch-arm.sh --restart' 'git status' \
     'bash -c "cat bin/fm-send.sh"' 'env -S "cat bin/fm-send.sh"' \
+    'if [ -f bin/fm-send.sh ]; then cat bin/fm-send.sh; fi' \
+    'for id in a b; do cat bin/fm-send.sh; done' \
+    'while false; do cat bin/fm-send.sh; done' \
+    'until true; do cat bin/fm-send.sh; done' \
+    'FM_HOME="$PWD" env -S "cat bin/fm-send.sh"' \
+    'bash --version; cat bin/fm-send.sh' \
+    'bash /dev/stdin <<< "cat bin/fm-send.sh"' \
+    'dash -c "cat bin/fm-send.sh"' \
     'FM_HOME=/fixture env -S "cat bin/fm-send.sh"' \
     '(cat bin/fm-send.sh)' '{ echo bin/fm-spawn.sh; }' \
     'bash <<EOF_PROGRAM
@@ -134,19 +187,21 @@ EOF_DATA'; do
 }
 
 test_pending_wake_keeps_checks_running() {
-  local mode home
+  local mode home host
+  for host in on off; do
   for mode in guard repair; do
-    home="$TMP_ROOT/pending-$mode"
+    home="$TMP_ROOT/pending-$mode-$host"
     make_guard_home "$home"
     rm "$home/state/task.meta"
-    : > "$home/config/supervision-host-off"
+    if [ "$host" = off ]; then : > "$home/config/supervision-host-off"; fi
     cat > "$home/state/continuity.check.sh" <<'SH'
 #!/usr/bin/env bash
 printf 'checked\n' >> "$FM_HOME/state/checks"
+if [ "${FM_GUARD_MODE:-}" = guard ] && [ "$(wc -l < "$FM_HOME/state/checks")" -eq 1 ]; then printf 'pending fixture wake\n'; fi
 SH
     chmod 700 "$home/state/continuity.check.sh"
     FM_HOME="$home" bash "$home/bin/fm-check-register.sh" continuity >/dev/null || fail "check fixture registration"
-    append_wake "$home/state" check fixture "check: pending fixture wake"
+    if [ "$mode" = repair ]; then append_wake "$home/state" check fixture "pending fixture wake"; fi
     FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 FM_HEARTBEAT=999999 \
       FM_TEST_CLAUDE_WATCH_INTERVAL=0.05 FM_GUARD_MODE="$mode" "$FAKE_CLAUDE" -c '
       cd "$FM_HOME" || exit 1
@@ -160,10 +215,10 @@ SH
         bash -c "$repair" > state/owner.out 2>&1 &
       fi
       owner=$!
-      checks_progressed() { [ -f state/checks ] && [ "$(wc -l < state/checks)" -ge 2 ]; }
+      checks_progressed() { [ -f state/checks ] && [ "$(wc -l < state/checks)" -ge 3 ]; }
       rc=0
       wait_until_deadline 30 checks_progressed || rc=1
-      grep -qF "check: pending fixture wake" state/.wake-queue || rc=1
+      grep -qF "pending fixture wake" state/.wake-queue || rc=1
       if [ "$rc" -eq 0 ]; then
         bin/fm-claude-stop-autoarm.sh > state/stop.out 2> state/stop.err <<EOF_PAYLOAD &
 {}
@@ -174,7 +229,7 @@ EOF_PAYLOAD
           wait "$stop"; stop_rc=$?
           [ "$stop_rc" -eq 2 ] || rc=1
           grep -q "rearm-resurface" state/stop.err || rc=1
-          grep -qF "check: pending fixture wake" state/.wake-queue || rc=1
+          grep -qF "pending fixture wake" state/.wake-queue || rc=1
         else
           kill "$stop" 2>/dev/null || true
           wait "$stop" 2>/dev/null || true
@@ -193,7 +248,8 @@ EOF_PAYLOAD
       [ "$rc" -eq 0 ] || { cat state/owner.out; exit 1; }
     ' || fail "$mode starved checks or consumed the pending wake"
   done
-  pass "automatic continuation and emitted repair keep checks running; later Stop delivers pending wakes"
+  done
+  pass "guard and repair continuations keep checks running; plain and hosted Stops deliver pending wakes"
 }
 
 test_scope() {
@@ -327,4 +383,4 @@ EOF_PAYLOAD
   pass "real Stop hook shares a healthy guard cycle and still delivers exit-2 wake"
 }
 
-fm_test_run test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation
+fm_test_run test_empty_home_admission test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation

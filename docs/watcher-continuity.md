@@ -94,7 +94,7 @@ While supervision is still needed and away mode remains inactive, an actionable 
 
 `bin/fm-claude-watch-guard.sh` runs as a Claude-owned async hook on UserPromptSubmit and PreToolUse.
 Its home-scoped identity lock admits one guard for the owning Claude session, including while the model is thinking or a tool is running.
-It keeps checking for supervision need while the session is idle, so a first spawn cannot race an idle guard's exit.
+It maintains a watcher even before tasks exist, so a first spawn cannot race missing supervision.
 It defers to a healthy watcher or an open Stop auto-arm claim, and otherwise tracks one child of the existing `fm-watch-arm.sh` wrapper, restarting after a one-shot close.
 The arm wrapper remains the owner of watcher singleton arbitration, verification and durable wake publication.
 The guard consumes no wake rows, invokes no branch actor, and leaves notification to the existing Stop path.
@@ -102,7 +102,7 @@ It stops and reaps its child when session ownership changes or away/daemon super
 Foreign primary harnesses and linked worker copies are inert.
 
 The same script's synchronous PreToolUse check warns when no live verified cycle exists.
-Once the beacon reaches the 300-second default grace, it refuses new `fm-spawn.sh` and `fm-send.sh` commands until a fresh beat appears.
+An absent beacon, or one at the 300-second default grace, refuses new `fm-spawn.sh` and `fm-send.sh` commands until a fresh beat appears, including in an otherwise empty home.
 The executable command classifier reuses the arm policy's shell lexer, so quoted documentation and reads remain available along with the home-scoped repair instruction emitted by `fm-supervision-instructions.sh`.
 The check does not change other harnesses' supervision models or away/quiet policy.
 

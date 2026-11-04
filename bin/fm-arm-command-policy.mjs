@@ -617,13 +617,14 @@ function hasUnclassifiableProtectedExpansion(word, root) {
 export function shellInvocation(position) {
   if (!position.command) return null;
   const name = basename(position.command.value);
-  if (!["sh", "bash", "zsh"].includes(name)) return null;
+  if (!["sh", "bash", "zsh", "dash"].includes(name)) return null;
   const words = position.words;
   let readsStdin = false;
   let optionsEnded = false;
   for (let i = position.index + 1; i < words.length; i += 1) {
     const option = words[i];
-    if (/^-[A-Za-z]*c[A-Za-z]*$/.test(option.value)) {
+    if (!optionsEnded && ["--help", "--version"].includes(option.value)) return { kind: "none", payload: null };
+    if (!optionsEnded && /^-[A-Za-z]*c[A-Za-z]*$/.test(option.value)) {
       let payloadIndex = i + 1;
       if (words[payloadIndex]?.value === "--") payloadIndex += 1;
       return { kind: "command", payload: words[payloadIndex] || null };
@@ -644,6 +645,7 @@ export function shellInvocation(position) {
     // a positional parameter, kept as `operand` so a protected path there still
     // fails closed.
     if (readsStdin) return { kind: "stdin", payload: null, operand: option };
+    if (option.value === "/dev/stdin") return { kind: "stdin", payload: null };
     return { kind: "script", payload: option };
   }
   return { kind: "stdin", payload: null };
