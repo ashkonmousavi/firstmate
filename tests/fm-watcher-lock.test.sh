@@ -293,8 +293,9 @@ stop_outside_state_locks() {  # <pid> <state>
   while [ "$i" -lt 100 ]; do
     kill -STOP "$pid" 2>/dev/null || return 1
     held=0
-    for lock in "$state"/.*.lock "$state"/.*.lock.steal "$state"/*.lock; do
-      [ "$lock" != "$state/.watch.lock" ] || continue
+    for lock in "$state"/.*.lock "$state"/.*.lock.steal "$state"/*.lock "$state"/*.lock.steal \
+      "$state"/.*.lock*.owner.* "$state"/*.lock*.owner.*; do
+      case "$lock" in "$state/.watch.lock"|"$state/.watch.lock.owner."*) continue ;; esac
       [ "$(cat "$lock/pid" 2>/dev/null || true)" != "$pid" ] || { held=1; break; }
     done
     [ "$held" -eq 1 ] || return 0
@@ -303,6 +304,67 @@ stop_outside_state_locks() {  # <pid> <state>
     i=$((i + 1))
   done
   return 1
+}
+
+run_pause_with_pending_lock() ( # <lock-name>
+  local dir state pid real_cat real_ln i
+  dir=$(make_case "pause-$1")
+  state="$dir/state"
+  real_cat=$(command -v cat)
+  real_ln=$(command -v ln)
+  # The real acquirer has prepared its owner but its ln child has not published
+  # the lock yet. Publish it only after the pause helper takes its lock snapshot.
+  cat > "$dir/fakebin/ln" <<'SH'
+#!/usr/bin/env bash
+if [ "${3:-}" = "$FM_TEST_PENDING_LOCK_PATH" ]; then
+  : > "$FM_TEST_PENDING_LOCK_DIR/prepared"
+  i=0
+  while [ ! -e "$FM_TEST_PENDING_LOCK_DIR/publish" ] && [ "$i" -lt 200 ]; do sleep 0.01; i=$((i + 1)); done
+  [ -e "$FM_TEST_PENDING_LOCK_DIR/publish" ] || exit 71
+fi
+exec "$FM_TEST_REAL_LN" "$@"
+SH
+  cat > "$dir/fakebin/cat" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "$FM_TEST_PENDING_LOCK_DIR/state/.*.lock/pid" ] &&
+  [ ! -e "$FM_TEST_PENDING_LOCK_DIR/publish" ]; then
+  : > "$FM_TEST_PENDING_LOCK_DIR/publish"
+  i=0
+  while [ ! -e "$FM_TEST_PENDING_LOCK_PATH" ] && [ "$i" -lt 200 ]; do sleep 0.01; i=$((i + 1)); done
+  [ -e "$FM_TEST_PENDING_LOCK_PATH" ] || exit 72
+fi
+exec "$FM_TEST_REAL_CAT" "$@"
+SH
+  chmod +x "$dir/fakebin/ln" "$dir/fakebin/cat"
+  export FM_TEST_PENDING_LOCK_DIR="$dir" FM_TEST_PENDING_LOCK_PATH="$state/$1" FM_TEST_REAL_CAT="$real_cat" FM_TEST_REAL_LN="$real_ln"
+  PATH="$dir/fakebin:$PATH" bash -c '
+    STATE="$1/state"
+    . "$2"
+    fm_lock_try_acquire "$FM_TEST_PENDING_LOCK_PATH" || exit 1
+    fm_lock_release "$FM_TEST_PENDING_LOCK_PATH"
+    while [ ! -e "$1/finish" ]; do sleep 0.01; done
+  ' _ "$dir" "$LIB" &
+  pid=$!
+  trap 'kill -CONT "$pid" 2>/dev/null || true; : > "$dir/publish"; : > "$dir/finish"; wait "$pid"' EXIT
+  i=0
+  while [ "$i" -lt 200 ] && [ ! -e "$dir/prepared" ]; do
+    sleep 0.01
+    i=$((i + 1))
+  done
+  [ -e "$dir/prepared" ] || fail 'the real lock acquirer never prepared its owner'
+  PATH="$dir/fakebin:$PATH" stop_outside_state_locks "$pid" "$state" \
+    || fail 'could not pause the acquirer after its lock was released'
+  [ -e "$dir/publish" ] || fail 'the lock publication race was not exercised'
+  [ ! -e "$FM_TEST_PENDING_LOCK_PATH" ] \
+    || fail 'pause helper froze a live holder whose pending child published a lock'
+)
+
+test_pause_waits_for_pending_lock_publication() {
+  local name
+  for name in .pending.lock .pending.lock.steal pending.lock pending.lock.steal; do
+    run_pause_with_pending_lock "$name" || return 1
+  done
+  pass 'pausing outside state locks waits for prepared private, public and steal lock publications'
 }
 
 # Issue #7801: on a /proc-less host outside UTC, a watcher started before
@@ -2374,6 +2436,7 @@ if [ "$#" -gt 0 ]; then
 fi
 
 test_lock_tombstone_tracks_reaper_start_time || exit 1
+test_pause_waits_for_pending_lock_publication || exit 1
 test_wait_deadline_reaps_a_stopped_child
 test_singleton_start
 test_pid_identity_is_locale_invariant

@@ -4,6 +4,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/treehouse-fake-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/treehouse-fake-lib.sh"
 # shellcheck source=bin/fm-classify-lib.sh
 . "$ROOT/bin/fm-classify-lib.sh"
 
@@ -320,6 +322,35 @@ test_rovo_readiness_gate_precedes_pointer() {
   pass "fm-spawn: rovo never sends the brief pointer before an observable ready signal, and tears down the created endpoint on failure"
 }
 
+test_rovo_failed_pooled_launch_retains_ownership() {
+  local failure id rec out rc pool ready delivery
+  for failure in readiness delivery; do
+    id="rovo-pool-$failure-$$"
+    rec=$(make_spawn_case "pool-$failure" "$id")
+    read_spawn_record "$rec"
+    pool="$CASE_DIR/pool"
+    mkdir -p "$pool/1"
+    git -C "$PROJ_DIR" worktree move "$WT_DIR" "$pool/1/project"
+    WT_DIR="$pool/1/project"
+    printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$WT_DIR" > "$pool/treehouse-state.json"
+    fm_test_treehouse_pool "$FAKEBIN_DIR" "$pool"
+    ready=yes delivery=yes
+    if [ "$failure" = readiness ]; then ready=no; else delivery=no; fi
+    rc=0
+    out=$(FM_FAKE_ROVO_READY=$ready FM_FAKE_ROVO_DELIVERY=$delivery run_spawn \
+      "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id") || rc=$?
+    [ "$rc" -ne 0 ] || fail 'failed pooled launch reported success'
+    assert_contains "$out" 'retains a recorded copy' 'pooled failure did not preserve recorded ownership'
+    [ ! -s "$CASE_DIR/rovo.state.window" ] || fail 'failed launch left its endpoint open'
+    assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" 'failed launch orphaned its copy'
+    assert_grep "task=$id" "$pool/1/.fm-slot-owner" 'failed launch lost its custody marker'
+    jq -e --arg path "$WT_DIR" --arg holder "$id" \
+      '.worktrees | length == 1 and .[0].path == $path and .[0].leased and .[0].lease_holder == $holder' \
+      "$pool/treehouse-state.json" >/dev/null || fail 'failed launch returned its recorded lease'
+  done
+  pass 'fm-spawn: pooled readiness and delivery failures retain their lease, claim and task record'
+}
+
 test_rovo_unconfirmed_delivery_fails_loudly() {
   local id rec out rc pointer
   id="rovo-drop-z7-$$"
@@ -492,6 +523,7 @@ test_rovo_launch_then_send_is_verified
 test_rovo_effort_xhigh_is_recorded_but_omitted
 test_rovo_effort_high_sets_config_override
 test_rovo_readiness_gate_precedes_pointer
+test_rovo_failed_pooled_launch_retains_ownership
 test_rovo_unconfirmed_delivery_fails_loudly
 test_rovo_missing_binary_refuses_before_pane_creation
 test_rovo_secondmate_is_refused

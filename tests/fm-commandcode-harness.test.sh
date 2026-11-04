@@ -147,10 +147,12 @@ fakebin=$(make_spawn_fakebin "$case_dir/fake" claude)
 fm_fake_exit0 "$fakebin" commandcode
 home="$case_dir/home"
 proj="$case_dir/project"
-wt="$case_dir/wt"
+wt="$case_dir/wt-cc-low"
 fm_test_spawn_home "$home" commandcode
 fm_git_worktree "$proj" "$wt" commandcode-test
 spawn_case() {  # <id> <model> <effort>
+  local wt="$case_dir/wt-$1"
+  [ -d "$wt" ] || git -C "$proj" worktree add --quiet --detach "$wt"
   fm_test_spawn_brief "$home" "$1"
   FM_FAKE_LAUNCH_LOG="$case_dir/$1.launch" fm_test_run_spawn "$home" "$wt" "$fakebin" "$1" "$proj" \
     --scout --harness commandcode --model "$2" --effort "$3" 2>&1

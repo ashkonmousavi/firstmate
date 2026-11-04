@@ -22,6 +22,8 @@
 #       generated briefs, new homes, new project clones, and registry edits are
 #       rolled back. Treehouse-acquired homes are returned only when the rollback
 #       target is safe; a failed return warns because the lease may still be held.
+#       Retained task copies are protected before allocation; adoption and
+#       rollback refuse a home another task record names.
 #       Set FM_SECONDMATE_CHARTER='<charter>' to seed from inline charter text
 #       when no filled charter brief exists. Set FM_SECONDMATE_SCOPE='<scope>'
 #       to override the registry routing scope. Otherwise the registry summary
@@ -49,6 +51,10 @@ SUB_HOME_PARENT_MARKER=".fm-secondmate-parent"
 . "$SCRIPT_DIR/fm-secondmate-charter-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-backend.sh
+. "$SCRIPT_DIR/fm-backend.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
 
 usage() {
   echo "usage: fm-home-seed.sh <id> <home|-> {<project>...|--no-projects}" >&2
@@ -398,6 +404,7 @@ acquire_treehouse_home() {
     return 1
   }
   [ -n "$home" ] || { echo "error: treehouse get --lease did not report a firstmate home" >&2; return 1; }
+  fm_worktree_require_exclusive_record "$STATE" "$home" "$STATE/$id.meta" || return 1
   printf '%s\n' "$home"
 }
 
@@ -519,6 +526,7 @@ SEED_ROLLBACK_ACTIVE=0
 SEED_COMMITTED=0
 SEED_REGISTRY_LOCK=
 SEED_REGISTRY_LOCK_HELD=0
+SEED_PROJECT_LOCK=
 
 seed_registry_lock_release() {
   if [ "$SEED_REGISTRY_LOCK_HELD" -eq 1 ]; then
@@ -530,6 +538,7 @@ seed_registry_lock_release() {
 seed_exit_cleanup() {
   seed_rollback
   seed_registry_lock_release
+  [ -z "$SEED_PROJECT_LOCK" ] || fm_lock_release "$SEED_PROJECT_LOCK" || true
 }
 SEED_HOME=
 SEED_HOME_ACQUIRED=0
@@ -593,6 +602,7 @@ seed_rollback_target() {
 seed_return_treehouse_home() {
   local home=$1 abs_home
   abs_home=$(seed_rollback_target "$home" "treehouse-acquired home") || return 0
+  fm_worktree_require_exclusive_record "$STATE" "$abs_home" "$STATE/$SEED_ID.meta" || return 0
   if ! command -v treehouse >/dev/null 2>&1; then
     echo "warning: failed to return treehouse-acquired home $abs_home during seed rollback; treehouse command not found" >&2
     return 0
@@ -606,6 +616,7 @@ seed_return_treehouse_home() {
 seed_remove_created_home() {
   local home=$1 abs_home
   abs_home=$(seed_rollback_target "$home" "created home") || return 0
+  fm_worktree_require_exclusive_record "$STATE" "$abs_home" "$STATE/$SEED_ID.meta" || return 0
   rm -rf -- "$abs_home" 2>/dev/null || true
 }
 
@@ -873,6 +884,17 @@ seed_home() {
     validate_seed_project "$project"
   done
 
+  # Shares the pool with ship/scout copies of Firstmate itself. Protect old
+  # process reservations before get can reset them, and serialize with spawn.
+  SEED_ID=$id
+  SEED_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$FM_ROOT") || return 1
+  fm_lock_try_acquire "$SEED_PROJECT_LOCK" || {
+    SEED_PROJECT_LOCK=
+    echo 'REFUSED: Firstmate copy allocation or cleanup is in progress' >&2
+    return 1
+  }
+  fm_treehouse_protect_recorded_copies "$STATE" "$FM_ROOT" || return 1
+
   SEED_ROLLBACK_ACTIVE=1
   SEED_COMMITTED=0
   SEED_HOME=
@@ -903,6 +925,7 @@ seed_home() {
   else
     requested_abs=$(abs_path_for_new "$requested_home")
     refuse_active_home_path "$requested_abs" || return 1
+    fm_worktree_require_exclusive_record "$STATE" "$requested_abs" "$STATE/$id.meta" || return 1
     validate_home_assignment "$id" "$requested_abs" || return 1
     SEED_HOME="$requested_abs"
     [ -e "$requested_abs" ] || SEED_HOME_CREATED=1
@@ -1002,6 +1025,8 @@ seed_home() {
   validate_registry
   SEED_COMMITTED=1
   seed_registry_lock_release
+  fm_lock_release "$SEED_PROJECT_LOCK" || true
+  SEED_PROJECT_LOCK=
   trap - EXIT
   rm -rf -- "$SEED_BACKUP_DIR"
   printf 'home=%s\n' "$home"

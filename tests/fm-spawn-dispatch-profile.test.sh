@@ -84,7 +84,7 @@ SH
 }
 
 make_spawn_case() {
-  local name=$1 harness=$2 case_dir home proj wt fakebin launchlog id
+  local name=$1 harness=$2 case_dir home proj wt fakebin launchlog id copy
   shift 2
   case_dir="$TMP_ROOT/$name"
   home="$case_dir/home"
@@ -94,8 +94,14 @@ make_spawn_case() {
   fakebin=$(make_spawn_fakebin "$case_dir/fake")
   fm_test_spawn_home "$home" "$harness"
   fm_git_worktree "$proj" "$wt" "wt-$name"
+  copy=$wt
   for id in "$@"; do
     fm_test_spawn_brief "$home" "$id"
+    if [ "$id" != "$1" ]; then
+      copy="$wt-$id"
+      git -C "$proj" worktree add --quiet --detach "$copy"
+    fi
+    printf '%s\n' "$copy" > "$fakebin/.pane-path-fm-$id"
   done
   printf '%s\n' "$case_dir|$home|$proj|$wt|$fakebin|$launchlog"
 }

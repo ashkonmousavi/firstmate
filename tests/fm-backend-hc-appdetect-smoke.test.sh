@@ -133,6 +133,7 @@ spawn_one() {  # <id> <launch-line> -> spawn with the caller's extra env already
 
 teardown_one() {  # <id>
   WT=$(grep '^worktree=' "$STATE/$1.meta" 2>/dev/null | cut -d= -f2-)
+  git -C "$WT" checkout -qb "fm/$1" || fail 'could not prepare the task branch'
   FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
     FM_CONFIG_OVERRIDE="$CONFIG" \
     "$ROOT/bin/fm-teardown.sh" "$1" >/dev/null 2>&1 \

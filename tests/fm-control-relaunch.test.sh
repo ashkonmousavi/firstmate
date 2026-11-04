@@ -533,12 +533,27 @@ case "$*" in
   'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
   'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
 esac
+if [ "${1:-}" = --root ]; then shift 2; fi
+case "${1:-}" in
+  status)
+    leased=false
+    [ ! -e "$FM_FAKE_DIR/leased" ] || leased=true
+    jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" --argjson leased "$leased" \
+      '[{path:$path,status:(if $leased then "leased" else "available" end),lease_id:(if $leased then "released-lease" else "" end),leased_at:null}]'
+    exit ;;
+  lease)
+    : > "$FM_FAKE_DIR/leased"
+    jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" '{path:$path,lease_id:"released-lease"}'
+    exit ;;
+esac
 printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
 if [ "${1:-}" = get ]; then
+  : > "$FM_FAKE_DIR/leased"
   jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" '{path:$path,lease_id:"released-lease"}'
   exit
 fi
 [ ! -e "$FM_FAKE_DIR/fail-return" ] || exit 1
+rm -f "$FM_FAKE_DIR/leased"
 exit 0
 SH
   chmod +x "$dir/fakebin/gh" "$dir/fakebin/gh-axi" "$dir/fakebin/treehouse"
@@ -3862,7 +3877,12 @@ test_serial_recovery_rereads_capacity_before_each_launch() {
   printf 'unlanded\n' > "$dir/wt/unlanded.txt"
   printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/a-first.meta"
   for id in b-next c-last; do
-    sed "s/a-first/$id/g" "$dir/home/state/a-first.meta" > "$dir/home/state/$id.meta"
+    # Recovery capacity is independent of copy ownership: give each retained
+    # task its own checkout, as a real successful spawn now guarantees.
+    git -C "$dir/proj" worktree add --quiet -b "task-$id" "$dir/wt-$id" HEAD
+    printf 'unlanded\n' > "$dir/wt-$id/unlanded.txt"
+    sed "s/a-first/$id/g; s|^worktree=.*|worktree=$dir/wt-$id|" \
+      "$dir/home/state/a-first.meta" > "$dir/home/state/$id.meta"
     mkdir -p "$dir/home/data/$id"
     cp "$dir/home/data/a-first/brief.md" "$dir/home/data/$id/brief.md"
   done
@@ -4537,6 +4557,24 @@ test_existing_step_children
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
 
+test_recovery_refuses_a_shared_copy() {
+  local dir out
+  dir=$(new_case recovery-shared)
+  add_ship_task "$dir" t1
+  make_recovery_nm_stub "$dir"
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/t1.meta"
+  sed 's/t1/t2/g' "$dir/home/state/t1.meta" > "$dir/home/state/t2.meta"
+  : > "$dir/fake/server-dead"
+  out=$(run_recovery "$dir")
+  assert_contains "$out" 'also task t2' 'startup recovery bypassed the ownership guard'
+  assert_absent "$dir/fake/created-windows" 'recovery created an endpoint for a shared copy'
+  assert_absent "$dir/home/state/t1.control-relaunch" 'recovery checkpointed a shared copy'
+  assert_grep unlanded "$dir/wt/unlanded.txt" 'recovery changed shared work'
+  pass 'startup recovery refuses shared copies before checkpoint or replacement'
+}
+
+test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
 
 test_reboot_recovery_uses_the_real_control_and_spawn_paths

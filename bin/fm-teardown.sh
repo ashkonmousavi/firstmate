@@ -210,9 +210,8 @@
 # absent claim - a slot taken before claims existed, or already returned - keeps
 # exactly the record-scan protection it had before, because refusing it would
 # strand every task in flight across that change on no evidence at all.
-# Why Treehouse's own state cannot answer this for crewmate slots, and why the
-# claim file sits on top of it, is owned by bin/fm-wake-lib.sh's slot-owner
-# claim comment.
+# bin/fm-treehouse-lib.sh owns durable retention of current and legacy copies;
+# bin/fm-wake-lib.sh's slot-owner comment owns the separate claim format.
 # The recorded endpoint's exact task identity and the record's spawn incarnation
 # are validated separately
 # before cleanup. Its current working directory is only incidental process
@@ -230,6 +229,8 @@
 # These refusals are not relaxed by --force: --force authorizes discarding THIS
 # task's unlanded work, never another task's live work. Nothing of this task's
 # own is removed by a refusal; reconcile whichever record is wrong and re-run.
+# An owned copy with branch= recorded must still be on that exact branch,
+# even under --force. Foreign-claim records-only cleanup never changes its copy.
 # Orca is not a pool slot and proves its path through
 # require_orca_worktree_path_match instead.
 # Orca tasks use the same safety checks, then close the recorded terminal and
@@ -470,7 +471,8 @@ for _teardown_source in \
   fm-nm-run-lib.sh \
   fm-wake-lib.sh \
   fm-path-lib.sh \
-  fm-lease-lib.sh
+  fm-lease-lib.sh \
+  fm-treehouse-lib.sh
 do
   teardown_require_source "$SCRIPT_DIR/$_teardown_source"
 done
@@ -485,6 +487,8 @@ unset _teardown_source
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
 # shellcheck source=bin/fm-lock-lib.sh
 . "$SCRIPT_DIR/fm-lock-lib.sh"
 # shellcheck source=bin/fm-gate-refuse-lib.sh
@@ -3627,7 +3631,8 @@ preflight_descendant_treehouse_slots() {
     owner_rc=0
     require_owned_worktree_slot_record "$task_id" "$worktree" || owner_rc=$?
     case "$owner_rc" in
-      0|"$TEARDOWN_SLOT_REASSIGNED_RC") ;;
+      0) fm_worktree_require_recorded_branch "$meta" "$worktree" || return 1 ;;
+      "$TEARDOWN_SLOT_REASSIGNED_RC") ;;
       *) return 1 ;;
     esac
   done
@@ -3916,6 +3921,7 @@ cleanup_firstmate_home_children() {
       :
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
+        fm_worktree_require_recorded_branch "$child_meta" "$child_wt" || return 1
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
         rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
           "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
@@ -3935,6 +3941,7 @@ cleanup_firstmate_home_children() {
       elif [ "$child_owner_rc" -ne 0 ]; then
         require_owned_worktree_slot_record "$child_id" "$child_wt" || return 1
       else
+        fm_worktree_require_recorded_branch "$child_meta" "$child_wt" || return 1
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
         rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
           "$child_wt/.opencode/plugins/fm-busy-state.js" \
@@ -4010,6 +4017,9 @@ remove_secondmate_registry_entry() {
 
 require_exclusive_task_worktree_slot || exit 1
 require_owned_task_worktree_slot || exit 1
+if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
+  fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
+fi
 
 validate_pr_poll_cleanup "$STATE" "$ID" || exit 1
 
@@ -4019,6 +4029,7 @@ if [ "$KIND" = secondmate ]; then
   LOCAL_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
   fm_lock_acquire_wait "$LOCAL_HANDOFF_LOCK" || exit 1
   [ -n "$HOME_PATH" ] || HOME_PATH=$WT
+  fm_worktree_require_exclusive_record "$STATE" "$HOME_PATH" "$META" || exit 1
   handoff_wake_retire_stage_recover "$HOME_PATH" || exit 1
   handoff_wake_retire_validate || exit 1
   pending_replies_recovery_validate initial || exit 1
@@ -4287,6 +4298,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
     ORCA_PATH_MATCH_VERIFIED=1
   fi
   if [ -d "$WT" ]; then
+    fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
     branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
     if [ "$branch" != "HEAD" ]; then
       if git -C "$WT" checkout --detach -q 2>/dev/null; then
@@ -4307,6 +4319,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
 elif [ "$KIND" != secondmate ] && ! teardown_owns_worktree; then
   :
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
+  fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
   branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
   if [ "$branch" != "HEAD" ]; then
     if git -C "$WT" checkout --detach -q 2>/dev/null; then
