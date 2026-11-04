@@ -6,6 +6,33 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Treehouse acquisition failure diagnostics
+
+`bash tests/fm-spawn-worktree-settle.test.sh` exercises the public spawn entrypoint with controlled cwd and capture responses, including failure confirmation, unreadable output, stale exit markers, 180 queued cwd-probe lines after acquisition output, bounded diagnostics and a healthy acquisition settling at the deadline.
+Its token-free live case runs by default when tmux is installed and uses a private tmux server plus a fake Treehouse executable, without acquiring a pool slot or contacting GitHub.
+Force that live case with `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+The fish submission cases execute successful and failing acquisitions through fish when it is installed; force them with `FM_SPAWN_TREEHOUSE_REASON_FISH=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+Fish was absent from PATH for this Linux refresh, so fish execution remains unverified; the suite reports that capability skip explicitly.
+Optional live skips leave the portable cases running; a live failure fails the suite.
+Verified on 2026-11-04 UTC, Linux x86_64, tmux 3.4, using the shell completion marker and the shared backend capture reader.
+The refresh command was `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh tests/fm-spawn-pool-base-freshen.test.sh tests/fm-tangle-guard.test.sh tests/fm-control-relaunch.test.sh`.
+The relevant exact output was:
+
+```text
+ok - 180 queued cwd-probe lines preserve early and deadline failure reasons
+ok - real tmux tmux 3.4: shell exit plus captured error refuses in 2s
+ok - treehouse failure refuses after two reads with its own error
+ok - error output alone never cuts a running get short; deadline includes its reason
+ok - an unreadable pane keeps the full wait and explains the missing output
+ok - healthy get can use the entire wait window
+```
+
+`FM_LIVE=0 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh` also passed on that date, printing `skip: live: disabled by FM_LIVE=0` before the remaining portable cases and `# all fm-spawn-worktree-settle tests passed` at completion.
+An injected tmux startup exit of 47 produced `not ok - could not start private tmux test server` and suite exit 1.
+This proves shell completion, terminal rendering and capture through real tmux with a failing stand-in executable; it does not reproduce GitHub authentication failure or acquire a real Treehouse pool slot.
+Herdr, Zellij, cmux, Paseo, Rex, Tern and hc use the same wait and existing capture dispatch, but this guard does not establish live failure-diagnostic evidence for those backends or for macOS.
+The command runs before agent launch, so model harnesses and account selection are outside this check.
+
 ## Claude during-turn continuity
 
 The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and Stop wake delivery.
@@ -859,10 +886,11 @@ The guard submits no prompt and spends no tokens, so it runs by default wherever
 ## Codex account folder checks
 
 `bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
-`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking under quota enforcement, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+Its `rank-only admits and ranks exhausted Codex accounts while preserving pins and authentication` case covers the [account selection policy](../configuration.md#codex-account-folders-configcodex-accounts), repeated invalid-setting diagnostics without receipts, signed-out and duplicate-auth refusal, preselected folders, and explicit launches with requested and default models.
 It also covers universal-exhaustion preflight, incompatible Treehouse refusal before allocation or endpoint creation, identity-checked lease return on repeated default-model refusals, and bounded reads and external watchdog cancellation of both vendor subprocess paths with real wrapper descendants and an unrelated process.
-`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion preserves a live default-model secondmate's agent, metadata and ownership.
-`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane; the worker-account suite also runs these focused cases.
+`tests/fm-control.test.sh` verifies that unusable lists and, under quota enforcement, exhausted configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion preserves a live default-model secondmate's agent, metadata and ownership.
+`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane, under quota enforcement and rank-only with all accounts exhausted; the worker-account suite also runs these focused cases.
 
 The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
 It suppresses vendor diagnostics and confines synthetic ChatGPT workspace discovery to a loopback fixture; no synthetic credential is sent to an external service.

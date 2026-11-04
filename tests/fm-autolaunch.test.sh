@@ -334,6 +334,22 @@ out=$(TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" --dry-
 expect_code 0 "$rc" 'deterministic dry-run'
 assert_contains "$out" '--harness codex --effort high' 'dry-run uses only the default profile'
 assert_absent "$LOG" 'deterministic dry-run writes no record'
+for setting in invalid rank-only absent; do
+  case "$setting" in
+    invalid) printf 'typo\n' > "$H/config/quota-gate" ;;
+    rank-only) printf 'rank-only\n' > "$H/config/quota-gate" ;;
+    absent) rm "$H/config/quota-gate" ;;
+  esac
+  for _ in 1 2; do
+    out=$(PATH="$FAKE:$PATH" bash "$AL" --dry-run 2>&1); rc=$?
+    expect_code 0 "$rc" "$setting dry-run failed: $out"
+    assert_absent "$H/state/.quota-gate-invalid" 'dry-run must not create an invalid-value receipt'
+    assert_absent "$LOG" 'dry-run must not write a launch record'
+    if [ "$setting" = invalid ]; then
+      assert_contains "$out" 'expected rank-only' 'every invalid dry-run must diagnose the setting'
+    fi
+  done
+done
 TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" >/dev/null 2>&1
 assert_contains "$(cat "$FAKE/spawn.log")" '--harness codex --effort high' 'configured rules do not replace the default'
 assert_absent "$FAKE/network.log" 'neither real nor dry passes call the model endpoint with a configured key'
@@ -366,6 +382,21 @@ assert_equals "grok	launched" "$(cut -f4,5 "$LOG" | head -1)" 'highest spendPrio
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'claude' 'an exhausted default is never tried'
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'codex' 'a short-runway default is never tried'
 pass 'defaults rank by spendPriority and exhausted or short-runway profiles are skipped'
+
+# Even when every default is tight, rank-only retains spendPriority order.
+reset 1
+printf '%s\n' '- [ ] rank-only - prepared (repo: proj) (kind: ship)' | backlog
+prep rank-only proj
+printf 'rank-only\n' > "$H/config/quota-gate"
+printf '%s\n' '{"default":[{"harness":"claude","model":"opus"},{"harness":"codex","model":"gpt-5.5"}]}' > "$H/config/crew-dispatch.json"
+jq '(.providers[].quotaSemantics.effectiveAvailability[]) |=
+  (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now") |
+  (.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 9' \
+  "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/rank-only.json"
+FM_QUOTA_SNAPSHOT_FILE="$FAKE/rank-only.json" bash "$AL" >/dev/null 2>&1
+assert_equals $'codex:gpt-5.5\tlaunched' "$(cut -f4,5 "$LOG" | head -1)" 'rank-only retains exhausted defaults and ranks them'
+rm "$H/config/quota-gate"
+pass 'rank-only autolaunch never removes a default because of quota'
 
 reset 0
 printf '%s\n' '- [ ] snap-1 - prepared (repo: proj) (kind: ship)' \
@@ -400,6 +431,27 @@ assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex' 'a measured p
 assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness opencode' 'first uncertain profile retains declared order'
 assert_contains "$(sed -n 3p "$FAKE/spawn.log")" '--harness pi' 'second uncertain profile retains declared order'
 pass 'uncertain defaults follow passing profiles in declared order'
+
+for policy in absent rank-only; do
+  reset 1
+  [ "$policy" != rank-only ] || printf 'rank-only\n' > "$H/config/quota-gate"
+  printf '%s\n' '- [ ] numeric-notice - prepared (repo: proj) (kind: ship)' | backlog
+  prep numeric-notice proj
+  printf '%s\n' '{"default":[{"harness":"opencode"},{"harness":"claude","model":"opus"},{"harness":"codex","model":"gpt-5.5"}]}' > "$H/config/crew-dispatch.json"
+  jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[]) |=
+      (.runway = {status:"projected_exhaustion",projectionConfidence:"established"} | .selection.spendPriority = 9) |
+    (.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 2' \
+    "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/numeric-notice.json"
+  printf 'codex\nopencode\n' > "$FAKE/quota-refuse"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$FAKE/numeric-notice.json" bash "$AL" 2>&1); rc=$?
+  expect_code 0 "$rc" "$policy must retain uncertain defaults after passing candidates: $out"
+  assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex --model gpt-5.5' "$policy ranks passing priority 2 before uncertain priority 9"
+  assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness opencode' "$policy retains the first uncertain profile in declared order"
+  assert_contains "$(sed -n 3p "$FAKE/spawn.log")" '--harness claude --model opus' "$policy retains numeric notices in the uncertain bucket"
+  assert_equals $'claude:opus\tlaunched' "$(cut -f4,5 "$LOG" | head -1)" "$policy keeps numeric notices available for fallback"
+  rm -f "$H/config/quota-gate"
+done
+pass 'passing defaults precede numeric notices and uncertain profiles retain declared order under either policy'
 
 for profile in '{"harness":"codex","effort":"high"}' \
   '{"harness":"codex","model":"gpt-5.5"}' '{"harness":"codex"}'; do

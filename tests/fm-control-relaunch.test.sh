@@ -116,7 +116,7 @@ case "${1:-}" in
         [ ! -e "$D/fail-launch-enter" ] || exit 1
       fi
       case "$payload" in
-        'treehouse get')
+        'treehouse get'*)
           # A released relaunch allocates its copy through the pane's shell:
           # model treehouse moving that shell into the pool slot.
           [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
@@ -713,7 +713,7 @@ test_concurrent_released_relaunches_serialise() {
     || fail "one of two concurrent released relaunches should win (rc $rc1 and $rc2)"$'\n'"$(cat "$dir/out1" "$dir/out2")"
   [ "$(grep -c 'recreated-from=released-copy' "$dir/out1" "$dir/out2" | awk -F: '{ n += $2 } END { print n }')" = 1 ] \
     || fail "exactly one relaunch should recreate the copy"$'\n'"$(cat "$dir/out1" "$dir/out2")"
-  [ "$(grep -cx 'treehouse get' "$dir/fake/keys")" = 1 ] || fail "two relaunches allocated two copies"
+  [ "$(grep -c '^treehouse get' "$dir/fake/keys")" = 1 ] || fail "two relaunches allocated two copies"
   [ "$(released_note_count "$dir" rr6)" = 1 ] || fail "concurrent released relaunches left $(released_note_count "$dir" rr6) recreated-copy notes"
   pass "two relaunches of one released copy serialise: one recreates it, and only one copy is allocated"
 }
@@ -3220,7 +3220,9 @@ case "${1:-} ${2:-}" in
     exit 0 ;;
   'pane run')
     # A released relaunch allocates its copy through the pane's shell.
-    [ "${4:-}" != 'treehouse get' ] || [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
+    case "${4:-}" in
+      'treehouse get'*) [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd" ;;
+    esac
     exit 0 ;;
   'workspace list')
     printf '{"result":{"workspaces":[]}}\n'
@@ -4340,9 +4342,10 @@ SH
 }
 
 test_codex_project_cwd_handoffs() {
-  local lifecycle dir id wt root out rc head marker prior_meta prior_brief
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected
+  for policy in enforced rank-only; do
   for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
-    id="codex-cwd-$lifecycle"
+    id="codex-cwd-$policy-$lifecycle"
     dir=$(new_case "$id" "$id")
     case "$lifecycle" in
       *released)
@@ -4393,6 +4396,17 @@ PY
       .providers[].quotaSemantics.effectiveAvailability += [{scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
       "$dir/account-two/quota.json" > "$dir/quota.json"
     mv "$dir/quota.json" "$dir/account-two/quota.json"
+    selected="$dir/account-one"
+    if [ "$policy" = rank-only ]; then
+      printf 'rank-only\n' > "$dir/home/config/quota-gate"
+      selected="$dir/account-two"
+      for root in "$dir/account-one" "$dir/account-two"; do
+        jq '.providers[].quotaSemantics.effectiveAvailability = [
+          {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+          "$root/quota.json" > "$dir/quota.json"
+        mv "$dir/quota.json" "$root/quota.json"
+      done
+    fi
     printf '%s\n' "$dir/account-one" "$dir/account-two" > "$dir/home/config/codex-accounts"
     cat > "$dir/fakebin/codex" <<'PY'
 #!/usr/bin/env python3
@@ -4447,9 +4461,13 @@ SH
     fi
     expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
     assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
-    assert_equals "$dir/account-one" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B"
+    assert_equals "$selected" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B under $policy"
+    if [ "$policy" = rank-only ]; then
+      assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "$lifecycle notices exhausted quota"
+    fi
     assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
     assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+  done
   done
   pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
 }

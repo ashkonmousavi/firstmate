@@ -469,7 +469,7 @@ test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
   ! hook_exited "$home" || fail "takeover: the takeover woke main: $(cat "$home/hook.err")"
   host_owns_the_only_cycle "$home" || fail "takeover: the park did not keep the cycle it took over"
   assert_re '^acked:' "$home/state/.watcher-down" "takeover: the takeover opened a downtime episode"
-  assert_no_re 'rearm-resurface' "$home/state/.supervision-host.log" "takeover: the takeover resurfaced a recovery to main"
+  assert_no_re 'check: rearm-resurface$' "$home/state/.supervision-host.log" "takeover: the takeover resurfaced a recovery to main"
   append_status "$home" 'which region?' needs-decision
   wait_until_deadline 60 hook_exited "$home" || fail "takeover: the owned cycle did not deliver the next close: $(cat "$home/state/.supervision-host.log")"
   assert_rewoke_main "$home" "takeover (next close)"
@@ -543,7 +543,86 @@ test_unrecorded_successor_is_stopped_rather_than_left_for_main() {
   pass "host+hook: a successor that cannot be recorded is stopped, and main's next turn end arms a fresh cycle"
 }
 
+# The successor can deliver while main is already draining its queued work.
+# A late EXIT publication must not reopen that acknowledged generation.
+test_acknowledged_successor_close_does_not_rewake_next_stop() {
+  local home real_mktemp successor acknowledged round
+  home=$(make_primary_home hook-acked-successor-close)
+  real_mktemp=$(command -v mktemp) || fail "mktemp missing"
+  cat > "$home/fakebin/mktemp" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  *'/.watcher-down.lock.owner.'*)
+    if grep -q 'late.status' "$home/state/.watch-deliveries.log" 2>/dev/null \\
+      && [ ! -e "$home/close-release" ]; then
+      : > "$home/close-blocked"
+      while [ ! -e "$home/close-release" ]; do sleep 0.02; done
+    fi ;;
+esac
+exec "$real_mktemp" "\$@"
+SH
+  chmod +x "$home/fakebin/mktemp"
+  start_hook_session "$home"
+  turn_end "$home"
+  wait_until 150 watcher_live "$home" || fail "initial Stop did not arm"
+  append_status "$home" 'which export format?' needs-decision
+  wait_until_deadline 60 hook_exited "$home" || fail "initial wake did not reach main"
+  assert_rewoke_main "$home" "initial wake"
+  successor=$(cat "$home/state/.watch.lock/pid")
+  main_drain "$home" >/dev/null
+  # shellcheck disable=SC2086 # Arguments emitted by the real drain.
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK || fail "first ack failed"
+  printf 'needs-decision: later work handled in the same main turn\n' > "$home/state/late.status"
+  wait_until 300 test -e "$home/close-blocked" || fail "successor did not reach the close barrier"
+  main_drain "$home" > "$home/late-drain.out"
+  assert_grep 'later work handled in the same main turn' "$home/late-drain.out" "later work was not presented"
+  # shellcheck disable=SC2086 # Arguments emitted by the real drain.
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK || fail "later ack failed"
+  acknowledged=$(cat "$home/state/.watcher-down")
+  case "$acknowledged" in acked:handling:*) ;; *) fail "later generation was not acknowledged" ;; esac
+  [ ! -s "$home/state/.wake-queue" ] || fail "ack left queued work"
+  : > "$home/close-release"
+  wait_until 300 bash -c '! kill -0 "$1" 2>/dev/null' _ "$successor" || fail "successor did not finish its delivered close"
+  for round in 1 2; do
+    turn_end "$home"
+    wait_until 150 watcher_live "$home" || fail "next Stop did not supervise"
+    sleep 3
+    ! hook_exited "$home" || fail "acknowledged successor rewoke main: $(cat "$home/hook.err")"
+    [ "$(cat "$home/state/.watcher-down")" = "$acknowledged" ] \
+      || fail "delivered cleanup replaced the retired episode"
+    assert_no_re 'check: rearm-resurface$' "$home/state/.supervision-host.log" "empty recovery accumulated"
+    if [ "$round" -eq 1 ]; then
+      append_status "$home" 'a genuinely new decision' needs-decision
+      wait_until_deadline 60 hook_exited "$home" || fail "next genuine decision did not wake main"
+      assert_rewoke_main "$home" "later genuine decision"
+      main_drain "$home" >/dev/null
+      # shellcheck disable=SC2086 # Arguments emitted by the real drain.
+      FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK || fail "next decision ack failed"
+      acknowledged=$(cat "$home/state/.watcher-down")
+    fi
+  done
+  # A real watcher death after acknowledgement is still downtime, even with
+  # an empty queue. The Stop owner's retry must report it once, then settle.
+  successor=$(cat "$home/state/.watch.lock/pid")
+  kill -TERM "$successor" || fail "could not stop fixture watcher"
+  wait_until_deadline 60 hook_exited "$home" || fail "genuine downtime did not wake main"
+  assert_rewoke_main "$home" "genuine downtime"
+  assert_grep 'check: rearm-resurface' "$home/hook.err" "genuine downtime recovery missing"
+  main_drain "$home" >/dev/null
+  # shellcheck disable=SC2086 # Arguments emitted by the real drain.
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK || fail "downtime ack failed"
+  turn_end "$home"
+  wait_until 150 watcher_live "$home" || fail "post-downtime Stop did not supervise"
+  sleep 3
+  ! hook_exited "$home" || fail "acknowledged genuine downtime repeated"
+  [ "$(grep -c 'pass-through.*check: rearm-resurface$' "$home/state/.supervision-host.log")" -eq 1 ] \
+    || fail "genuine downtime was not announced exactly once"
+  pass "host+hook: acknowledging a delivered successor before cleanup keeps later Stops quiet"
+}
+
+
 fm_test_run \
+  test_acknowledged_successor_close_does_not_rewake_next_stop \
   test_main_only_close_after_handled_turn_restores_inherited_handling \
   test_main_only_close_after_handled_turn_delivers_restore_failure \
   test_returned_driver_is_caught_attended \

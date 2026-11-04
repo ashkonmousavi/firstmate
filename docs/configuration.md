@@ -1651,10 +1651,11 @@ Each folder needs its own sign-in, obtained independently on that machine; never
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
 Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
-Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
-Exhausted runway excludes an account even when its remaining percentage is unknown.
+Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it excludes locally signed-in folders with shared configuration whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, including exhausted runway with an unknown remaining percentage.
+Among eligible folders, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
+Under rank-only, exhausted folders remain eligible with a notice; weekly ranking, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight rejects known universal exhaustion before allocation or stopping a live secondmate.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation or stopping a live secondmate.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
@@ -2060,14 +2061,19 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
   Strings are used as written: the gate does not resolve aliases or defaults through a harness catalog, invoke a harness executable, or change worker model selection.
   A profile's declared provider is its quota family; a model's account prefix selects its account row through the same family/account relation as typed dispatch.
   Single-provider harnesses retain their existing family mapping.
-- The gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- With no `config/quota-gate` file, the gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- A per-home `config/quota-gate` containing exactly one line `rank-only` retains quota evaluation and alternative ranking but admits every quota verdict without `--quota-override`.
+  A would-be refusal prints a `notice:` naming `config/quota-gate=rank-only`, the runway reason, and ranked alternatives.
+  Any other value, including an empty file or blank line, behaves like an absent setting and is reported on every read without writing state.
+  The [automatic-launch dispatch contract](../bin/fm-autolaunch.sh) owns default-profile ordering under this setting; [Codex account folders](#codex-account-folders-configcodex-accounts) owns account selection and authentication guards.
+  The setting is primary-authoritative inherited configuration: ordinary secondmate configuration convergence copies it, including absence.
 - Alternatives come only from configured rules and default profiles.
   The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
   Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
   Remote secondmate routes exclude OMP from alternatives; local secondmates retain OMP support.
   Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
 - A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
-  Conflicting configured quota-family declarations refuse unless overridden.
+  Conflicting configured quota-family declarations refuse unless overridden or the home selects `rank-only`.
 - `--quota-override <reason>` launches a refused adapter and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
   The flag requires an explicitly named adapter and a non-empty one-line reason; implicit launches and raw launch commands reject it.
   A batch forwards its shared override to every pair.

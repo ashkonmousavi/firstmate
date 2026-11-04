@@ -1463,6 +1463,15 @@ test_codex_runway_timing() {
         if [ "$duration" = 60 ]; then
           expect_code 1 "$rc" "relative runway must refuse inside the three-hour horizon: $out"
           assert_contains "$out" 'within the 3h0m spawn horizon' 'refusal uses the calculated deadline'
+          printf 'rank-only\n' > "$HOME_DIR/config/quota-gate"
+          out=$(
+            . "$ROOT/bin/fm-quota-axi-lib.sh"
+            PATH="$FAKEBIN:$PATH" fm_quota_gate_run codex gpt-6.1-sol \
+              "$HOME_DIR/config/crew-dispatch.json" '' review ship tmux "$HOME_DIR/config" '' "$root" 2>&1
+          ); rc=$?
+          expect_code 0 "$rc" "rank-only must admit short runway for automatic and preselected accounts: $out"
+          assert_contains "$out" 'proceeding under config/quota-gate=rank-only' 'short-runway admission prints its policy'
+          rm "$HOME_DIR/config/quota-gate"
         else
           expect_code 0 "$rc" "four-hour runway must pass: $out"
           assert_equals '' "$out" 'measured long runway passes without an uncertainty notice'
@@ -1574,6 +1583,99 @@ test_codex_config_and_scout() {
   pass 'Codex list validation fails closed; scouts select and record their own folder'
 }
 
+test_codex_rank_only() {
+  local out rc root setting command model id attempt
+  local -a account_cmd
+  codex_case codex-rank-only
+  account_cmd=(python3 "$ROOT/bin/fm-codex-accounts.py" --config "$HOME_DIR/config/codex-accounts")
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    jq '.providers[].quotaSemantics.effectiveAvailability = [
+      {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+      "$root/quota.json" > "$CASE/quota.json"
+    mv "$CASE/quota.json" "$root/quota.json"
+  done
+  for setting in absent invalid empty blank multiline; do
+    case "$setting" in
+      absent) ;;
+      invalid) printf 'typo\n' > "$HOME_DIR/config/quota-gate" ;;
+      empty) : > "$HOME_DIR/config/quota-gate" ;;
+      blank) printf ' \n' > "$HOME_DIR/config/quota-gate" ;;
+      multiline) printf 'rank-only\n\n' > "$HOME_DIR/config/quota-gate" ;;
+    esac
+    for command in preflight select; do
+      for attempt in 1 2; do
+        out=$(codex_tool "$command" --model requested); rc=$?
+        expect_code 1 "$rc" "$setting must still refuse exhausted accounts in $command: $out"
+        if [ "$setting" != absent ]; then
+          assert_contains "$out" 'expected rank-only' "$command must diagnose every invalid setting read"
+        fi
+        assert_absent "$HOME_DIR/state/.quota-gate-invalid" 'native account selection must not write a receipt'
+      done
+    done
+  done
+  rm "$HOME_DIR/config/quota-gate"
+  out=$(spawn_ship acct-codex-rank-refused --harness codex --model requested); rc=$?
+  expect_code 1 "$rc" "unconfigured explicit launch must refuse exhausted accounts: $out"
+  assert_refused_before_launch acct-codex-rank-refused "$out" 'no usable signed-in folder'
+  for setting in newline no-newline; do
+    if [ "$setting" = newline ]; then printf 'rank-only\n'; else printf 'rank-only'; fi > "$HOME_DIR/config/quota-gate"
+    out=$(PATH="$FAKEBIN:$PATH" "${account_cmd[@]}" preflight 2>"$CASE/notice"); rc=$?
+    expect_code 0 "$rc" "rank-only preflight must admit exhausted signed-in accounts: $out"
+    assert_contains "$(cat "$CASE/notice")" 'config/quota-gate=rank-only' 'preflight must disclose quota relaxation'
+    out=$(PATH="$FAKEBIN:$PATH" "${account_cmd[@]}" quota --gate --model requested 2>"$CASE/notice"); rc=$?
+    expect_code 0 "$rc" "rank-only gate must produce a winner: $out"
+    assert_equals "$CASE/account-two" "$(jq -r .selectedRoot <<< "$out")" 'rank-only preserves weekly account ranking'
+    out=$(PATH="$FAKEBIN:$PATH" "${account_cmd[@]}" select --folder "$CASE/account one" --model requested 2>"$CASE/notice"); rc=$?
+    expect_code 0 "$rc" "rank-only preselected account must remain usable: $out"
+    assert_equals "$CASE/account one" "${out%%$'\t'*}" 'rank-only preserves the preselected account'
+  done
+  rm "$CASE/account-two/signed-in"
+  out=$(PATH="$FAKEBIN:$PATH" "${account_cmd[@]}" select --model requested 2>"$CASE/notice"); rc=$?
+  expect_code 0 "$rc" "signed-in exhausted account must beat signed-out account: $out"
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'rank-only never selects the signed-out account'
+  out=$(codex_tool select --folder "$CASE/account-two" --model requested); rc=$?
+  expect_code 1 "$rc" 'rank-only cannot replace a signed-out preselected account'
+  rm "$CASE/account one/signed-in"
+  for command in preflight select; do
+    out=$(codex_tool "$command" --model requested); rc=$?
+    expect_code 1 "$rc" "rank-only must retain $command authentication refusal: $out"
+  done
+  out=$(spawn_ship acct-codex-rank-out --harness codex --model requested); rc=$?
+  expect_code 1 "$rc" "rank-only must refuse an unauthenticated launch: $out"
+  assert_refused_before_launch acct-codex-rank-out "$out" 'no usable signed-in folder'
+  : > "$CASE/account one/signed-in"
+  : > "$CASE/account-two/signed-in"
+  cp -p "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool select --model requested); rc=$?
+  expect_code 1 "$rc" 'rank-only must retain the duplicate-auth guard'
+  assert_contains "$out" 'duplicate sign-in' 'duplicate-auth refusal remains actionable'
+  codex_case codex-rank-healthy
+  printf 'rank-only\n' > "$HOME_DIR/config/quota-gate"
+  out=$(codex_tool select --model requested); rc=$?
+  expect_code 0 "$rc" "healthy rank-only selection must succeed: $out"
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'healthy accounts keep their ranking without a quota-relaxation notice'
+  for model in requested default; do
+    codex_case "codex-rank-$model"
+    printf 'rank-only\n' > "$HOME_DIR/config/quota-gate"
+    for root in "$CASE/account one" "$CASE/account-two"; do
+      jq '.providers[].quotaSemantics.effectiveAvailability = [
+        {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+        "$root/quota.json" > "$CASE/quota.json"
+      mv "$CASE/quota.json" "$root/quota.json"
+    done
+    id="acct-codex-rank-$model"
+    out=$(spawn_ship "$id" --harness codex --model "$model"); rc=$?
+    expect_code 0 "$rc" "rank-only must launch exhausted accounts with $model model: $out"
+    assert_contains "$out" 'proceeding under config/quota-gate=rank-only' 'launch must print the gate notice'
+    assert_grep "account=$CASE/account-two" "$HOME_DIR/state/$id.meta" 'launch records the best ranked signed-in account'
+    assert_no_grep 'quota_override=' "$HOME_DIR/state/$id.meta" 'rank-only must not fabricate an override'
+    run_pane
+    assert_grep "CODEX_HOME=$CASE/account-two" "$CASE/account-two/worker-environment" 'launch executes the selected account'
+  done
+  pass 'rank-only admits and ranks exhausted Codex accounts while preserving pins and authentication'
+}
+
+test_codex_rank_only
 test_codex_empty_list_refuses_before_endpoint
 test_raw_command_quota_override_refuses
 test_codex_folder_selection_and_guard
