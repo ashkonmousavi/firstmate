@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Read one home's numeric hard-floor/PSI/disk policy; never launch or write state.
 
-Ceilings, slot estimates and the separate high-(anon+shmem) reserve remain with
-their existing consumers. This reader's headroom is host MemAvailable bounded
+Lane ceilings and fixed reserves remain with capacity consumers.
+This reader's effective available memory is host MemAvailable bounded
 by every finite cgroup high/max minus the working set after clean active/inactive file cache.
 
 Memory PSI "full" is read per window (avg10, avg60, avg300) as the maximum over

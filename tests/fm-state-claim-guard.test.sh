@@ -405,6 +405,25 @@ for message in capacity_phrases:
     check("21-case capacity replay accepts activity and named reads: " + message, message,
           ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta",
            "bash bin/fm-crew-state.sh lane-b"], expected=0)
+for assertion in ("PC has 2 free", "2 seats are available", "3 slots are occupied",
+                  "Admission no", "No room", "lane-b is running",
+                  "Lane alpha and worker beta are running"):
+    crew_reads = ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta",
+                  "bash bin/fm-crew-state.sh lane-b"]
+    for separator in ("; ", ". ", "! ", ", "):
+        message = assertion + separator + "should I fill them?"
+        check("trailing question cannot exempt capacity: " + message, message,
+              crew_reads, capacity_read=False)
+        check("repeated trailing question cannot exempt capacity: " + message, message,
+              crew_reads, capacity_read=False, active=True)
+        check("supported assertion can precede a question: " + message, message, crew_reads, expected=0)
+    check("leading question cannot exempt capacity: " + assertion, "Should I fill them? " + assertion + ".",
+          crew_reads, capacity_read=False)
+for question in ("how many lanes are free?", "How many seats are available?",
+                 "Are slots occupied?", "Is admission no?", "Is there no room?",
+                 "Is lane-b running?", "Are lane alpha and worker beta running?"):
+    check("pure capacity question needs no activity: " + question, question,
+          capacity_read=False, expected=0)
 for records in ([user, *tool(activity_read, error=True)],
                 [user, *tool(activity_read), user],
                 [user, tool(activity_read)[0]],

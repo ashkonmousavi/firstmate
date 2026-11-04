@@ -196,13 +196,16 @@ def claims(text):
         if rx(r"^\s*example\s*:").search(sentence):
             continue
         for family, words, context, _ in POLICY["claims"]:
-            if context and not context.search(sentence):
-                continue
             if family == "capacity":
-                # Capacity negatives (including "no room") are still facts.
-                # Historical qualifiers cannot replace a current activity read.
-                if words.search(sentence) and not sentence.rstrip().endswith("?"):
-                    yield family, sentence.strip(), set()
+                for clause in sentence.split(";"):
+                    question = clause.rstrip().endswith("?") and rx(
+                        r"^\s*(?:how|what|which|who|where|when|why|is|are|was|were|has|have|had|"
+                        r"do|does|did|can|could|would|will|should|may|might|must)\b"
+                    ).search(clause)
+                    if context.search(clause) and words.search(clause) and not question:
+                        yield family, clause.strip(), set()
+                continue
+            if context and not context.search(sentence):
                 continue
             if rx(r"\blast read at\b").search(sentence):
                 continue

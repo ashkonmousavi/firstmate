@@ -169,6 +169,20 @@ def guard(message, commands=(), expected=0, active=False, execute=False):
         assert '(capacity)' in result.stderr, result.stderr
 
 read = f'bash {shlex.quote(str(activity))} --machine-json {shlex.quote(str(home))}'
+for assertion in ('PC has 2 free', '2 seats are available', '3 slots are occupied',
+                  'Admission no', 'No room', 'lane-b is running', 'Lane alpha and worker beta are running'):
+    crew_reads = ['bash bin/fm-crew-state.sh alpha', 'bash bin/fm-crew-state.sh beta',
+                  'bash bin/fm-crew-state.sh lane-b']
+    for separator in ('; ', '. ', '! ', ', '):
+        message = assertion + separator + 'should I fill them?'
+        guard(message, crew_reads, expected=2)
+        guard(message, crew_reads, expected=2, active=True)
+        guard(message, [read, *crew_reads])
+    guard('Should I fill them? ' + assertion + '.', crew_reads, expected=2)
+for question in ('how many lanes are free?', 'How many seats are available?', 'Are slots occupied?',
+                 'Is admission no?', 'Is there no room?', 'Is lane-b running?',
+                 'Are lane alpha and worker beta running?'):
+    guard(question)
 for machine in ('MAIN', 'PC', 'server', 'laptop', 'zenbook', 'q-crew', 'zb-crew'):
     guard(f'{machine} merged PR #219.', [read, 'gh pr view 219'])
     guard(f'The {machine} deployment is live.', [read, 'curl https://service.example/health'])

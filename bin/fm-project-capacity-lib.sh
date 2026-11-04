@@ -45,14 +45,13 @@
 #   - has no recorded PR handoff: the pr= line bin/fm-pr-check.sh records when a
 #     worker's PR is ready, after which the worker waits on review or merge and
 #     no longer uses local resources, and
-#   - holds a seat under fm_task_record_holds_seat below, the shared owner of
-#     the live-process rule also used by bin/fm-capacity-lib.sh's lane count.
+#   - holds a project place under fm_task_record_holds_seat below.
 # A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
 # A local-only ship and a scout have no recorded handoff, so their retained
-# records count only while they hold a seat under that shared rule.
+# records count only while they hold a place under that predicate.
 # A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones
 # of one origin share the cap only when they use that same directory name. A
@@ -171,8 +170,7 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
   return 0
 }
 
-# Does one task record hold a seat? The single owner of the rule shared by the
-# lane count (bin/fm-capacity-lib.sh) and the project count above. Returns 0
+# Does one task record hold a project place? Returns 0
 # when the record holds a seat and 1 when it holds none. <raw> is the record's
 # text, <meta> its path, and <state-dir> the state directory that holds it.
 # Only an agent proven dead or missing can free a seat, and then only when the
