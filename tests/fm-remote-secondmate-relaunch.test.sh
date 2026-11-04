@@ -17,6 +17,9 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+# These fake homes have no supervisor lease; never inherit the invoking harness.
+export FM_TEST_SEAM=1 FM_TEST_HARNESS=unknown
 # shellcheck source=bin/fm-pr-lib.sh
 . "$ROOT/bin/fm-pr-lib.sh"
 

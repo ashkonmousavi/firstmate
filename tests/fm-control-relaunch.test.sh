@@ -21,10 +21,15 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+# These fake homes have no supervisor lease; never inherit the invoking harness.
+export FM_TEST_SEAM=1 FM_TEST_HARNESS=unknown
 # shellcheck source=tests/fixtures.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-control-lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-timeout-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-pr-lib.sh"
 # shellcheck source=/dev/null
@@ -289,11 +294,11 @@ run_lifecycle_fixture() {
   # store (bin/fm-claude-trust.sh), and a relaunch reaches it through fm-control.sh, so this runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
   mkdir -p "$dir/user-home"
-  env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
+  fm_run_timed 60 env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
     -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
-    FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
+    FM_SPAWN_NO_GUARD="${FM_SPAWN_NO_GUARD-1}" GROK_HOME="$dir/grokhome" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
     FM_REAL_MV="${FM_REAL_MV:-}" FM_FAKE_COMPLETE_JOURNAL_MV_FAIL="${FM_FAKE_COMPLETE_JOURNAL_MV_FAIL:-}" \
@@ -339,11 +344,11 @@ run_spawn() {  # <case-dir> <args...>
   # store (bin/fm-claude-trust.sh), so it runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
   mkdir -p "$dir/user-home"
-  env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
+  fm_run_timed 60 env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
     -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
-    FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
+    FM_SPAWN_NO_GUARD="${FM_SPAWN_NO_GUARD-1}" GROK_HOME="$dir/grokhome" \
     "$SPAWN" "$@" 2>&1
 }
 
@@ -4983,6 +4988,64 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+test_pending_note_admission_preserves_running_agent() {
+  local dir kind option out rc before
+  for kind in ship scout; do
+    for option in --note --note-file; do
+      dir=$(new_case "pending-note-$kind-${option#--}" note1)
+      add_ship_task "$dir" note1
+      printf 'kind=%s\n' "$kind" >> "$dir/home/state/note1.meta"
+      : > "$dir/home/config/herdr-lifecycle-spawn-guard"
+      mkdir -p "$dir/user-home"
+      printf '%s\n' 'Do not run bin/fm-herdr-lab.sh; continue the source fix' > "$dir/pending-note"
+      before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+      if [ "$option" = --note ]; then
+        out=$(run_control "$dir" note1 relaunch --note "$(cat "$dir/pending-note")"); rc=$?
+      else
+        out=$(run_control "$dir" note1 relaunch --note-file "$dir/pending-note"); rc=$?
+      fi
+      expect_code 1 "$rc" "$kind $option: lifecycle note should refuse admission: $out"
+      assert_contains "$out" 'lacks the Herdr isolation contract' 'pending note did not reach the spawn validator'
+      assert_equals claude "$(cat "$dir/fake/command")" "$kind $option: pending note refusal stopped the old agent"
+      assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$kind $option: pending note refusal changed task state"
+      pass "$kind $option: pending note validation preserves agent and task"
+    done
+  done
+}
+
+test_fresh_spawn_guard_records_and_clears_warning_episodes() {
+  local dir out rc marker
+  dir=$(new_case fresh-spawn-warning guard1)
+  add_ship_task "$dir" guard1
+  marker="$dir/home/state/.guard-watcher-stale-banner"
+  mkdir -p "$dir/root/bin"
+  cat > "$dir/root/bin/fm-guard.sh" <<'GUARD'
+#!/usr/bin/env bash
+printf 'guard-ran FM_SPAWN_NO_GUARD=<%s> FM_GUARD_READ_ONLY=<%s>\n' "${FM_SPAWN_NO_GUARD-unset}" "${FM_GUARD_READ_ONLY-unset}"
+exec "$FM_WARNING_REAL_GUARD" "$@"
+GUARD
+  chmod +x "$dir/root/bin/fm-guard.sh"
+  # Refuse at adapter selection, after the real ordinary-spawn guard runs.
+  # No new endpoint or live worker is needed to observe the warning contract.
+  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
+    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
+  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched'
+  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<0>' 'guard execution and effective empty override must be observed'
+  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
+  assert_contains "$out" 'WATCHER DOWN' 'ordinary spawn did not show the warning'
+  assert_present "$marker" 'ordinary spawn did not record its warning episode'
+  rm "$dir/home/state/guard1.meta"
+  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
+    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
+  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched after recovery'
+  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<0>' 'recovered guard execution must be observed'
+  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
+  assert_absent "$marker" 'ordinary spawn did not clear its recovered warning episode'
+  pass 'ordinary fresh spawn records warning episodes and clears recovered episodes'
+}
+
+test_pending_note_admission_preserves_running_agent
+test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_adapter_admission_preserves_running_agent
 test_configuration_admission_preserves_running_agent
 test_spawn_prepare_commit_boundary

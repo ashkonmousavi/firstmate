@@ -1591,7 +1591,8 @@ do_relaunch() {
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
-  FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
+  FM_CONTROL_RELAUNCH_NOTE="$NOTE" \
+    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" --admission-only >/dev/null || exit $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1

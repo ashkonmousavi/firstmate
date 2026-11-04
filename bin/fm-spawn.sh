@@ -68,6 +68,9 @@
 #   secondmate's charter.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>] [--quota-override <reason>]
 #   --admission-only with --relaunch checks a retained task without mutation.
+#   FM_CONTROL_RELAUNCH_NOTE supplies the pending progress note for that check;
+#   it is appended to a scratch brief through the normal note writer before
+#   all brief/config validators run, and never published by admission.
 #   --relaunch normally launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
 #   endpoint still exists, instead of creating either from scratch. It is
@@ -1014,7 +1017,15 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 fm_refuse_if_gate_agent
 # Skip the watcher guard when re-exec'd for one pair of a batch (FM_SPAWN_NO_GUARD is
 # set by the batch loop below), so the guard runs once for the batch, not once per pair.
-[ -n "${FM_SPAWN_NO_GUARD:-}" ] || FM_GUARD_READ_ONLY=1 "$FM_ROOT/bin/fm-guard.sh" || true
+# Only relaunch preparation (--admission-only) runs it read-only, because that
+# pass must leave every record untouched; an ordinary spawn records and clears
+# warning episodes as before.
+SPAWN_GUARD_READ_ONLY=${FM_GUARD_READ_ONLY:-0}
+for spawn_guard_arg in "$@"; do
+  [ "$spawn_guard_arg" != --admission-only ] || SPAWN_GUARD_READ_ONLY=1
+done
+unset spawn_guard_arg
+[ -n "${FM_SPAWN_NO_GUARD:-}" ] || FM_GUARD_READ_ONLY=$SPAWN_GUARD_READ_ONLY "$FM_ROOT/bin/fm-guard.sh" || true
 KIND=ship
 KIND_SET=0
 HARNESS_ARG=
@@ -1723,6 +1734,7 @@ spawn_remote_secondmate() {
 }
 
 SPAWN_COMMIT_STARTED=0
+SPAWN_PREPARE_BRIEF_DIR=
 BACKEND=
 ORCA_ABORT_CLEANUP=0
 ORCA_WORKTREE_ID=
@@ -2009,6 +2021,9 @@ spawn_orca_reclaim_launch_file() {
 
 spawn_abort_cleanup() {
   local status=$?
+  if [ -n "$SPAWN_PREPARE_BRIEF_DIR" ]; then
+    rm -rf -- "$SPAWN_PREPARE_BRIEF_DIR"
+  fi
   if [ "$status" -ne 0 ] && [ "$SPAWN_COMMIT_STARTED" = 1 ]; then
     echo "error: commit-phase failure: spawn of $ID failed after preparation succeeded" >&2
   fi
@@ -4716,6 +4731,17 @@ fi
   echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2
   exit 1
 }
+# Validate the exact pending worker instructions through all ordinary spawn
+# validators. Only temporary files change: control publishes the real note
+# after admission, using this same writer. Secondmate charters stay untouched.
+if [ "$ADMISSION_ONLY" = 1 ] && [ "$KIND" != secondmate ] &&
+   [ -n "${FM_CONTROL_RELAUNCH_NOTE:-}" ]; then
+  SPAWN_PREPARE_BRIEF_DIR=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || exit 1
+  cp -p "$BRIEF" "$SPAWN_PREPARE_BRIEF_DIR/brief.md" || exit 1
+  printf '%s\n' "$FM_CONTROL_RELAUNCH_NOTE" > "$SPAWN_PREPARE_BRIEF_DIR/note" || exit 1
+  fm_relaunch_note_append "$SPAWN_PREPARE_BRIEF_DIR/brief.md" "$STATE/$ID.inbox" "$SPAWN_PREPARE_BRIEF_DIR/note" || exit 1
+  BRIEF="$SPAWN_PREPARE_BRIEF_DIR/brief.md"
+fi
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   HERDR_LIFECYCLE_BRIEF_GUARD=$(fm_config_source_present "$CONFIG/herdr-lifecycle-spawn-guard") || exit 1
   if [ "$HERDR_LIFECYCLE_BRIEF_GUARD" = 1 ]; then
