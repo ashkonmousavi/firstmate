@@ -1008,6 +1008,11 @@ Keep the export root private and never serve it directly.
 The schema is versioned for compatible readers, but it is not a Firstmate command API and no Firstmate reader consumes it.
 [`architecture.md`](architecture.md#read-only-record-exports) describes the mechanism boundary; [`bin/fm-record-export.sh`](../bin/fm-record-export.sh) owns the exact allowlist, schema, path checks, publication, and retention mechanics.
 
+## Reply formatting (config/reply-shape)
+
+The optional local `config/reply-shape` enables reply-format checks in the Claude [state-claim Stop check](turnend-guard.md#state-claim-check).
+The [guard's module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the rule IDs, file format, config resolution, exceptions and continuation behavior.
+
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
 The optional local, gitignored `config/turnend-churn-absorb` presence flag opts this home into a default-off third form of positive work evidence in watcher triage.
@@ -1949,7 +1954,8 @@ The push guard and this check each run and each refuse on their own, and the pro
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
 For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, activity-reader integration, exemptions and refusal rules.
-Physical occupied and free seats come from the installed skills-master `activity.sh` machine reader.
+Physical occupied and free seats come from the installed skills-master `activity.sh` machine reader; the [capacity library header](../bin/fm-capacity-lib.sh) names its required location and interface.
+Install that reader before updating; missing or invalid activity evidence refuses worker admission.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
@@ -1971,6 +1977,7 @@ Missing or malformed policy, pressure or disk evidence refuses admission rather 
 CPU utilization and load average do not gate admission.
 The shared [`bin/fm-machine-resources.py`](../bin/fm-machine-resources.py) reader owns cache-aware effective available memory from host and cgroup facts, including reclaimable clean active and inactive file cache.
 The capacity report's `headroom_kb` subtracts the fixed reserve from that same effective reading.
+Resource refusals retain physical free-seat counts, so free seats alone do not establish admission.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
 Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.

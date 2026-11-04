@@ -15,7 +15,7 @@
 # stores it verbatim as a link, which lifecycle transitions record relative to
 # that same root.
 #
-# Optional add/update --owner-request-file consumes a private interpreted packet,
+# add/update --owner-request-file consumes a private interpreted packet,
 # merges its protected section under this task's existing control lock, and
 # verifies the native full-body readback. It is never forwarded to tasks-axi.
 # Ordinary body edits to bound tasks preserve that section exactly.
@@ -23,7 +23,12 @@
 # bin/fm-request-acceptance.py's module header and validator below those fields.
 # Example: fm-tasks-axi.sh add <id> '<title>' --owner-request-file <private-json-path>.
 # Owner-request custody requires an explicit safe task ID; add/create --mint
-# remains the ordinary unbound path and cannot take --owner-request-file.
+# remains available only for unbound intake and cannot take --owner-request-file.
+# An unbound add/create refuses when a whole-word owner/captain appears anywhere
+# in the title or body, including quotations; explicit IDs require a packet,
+# while minted IDs must be replaced with an explicit ID before binding.
+# This detector intentionally errs toward custody: `file owner` is a known
+# false positive, and unstated or paraphrased origin cannot be detected.
 # An exact packet retry confirms the existing native full body without another
 # write; conflicting or unavailable confirmation refuses. Packet updates archive
 # the prior body, preserving ordinary prose and earlier source/correction records.
@@ -310,9 +315,7 @@ if [ "$help_requested" = 1 ]; then
   exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
 fi
 
-# Owner-origin add gate. The lexical detector intentionally errs toward custody:
-# whole-word owner/captain anywhere in the title or body, including quotations.
-# `file owner` is a known false positive; unstated/paraphrased origin is unknowable.
+# Enforce the owner-origin preflight described in this script's header.
 if { [ "${1:-}" = add ] || [ "${1:-}" = create ]; } && [ -z "$OWNER_REQUEST_FILE" ]; then
   origin_rc=0
   python3 - "$MINT" "$BODY_FILE" "$BODY_LITERAL" "${ARGS[@]}" <<'PYORIGIN' || origin_rc=$?

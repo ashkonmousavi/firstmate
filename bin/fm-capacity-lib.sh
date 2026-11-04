@@ -9,8 +9,13 @@
 # requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Numeric memory, pressure and disk facts come from fm-machine-resources.py.
-# Physical occupied/free seats come from activity.sh --machine-json.
+# Physical occupied/free seats come from the installed
+# $HOME/.config/skills-master/.agents/skills/activity/activity.sh --machine-json.
+# The reader receives the machine root home and, for replacement admission,
+# the replaced task's metadata path; unavailable or invalid lane facts refuse.
 # Admission refusal never changes the physical free-seat count.
+# Refusals report available_kb, pressure_full_avg60, floor_kb, reserve_kb and
+# pressure_limit, using explicit unknowns for readings not yet available.
 # Independent resource floors and pressure/disk admission are owned by
 # fm-machine-resources.py and require config/machine-admission.json in that root.
 # Every resource verdict is also appended, best effort, to

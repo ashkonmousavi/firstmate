@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pure structural custody and merge for explicitly bound native owner requests.
+"""Structural custody, merge and reporting for bound native owner requests.
 
 Owner-request packet authoring contract for fm-tasks-axi.sh --owner-request-file:
 For each owner-origin request that creates or updates a native task, including
@@ -9,7 +9,7 @@ A mid-task addition or change is bound first, before the brief's Captain's
 intent is updated: append its source-linked requirement or correction to the
 same bound task, or create a separate bound item when the existing task is a
 legacy unbound row.
-Non-owner tasks and historical unbound rows keep their existing task path.
+Unbound intake eligibility is owned by fm-tasks-axi.sh's header.
 Write one private UTF-8 JSON file with the required PACKET keys below;
 proof_updates is the only optional top-level key.
 For add, expected_body_sha256 is null; for update it is SHA256 of the exact
@@ -68,6 +68,18 @@ Transfer, archive and relaunch retain the section rather than reinterpret it.
 The helper validates structure and retained source custody only. A task Done,
 an acknowledgement, or a syntactically accepted disposition never establishes
 the qualified owner receipt and current proof required by B6.
+
+open-summary --home <home> reads native tasks through that home's
+bin/fm-tasks-axi.sh and emits JSON; it does not mutate the backlog.
+Only queued/in_flight tasks with a validated acceptance section contribute.
+open_requirements counts pending, proof_owed and held requirement dispositions;
+tasks counts contributing task records, sources counts their source rows, and
+items carries each task's id, open_requirements, requirements and sources counts.
+These are custody counts, not evidence of qualified acceptance or free lanes.
+Incomplete listings or invalid acceptance metadata refuse the summary.
+--body-file <json> instead accepts a task snapshot only with FM_TEST_SEAM=1;
+each row supplies id, state and native show --full text as show.
+open-summary needs no --task-id; every other command still requires it.
 """
 import argparse
 import hashlib

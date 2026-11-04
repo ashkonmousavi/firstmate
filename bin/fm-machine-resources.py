@@ -3,7 +3,10 @@
 
 Lane ceilings and fixed reserves remain with capacity consumers.
 This reader's effective available memory is host MemAvailable bounded
-by every finite cgroup high/max minus the working set after clean active/inactive file cache.
+by every finite cgroup high/max minus max(memory.current - clean file cache, 0).
+Reclaimable cache is min(max(file - shmem, 0), active_file + inactive_file),
+less file_dirty and file_writeback, floored at zero; shared and dirty pages
+therefore cannot inflate available memory.
 
 Memory PSI "full" is read per window (avg10, avg60, avg300) as the maximum over
 the host and every memory-controller ancestor. Without the optional

@@ -24,14 +24,14 @@ the section 9 exception when no ready-status/metadata URL exists.
 This is a lexical reminder, not a
 proof of the remote state: it requires a completed matching tool command,
 not that the command output supports the prose.
-Claims require a resource subject from POLICY in the same sentence.
+Non-capacity claims require a resource subject from POLICY in the same sentence.
 Matching covers every claimed PR number, explicit URL host and lane name;
 repository identity and requested --json fields deliberately remain unchecked.
 PR claims without explicit IDs, including aggregate counts, still need a PR read.
 gh/gh-axi pr list counts only for claims without PR IDs, regardless of filters;
 its numeric options and search terms never establish a named PR read.
-Read segments in pipelines and redirects can count; segments beyond a
-short-circuit or control-flow boundary do not establish execution.
+For non-capacity claims, read segments in pipelines and redirects can count;
+segments beyond a short-circuit or control-flow boundary do not establish execution.
 'last read at' exempts only its sentence, except capacity claims.
 Capacity claims also never receive the identical-message continuation exemption.
 Their grammar is a lane/seat/slot/capacity subject with a count or state,
@@ -39,6 +39,10 @@ a machine subject with a count or full/free/admission/room state, or an
 unqualified count-live-of-count, count-free, admission yes/no, or no-room.
 The machine vocabulary and claim/read expressions are owned by POLICY below.
 Negative capacity statements require the same read as positive statements.
+Genuine capacity questions, including supported Markdown and 👉 prefixes,
+are exempt; a question following an assertion does not exempt that assertion.
+Capacity evidence must be a successful standalone command, without pipeline,
+compound-command or control-flow separators; check-wake text never counts.
 Literal script paths resolve symlinks against the Stop cwd before basename
 matching; this authenticates read presence, not script contents or output.
 Straight or curly quoted spans of four or more whitespace-separated words are
