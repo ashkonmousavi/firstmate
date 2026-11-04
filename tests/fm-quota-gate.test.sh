@@ -20,7 +20,7 @@ for setting_case in absent rank-only invalid empty blank multiline; do
     blank) printf ' \n' > "$HOME_DIR/config/quota-gate" ;;
     multiline) printf 'rank-only\n\n' > "$HOME_DIR/config/quota-gate" ;;
   esac
-  for attempt in 1 2; do
+  for _ in 1 2; do
     out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
       "$id" "$PROJ_DIR" --harness grok --model grok-4.7); rc=$?
     if [ "$setting_case" = rank-only ]; then

@@ -340,7 +340,7 @@ for setting in invalid rank-only absent; do
     rank-only) printf 'rank-only\n' > "$H/config/quota-gate" ;;
     absent) rm "$H/config/quota-gate" ;;
   esac
-  for attempt in 1 2; do
+  for _ in 1 2; do
     out=$(PATH="$FAKE:$PATH" bash "$AL" --dry-run 2>&1); rc=$?
     expect_code 0 "$rc" "$setting dry-run failed: $out"
     assert_absent "$H/state/.quota-gate-invalid" 'dry-run must not create an invalid-value receipt'
