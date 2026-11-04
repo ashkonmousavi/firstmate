@@ -600,8 +600,8 @@ default_candidates() {
      | if $rank_only and .verdict == "refuse" and ((.bounds // []) | length) > 0
           and all(.bounds[]; (.spendPriority | type) == "number")
        then . + {spendPriority: ([.bounds[].spendPriority] | min)} else . end] as $v |
-    ([$v[] | select((.verdict == "pass" or $rank_only) and (.spendPriority | type) == "number")] | sort_by(-.spendPriority))
-    + [$v[] | select((.verdict == "notice" and ($rank_only | not)) or ((.verdict == "pass" or $rank_only) and (.spendPriority | type) != "number"))]
+    ([$v[] | select((.verdict == "pass" or ($rank_only and .verdict == "refuse")) and (.spendPriority | type) == "number")] | sort_by(-.spendPriority))
+    + [$v[] | select(.verdict == "notice" or ((.verdict == "pass" or ($rank_only and .verdict == "refuse")) and (.spendPriority | type) != "number"))]
     | (.[] | "cand\t\(.profile.harness)\t\(.profile.model // "")\t\(.profile.effort // "")"),
       ([$v[] | select(.verdict == "refuse" and ($rank_only | not))] | first | select(. != null)
        | "refused\t\(.profile.harness):\(.profile.model // "-") \(.reason // "refused")")' 2>/dev/null \

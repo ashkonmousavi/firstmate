@@ -432,6 +432,27 @@ assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness opencode' 'first unc
 assert_contains "$(sed -n 3p "$FAKE/spawn.log")" '--harness pi' 'second uncertain profile retains declared order'
 pass 'uncertain defaults follow passing profiles in declared order'
 
+for policy in absent rank-only; do
+  reset 1
+  [ "$policy" != rank-only ] || printf 'rank-only\n' > "$H/config/quota-gate"
+  printf '%s\n' '- [ ] numeric-notice - prepared (repo: proj) (kind: ship)' | backlog
+  prep numeric-notice proj
+  printf '%s\n' '{"default":[{"harness":"opencode"},{"harness":"claude","model":"opus"},{"harness":"codex","model":"gpt-5.5"}]}' > "$H/config/crew-dispatch.json"
+  jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[]) |=
+      (.runway = {status:"projected_exhaustion",projectionConfidence:"established"} | .selection.spendPriority = 9) |
+    (.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 2' \
+    "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/numeric-notice.json"
+  printf 'codex\nopencode\n' > "$FAKE/quota-refuse"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$FAKE/numeric-notice.json" bash "$AL" 2>&1); rc=$?
+  expect_code 0 "$rc" "$policy must retain uncertain defaults after passing candidates: $out"
+  assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex --model gpt-5.5' "$policy ranks passing priority 2 before uncertain priority 9"
+  assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness opencode' "$policy retains the first uncertain profile in declared order"
+  assert_contains "$(sed -n 3p "$FAKE/spawn.log")" '--harness claude --model opus' "$policy retains numeric notices in the uncertain bucket"
+  assert_equals $'claude:opus\tlaunched' "$(cut -f4,5 "$LOG" | head -1)" "$policy keeps numeric notices available for fallback"
+  rm -f "$H/config/quota-gate"
+done
+pass 'passing defaults precede numeric notices and uncertain profiles retain declared order under either policy'
+
 for profile in '{"harness":"codex","effort":"high"}' \
   '{"harness":"codex","model":"gpt-5.5"}' '{"harness":"codex"}'; do
   reset 1
