@@ -4,6 +4,8 @@
 # Fetch each machine's state/lane-capacity.json through its existing transport
 # before invoking. Missing, malformed, future or >300s-old facts never qualify.
 # Rank eligible machines by free lanes, then memory headroom, then machine name.
+# Default output is a human-readable recommendation; --json emits the chosen
+# publication unchanged as one compact JSON object.
 # No config, probe, remote execution or spawn occurs here. Exit 75 if none fit.
 set -u
 format=text

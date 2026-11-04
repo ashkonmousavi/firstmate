@@ -13,10 +13,13 @@
 # --admit is read-only and exits 75 on any refusal. Other reports exit 1 for
 # unreadable machine facts, 0 for a readable full or low-memory machine.
 # With no option, host probes are read-only and unavailable probes say unknown.
-# When local lanes are full, --machine-facts adds advisory placement fields to
-# the capacity line using fm-place.sh's existing publication reader. Supply
-# fetched publications via the existing fleet transport; this command performs
-# no remote reads. Machine names are URI-encoded to preserve key=value tokens.
+# When reason=full, default text and --admit can append placement=<machine>
+# and placement_free_lanes=<count> to the capacity line from repeated
+# --machine-facts files, using fm-place.sh's publication reader. Supply fetched
+# publications via the existing fleet transport; this command performs no
+# remote reads. Machine names are URI-encoded to preserve key=value tokens.
+# Advice does not change local admission or its exit status; unavailable advice
+# adds no fields. --json and --publish ignore --machine-facts.
 set -u
 export LC_ALL=C
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
