@@ -51,7 +51,7 @@ fm_capacity_sample() { # <state> <reader-json> <reader-status>
   return 0
 }
 
-fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
+fm_capacity_read() { # <home> <config> <state> [replaced-task-id] [sample=1]
   local rc=0 measurements='available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown'
   _fm_capacity_read "$@" || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -88,7 +88,7 @@ _fm_capacity_read() {
   FM_CAPACITY_RESERVE_KB=$((10#$reserve * 1048576))
   measurements="available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=$FM_CAPACITY_RESERVE_KB pressure_limit=unknown"
   resources=$(python3 "${BASH_SOURCE[0]%/*}/fm-machine-resources.py" --policy "$config_dir/machine-admission.json") || resource_status=$?
-  fm_capacity_sample "$state" "$resources" "$resource_status"
+  [ "${5:-1}" = 0 ] || fm_capacity_sample "$state" "$resources" "$resource_status"
   if [ "$resource_status" -ne 0 ] && [ "$resource_status" -ne 75 ]; then
     FM_CAPACITY_ERROR="resource reader failed for $config_dir/machine-admission.json"; return 75
   fi

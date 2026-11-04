@@ -4573,6 +4573,187 @@ done
 test_existing_step_children
 }
 
+admission_snapshot() {
+  python3 - "$@" <<'SNAPSHOT'
+import hashlib
+import json
+import pathlib
+import sys
+result = []
+for root_name in sys.argv[1:]:
+    root = pathlib.Path(root_name)
+    for path in sorted([root, *root.rglob("*")]):
+        st = path.lstat()
+        content = (str(path.readlink()) if path.is_symlink() else
+                   hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "")
+        result.append((str(path), st.st_mode, content))
+print(hashlib.sha256(json.dumps(result).encode()).hexdigest())
+SNAPSHOT
+}
+
+test_adapter_admission_preserves_running_agent() {
+  local dir why target expected out rc before endpoint_before created sid bid wid
+  local -a args
+  [ "$#" -ne 0 ] || set -- cortex commandcode executable model
+  for why in "$@"; do
+    dir=$(new_case "adapter-admission-$why" ap1)
+    add_ship_task "$dir" ap1 claude
+    args=()
+    case "$why" in
+      cortex|commandcode)
+        target=$why
+        expected="$why is verified on the tmux and herdr backends only"
+        . "$ROOT/tests/rex-fake-fixture.sh"
+        make_rex_fake "$dir/rex"
+        created=$(FM_REX_FAKE_DIR="$dir/rex/fake" "$dir/rex/bin/rex" new fmses --window fm-ap1)
+        sid=$(printf '%s' "$created" | jq -r .session_id)
+        wid=$(printf '%s' "$created" | jq -r '.initial_windows[0].window_id')
+        bid=$(printf '%s' "$created" | jq -r '.initial_windows[0].block_ids[0]')
+        printf '{"foreground":{"pid":99999999,"name":"claude","path":"/usr/bin/claude","argv0":"claude","cwd":"%s"},"ancestors":[],"last_exit":null}\n' "$dir/wt" \
+          > "$dir/rex/fake/process/${bid#block:}.json"
+        sed '/^window=/d' "$dir/home/state/ap1.meta" > "$dir/meta"
+        mv "$dir/meta" "$dir/home/state/ap1.meta"
+        printf 'backend=rex\nwindow=%s:%s\nrex_session_id=%s\nrex_window_id=%s\nrex_block_id=%s\nrex_server=unix:///fake/rex.sock\n' \
+          "${sid#session:}" "${bid#block:}" "$sid" "$wid" "$bid" >> "$dir/home/state/ap1.meta"
+        printf '╭────╮\n│    │\n╰────╯\n' > "$dir/rex/fake/capture/${bid#block:}.vt"
+        printf '2;2' > "$dir/rex/fake/cursor/${bid#block:}"
+        mv "$dir/rex/bin/rex" "$dir/rex/bin/rex-fixture"
+        cat > "$dir/rex/bin/rex" <<'REX'
+#!/usr/bin/env bash
+"$(dirname "$0")/rex-fixture" "$@" || exit $?
+case "$*" in
+  *send-key*enter*)
+    if grep -qxF /exit "$FM_REX_FAKE_DIR/sent" 2>/dev/null; then
+      for record in "$FM_REX_FAKE_DIR"/process/*.json; do
+        jq '.foreground.name="zsh" | .foreground.path="/bin/zsh" | .foreground.argv0="zsh"' "$record" > "$record.next"
+        mv "$record.next" "$record"
+      done
+    fi
+    ;;
+esac
+REX
+        chmod +x "$dir/rex/bin/rex"
+        endpoint_before=$(admission_snapshot "$dir/rex/fake/state.json" "$dir/rex/fake/process")
+        ;;
+      executable)
+        target=devin
+        expected='devin executable not found on PATH'
+        ;;
+      model)
+        target=kiro
+        expected="kiro model 'unlisted' is not listed"
+        printf '#!/usr/bin/env bash\nprintf '\''{"models":[{"model_id":"auto"}]}\\n'\''\n' > "$dir/fakebin/kiro-cli"
+        chmod +x "$dir/fakebin/kiro-cli"
+        args=(--model unlisted)
+        ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt")
+    case "$why" in
+      cortex|commandcode)
+        out=$(FM_REX_FAKE_DIR="$dir/rex/fake" REX_BIN_DIR="$dir/rex/bin" \
+          run_control "$dir" ap1 relaunch --harness "$target" --note 'must not be recorded'); rc=$?
+        assert_equals "$endpoint_before" "$(admission_snapshot "$dir/rex/fake/state.json" "$dir/rex/fake/process")" "$why: Rex agent or endpoint changed"
+        assert_absent "$dir/rex/fake/sent" "$why: input reached the Rex agent"
+        ;;
+      executable)
+        out=$(PATH=/usr/bin:/bin run_control "$dir" ap1 relaunch --harness "$target" --note 'must not be recorded'); rc=$?
+        ;;
+      model)
+        out=$(run_control "$dir" ap1 relaunch --harness "$target" "${args[@]}" --note 'must not be recorded'); rc=$?
+        ;;
+    esac
+    expect_code 1 "$rc" "$why must refuse: $out"
+    assert_contains "$out" "$expected" "$why: wrong admission refusal"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt")" "$why: admission changed state, backlog, metadata, instructions or worktree"
+    assert_equals claude "$(cat "$dir/fake/command")" "$why: old agent stopped"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$why: launch or exit input sent"
+    assert_absent "$dir/fake/created-windows" "$why: endpoint created"
+    pass "adapter admission refuses $why before stopping the running agent"
+  done
+}
+
+run_admission_only() {
+  local dir=$1; shift
+  # shellcheck disable=SC2016
+  run_lifecycle_fixture "$dir" bash -c '
+    set -eu
+    SCRIPT_DIR=$1/bin
+    FM_ROOT=${FM_ROOT_OVERRIDE:-$1}
+    XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share
+    ID=ap2 KIND=ship RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+    STATE=${FM_ADMISSION_TEST_STATE:-$FM_HOME/state} DATA=$FM_HOME/data CONFIG=$FM_HOME/config
+    HARNESS=$2 MODEL=$3 EFFORT=default BACKEND=tmux RAW_LAUNCH=0 ARG3= LAUNCH=
+    for library in fm-config-inherit-lib fm-wake-lib fm-lease-lib fm-backend fm-control-lib fm-backlog-transition-lib fm-tasks-axi-lib fm-project-capacity-lib fm-capacity-lib fm-polytoken-lib fm-cursor-lib fm-timeout-lib fm-exclude-tools-lib fm-omp-profile-lib fm-spawn-admission-lib; do
+      . "$SCRIPT_DIR/$library.sh"
+    done
+    fm_backend_validate_spawn "$BACKEND" || exit $?
+    fm_spawn_launch_env_admit || exit $?
+    fm_spawn_adapter_admit || exit $?
+    fm_spawn_backlog_admit || exit $?
+    fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" "${4:-0}"
+  ' _ "$ROOT" "$@"
+}
+
+test_admission_only_has_no_side_effects() {
+  local dir before out rc scenario harness model expected diagnostic
+  for scenario in admitted existing-sample backlog capacity overlay hook-path credential model executable; do
+    dir=$(new_case "admission-only-$scenario" ap2)
+    add_ship_task "$dir" ap2 claude
+    seed_backlog "$dir" ap2 in_flight
+    harness=claude model=default expected=0 diagnostic=
+    case "$scenario" in
+      existing-sample)
+        printf 'prior sample\n' > "$dir/home/state/machine-admission.log"
+        printf 'prior rotation\n' > "$dir/home/state/machine-admission.log.1"
+        ;;
+      backlog)
+        tasks-axi hold ap2 --kind external --reason 'keep running' --file "$dir/home/data/backlog.md" >/dev/null
+        expected=1 diagnostic='not dispatchable in state in_flight' ;;
+      capacity) printf '0 0\n' > "$dir/home/config/lane-capacity"; expected=75 diagnostic='deferred:' ;;
+      overlay)
+        harness=omp expected=1 diagnostic='omp worker posture overlay missing'
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/omp"
+        mkdir -p "$dir/root"
+        ;;
+      hook-path|model)
+        harness=kiro expected=1 diagnostic='kiro hook scripts would live'
+        printf '#!/usr/bin/env bash\nprintf '\''{"models":[{"model_id":"auto"}]}\\n'\''\n' > "$dir/fakebin/kiro-cli"
+        if [ "$scenario" = model ]; then
+          model=unlisted diagnostic="kiro model 'unlisted' is not listed"
+        else
+          mkdir -p "$dir/home/state space"
+        fi
+        ;;
+      credential)
+        harness=muse expected=1 diagnostic='muse has no worker-reachable credential'
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/muse"
+        ;;
+      executable) harness=devin expected=1 diagnostic='devin executable not found on PATH' ;;
+    esac
+    chmod +x "$dir/fakebin/"*
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")
+    case "$scenario" in
+      hook-path)
+        out=$(FM_ADMISSION_TEST_STATE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+      overlay)
+        out=$(FM_ROOT_OVERRIDE="$dir/root" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+      executable)
+        out=$(PATH=/usr/bin:/bin run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+      *) out=$(FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+    esac
+    expect_code "$expected" "$rc" "$scenario admission: $out"
+    [ -z "$diagnostic" ] || assert_contains "$out" "$diagnostic" "$scenario: wrong admission refusal"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
+    pass "admission-only $scenario leaves state and task files byte-identical"
+  done
+  dir=$(new_case sampled-admission ap2)
+  add_ship_task "$dir" ap2 claude
+  out=$(run_admission_only "$dir" claude default 1); rc=$?
+  expect_code 0 "$rc" "sampled admission failed: $out"
+  assert_present "$dir/home/state/machine-admission.log" 'ordinary admission stopped recording resource samples'
+  pass 'ordinary admission still records resource samples'
+}
+
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
 
 test_recovery_refuses_a_shared_copy() {
@@ -4625,6 +4806,8 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+test_adapter_admission_preserves_running_agent
+test_admission_only_has_no_side_effects
 test_relaunch_admission_refusal_preserves_running_agent
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs

@@ -1575,6 +1575,13 @@ relaunch_admission_preflight() {
   local STATE=$STATE FM_HOME=$FM_HOME DATA=$DATA ID=$ID KIND=$KIND BACKEND=$BACKEND
   local CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
   local RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+  local HARNESS=$TARGET_HARNESS MODEL=$TARGET_MODEL EFFORT=$TARGET_EFFORT
+  local RAW_LAUNCH=0 ARG3='' LAUNCH='' EXCLUDE_TOOLS=''
+  local DEVIN_BIN COMMANDCODE_BIN CORTEX_BIN PI_BIN CURSOR_BIN CURSOR_MODELS
+  local OMP_BIN OMP_WORKER_CFG AGY_BIN KIRO_BIN POLYTOKEN_BIN POLYTOKEN_MODEL_REF
+  local OMP_PROFILE_MATE OMP_PROFILE_RAW OMP_PROFILE_PIN
+  local MUSE_BIN MUSE_CONFIG_HOME MUSE_DATA_HOME MUSE_AUTH_FILE KIMI_BIN ROVO_BIN
+  local LAUNCH_ENV_ENABLED LAUNCH_ENV_NAMES
   local BACKLOG_TRANSITION BACKLOG_ROW_STATE BACKLOG_GATE_STATUS spawn_preflight_actor
   local FM_BACKLOG_TRANSITION_SKIP FM_BACKLOG_TRANSITION_ERROR FM_BACKLOG_ROW_RESULT
   local FM_BACKLOG_ROW_STATE FM_BACKLOG_ROW_ERROR FM_BACKLOG_ROW_HOLD_KIND
@@ -1588,9 +1595,15 @@ relaunch_admission_preflight() {
   . "$SCRIPT_DIR/fm-capacity-lib.sh"
   # shellcheck source=bin/fm-spawn-admission-lib.sh
   . "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
+  # shellcheck source=bin/fm-config-inherit-lib.sh
+  . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+  # shellcheck source=bin/fm-cursor-lib.sh
+  . "$SCRIPT_DIR/fm-cursor-lib.sh"
   fm_backend_validate_spawn "$BACKEND" || return $?
+  fm_spawn_launch_env_admit || return $?
+  fm_spawn_adapter_admit || return $?
   fm_spawn_backlog_admit || return $?
-  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" || return $?
+  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
   if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
     echo "error: task $ID has a pending authoritative backlog close; finish or repair it before relaunch" >&2
     return 1
