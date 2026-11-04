@@ -2030,9 +2030,6 @@ spawn_abort_cleanup() {
   if [ -n "$SPAWN_PREPARE_BRIEF_DIR" ]; then
     rm -rf -- "$SPAWN_PREPARE_BRIEF_DIR"
   fi
-  if [ "$status" -ne 0 ] && [ "$SPAWN_COMMIT_STARTED" = 1 ]; then
-    echo "error: commit-phase failure: spawn of $ID failed after preparation succeeded" >&2
-  fi
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$RELEASED_COMMITTED" = 0 ]; then
     trap '' HUP INT TERM
     if [ "$status" -ne 0 ] && [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
@@ -2648,10 +2645,10 @@ if [ "$RELAUNCH" = 1 ]; then
   if [ "$(fm_meta_get "$STATE/$ID.meta" worktree)" = "$STATE/$ID.released-copy" ]; then
     RELAUNCH_FROM_RELEASED=1
     [ "$ADMISSION_ONLY" = 0 ] || { echo 'error: --admission-only requires a retained task copy' >&2; exit 1; }
-    spawn_relaunch_control_lock
   fi
+  if [ "$ADMISSION_ONLY" = 0 ]; then spawn_relaunch_control_lock; fi
 fi
-if [ "$RELAUNCH" -eq 1 ]; then
+if [ "$RELAUNCH" -eq 1 ] && [ "$ADMISSION_ONLY" = 1 ]; then
   SPAWN_CONTROL_LOCK="$STATE/.control-$ID.lock"
   control_owner=$(cat "$SPAWN_CONTROL_LOCK/pid" 2>/dev/null || true)
   if [ "$control_owner" = "$PPID" ] && fm_pid_alive "$control_owner"; then
@@ -2799,7 +2796,7 @@ spawn_task_lock_acquire() {
   fi
   SPAWN_TASK_LOCK_HELD=1
 }
-if [ "$RELAUNCH" = 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then spawn_task_lock_acquire; fi
+if [ "$ADMISSION_ONLY" = 0 ]; then spawn_task_lock_acquire; fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
   echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
   exit 1
@@ -2825,8 +2822,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     exit 1
   }
   spawn_relaunch_record_admit
-  PREPARED_META=$(cat "$RELAUNCH_META") || exit 1
-  if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+  if [ "$ADMISSION_ONLY" = 0 ]; then
     SPAWN_META_LOCK=$(fm_meta_lock_path "$RELAUNCH_META") || exit 1
     fm_lock_acquire_wait "$SPAWN_META_LOCK"
     SPAWN_META_LOCK_HELD=1
@@ -5558,16 +5554,7 @@ if [ "${FM_TEST_SEAM:-0}:${FM_TEST_SPAWN_FAIL_AT:-}" = 1:commit-first ]; then
   echo 'error: injected commit-first failure' >&2
   exit 1
 fi
-if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then spawn_relaunch_control_lock; fi
 if [ "$RELAUNCH" = 1 ]; then
-  if [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
-    spawn_task_lock_acquire
-    SPAWN_META_LOCK=$(fm_meta_lock_path "$RELAUNCH_META") || exit 1
-    fm_lock_acquire_wait "$SPAWN_META_LOCK"
-    SPAWN_META_LOCK_HELD=1
-  fi
-  [ "$PREPARED_META" = "$(cat "$RELAUNCH_META")" ] || { echo 'error: task record changed after preparation' >&2; exit 1; }
-  [ "$RELAUNCH_FROM_RELEASED" = 1 ] || spawn_relaunch_endpoint_admit 0
   [ "$KIND" != secondmate ] || spawn_sync_secondmate
   if [ "$KIND" != secondmate ]; then
     if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then

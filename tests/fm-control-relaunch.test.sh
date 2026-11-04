@@ -79,6 +79,20 @@ SH
 #!/usr/bin/env bash
 set -u
 D=$FM_FAKE_DIR
+if [ -n "${FM_FAKE_PREPARE_WRITER:-}" ] && [ ! -e "$D/prepare-writer-started" ]; then
+  case "$(ps -ww -o args= -p "$PPID" 2>/dev/null)" in
+    *fm-spawn.sh*--admission-only*) ;;
+    *fm-spawn.sh*--relaunch*)
+      : > "$D/prepare-writer-started"
+      "$FM_FAKE_PREPARE_WRITER" </dev/null >"$D/prepare-writer.out" 2>&1 &
+      i=0
+      while [ ! -e "$D/prepare-writer-waiting" ] && [ ! -e "$D/prepare-writer-done" ] && [ "$i" -lt 1000 ]; do
+        /bin/sleep 0.01
+        i=$((i + 1))
+      done
+      ;;
+  esac
+fi
 case "${1:-}" in
   send-keys)
     shift
@@ -4932,16 +4946,15 @@ test_spawn_prepare_refuses_changed_copy_shape() {
     cp "$dir/initial.meta" "$dir/home/state/shape1.meta"
     cat > "$dir/fakebin/cat" <<'CAT'
 #!/usr/bin/env bash
-if [ "$#" = 1 ] && [ "$1" = "$FM_SHAPE_META" ] && [ ! -e "$FM_SHAPE_FLIPPED" ]; then
-  "$FM_SHAPE_REAL_CAT" "$@" || exit $?
+if [ "$#" = 1 ] && [ "$1" = "$FM_SHAPE_TRIGGER" ] && [ ! -e "$FM_SHAPE_FLIPPED" ]; then
   cp "$FM_SHAPE_EXPECTED" "$FM_SHAPE_META" || exit $?
   : > "$FM_SHAPE_FLIPPED"
-  exit 0
 fi
 exec "$FM_SHAPE_REAL_CAT" "$@"
 CAT
     chmod +x "$dir/fakebin/cat"
     out=$(FM_SHAPE_META="$dir/home/state/shape1.meta" FM_SHAPE_EXPECTED="$dir/expected.meta" \
+      FM_SHAPE_TRIGGER="$dir/home/state/.control-shape1.lock/pid" \
       FM_SHAPE_FLIPPED="$dir/flipped" FM_SHAPE_REAL_CAT="$real_cat" \
       run_spawn "$dir" shape1 --relaunch --harness claude); rc=$?
     expect_code 1 "$rc" "$direction must refuse stale preparation: $out"
@@ -4952,6 +4965,44 @@ CAT
     assert_absent "$dir/fake/created-windows" "$direction: stale preparation allocated an endpoint"
     pass "prepare refuses $direction metadata drift before allocation"
   done
+}
+
+test_relaunch_record_writer_during_preparation_does_not_refuse_after_stop() {
+  local dir out rc i=0
+  dir=$(new_case prepare-record-writer pw1)
+  add_ship_task "$dir" pw1 claude
+  cat > "$dir/writer" <<'WRITER'
+#!/usr/bin/env bash
+set -u
+sleep() { /bin/sleep "$@"; }
+. "$FM_WRITER_ROOT/bin/fm-wake-lib.sh"
+lock=$(fm_meta_lock_path "$FM_WRITER_META") || exit 1
+if ! fm_lock_try_acquire "$lock"; then
+  : > "$FM_FAKE_DIR/prepare-writer-waiting"
+  fm_lock_acquire_wait "$lock" || exit 1
+fi
+tmp="$FM_WRITER_META.writer.$$"
+{ grep -v '^review=' "$FM_WRITER_META"; printf 'review=https://example.invalid/review/1\n'; } > "$tmp" &&
+  chmod 0600 "$tmp" && mv -f "$tmp" "$FM_WRITER_META" || exit 1
+fm_lock_release "$lock"
+: > "$FM_FAKE_DIR/prepare-writer-done"
+WRITER
+  chmod +x "$dir/writer"
+  out=$(FM_FAKE_PREPARE_WRITER="$dir/writer" FM_WRITER_ROOT="$ROOT" \
+    FM_WRITER_META="$dir/home/state/pw1.meta" \
+    run_control "$dir" pw1 relaunch --note 'record writer during preparation'); rc=$?
+  while [ ! -e "$dir/fake/prepare-writer-done" ] && [ "$i" -lt 500 ]; do
+    /bin/sleep 0.1
+    i=$((i + 1))
+  done
+  assert_present "$dir/fake/prepare-writer-started" 'the record writer did not run during replacement preparation'
+  expect_code 0 "$rc" "a record writer during preparation refused the relaunch after its old agent stopped"$'\n'"$out"
+  assert_not_contains "$out" 'commit-phase failure' 'a record writer during preparation caused a commit-phase failure'
+  assert_equals claude "$(cat "$dir/fake/command")" 'the replacement agent was not launched'
+  assert_present "$dir/fake/prepare-writer-done" 'the record writer never completed'
+  assert_present "$dir/fake/prepare-writer-waiting" 'the replacement did not hold the task record lock through preparation'
+  assert_equals 'https://example.invalid/review/1' "$(meta_field "$dir" pw1 review)" 'the record writer update was lost'
+  pass 'a record writer during replacement preparation waits instead of refusing the relaunch after stop'
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
@@ -5068,6 +5119,7 @@ test_adapter_admission_preserves_running_agent
 test_configuration_admission_preserves_running_agent
 test_spawn_prepare_commit_boundary
 test_spawn_prepare_refuses_changed_copy_shape
+test_relaunch_record_writer_during_preparation_does_not_refuse_after_stop
 test_admission_only_has_no_side_effects
 test_relaunch_admission_refusal_preserves_running_agent
 test_recovery_refuses_a_shared_copy
