@@ -66,6 +66,18 @@ assert_secondmate_write_fails() {
   fi
 }
 
+# Quota policy follows the existing config convergence, including removal.
+rec=$(new_home_pair quota-gate)
+primary=${rec%%|*}
+second=${rec#*|}
+printf 'rank-only\n' > "$primary/config/quota-gate"
+propagate_secondmate_inheritance "$primary" "$second" >/dev/null
+cmp -s "$primary/config/quota-gate" "$second/config/quota-gate" || fail "quota gate setting was not inherited"
+rm "$primary/config/quota-gate"
+propagate_secondmate_inheritance "$primary" "$second" >/dev/null
+[ ! -e "$second/config/quota-gate" ] || fail "quota gate absence was not inherited"
+pass "quota gate setting and absence converge to secondmates"
+
 test_first_copy_readonly_and_local_files_preserved() {
   local rec primary second report out qcount
   rec=$(new_home_pair first-copy)

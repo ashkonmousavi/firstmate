@@ -364,13 +364,28 @@ fm_quota_gate_explicit() {
   [ "$(printf '%s\n' "$out" | head -1)" != refuse ]
 }
 
+# fm_quota_gate_rank_only <config-dir>
+# Return success only for the exact single-line rank-only setting.
+fm_quota_gate_rank_only() {
+  local file="$1/quota-gate" mode bad
+  [ -f "$file" ] || return 1
+  mode=$(LC_ALL=C awk 'NR == 1 && $0 == "rank-only" { valid=1 }
+    END { if (NR == 1 && valid) print "rank-only" }' "$file")
+  if [ "$mode" = rank-only ]; then
+    return 0
+  fi
+  bad=$(LC_ALL=C awk '{ gsub(/\r/, "\\r"); printf "%s%s", (NR > 1 ? "\\n" : ""), $0 }' "$file")
+  printf "notice: config/quota-gate holds '%s', expected rank-only; retaining quota refusal behavior\n" "$bad" >&2
+  return 1
+}
+
 # fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend> <config> [<mate-id>] [<codex-selected-root>] [<launch-cwd>]
 # The one caller-facing gate step. Takes the snapshot, gates, and prints the
 # outcome on stderr. Sets FM_QUOTA_GATE_EVIDENCE to the one-line verdict and
 # FM_QUOTA_GATE_SNAPSHOT_PATH to the snapshot it read (empty when none), so a
 # caller can record or hand on exactly what it decided from. Returns 1 when
-# the gate refuses and <override-reason> is empty; an override proceeds with
-# a notice naming it.
+# the gate refuses, <override-reason> is empty, and config/quota-gate is not
+# rank-only; an override or that setting proceeds with a notice naming it.
 # shellcheck disable=SC2034  # FM_QUOTA_GATE_* results are read by the sourcing callers
 fm_quota_gate_run() {
   local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 config=$8 mate=${9:-}
@@ -407,7 +422,8 @@ fm_quota_gate_run() {
 # shellcheck disable=SC2034  # FM_QUOTA_GATE_* outputs are read by sourcing callers
 fm_quota_gate_run_folder() {
   local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 config=$8 mate=${9:-}
-  local snap cause verdict reason alt out
+  local snap cause verdict reason alt out rank_only=0
+  fm_quota_gate_rank_only "$config" && rank_only=1
   snap=$(mktemp "${TMPDIR:-/tmp}/fm-quota-gate.XXXXXX") || {
     echo "notice: $who could not stage a quota reading for $harness; launching without the quota check" >&2
     return 0
@@ -434,6 +450,10 @@ fm_quota_gate_run_folder() {
   esac
   [ "$alt" != none ] || alt='none with known runway and spendPriority in this reading'
   FM_QUOTA_GATE_EVIDENCE="$FM_QUOTA_GATE_EVIDENCE; best alternative: $alt"
+  if [ "$rank_only" = 1 ]; then
+    echo "notice: $who quota check for $harness${model:+ $model} ($reason); proceeding under config/quota-gate=rank-only (best alternative: $alt)" >&2
+    return 0
+  fi
   if [ -n "$override" ]; then
     echo "notice: $who quota check refuses $harness${model:+ $model} ($reason); proceeding under --quota-override: $override (best alternative was: $alt)" >&2
     return 0
