@@ -11,6 +11,29 @@ printf '5 3\n' > "$FM_HOME/config/lane-capacity"
 fm_test_machine_policy "$FM_HOME/config"
 printf 'MemTotal: 16777216 kB\nMemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
 printf -- '- mate - local (home: %s; scope: tests; projects: a; added 2026-09-01)\n' "$TMP_ROOT/mate" > "$FM_HOME/data/secondmates.md"
+# Explicitly cleared copies are vacant only after authoritative endpoint loss.
+(
+  cleared_home="$TMP_ROOT/cleared-home"
+  mkdir -p "$cleared_home/"{state,config,data} "$TMP_ROOT/cleared-bin"
+  printf '5 3\n' > "$cleared_home/config/lane-capacity"
+  fm_test_machine_policy "$cleared_home/config"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/cleared-bin/tmux"
+  chmod +x "$TMP_ROOT/cleared-bin/tmux"
+  fm_write_meta "$cleared_home/state/gone.meta" kind=ship window=test:gone worktree=
+  out=$(env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$CAPACITY" --json) || fail 'cleared-copy report failed'
+  jq -e '.lanes == 0 and .free_lanes == 5' <<< "$out" >/dev/null || fail 'gone agent with explicit empty copy still holds a lane'
+  env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$ROOT/bin/fm-lane-release.sh" read-evidence seat "$cleared_home/state/gone.meta" gone; rc=$?
+  expect_code 1 "$rc" 'release reader must report proven vacancy'
+  fm_write_meta "$cleared_home/state/unknown.meta" kind=scout backend=unverified window=test:unknown worktree=
+  fm_write_meta "$cleared_home/state/absent.meta" kind=ship window=test:gone
+  fm_write_meta "$cleared_home/state/missing.meta" kind=ship window=test:gone "worktree=$TMP_ROOT/nonexistent"
+  out=$(env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$CAPACITY" --json) || fail 'uncertain-copy report failed'
+  jq -e '.lanes == 3' <<< "$out" >/dev/null || fail 'unknown endpoint, absent field or missing directory lost its seat'
+  env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$ROOT/bin/fm-lane-release.sh" read-evidence seat "$cleared_home/state/unknown.meta" unknown; rc=$?
+  expect_code 2 "$rc" 'unknown endpoint must remain uncertain in release reader'
+  pass 'explicit empty copies free gone endpoints; unknown and absent evidence retain seats'
+) || exit 1
+
 for n in 1 2 3; do
   fm_write_meta "$FM_HOME/state/task-$n.meta" kind=ship "project=project-$n"
 done
@@ -123,6 +146,21 @@ bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'stale machine never chosen'
 pass 'published facts drive placement; full, unreadable and stale hosts refused'
 
+(
+  printf '1 3\n' > "$FM_HOME/config/lane-capacity"
+  jq '.machine="laptop"' "$TMP_ROOT/server.json" > "$TMP_ROOT/remote.json"
+  out=$(bash "$CAPACITY" --admit --machine-facts "$TMP_ROOT/stale.json" --machine-facts "$TMP_ROOT/remote.json" 2>&1); rc=$?
+  expect_code 75 "$rc" 'remote room must not change local admission'
+  first=${out%%$'\n'*}
+  assert_contains "$first" 'placement=laptop placement_free_lanes=3' 'full capacity first line must name available machine'
+  out=$(bash "$CAPACITY" --machine-facts "$TMP_ROOT/stale.json" --machine-facts "$TMP_ROOT/missing.json" 2>&1) || fail 'unavailable remote facts must not fail local report'
+  case "${out%%$'\n'*}" in *placement=*) fail 'stale or missing facts advertised room' ;; esac
+  printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+  out=$(bash "$CAPACITY" --machine-facts "$TMP_ROOT/remote.json") || fail 'local room report failed'
+  case "${out%%$'\n'*}" in *placement=*) fail 'local room should not suggest remote placement' ;; esac
+  pass 'full capacity line names fresh remote room without changing local admission'
+) || exit 1
+
 # Exercise the record loop through its public read API. Endpoint states are
 # supplied at the existing backend boundary; cwd scans use real processes.
 (
@@ -146,7 +184,7 @@ pass 'published facts drive placement; full, unreadable and stale hosts refused'
     fm_write_meta "$TMP_ROOT/live/state/dead-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/empty-worktree"
   done
   for n in 1 2 3 4 5; do
-    fm_write_meta "$TMP_ROOT/live/state/live-$n.meta" kind=ship "window=live-$n" "worktree=$TMP_ROOT/empty-worktree"
+    fm_write_meta "$TMP_ROOT/live/state/live-$n.meta" kind=ship "window=live-$n" worktree=
   done
   fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
   expect_code 75 "$rc" 'five live workers fill ceiling despite dead records'

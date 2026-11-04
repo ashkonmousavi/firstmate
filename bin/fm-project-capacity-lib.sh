@@ -174,11 +174,13 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 # when the record holds a seat and 1 when it holds none. <raw> is the record's
 # text, <meta> its path, and <state-dir> the state directory that holds it.
 # Only an agent proven dead or missing can free a seat, and then only when the
-# record names bin/fm-teardown.sh's <state-dir>/<id>.released-copy sentinel or
+# record explicitly clears worktree=, names bin/fm-teardown.sh's
+# <state-dir>/<id>.released-copy sentinel, or
 # its worktree is an absolute, readable, searchable directory that resolves to
 # a physical path with no non-shell process working in it or its descendants.
 # Use teardown's bounded cwd scan, never a recursive file-tree walk.
-# A live agent, unknown liveness, a missing or unreadable worktree, or missing,
+# A live agent, unknown liveness, an absent worktree field, a missing or
+# unreadable directory, or missing,
 # unreadable or malformed process evidence keeps the seat.
 # FM_TASK_RECORD_SEAT_KNOWN distinguishes proven occupancy or vacancy (1)
 # from a conservative hold caused by unreadable or uncertain evidence (0).
@@ -194,6 +196,12 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
     *) return 0 ;;
   esac
   worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
+  # An explicit empty field records no retained copy; an absent field is
+  # incomplete evidence and must retain its conservative seat.
+  if [ -z "$worktree" ] && printf '%s\n' "$raw" | grep -q '^worktree='; then
+    FM_TASK_RECORD_SEAT_KNOWN=1
+    return 1
+  fi
   # A teardown-completed record names the <id>.released-copy sentinel, which is
   # never a real directory, so with no live agent it holds no seat.
   [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || { FM_TASK_RECORD_SEAT_KNOWN=1; return 1; }
