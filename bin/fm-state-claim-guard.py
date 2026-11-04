@@ -11,7 +11,8 @@ Other hooks' continuations and changed claims still require a read.
 Unreadable, malformed or turn-boundary-free transcripts fail open except
 capacity claims, which require a successful current-turn activity read.
 Only the last 2 MiB are read, and a real user message must establish the
-current turn inside that window (tool results do not).
+current turn inside that window. Rows holding tool results, even with harness
+reminder text, do not; this guard's own Stop feedback keeps the turn's reads.
 The Stop payload owns final text because transcript writes may lag Stop.
 
 POLICY owns the claim-to-read and optional whole-reply rule tables.
