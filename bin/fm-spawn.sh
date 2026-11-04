@@ -4217,7 +4217,6 @@ effort_flag_for_harness() {
     # its --thinking flag.
     case "$effort" in
     ultra)
-      "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$harness" "$model" "$effort" || return 1
       printf -- '--codex-effort %s ' "$(shell_quote ultra)"
       ;;
     low | medium | high | xhigh | max) printf -- '--thinking %s ' "$(shell_quote "$effort")" ;;
@@ -5347,7 +5346,6 @@ case "$OPENCODE_VERSION" in
 esac
 
 
-EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL" "$OPENCODE_MAJOR") || exit 1
   case "$HARNESS" in
   codex*)
     if fm_busy_codex_semantic_source; then
@@ -8433,6 +8431,7 @@ sq_ompcfg=$(shell_quote "${OMP_WORKER_CFG:-$FM_ROOT/.omp/fm-worker-overlay.yml}"
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
 sq_worktree=$(shell_quote "$WT")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL" "$OPENCODE_MAJOR")
+EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL" "$OPENCODE_MAJOR")
 # A Haiku Claude crew or scout worker runs with an Opus advisor, the pairing
 # the advisor docs list for Haiku 4.5 and Haiku 5.5 alike
 # (https://code.claude.com/docs/en/advisor). --advisor is accepted by claude
