@@ -7284,7 +7284,12 @@ esac
 if (umask 077 && mkdir "$TASK_TMP") 2>/dev/null; then
   { [ "$HARNESS" != polytoken ] && [ "$HARNESS" != codex ]; } || SPAWN_TASK_TMP_CREATED=1
 else
-  chmod 700 "$TASK_TMP" || exit 1
+  if [ -L "$TASK_TMP" ] || [ ! -d "$TASK_TMP" ] || [ ! -O "$TASK_TMP" ] ||
+    [ -n "$(find "$TASK_TMP" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ] ||
+    ! chmod 700 "$TASK_TMP"; then
+    echo "error: task temp root $TASK_TMP already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
+    exit 1
+  fi
 fi
 mkdir -p "$TASK_TMP/gotmp"
 
@@ -8913,12 +8918,21 @@ if [ "$BACKEND" = t3code ]; then
   T3CODE_HOME_ENV=0
 else
   if ! (umask 077 && mkdir "$LAUNCH_DIR") 2>/dev/null; then
-    chmod 700 "$LAUNCH_DIR" || exit 1
+    if [ -L "$LAUNCH_DIR" ] || [ ! -d "$LAUNCH_DIR" ] || [ ! -O "$LAUNCH_DIR" ] ||
+      [ -n "$(find "$LAUNCH_DIR" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ] ||
+      ! chmod 700 "$LAUNCH_DIR"; then
+      echo "error: task launch directory $LAUNCH_DIR already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
+      exit 1
+    fi
   fi
   if [ "$ORCA_LAUNCH_ENV_ENABLED" = 1 ]; then
     # The sourcing shell already holds the open file; unlink the credentials
     # before launching the worker, including on a later command failure.
     LAUNCH="command rm -- $(shell_quote "$LAUNCH_FILE") || { echo 'error: cannot remove private launch file; refusing worker launch' >&2; return 1 2>/dev/null || exit 1; }; $LAUNCH"
+  fi
+  if [ -e "$LAUNCH_FILE" ] || [ -L "$LAUNCH_FILE" ]; then
+    echo "error: task launch file $LAUNCH_FILE already exists; refusing to replace it" >&2
+    exit 1
   fi
   if ! (umask 077 && printf '%s\n' "$LAUNCH" >"$LAUNCH_STAGE" &&
     chmod 0600 "$LAUNCH_STAGE" && mv -f "$LAUNCH_STAGE" "$LAUNCH_FILE"); then
