@@ -1,0 +1,172 @@
+Live CLI evidence, 2026-11-03 PT; Claude Code 2.1.318
+
+$ bash ~/.config/skills-master/.agents/skills/activity/activity.sh --machine-json ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l
+exit=0
+{"schema": "fm-activity-lanes.v1", "generated_epoch": 1793753657.098559, "readable": true, "lanes": 3, "target": 10, "free_lanes": 7, "source": "activity.sh live-process lister"}
+
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh --admit
+exit=0
+capacity: free_lanes=7 reason=ok lanes=3 target=10 secondmates=0 load1=7.89 cores=12 mem_free_pct=30 disk_free_mb=398766 mem_available_kb=7467628 reserve_kb=0 headroom_kb=7467628
+Lanes: 3 of 10; 7 open. Memory headroom: 7467628 kB.
+Host: load 7.89 on 12 cores, memory free 30%, disk free 398766 MB.
+
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-fleet-view.sh --capacity
+exit=0
+capacity: free_lanes=7 reason=ok lanes=3 target=10 secondmates=0 load1=7.50 cores=12 mem_free_pct=30 disk_free_mb=398792 mem_available_kb=7372844 reserve_kb=0 headroom_kb=7372844
+Lanes: 3 of 10; 7 open. Memory headroom: 7372844 kB.
+Host: load 7.50 on 12 cores, memory free 30%, disk free 398792 MB.
+
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh --publish
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793753666,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity","admitted":true,"lanes":3,"target":10,"free_lanes":7,"secondmates":0,"mem_available_kb":7374720,"reserve_kb":0,"headroom_kb":7374720,"resource_policy_sha256":"74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb","memory_floor_kb":0,"effective_available_kb":7374720,"memory_full_avg60":0.92,"disk_free_min_kb":408359052}
+
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=7 reason=memory lanes=3 target=10 secondmates=0 load1=6.98 cores=12 mem_free_pct=30 disk_free_mb=398838 mem_available_kb=7442740 reserve_kb=0 headroom_kb=7442740
+Lanes: 3 of 10; 7 open. Memory headroom: 7442740 kB.
+Host: load 6.98 on 12 cores, memory free 30%, disk free 398838 MB.
+
+fm-capacity: Required cache-aware effective memory floor not met: available_bytes=7621365760 floor_bytes=1073740750258176 pressure_full_avg60=0.86 pressure_limit=100; available_kb=7442740 pressure_full_avg60=0.86 floor_kb=1048574951424 reserve_kb=0 pressure_limit=100
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 load1=6.82 cores=12 mem_free_pct=30 disk_free_mb=398836 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+Host: load 6.82 on 12 cores, memory free 30%, disk free 398836 MB.
+
+fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity reading 'bad': expected <lane-ceiling> <memory-reserve-gb>; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=10 secondmates=0 load1=6.82 cores=12 mem_free_pct=30 disk_free_mb=398836 mem_available_kb=7559520 reserve_kb=0 headroom_kb=7559520
+Lanes: 0 of 10; 0 open. Memory headroom: 7559520 kB.
+Host: load 6.82 on 12 cores, memory free 30%, disk free 398836 MB.
+
+bash: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/empty-user/.config/skills-master/.agents/skills/activity/activity.sh: No such file or directory
+fm-capacity: activity live-process lane reader unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/empty-user/.config/skills-master/.agents/skills/activity/activity.sh; available_kb=7559520 pressure_full_avg60=0.8 floor_kb=0 reserve_kb=0 pressure_limit=100
+
+REAL CLAUDE STOP: incident-no-read
+Assistant: Laptop 8 live of 8, admission no.
+Stop exit=2
+State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.
+Read activity.sh successfully in this turn; check-wake prose is not a read.
+
+Assistant: Recorded.
+Stop exit=0
+
+REAL CLAUDE STOP: check-wake-only
+Assistant: Laptop 8 live of 8, admission no.
+Stop exit=2
+State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.
+Read activity.sh successfully in this turn; check-wake prose is not a read.
+
+Assistant: Recorded.
+Stop exit=0
+
+REAL CLAUDE STOP: successful-read
+Assistant: PC: 0 working, 10 available.
+Stop exit=0
+
+REAL CLAUDE STOP: failed-read
+Assistant: Laptop 8 live of 8, admission no.
+Stop exit=2
+State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.
+Read activity.sh successfully in this turn; check-wake prose is not a read.
+
+Assistant: Recorded.
+Stop exit=0
+
+REAL CLAUDE STOP: formatted-question
+Assistant: 👉 How many lanes are free?
+Stop exit=0
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add explicit Owner asked for the counter
+exit=2
+
+fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh create alias Captain requested this
+exit=2
+
+fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add body Ordinary title --body The owner said fix the counter.
+exit=2
+
+fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add Owner request --mint
+exit=2
+
+fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add bodyfile Normal title --body-file ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/body.md
+exit=2
+
+fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add ordinary Fix queue rendering
+exit=0
+ok: added ordinary -> Queued
+task:
+  id: ordinary
+  title: Fix queue rendering
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start ordinary` to move it to in flight
+  - Run `tasks-axi block ordinary --by <other>` to record a dependency
+
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh add owner-asks Owner asks for the explanation --owner-request-file ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/request.json
+exit=0
+ok: added owner-asks -> Queued
+task:
+  id: owner-asks
+  title: Owner asks for the explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake\",\"origin_task_id\":\"owner-asks\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"requirement-0\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-0\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"dispos\n... (truncated, 13664 chars total - use show owner-asks --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-asks` to move it to in flight
+  - Run `tasks-axi block owner-asks --by <other>` to record a dependency
+
+
+$ python3 -B ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-request-acceptance.py open-summary --home ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake
+exit=0
+{"items": [{"id": "owner-asks", "open_requirements": 35, "requirements": 35, "sources": 17}], "open_requirements": 35, "readable": true, "sources": 17, "tasks": 1}
+
+
+$ python3 -B ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-request-acceptance.py open-summary --home ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/unknown
+exit=2
+
+fm-request-acceptance: native owner-request read failed

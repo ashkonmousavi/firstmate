@@ -1,0 +1,332 @@
+[
+  {
+    "case": "incident-no-read",
+    "version": "2.1.318 (Claude Code)",
+    "command": [
+      "claude",
+      "-p",
+      "This is an isolated Stop-hook regression. Do not call tools. Reply exactly: Laptop 8 live of 8, admission no. If a Stop hook blocks this reply, reply exactly: Recorded.",
+      "--dangerously-skip-permissions",
+      "--model",
+      "haiku",
+      "--effort",
+      "low",
+      "--setting-sources",
+      "",
+      "--settings",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--system-prompt",
+      "Follow the isolated regression prompt exactly. Only the specified Bash read is authorized. Do not perform other work.",
+      "--tools",
+      "",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--max-turns",
+      "6"
+    ],
+    "exit": 0,
+    "events": [
+      {
+        "payload": {
+          "session_id": "f1baed86-d38c-494d-b616-b9b3f32901f0",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/f1baed86-d38c-494d-b616-b9b3f32901f0.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": false,
+          "last_assistant_message": "Laptop 8 live of 8, admission no.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 2,
+        "stdout": "",
+        "stderr": "State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+      },
+      {
+        "payload": {
+          "session_id": "f1baed86-d38c-494d-b616-b9b3f32901f0",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/f1baed86-d38c-494d-b616-b9b3f32901f0.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": true,
+          "last_assistant_message": "Recorded.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": "check-wake-only",
+    "version": "2.1.318 (Claude Code)",
+    "command": [
+      "claude",
+      "-p",
+      "check-wake activity.sh: Laptop 8 live of 8, admission no.\nThis is an isolated Stop-hook regression. Do not call tools. Reply exactly: Laptop 8 live of 8, admission no. If a Stop hook blocks this reply, reply exactly: Recorded.",
+      "--dangerously-skip-permissions",
+      "--model",
+      "haiku",
+      "--effort",
+      "low",
+      "--setting-sources",
+      "",
+      "--settings",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--system-prompt",
+      "Follow the isolated regression prompt exactly. Only the specified Bash read is authorized. Do not perform other work.",
+      "--tools",
+      "",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--max-turns",
+      "6"
+    ],
+    "exit": 0,
+    "events": [
+      {
+        "payload": {
+          "session_id": "8952136a-80e2-4ebe-9474-d5dafd4fd9a1",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/8952136a-80e2-4ebe-9474-d5dafd4fd9a1.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "8cf17b48-cd1f-4409-b91c-99b812932a93",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": false,
+          "last_assistant_message": "Laptop 8 live of 8, admission no.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 2,
+        "stdout": "",
+        "stderr": "State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+      },
+      {
+        "payload": {
+          "session_id": "8952136a-80e2-4ebe-9474-d5dafd4fd9a1",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/8952136a-80e2-4ebe-9474-d5dafd4fd9a1.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "8cf17b48-cd1f-4409-b91c-99b812932a93",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": true,
+          "last_assistant_message": "Recorded.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": "successful-read",
+    "version": "2.1.318 (Claude Code)",
+    "command": [
+      "claude",
+      "-p",
+      "This is an isolated Stop-hook regression. First use Bash to run exactly: bash ~/.config/skills-master/.agents/skills/activity/activity.sh --machine-json ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c\nThen reply exactly: PC: 0 working, 10 available. If a Stop hook blocks the reply, reply exactly: Recorded. Never retry a tool after a hook block.",
+      "--dangerously-skip-permissions",
+      "--model",
+      "haiku",
+      "--effort",
+      "low",
+      "--setting-sources",
+      "",
+      "--settings",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--system-prompt",
+      "Follow the isolated regression prompt exactly. Only the specified Bash read is authorized. Do not perform other work.",
+      "--tools",
+      "Bash",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--max-turns",
+      "6"
+    ],
+    "exit": 0,
+    "events": [
+      {
+        "payload": {
+          "session_id": "8a62ec21-1bbb-486d-9e2f-f1fc1a14725d",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/8a62ec21-1bbb-486d-9e2f-f1fc1a14725d.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "1ea783cb-e534-4f99-8447-01bd96ce8150",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": false,
+          "last_assistant_message": "PC: 0 working, 10 available.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": "failed-read",
+    "version": "2.1.318 (Claude Code)",
+    "command": [
+      "claude",
+      "-p",
+      "This is an isolated Stop-hook regression. First use Bash to run exactly: bash ~/.config/skills-master/.agents/skills/activity/activity.sh --machine-json ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/missing\nThen reply exactly: Laptop 8 live of 8, admission no. If a Stop hook blocks the reply, reply exactly: Recorded. Never retry a tool after a hook block.",
+      "--dangerously-skip-permissions",
+      "--model",
+      "haiku",
+      "--effort",
+      "low",
+      "--setting-sources",
+      "",
+      "--settings",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--system-prompt",
+      "Follow the isolated regression prompt exactly. Only the specified Bash read is authorized. Do not perform other work.",
+      "--tools",
+      "Bash",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--max-turns",
+      "6"
+    ],
+    "exit": 0,
+    "events": [
+      {
+        "payload": {
+          "session_id": "fdbac435-0135-4455-b04d-2a72d7e486de",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/fdbac435-0135-4455-b04d-2a72d7e486de.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "8f926885-59e0-452c-b9e2-fd84ab729e4e",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": false,
+          "last_assistant_message": "Laptop 8 live of 8, admission no.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 2,
+        "stdout": "",
+        "stderr": "State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+      },
+      {
+        "payload": {
+          "session_id": "fdbac435-0135-4455-b04d-2a72d7e486de",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/fdbac435-0135-4455-b04d-2a72d7e486de.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "8f926885-59e0-452c-b9e2-fd84ab729e4e",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": true,
+          "last_assistant_message": "Recorded.",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "case": "formatted-question",
+    "version": "2.1.318 (Claude Code)",
+    "command": [
+      "claude",
+      "-p",
+      "This is an isolated Stop-hook regression. Do not call tools. Reply exactly: \ud83d\udc49 How many lanes are free?",
+      "--dangerously-skip-permissions",
+      "--model",
+      "haiku",
+      "--effort",
+      "low",
+      "--setting-sources",
+      "",
+      "--settings",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/c/settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--system-prompt",
+      "Follow the isolated regression prompt exactly. Only the specified Bash read is authorized. Do not perform other work.",
+      "--tools",
+      "",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--max-turns",
+      "6"
+    ],
+    "exit": 0,
+    "events": [
+      {
+        "payload": {
+          "session_id": "255eddfb-108d-45bd-afdd-ac4a0df393ae",
+          "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6HVSX6XW3XZP10BEN54C09Z/255eddfb-108d-45bd-afdd-ac4a0df393ae.jsonl",
+          "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+          "prompt_id": "c8b2ed4f-8884-423c-af94-a6a620c974f5",
+          "permission_mode": "bypassPermissions",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "Stop",
+          "stop_hook_active": false,
+          "last_assistant_message": "\ud83d\udc49 How many lanes are free?",
+          "background_tasks": [],
+          "session_crons": []
+        },
+        "rc": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "stderr": ""
+  }
+]

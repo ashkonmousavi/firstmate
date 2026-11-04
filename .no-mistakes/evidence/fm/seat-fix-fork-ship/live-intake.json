@@ -1,0 +1,133 @@
+[
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "explicit",
+      "Owner asked for the counter"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "create",
+      "alias",
+      "Captain requested this"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "body",
+      "Ordinary title",
+      "--body",
+      "The owner said fix the counter."
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "Owner request",
+      "--mint"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "bodyfile",
+      "Normal title",
+      "--body-file",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/body.md"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-tasks-axi: owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "ordinary",
+      "Fix queue rendering"
+    ],
+    "exit": 0,
+    "stdout": "ok: added ordinary -> Queued\ntask:\n  id: ordinary\n  title: Fix queue rendering\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-03\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi start ordinary` to move it to in flight\n  - Run `tasks-axi block ordinary --by <other>` to record a dependency\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "add",
+      "owner-asks",
+      "Owner asks for the explanation",
+      "--owner-request-file",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/request.json"
+    ],
+    "exit": 0,
+    "stdout": "ok: added owner-asks -> Queued\ntask:\n  id: owner-asks\n  title: Owner asks for the explanation\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-03\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake\\\",\\\"origin_task_id\\\":\\\"owner-asks\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-0\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-0\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"dispos\\n... (truncated, 13664 chars total - use show owner-asks --full to see complete text)\"\nhelp[2]:\n  - Run `tasks-axi start owner-asks` to move it to in flight\n  - Run `tasks-axi block owner-asks --by <other>` to record a dependency\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-tasks-axi.sh",
+      "show",
+      "owner-asks",
+      "--full"
+    ],
+    "exit": 0,
+    "stdout": "task:\n  id: owner-asks\n  title: Owner asks for the explanation\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-03\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake\\\",\\\"origin_task_id\\\":\\\"owner-asks\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-0\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-0\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-1\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-2\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-2\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-3\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-3\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-4\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-4\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-5\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-5\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-6\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-6\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-7\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-7\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-8\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-8\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-9\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-9\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-10\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-10\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-11\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-11\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-12\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-12\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-13\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-13\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-14\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-14\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-15\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-15\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-16\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-16\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-17\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-0\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-18\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-1\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-19\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-2\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-20\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-3\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-21\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-4\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-22\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-5\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-23\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-6\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-24\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-7\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-25\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-8\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-26\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-9\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-27\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-10\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-28\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-11\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-29\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-12\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-30\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-13\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-31\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-14\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-32\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-15\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-33\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-16\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"},{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"requirement-34\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"source-0\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Explain the result\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-0\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-1\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-2\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-3\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-4\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-5\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-6\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-7\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-8\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-9\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-10\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-11\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-12\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-13\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-14\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-15\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"},{\\\"file_ref\\\":\\\"old-session.json\\\",\\\"full_text\\\":\\\"Explain the result\\\",\\\"full_text_sha256\\\":\\\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\\\",\\\"message_uuid\\\":\\\"source-16\\\",\\\"session_id\\\":\\\"session-1\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "-B",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-request-acceptance.py",
+      "open-summary",
+      "--home",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake"
+    ],
+    "exit": 0,
+    "stdout": "{\"items\": [{\"id\": \"owner-asks\", \"open_requirements\": 35, \"requirements\": 35, \"sources\": 17}], \"open_requirements\": 35, \"readable\": true, \"sources\": 17, \"tasks\": 1}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "-B",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-request-acceptance.py",
+      "open-summary",
+      "--home",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/.test-phase-tmp/intake/unknown"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "fm-request-acceptance: native owner-request read failed\n"
+  },
+  {
+    "result": "PASS: unauthorized owner intake refuses without mutation across add/create, minted IDs and literal/file bodies; ordinary and complete packet intake succeed; native summary reports 35 requirements, 17 sources and one task; unavailable native reader refuses"
+  }
+]

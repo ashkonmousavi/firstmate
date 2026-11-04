@@ -1,0 +1,275 @@
+[
+  {
+    "case": "capacity retry stays blocked",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": true,
+      "last_assistant_message": "Laptop 8 live of 8, admission no.",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "State claim needs a same-turn read (capacity): Laptop 8 live of 8, admission no.\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+  },
+  {
+    "case": "mixed assertion cannot borrow question exemption",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "PC has 2 free; should I fill them?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "State claim needs a same-turn read (capacity): PC has 2 free\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+  },
+  {
+    "case": "pure question remains allowed",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "How many lanes are free?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "case": "mixed assertion cannot borrow question exemption",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "\ud83d\udc49 PC has 2 free; should I fill them?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "State claim needs a same-turn read (capacity): \ud83d\udc49 PC has 2 free\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+  },
+  {
+    "case": "pure question remains allowed",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "\ud83d\udc49 How many lanes are free?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "case": "mixed assertion cannot borrow question exemption",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "- PC has 2 free; should I fill them?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "State claim needs a same-turn read (capacity): - PC has 2 free\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+  },
+  {
+    "case": "pure question remains allowed",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "- How many lanes are free?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "case": "mixed assertion cannot borrow question exemption",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "1. PC has 2 free; should I fill them?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "State claim needs a same-turn read (capacity): PC has 2 free\nRead activity.sh successfully in this turn; check-wake prose is not a read.\n"
+  },
+  {
+    "case": "pure question remains allowed",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "1. How many lanes are free?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "case": "configured ask-first policy blocks",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "The task is done. Should I proceed?",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "Reply shape: Put the ask on the first line starting with \ud83d\udc49, with bold keywords and a one-letter answer. This check blocks only once.\n"
+  },
+  {
+    "case": "configured pacific-times policy blocks",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "The task finished at 12:30 UTC.",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "Reply shape: Use local Pacific time in chat; keep UTC timestamps inside quoted records. This check blocks only once.\n"
+  },
+  {
+    "case": "configured pr-urls policy blocks",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "PR #219 is ready.",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "Reply shape: Include each named PR's recorded full HTTPS URL; if none is available, disclose 'URL unavailable'. This check blocks only once.\n"
+  },
+  {
+    "case": "configured permitted prose",
+    "payload": {
+      "session_id": "native-replay",
+      "transcript_path": "~/.no-mistakes/evidence/01M6HVSX6XW3XZP10BEN54C09Z/incident-no-read-transcript-1.jsonl",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z",
+      "prompt_id": "94d35cbd-4d53-4ae5-ba02-912f6558d9c3",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "Stop",
+      "stop_hook_active": false,
+      "last_assistant_message": "\ud83d\udc49 **Proceed?** A) Continue",
+      "background_tasks": [],
+      "session_crons": []
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

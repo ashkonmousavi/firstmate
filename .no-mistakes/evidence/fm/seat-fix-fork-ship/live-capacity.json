@@ -1,0 +1,158 @@
+[
+  {
+    "command": [
+      "bash",
+      "~/.config/skills-master/.agents/skills/activity/activity.sh",
+      "--machine-json",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\": \"fm-activity-lanes.v1\", \"generated_epoch\": 1793753657.098559, \"readable\": true, \"lanes\": 3, \"target\": 10, \"free_lanes\": 7, \"source\": \"activity.sh live-process lister\"}\n",
+    "stderr": ""
+  },
+  {
+    "live_pid": 96523,
+    "comm": "claude\n",
+    "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/worker-0"
+  },
+  {
+    "live_pid": 96524,
+    "comm": "claude\n",
+    "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/worker-1"
+  },
+  {
+    "live_pid": 96525,
+    "comm": "claude\n",
+    "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/worker-2"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-lane-capacity.v1\",\"machine\":\"Pulse\",\"generated_epoch\":1793753659,\"readable\":true,\"reason\":\"ok\",\"error\":\"\",\"config_file\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity\",\"admitted\":true,\"lanes\":3,\"target\":10,\"free_lanes\":7,\"secondmates\":0,\"mem_available_kb\":7627288,\"reserve_kb\":0,\"headroom_kb\":7627288,\"resource_policy_sha256\":\"74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb\",\"memory_floor_kb\":0,\"effective_available_kb\":7627288,\"memory_full_avg60\":0.88,\"disk_free_min_kb\":408387252}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-fleet-ledger.sh",
+      "capacity",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-lane-capacity.v1\",\"machine\":\"Pulse\",\"generated_epoch\":1793753661,\"readable\":true,\"reason\":\"ok\",\"error\":\"\",\"config_file\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity\",\"admitted\":true,\"lanes\":3,\"target\":10,\"free_lanes\":7,\"secondmates\":0,\"mem_available_kb\":7639932,\"reserve_kb\":0,\"headroom_kb\":7639932,\"resource_policy_sha256\":\"74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb\",\"memory_floor_kb\":0,\"effective_available_kb\":7639932,\"memory_full_avg60\":0.98,\"disk_free_min_kb\":408384684}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--admit"
+    ],
+    "exit": 0,
+    "stdout": "capacity: free_lanes=7 reason=ok lanes=3 target=10 secondmates=0 load1=7.89 cores=12 mem_free_pct=30 disk_free_mb=398766 mem_available_kb=7467628 reserve_kb=0 headroom_kb=7467628\nLanes: 3 of 10; 7 open. Memory headroom: 7467628 kB.\nHost: load 7.89 on 12 cores, memory free 30%, disk free 398766 MB.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-fleet-view.sh",
+      "--capacity"
+    ],
+    "exit": 0,
+    "stdout": "capacity: free_lanes=7 reason=ok lanes=3 target=10 secondmates=0 load1=7.50 cores=12 mem_free_pct=30 disk_free_mb=398792 mem_available_kb=7372844 reserve_kb=0 headroom_kb=7372844\nLanes: 3 of 10; 7 open. Memory headroom: 7372844 kB.\nHost: load 7.50 on 12 cores, memory free 30%, disk free 398792 MB.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--publish"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-lane-capacity.v1\",\"machine\":\"Pulse\",\"generated_epoch\":1793753666,\"readable\":true,\"reason\":\"ok\",\"error\":\"\",\"config_file\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity\",\"admitted\":true,\"lanes\":3,\"target\":10,\"free_lanes\":7,\"secondmates\":0,\"mem_available_kb\":7374720,\"reserve_kb\":0,\"headroom_kb\":7374720,\"resource_policy_sha256\":\"74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb\",\"memory_floor_kb\":0,\"effective_available_kb\":7374720,\"memory_full_avg60\":0.92,\"disk_free_min_kb\":408359052}\n",
+    "stderr": ""
+  },
+  {
+    "published_capacity": {
+      "schema": "fm-lane-capacity.v1",
+      "machine": "Pulse",
+      "generated_epoch": 1793753666,
+      "readable": true,
+      "reason": "ok",
+      "error": "",
+      "config_file": "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity",
+      "admitted": true,
+      "lanes": 3,
+      "target": 10,
+      "free_lanes": 7,
+      "secondmates": 0,
+      "mem_available_kb": 7374720,
+      "reserve_kb": 0,
+      "headroom_kb": 7374720,
+      "resource_policy_sha256": "74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb",
+      "memory_floor_kb": 0,
+      "effective_available_kb": 7374720,
+      "memory_full_avg60": 0.92,
+      "disk_free_min_kb": 408359052
+    }
+  },
+  {
+    "command": [
+      "bash",
+      "-c",
+      "for f in fm-wake-lib.sh fm-backend.sh fm-secondmate-registry-lib.sh fm-project-capacity-lib.sh fm-capacity-lib.sh; do source \"$1/bin/$f\"; done; fm_capacity_read \"$FM_HOME\" \"$FM_HOME/config\" \"$FM_HOME/state\" worker-0; fm_capacity_json",
+      "replace",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-lane-capacity.v1\",\"machine\":\"Pulse\",\"generated_epoch\":1793753668,\"readable\":true,\"reason\":\"ok\",\"error\":\"\",\"config_file\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity\",\"admitted\":true,\"lanes\":2,\"target\":10,\"free_lanes\":8,\"secondmates\":0,\"mem_available_kb\":7382336,\"reserve_kb\":0,\"headroom_kb\":7382336,\"resource_policy_sha256\":\"74c15999e44c4ecd172d3b185a5610f14eb11ad173161bef6adb8b27fa5c52eb\",\"memory_floor_kb\":0,\"effective_available_kb\":7382336,\"memory_full_avg60\":0.89,\"disk_free_min_kb\":408375956}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--admit"
+    ],
+    "exit": 75,
+    "stdout": "capacity: free_lanes=7 reason=memory lanes=3 target=10 secondmates=0 load1=6.98 cores=12 mem_free_pct=30 disk_free_mb=398838 mem_available_kb=7442740 reserve_kb=0 headroom_kb=7442740\nLanes: 3 of 10; 7 open. Memory headroom: 7442740 kB.\nHost: load 6.98 on 12 cores, memory free 30%, disk free 398838 MB.\n",
+    "stderr": "fm-capacity: Required cache-aware effective memory floor not met: available_bytes=7621365760 floor_bytes=1073740750258176 pressure_full_avg60=0.86 pressure_limit=100; available_kb=7442740 pressure_full_avg60=0.86 floor_kb=1048574951424 reserve_kb=0 pressure_limit=100\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-lane-capacity.v1\",\"machine\":\"Pulse\",\"generated_epoch\":1793753672,\"readable\":true,\"reason\":\"memory\",\"error\":\"Required cache-aware effective memory floor not met: available_bytes=7606296576 floor_bytes=1073740750258176 pressure_full_avg60=0.83 pressure_limit=100; available_kb=7428024 pressure_full_avg60=0.83 floor_kb=1048574951424 reserve_kb=0 pressure_limit=100\",\"config_file\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity\",\"admitted\":false,\"lanes\":3,\"target\":10,\"free_lanes\":7,\"secondmates\":0,\"mem_available_kb\":7428024,\"reserve_kb\":0,\"headroom_kb\":7428024,\"resource_policy_sha256\":\"23702a52a7bc30e491ec2c034a1ced227c8c0159d9c2087c5d0eecb54295fc0c\",\"memory_floor_kb\":1048574951424,\"effective_available_kb\":7428024,\"memory_full_avg60\":0.83,\"disk_free_min_kb\":408409808}\n",
+    "stderr": "fm-capacity: Required cache-aware effective memory floor not met: available_bytes=7606296576 floor_bytes=1073740750258176 pressure_full_avg60=0.83 pressure_limit=100; available_kb=7428024 pressure_full_avg60=0.83 floor_kb=1048574951424 reserve_kb=0 pressure_limit=100\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--admit"
+    ],
+    "exit": 75,
+    "stdout": "capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 load1=6.82 cores=12 mem_free_pct=30 disk_free_mb=398836 mem_available_kb=0 reserve_kb=0 headroom_kb=0\nLanes: 0 of 0; 0 open. Memory headroom: 0 kB.\nHost: load 6.82 on 12 cores, memory free 30%, disk free 398836 MB.\n",
+    "stderr": "fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/config/lane-capacity reading 'bad': expected <lane-ceiling> <memory-reserve-gb>; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown\n"
+  },
+  {
+    "command": [
+      "bash",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/bin/fm-capacity.sh",
+      "--admit"
+    ],
+    "exit": 75,
+    "stdout": "capacity: free_lanes=0 reason=unreadable lanes=0 target=10 secondmates=0 load1=6.82 cores=12 mem_free_pct=30 disk_free_mb=398836 mem_available_kb=7559520 reserve_kb=0 headroom_kb=7559520\nLanes: 0 of 10; 0 open. Memory headroom: 7559520 kB.\nHost: load 6.82 on 12 cores, memory free 30%, disk free 398836 MB.\n",
+    "stderr": "bash: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/empty-user/.config/skills-master/.agents/skills/activity/activity.sh: No such file or directory\nfm-capacity: activity live-process lane reader unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6HVSX6XW3XZP10BEN54C09Z/l/empty-user/.config/skills-master/.agents/skills/activity/activity.sh; available_kb=7559520 pressure_full_avg60=0.8 floor_kb=0 reserve_kb=0 pressure_limit=100\n"
+  },
+  {
+    "result": "PASS: eight records, three genuine Claude processes, 3/10 occupied and 7 free across public consumers; replacement=2/10; measured memory refusal preserves seven physical seats; broken config and unavailable reader fail closed"
+  }
+]
