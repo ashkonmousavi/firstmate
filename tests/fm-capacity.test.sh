@@ -5,6 +5,7 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 TMP_ROOT=$(fm_test_tmproot fm-capacity)
 CAPACITY="$ROOT/bin/fm-capacity.sh"
+PRESSURE_CAPTURE="$ROOT/tests/captures/capacity-pressure"
 export FM_ACTIVITY_READER="$TMP_ROOT/activity.sh" FM_CAPACITY_ACTIVITY_FACTS="$TMP_ROOT/activity.json"
 cat > "$FM_ACTIVITY_READER" <<'SH'
 #!/usr/bin/env bash
@@ -279,7 +280,7 @@ test_cgroup_memory() {
     printf 'max\n' > "$group/memory.max"
     printf '4294967296\n' > "$group/memory.current"
     printf 'file 0\nshmem 0\nactive_file 0\ninactive_file 0\nfile_dirty 0\nfile_writeback 0\n' > "$group/memory.stat"
-    cp "$ROOT/tests/captures/capacity-pressure" "$group/memory.pressure"
+    cp "$PRESSURE_CAPTURE" "$group/memory.pressure"
   done
   printf '17179869184\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
   printf '21474836480\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.current"

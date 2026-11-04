@@ -105,6 +105,7 @@ fm_project_capacity_config_dir() {  # <spawning-home> <spawning-config-dir>
 # to the project's capacity, or to empty when the project declares none, and
 # FM_PROJECT_CAPACITY_ANY to 1 when the declaration caps any project at all.
 # Returns 1 with FM_PROJECT_CAPACITY_ERROR when the declaration is unreadable.
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_project_capacity_lookup() {  # <config-dir> <project-name>
   local name=$2 line lineno=0 pname pcap seen='|'
   FM_PROJECT_CAPACITY_FILE="$1/project-capacity"
@@ -182,6 +183,7 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 # unreadable or malformed process evidence keeps the seat.
 # FM_TASK_RECORD_SEAT_KNOWN distinguishes proven occupancy or vacancy (1)
 # from a conservative hold caused by unreadable or uncertain evidence (0).
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
   local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
   local holds name args argv0
@@ -248,6 +250,7 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
 # FM_PROJECT_CAPACITY_ERROR when the local homes cannot be enumerated, or when
 # a state directory or task record in them cannot be read, since skipping it
 # could undercount the holders.
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> <own-id>
   local want=$1 own=$2 first=$3 self=$4 state meta kind project lock id label i
   local -a cache_dirs cache_locks
