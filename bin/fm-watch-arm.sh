@@ -627,6 +627,9 @@ stop_home_watcher() {
   lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
   fm_pid_alive "$lock_pid" || return 0
   if fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME"; then
+    # An owner's deliberate stop is not an outage: the handover rule that
+    # take_over_cycle applies keeps an acknowledged episode retired.
+    fm_recovery_marker_handover_snapshot "$STATE/.watcher-down" || true
     kill -TERM "$lock_pid" 2>/dev/null || true
     i=0
     while [ "$i" -lt 50 ] && fm_pid_alive "$lock_pid"; do
@@ -634,6 +637,12 @@ stop_home_watcher() {
       i=$((i + 1))
     done
     STOPPED_PID=$lock_pid
+    if ! fm_pid_alive "$lock_pid"; then
+      fm_recovery_marker_handover_restore "$STATE/.watcher-down" \
+        "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" || true
+      fm_recovery_marker_handover_clear_stale "$STATE/.watcher-down" \
+        "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" "$WATCH_LOCK" "$lock_pid" || true
+    fi
   elif ! clear_stale_recorded_watcher_lock; then
     echo "watcher: FAILED - stale watcher recovery state could not be persisted" >&2
     return 1
@@ -698,6 +707,8 @@ take_over_cycle() {  # <watcher-pid> <identity>
   if [ "$owner_signal" = TERM ]; then
     fm_recovery_marker_handover_restore "$STATE/.watcher-down" \
       "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" || true
+    fm_recovery_marker_handover_clear_stale "$STATE/.watcher-down" \
+      "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" "$WATCH_LOCK" "$pid" || true
     cycle_log_append unknown unknown taken-over none
   else
     cycle_log_append unknown unknown taken-over-unconfirmed-stop none
