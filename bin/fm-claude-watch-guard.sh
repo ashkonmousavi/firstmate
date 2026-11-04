@@ -6,7 +6,7 @@
 # a healthy watcher or an open Stop auto-arm claim, and otherwise runs the
 # existing home-scoped arm wrapper. Stop still owns wake delivery and the host.
 # --check: synchronous PreToolUse hook; warn while a cycle is absent, refuse
-# fm-spawn.sh/fm-send.sh once the beacon reaches FM_GUARD_GRACE (default 300s).
+# recognized fleet calls through the shared fm-claude-watch-admission.sh owner.
 # Reads and the home-scoped repair command remain available. Fresh beats clear
 # immediately; there is no persistent denial latch. stdout is Claude JSON for
 # warnings, stderr + exit 2 denies. Workers, foreign primaries and away/daemon

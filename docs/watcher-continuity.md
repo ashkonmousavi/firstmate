@@ -133,7 +133,7 @@ The beacon is `state/.last-watcher-beat`, which only the watcher process touches
 
 ### Supervision host
 
-On a non-Pi primary, a home that runs the supervision host runs `bin/fm-supervision-host.sh` in place of the arm its re-arm owner would start.
+On a non-Pi primary, a home that runs the supervision host uses the [host arm owners](supervision-host.md#arm-owners).
 The host owns successive watcher cycles through the same arm.
 [supervision-host.md](supervision-host.md#failure-direction) owns the default hand-back's downtime restoration, including when the successor already exited.
 Its [acknowledged hand-back](supervision-host.md#acknowledged-hand-back) section owns the opt-in Claude transfer that preserves supervision and retries delivery until main acknowledges the specific queued check.
