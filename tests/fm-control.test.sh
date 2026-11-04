@@ -24,6 +24,8 @@ set -u
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
+. "$ROOT/bin/fm-composer-lib.sh"
+# shellcheck source=/dev/null
 . "$ROOT/bin/fm-marker-lib.sh"
 
 CONTROL="$ROOT/bin/fm-control.sh"
@@ -99,6 +101,14 @@ make_tmux_stub() {  # <dir> -> echoes fakebin dir
 #!/usr/bin/env bash
 set -u
 D=$FM_FAKE_DIR
+# Hold only the real fm-send process's transport, never the control caller.
+if [ "${FM_FAKE_SEND_BLOCK:-}" = 1 ] && [ "${1:-}" = capture-pane ]; then
+  : > "$D/send-ready"
+  for ((waited=0; waited<1000; waited++)); do
+    [ ! -f "$D/send-release" ] || break
+    "$FM_TEST_REAL_SLEEP" 0.01
+  done
+fi
 # The rows devin 3000.11.1 renders for each modelled screen (live capture).
 devin_screen() {  # <running|armed|cancelled|idle|picker>
   # The idle placeholder is dark truecolor text, as Devin draws it.
@@ -1535,10 +1545,130 @@ exit_picker_screen() {
     'Background work is running' \
     '❯ 1. Exit and stop tasks' \
     'The following will stop when you exit:' \
-    'shell · sleep 300' \
+    'agent · completed helper' \
     '  2. Move to background and exit' \
     '  3. Stay' \
     'Enter to confirm · Esc to cancel'
+}
+
+test_exit_busy_background_shell_is_retryable() {
+  local dir out rc pid stage verb signal
+  for verb in exit relaunch; do
+    for stage in captured legacy status; do
+      dir=$(new_case "busy-shell-$verb-$stage")
+      add_task "$dir" t1 claude
+      alive_as "$dir" claude
+      sleep 120 &
+      pid=$!
+      printf '%s\n' "$pid" >> "$TMP_ROOT/background-pids"
+      case "$stage" in
+        captured) cp "$ROOT/tests/fixtures/claude-exit-background-shell-2.1.318.capture" "$dir/fake/pane" ;;
+        legacy) exit_picker_screen | sed 's/agent · completed helper/shell · sleep 120/' > "$dir/fake/pane" ;;
+        status)
+          claude_composer_screen '' | sed 's/bypass permissions on (shift+tab to cycle)/bypass permissions on · 1 shell · ↓ to manage/' > "$dir/fake/pane"
+          ;;
+      esac
+      # Pin divergence: each positive signal must survive losing the other.
+      signal=$(fm_composer_claude_background_shells "$(cat "$dir/fake/pane")" || true)
+      if [ "$stage" = status ]; then
+        [ "$signal" = 1 ] || fail "status-only case must actually show a shell count"
+        assert_no_grep 'Background work is running' "$dir/fake/pane" "status case must blind the dialog signal"
+      else
+        [ -z "$signal" ] || fail "dialog case must blind the shell-count signal"
+      fi
+      if [ "$verb" = exit ]; then
+        out=$(run_control "$dir" t1 exit --landed-work); rc=$?
+      else
+        out=$(run_control "$dir" t1 relaunch --note retry); rc=$?
+      fi
+      expect_code 75 "$rc" "$stage $verb background shell must be retryable"$'\n'"$out"
+      assert_contains "$out" 'busy: background shell running' "busy result names the cause"
+      kill -0 "$pid" || fail "background process must survive refusal"
+      [ ! -s "$dir/fake/keys" ] || fail "busy lifecycle sends no keys"
+      [ ! -s "$dir/fake/literal" ] || fail "busy lifecycle types no text"
+      kill "$pid"; wait "$pid" 2>/dev/null || true
+    done
+  done
+  pass "Claude exit and relaunch: captured, legacy and independent status-only shell signals return 75 without input"
+}
+
+test_exit_busy_shell_after_submit_is_retryable() {
+  local dir out rc stage
+  for stage in immediate late; do
+    dir=$(new_case "submitted-shell-$stage")
+    add_task "$dir" t1 claude
+    alive_as "$dir" claude
+    cp "$ROOT/tests/fixtures/claude-exit-background-shell-2.1.318.capture" "$dir/fake/after-enter"
+    [ "$stage" != late ] || printf 1 > "$dir/fake/after-enter-late"
+    out=$(picker_exit_env "$dir" t1 --landed-work); rc=$?
+    expect_code 75 "$rc" "a $stage post-submit shell dialog must remain retryable"$'\n'"$out"
+    assert_contains "$out" 'busy: background shell running' 'the dialog must not become a generic timeout'
+    [ "$(cat "$dir/fake/keys")" = Enter ] || fail 'the shell dialog must never get a confirming Enter'
+  done
+  pass 'Claude shell dialogs opening during submit and after a delayed render return 75 without confirmation'
+}
+
+test_claude_shell_surface_is_adapter_scoped() {
+  local harness shot
+  shot=$(cat "$ROOT/tests/fixtures/claude-exit-background-shell-2.1.318.capture")
+  for harness in $(fm_control_harnesses); do
+    [ "$harness" != claude ] || continue
+    if fm_control_background_shell_running "$harness" "$shot"; then
+      fail "Claude shell text must not change the $harness adapter"
+    fi
+  done
+  fm_control_background_shell_running claude "$shot" || fail 'the real Claude capture must match'
+  if fm_control_background_shell_running claude "$(claude_composer_screen '')"; then
+    fail 'an idle composer must not be classified as a shell'
+  fi
+  pass 'background-shell exit protection is Claude-only and leaves ordinary idle composers alone'
+}
+
+test_exit_preserves_unfinished_fm_send() {
+  local dir out rc pid i
+  dir=$(new_case unfinished-send)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  cp "$ROOT/tests/fixtures/claude-exit-background-shell-2.1.318.capture" "$dir/fake/pane"
+  env FM_FAKE_SEND_BLOCK=1 FM_TEST_REAL_SLEEP="$(command -v sleep)" \
+    FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" \
+    "$SEND" t1 'unfinished delivery must survive exit' > "$dir/send.out" 2>&1 &
+  pid=$!
+  printf '%s\n' "$pid" >> "$TMP_ROOT/background-pids"
+  for ((i=0; i<200; i++)); do
+    [ ! -f "$dir/fake/send-ready" ] || break
+    sleep 0.01
+  done
+  if [ ! -f "$dir/fake/send-ready" ]; then
+    cat "$dir/send.out" >&2
+    fail 'real fm-send did not reach its held transport'
+  fi
+  out=$(run_control "$dir" t1 exit --landed-work); rc=$?
+  kill -0 "$pid" || fail 'exit stopped the unfinished fm-send'
+  : > "$dir/fake/send-release"
+  wait "$pid" || true # The dialog may refuse delivery; the durable record survives.
+  expect_code 75 "$rc" "unfinished fm-send must preserve a busy exit"$'\n'"$out"
+  assert_contains "$out" 'busy: background shell running' 'the shell must not be confirmed away'
+  assert_no_grep '^Enter$' "$dir/fake/keys" 'exit must not confirm over unfinished fm-send'
+  [ -n "$(ls "$dir/home/state/t1.inbox/"*.msg 2>/dev/null)" ] || fail 'the pending steer must survive'
+  pass 'Claude exit preserves an unfinished real fm-send and its unacknowledged steer'
+}
+
+test_exit_picker_preserves_unacknowledged_inbox() {
+  local dir out rc
+  dir=$(new_case unacknowledged-picker)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  record_done "$dir" t1
+  exit_picker_screen > "$dir/fake/pane"
+  mkdir -p "$dir/home/state/t1.inbox"
+  printf 'unacknowledged steer\n' > "$dir/home/state/t1.inbox/001.msg"
+  out=$(run_control "$dir" t1 exit --landed-work); rc=$?
+  expect_code 75 "$rc" "even an authorized non-shell picker must preserve an unread steer"$'\n'"$out"
+  assert_contains "$out" 'busy: unacknowledged inbox message' 'the retry names pending delivery'
+  [ ! -s "$dir/fake/keys" ] || fail "the unread steer must prevent a confirming Enter"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail 'inbox must remain unacknowledged'
+  pass 'Claude picker confirmation preserves unacknowledged inbox messages'
 }
 
 test_exit_refuses_an_open_background_picker() {
@@ -2422,6 +2552,11 @@ test_if_idle_exit_stops_an_idle_agent
 test_if_idle_exit_defers_on_a_held_lifecycle_lock
 test_idle_agent_is_not_interrupted
 test_exit_drops_meta_busy_gen_with_the_sidecar
+test_exit_busy_background_shell_is_retryable
+test_exit_busy_shell_after_submit_is_retryable
+test_claude_shell_surface_is_adapter_scoped
+test_exit_picker_preserves_unacknowledged_inbox
+test_exit_preserves_unfinished_fm_send
 test_exit_refuses_an_open_background_picker
 test_exit_refuses_the_confirming_enter
 test_exit_names_a_picker_that_renders_after_the_submit
