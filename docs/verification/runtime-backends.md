@@ -8,8 +8,8 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 
 ## Claude during-turn continuity
 
-The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and the unchanged Stop wake path.
-Its clock fixture is deterministic regression evidence, not proof that a real Claude hook remains scheduled for 20 wall-clock minutes.
+The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and Stop wake delivery.
+Its independent elapsed-time observer uses an accelerated clock and is regression evidence, not proof that a real Claude hook remains scheduled for 20 wall-clock minutes.
 The real-harness refresh command is `FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh`.
 That guard names the installed Claude version, exercises the tracked async and synchronous registrations in an isolated Claude session, and refuses a pass without both during-tool cycles and an observed stale-send denial.
 The arm and send executables are fixtures, so this establishes hook transport and lifetime, not backend dispatch or real worker lifecycle behavior.

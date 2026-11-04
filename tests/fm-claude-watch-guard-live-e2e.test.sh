@@ -32,7 +32,7 @@ chmod +x "$LAB/bin/fm-watch-arm.sh" "$LAB/bin/fm-send.sh"
 # owner. Following tools then run under its ordinary session ownership proof.
 PROMPT='Run these Bash commands in order, with no other tools:
 1. bin/fm-lock.sh
-2. echo "project=fixture" > state/task.meta; sleep 8; cp state/cycles state/cycles-during-tool
+2. echo "project=fixture" > state/task.meta; (wc -l < state/cycles 2>/dev/null || echo 0) > state/cycles-before-tool; sleep 8; wc -l < state/cycles > state/cycles-after-tool
 3. touch state/fail-arm; sleep 1; touch -t 200001010000 state/.last-watcher-beat
 4. bin/fm-send.sh fixture hello
 After the fourth command is denied, say FINISHED and stop. Do not retry or bypass a denial.'
@@ -44,8 +44,8 @@ VERSION=$(claude --version)
     claude -p "$PROMPT" --dangerously-skip-permissions --effort low \
     --output-format stream-json --verbose
 ) > "$LAB/transcript.jsonl" 2>&1 || fail "$VERSION live hook session failed"
-[ -s "$LAB/state/cycles-during-tool" ] || fail "$VERSION async guard never ran during tool"
-[ "$(wc -l < "$LAB/state/cycles-during-tool")" -ge 3 ] || fail "$VERSION fewer than three during-tool cycles"
+[ -s "$LAB/state/cycles-before-tool" ] && [ -s "$LAB/state/cycles-after-tool" ] || fail "$VERSION missing tool interval observations"
+[ "$(( $(cat "$LAB/state/cycles-after-tool") - $(cat "$LAB/state/cycles-before-tool") ))" -ge 3 ] || fail "$VERSION fewer than three new during-tool cycles"
 [ ! -e "$LAB/state/sent" ] || fail "$VERSION stale send executed"
 grep -q 'New spawns and sends are refused' "$LAB/transcript.jsonl" || fail "$VERSION no observed PreToolUse denial"
 pass "$VERSION async continuity ran during a tool; synchronous stale send refused"

@@ -116,7 +116,7 @@ while attended_owner; do
     OUT=$(mktemp "$STATE/.claude-watch-guard.XXXXXX") || exit 1
     # One tracked child, reaped here. The arm owns singleton arbitration,
     # stale-holder recovery, beacon verification and durable wake publication.
-    "$SCRIPT_DIR/fm-watch-arm.sh" > "$OUT" 2>&1 </dev/null &
+    FM_WATCH_HANDLING_SUCCESSOR=1 "$SCRIPT_DIR/fm-watch-arm.sh" > "$OUT" 2>&1 </dev/null &
     ARM=$!
   fi
   sleep "$INTERVAL"

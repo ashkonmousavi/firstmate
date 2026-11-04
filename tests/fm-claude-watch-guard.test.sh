@@ -50,33 +50,40 @@ test_stale_refusal_and_recovery() {
 test_twenty_minute_turn() {
   local home="$TMP_ROOT/continuity" baseline="$TMP_ROOT/baseline"
   make_guard_home "$home"
-  # Each executable arm represents a one-minute cycle, then closes actionable.
-  # Logical time advances only here, not with wall-clock sleeps. No tool call or
-  # Stop event runs during the simulated 20-minute model turn.
   cat > "$home/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
-now=$(cat "$FM_HOME/state/clock" 2>/dev/null || echo 0)
-last=$(cat "$FM_HOME/state/beat-clock" 2>/dev/null || echo 0)
-printf '%s\n' "$((now-last))" >> "$FM_HOME/state/ages"
-echo "$now" > "$FM_HOME/state/beat-clock"
 touch "$FM_HOME/state/.last-watcher-beat"
-echo "$((now+60))" > "$FM_HOME/state/clock"
-printf 'watcher: started pid=%s (beacon fresh)\nsignal: fixture\n' "$$"
-if [ "$now" -ge 1200 ]; then touch "$FM_HOME/state/.afk"; fi
+sleep 0.5
+printf 'signal: fixture\n'
 SH
   chmod +x "$home/bin/fm-watch-arm.sh"
   make_guard_home "$baseline"
-  cp "$home/bin/fm-watch-arm.sh" "$baseline/bin/fm-watch-arm.sh"
-  FM_HOME="$baseline" bash "$baseline/bin/fm-watch-arm.sh" >/dev/null
-  echo 1200 > "$baseline/state/clock"
-  [ "$(( $(cat "$baseline/state/clock") - $(cat "$baseline/state/beat-clock") ))" -gt 300 ] || fail "stale or continuity contract failed"
+  touch "$home/state/.last-watcher-beat" "$baseline/state/.last-watcher-beat"
+  node - "$home" "$baseline" <<'JS' &
+const { statSync, writeFileSync } = require('node:fs');
+const [home, baseline] = process.argv.slice(2);
+const start = performance.now();
+const epoch = Date.now();
+let maxAge = 0;
+const timer = setInterval(() => {
+  const elapsed = performance.now() - start;
+  const age = (epoch + elapsed - statSync(`${home}/state/.last-watcher-beat`).mtimeMs) * 60 / 1000;
+  maxAge = Math.max(maxAge, age);
+  if (elapsed < 20000) return;
+  clearInterval(timer);
+  const baselineAge = (epoch + elapsed - statSync(`${baseline}/state/.last-watcher-beat`).mtimeMs) * 60 / 1000;
+  writeFileSync(`${home}/state/ages`, `${maxAge} ${baselineAge}\n`);
+  writeFileSync(`${home}/state/.afk`, '');
+}, 25);
+JS
+  local observer=$!
   FM_HOME="$home" FM_TEST_CLAUDE_WATCH_INTERVAL=0.01 "$FAKE_CLAUDE" -c '
     echo "$$" > "$FM_HOME/state/.lock"
     printf "{}" | "$FM_HOME/bin/fm-claude-watch-guard.sh"
   ' || fail "stale or continuity contract failed"
-  [ "$(cat "$home/state/clock")" -ge 1200 ] || fail "stale or continuity contract failed"
-  awk '$1 >= 300 {bad=1} END {exit bad || NR < 20}' "$home/state/ages" || fail "stale or continuity contract failed"
-  printf '# baseline age=1200s; guarded 20-minute turn max age=%ss\n' "$(sort -n "$home/state/ages" | tail -1)"
+  wait "$observer" || fail "independent beat observer failed"
+  awk '$1 < 300 && $2 >= 1200 {ok=1} END {exit !ok}' "$home/state/ages" || fail "independent elapsed beat age exceeded grace"
+  printf '# guarded max age and unguarded final age (60x wall time): %s\n' "$(cat "$home/state/ages")"
   pass "20-minute MAIN turn remains covered without a Stop event"
 }
 
@@ -85,12 +92,38 @@ test_command_positions() {
   for command in 'env FM_HOME=/fixture bash bin/fm-send.sh x y' \
     '(bin/fm-spawn.sh x)' 'bash -c "bin/fm-send.sh x y"' \
     'bash -c "echo okay"; bin/fm-send.sh x y' \
-    'echo "$(bin/fm-send.sh x y)"' 'bin/fm-"spawn".sh x'; do
+    'echo "$(bin/fm-send.sh x y)"' 'bin/fm-"spawn".sh x' \
+    'for id in a b; do bin/fm-send.sh "$id" hello; done' \
+    'if true; then bin/fm-spawn.sh x; fi' \
+    'while bin/fm-send.sh x y; do :; done' \
+    '! bin/fm-send.sh x y' 'time bin/fm-spawn.sh x' \
+    'env -S "bin/fm-send.sh x y"' \
+    'eval "bin/fm-send.sh x y"' '. bin/fm-send.sh' \
+    'builtin eval "bin/fm-send.sh x y"' \
+    'tool=bin/fm-send.sh; "$tool" x y' \
+    'payload="bin/fm-send.sh x y"; eval "$payload"' \
+    'payload="bin/fm-send.sh x y"; bash -c "$payload"' \
+    'script=bin/fm-send.sh; bash "$script" x y' \
+    'script=bin/fm-send.sh; source "$script" x y' \
+    'payload="bin/fm-send.sh x y"; env -S "$payload"' \
+    'bash /dev/stdin <<< "bin/fm-send.sh x y"' \
+    'bash <<EOF_PROGRAM
+bin/fm-send.sh x y
+EOF_PROGRAM' \
+    'bash <<< "bin/fm-spawn.sh x"' \
+    'bash < bin/fm-send.sh' 'printf "bin/fm-send.sh x y" | bash'; do
     result=$(printf '%s' "$command" | node "$ROOT/bin/fm-fleet-command-policy.mjs")
     [ "$result" = deny ] || fail "missed command position: $command"
   done
   for command in 'cat bin/fm-spawn.sh' 'echo "bin/fm-send.sh x y"' \
     'bash bin/fm-watch-arm.sh --restart' 'git status' \
+    'bash -c "cat bin/fm-send.sh"' 'env -S "cat bin/fm-send.sh"' \
+    'FM_HOME=/fixture env -S "cat bin/fm-send.sh"' \
+    '(cat bin/fm-send.sh)' '{ echo bin/fm-spawn.sh; }' \
+    'bash <<EOF_PROGRAM
+cat bin/fm-send.sh
+EOF_PROGRAM' \
+    'bash <<< "echo bin/fm-spawn.sh"' \
     'cat <<EOF_DATA
 bin/fm-send.sh x y
 EOF_DATA'; do
@@ -98,6 +131,69 @@ EOF_DATA'; do
     [ "$result" = allow ] || fail "blocked data or repair: $command"
   done
   pass "fleet mutation command positions include wrappers and nested execution, not data"
+}
+
+test_pending_wake_keeps_checks_running() {
+  local mode home
+  for mode in guard repair; do
+    home="$TMP_ROOT/pending-$mode"
+    make_guard_home "$home"
+    rm "$home/state/task.meta"
+    : > "$home/config/supervision-host-off"
+    cat > "$home/state/continuity.check.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'checked\n' >> "$FM_HOME/state/checks"
+SH
+    chmod 700 "$home/state/continuity.check.sh"
+    FM_HOME="$home" bash "$home/bin/fm-check-register.sh" continuity >/dev/null || fail "check fixture registration"
+    append_wake "$home/state" check fixture "check: pending fixture wake"
+    FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 FM_HEARTBEAT=999999 \
+      FM_TEST_CLAUDE_WATCH_INTERVAL=0.05 FM_GUARD_MODE="$mode" "$FAKE_CLAUDE" -c '
+      cd "$FM_HOME" || exit 1
+      echo "$$" > state/.lock
+      if [ "$FM_GUARD_MODE" = guard ]; then
+        printf "{}" | bin/fm-claude-watch-guard.sh > state/owner.out 2>&1 &
+      else
+        line=$(bin/fm-supervision-instructions.sh --harness claude --repair-line)
+        repair=${line#*watcher with }
+        repair=${repair%% as its own*}
+        bash -c "$repair" > state/owner.out 2>&1 &
+      fi
+      owner=$!
+      checks_progressed() { [ -f state/checks ] && [ "$(wc -l < state/checks)" -ge 2 ]; }
+      rc=0
+      wait_until_deadline 30 checks_progressed || rc=1
+      grep -qF "check: pending fixture wake" state/.wake-queue || rc=1
+      if [ "$rc" -eq 0 ]; then
+        bin/fm-claude-stop-autoarm.sh > state/stop.out 2> state/stop.err <<EOF_PAYLOAD &
+{}
+EOF_PAYLOAD
+        stop=$!
+        stop_finished() { ! kill -0 "$stop" 2>/dev/null; }
+        if wait_until_deadline 60 stop_finished; then
+          wait "$stop"; stop_rc=$?
+          [ "$stop_rc" -eq 2 ] || rc=1
+          grep -q "rearm-resurface" state/stop.err || rc=1
+          grep -qF "check: pending fixture wake" state/.wake-queue || rc=1
+        else
+          kill "$stop" 2>/dev/null || true
+          wait "$stop" 2>/dev/null || true
+          rc=1
+        fi
+      fi
+      if [ "$rc" -ne 0 ]; then
+        for record in state/owner.out state/stop.out state/stop.err state/checks state/.wake-queue state/.watcher-down state/.claude-watch-guard.*; do
+          [ ! -f "$record" ] || cat "$record"
+        done
+      fi
+      touch state/.afk
+      kill "$owner" 2>/dev/null || true
+      wait "$owner" 2>/dev/null || true
+      bin/fm-watch-arm.sh --stop >/dev/null 2>&1
+      [ "$rc" -eq 0 ] || { cat state/owner.out; exit 1; }
+    ' || fail "$mode starved checks or consumed the pending wake"
+  done
+  pass "automatic continuation and emitted repair keep checks running; later Stop delivers pending wakes"
 }
 
 test_scope() {
@@ -231,4 +327,4 @@ EOF_PAYLOAD
   pass "real Stop hook shares a healthy guard cycle and still delivers exit-2 wake"
 }
 
-fm_test_run test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_scope test_single_owner_and_session_end test_stop_cooperation
+fm_test_run test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation

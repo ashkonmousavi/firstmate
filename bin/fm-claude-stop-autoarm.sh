@@ -495,10 +495,12 @@ trap 'handle_autoarm_signal INT' INT
 ARM_PID=
 CLOSED_ARM_PID=
 run_arm() {  # <output file, or empty for none>
+  local arm_mode=arm
+  [ ! -s "$STATE/.wake-queue" ] || arm_mode=--restart
   if [ -n "$1" ]; then
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" >"$1" 2>&1 &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$arm_mode" >"$1" 2>&1 &
   else
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" >/dev/null 2>&1 &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$arm_mode" >/dev/null 2>&1 &
   fi
   ARM_PID=$!
   wait "$ARM_PID" || true

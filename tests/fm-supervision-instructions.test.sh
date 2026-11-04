@@ -164,7 +164,7 @@ test_repair_lines() {
   assert_not_contains "$out" "is broken" "claude pre-verification repair line claimed a verified mechanism failure"
   assert_not_contains "$out" "FAILED" "claude pre-verification repair line emitted a verified failure notice"
   assert_not_contains "$out" "manual background" "claude pre-verification repair line directed a manual background arm"
-  assert_contains "$out" "bin/fm-watch-arm.sh --restart" "claude repair must use the home-scoped arm owner"
+  assert_contains "$out" "FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart" "claude repair must use the home-scoped arm owner"
 
   : > "$home/config/x-mode.env"
   out=$(FM_HOME="$home" FM_CODEX_WATCH_CHECKPOINT=7 "$RENDER" --harness codex --x-mode 1 --repair-line)
@@ -251,7 +251,7 @@ test_cross_harness_ordinary_continuation_and_repair_matrix() {
   out=$("$RENDER" --harness claude --repair-line)
   assert_contains "$out" "repair this home's watcher" "claude recovery line lost its neutral automatic-recovery guidance"
   assert_not_contains "$out" "is broken" "claude recovery line claimed failure before verification"
-  assert_contains "$out" "bin/fm-watch-arm.sh --restart" "claude recovery line lost the home-scoped repair"
+  assert_contains "$out" "FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart" "claude recovery line lost the home-scoped repair"
 
   out=$("$RENDER" --harness agy)
   assert_contains "$out" "primary harness: agy" "agy heading missing"

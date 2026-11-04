@@ -217,7 +217,7 @@ repair_line() {
 
   case "$HARNESS" in
     claude)
-      printf '%s%s\n' "$prefix" 'repair this home'\''s watcher with bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing.'
+      printf '%s%s\n' "$prefix" 'repair this home'\''s watcher with FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing.'
       ;;
     codex)
       if [ "$CODEX_PARK" -eq 1 ]; then
