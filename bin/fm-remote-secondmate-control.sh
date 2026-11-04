@@ -680,11 +680,10 @@ cmd_sync() {
       "$SCRIPT_DIR/fm-pr-check-rearm.sh" || true
   fi
   case "$FF_STATUS" in
-    # instr= names the watched instruction paths this advance changed, with no
-    # spaces so the whole result stays one parseable line. The parent needs it to
-    # decide whether the running agent must reload; an older parent ignores the
-    # suffix, and an older HOST omits it, which a parent must read as unknown
-    # rather than as "nothing changed".
+    # instr= names the watched instruction paths this advance changed, without
+    # spaces so the result stays one parseable line. Callers own instruction
+    # refresh decisions; an older host omitting the suffix reports unknown
+    # changes, not "nothing changed".
     updated) printf 'synced: %s instr=%s\n' "$commit" "$(printf '%s' "$FF_INSTR" | tr -d ' ')" ;;
     current) printf 'current: %s\n' "$commit" ;;
     *) die "remote secondmate home sync skipped: ${out#remote home: skipped: }" ;;
