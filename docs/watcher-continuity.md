@@ -243,6 +243,8 @@ The away return brief treats a still-open handling episode as a wake in progress
 An unacknowledged downtime generation is announced at most once.
 The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
+Before delivering a recovery selected at startup, the first poll revalidates that announcement against the current generation under those same locks.
+An intervening drain acknowledgement or handling handoff cancels that pending delivery; a later durable append still opens recovery normally.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
 A Codex foreground checkpoint skips the announced-episode reopen transition, so an already-announced generation stays announced while the checkpoint continues its bounded supervision.
@@ -251,6 +253,8 @@ Its ordinary arm check still announces a never-announced generation, including o
 ### Generation reuse
 
 An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
+A close that delivered its wake preserves an episode already retired by a concurrent drain acknowledgement instead of creating fresh downtime for handled work.
+A close without a delivered wake still publishes downtime, including after an acknowledgement.
 A watcher closing to resurface the recovery it found at its start preserves the existing marker instead, while a handling successor resurfacing a later row publishes downtime like any close.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.

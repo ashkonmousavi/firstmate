@@ -60,6 +60,63 @@ export const Type = {
 JS
 }
 
+# A recovery selected at startup can be acknowledged before the first poll.
+# Block a real filesystem tool after the beacon, so the real drain wins that
+# ordering without changing the watcher or mocking the recovery transition.
+test_acknowledged_startup_recovery_stays_quiet() {
+  local dir home state fakebin child out real_mktemp i ack generation token
+  dir=$(make_case acknowledged-startup)
+  home="$dir/home"
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  mkdir -p "$home/data"
+  append_wake "$state" check initial 'check: initial recovery work' || fail "fixture append failed"
+  real_mktemp=$(command -v mktemp) || fail "mktemp missing"
+  cat > "$fakebin/mktemp" <<SH
+#!/usr/bin/env bash
+if [ -e "$state/.last-watcher-beat" ] && [ ! -e "$dir/release" ]; then
+  : > "$dir/blocked"
+  while [ ! -e "$dir/release" ]; do sleep 0.02; done
+fi
+exec "$real_mktemp" "\$@"
+SH
+  chmod +x "$fakebin/mktemp"
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    "$WATCH" > "$out" 2>&1 &
+  child=$!
+  i=0
+  while [ "$i" -lt 300 ] && [ ! -e "$dir/blocked" ]; do sleep 0.1; i=$((i + 1)); done
+  [ -e "$dir/blocked" ] || fail "watcher never reached its first poll barrier"
+  token=$(cat "$state/.watcher-down")
+  case "$token" in announced:downtime:*) ;; *) fail "fixture did not select recovery: $token" ;; esac
+  generation=${token##*:}
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-wake-drain.sh" \
+    > "$dir/drain.out" 2> "$dir/drain.err" || fail "startup recovery drain failed"
+  ack=$(sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run bin\/fm-wake-drain.sh //p' "$dir/drain.err")
+  [ -n "$ack" ] || fail "drain printed no acknowledgement"
+  # shellcheck disable=SC2086 # Exact arguments emitted by the real drain.
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-wake-drain.sh" $ack \
+    || fail "startup recovery acknowledgement failed"
+  [ ! -s "$state/.wake-queue" ] || fail "acknowledged queue is not empty"
+  token="acked:handling:$generation"
+  [ "$(cat "$state/.watcher-down")" = "$token" ] || fail "episode was not retired"
+  : > "$dir/release"
+  # Let multiple real polls run; the old code closes on the first one.
+  sleep 3
+  ! grep -q '^check: rearm-resurface' "$out" \
+    || fail "watcher resurfaced an acknowledged empty episode: $(cat "$out")"
+  kill -0 "$child" 2>/dev/null || fail "acknowledged recovery stopped supervision"
+  [ "$(cat "$state/.watcher-down")" = "$token" ] || fail "healthy polls replaced the retired episode"
+  append_wake "$state" check later 'check: genuinely new work' || fail "later append failed"
+  wait_for_exit "$child" 300 || fail "watcher missed work after retiring startup recovery"
+  [ "$(grep -c '^check: rearm-resurface$' "$out")" -eq 1 ] \
+    || fail "later work did not resurface exactly once: $(cat "$out")"
+  grep 'genuinely new work' "$state/.wake-queue" >/dev/null || fail "notification consumed later work"
+  pass "acknowledgement retires startup recovery before notification, while later work still wakes once"
+}
+
 # T1: a lost --handling-delivered handshake must not re-announce forever.
 # The real Pi extension drives the real arm/watcher, with only the handshake
 # RPC forced to fail. After the first recovery follow-up, wait past the old
@@ -307,4 +364,5 @@ test_handling_successor_resurfaces_a_row_appended_during_startup() {
 
 test_handling_successor_does_not_go_blind
 test_handling_successor_resurfaces_a_row_appended_during_startup
+test_acknowledged_startup_recovery_stays_quiet
 test_unacknowledged_recovery_is_announced_once_per_generation

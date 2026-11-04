@@ -907,7 +907,7 @@ _fm_recovery_marker_publish() {
   local lock saved_token generation='' status=pending previous_append_token='' guard=${5:-}
   if [ "$#" -ge 5 ]; then shift 5; else set --; fi
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|append|handback) ;; *) return 1 ;; esac
+  case "$source" in watcher|append|handback|delivered) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
@@ -938,6 +938,16 @@ _fm_recovery_marker_publish() {
         previous_append_token=$FM_RECOVERY_MARKER_TOKEN
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
+        acked:*)
+          # A delivered close is not a new outage. Main can acknowledge its
+          # durable rows before EXIT gets this lock; keep that retirement.
+          # Unexpected exits and new appends still open fresh downtime below.
+          if [ "$source" = delivered ]; then
+            FM_RECOVERY_MARKER_TOKEN=$saved_token
+            fm_lock_release "$lock"
+            return 0
+          fi
+          ;;
         pending:handling:*|pending:downtime:*)
           generation=${FM_RECOVERY_MARKER_TOKEN##*:}
           status=pending
@@ -1132,7 +1142,7 @@ fm_recovery_lock_wait() {  # <lockdir> <bound-seconds>
 }
 
 _fm_recovery_marker_arm_check() {
-  local marker=$1 bound=${2:-} lock line quarantine
+  local marker=$1 bound=${2:-} announced_generation=${3:-} lock line quarantine
   FM_RECOVERY_MARKER_ACTION='none'
   FM_RECOVERY_MARKER_QUEUED=0
   lock="${marker}.lock"
@@ -1150,6 +1160,7 @@ _fm_recovery_marker_arm_check() {
         fm_lock_release "$FM_WAKE_QUEUE_LOCK"
         return 1
       fi
+      FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
       FM_RECOVERY_MARKER_ACTION='recover'
     fi
     fm_lock_release "$lock"
@@ -1170,6 +1181,7 @@ _fm_recovery_marker_arm_check() {
       fm_lock_release "$FM_WAKE_QUEUE_LOCK"
       return 1
     fi
+    FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
     FM_RECOVERY_MARKER_ACTION='recover'
     fm_lock_release "$lock"
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
@@ -1177,11 +1189,20 @@ _fm_recovery_marker_arm_check() {
   fi
   line=$FM_RECOVERY_MARKER_TOKEN
   case "$line" in
-    pending:handling:*|announced:handling:*|announced:downtime:*)
+    pending:handling:*|announced:handling:*)
       FM_RECOVERY_MARKER_ACTION='wait'
       fm_lock_release "$lock"
       fm_lock_release "$FM_WAKE_QUEUE_LOCK"
       return 0
+      ;;
+    announced:downtime:*)
+      # Startup may have announced this generation before its first poll.
+      # Revalidate that delivery under the same locks as acknowledgement: an
+      # acked or handling episode cannot inherit a cached recovery decision.
+      FM_RECOVERY_MARKER_ACTION='wait'
+      if [ -n "$announced_generation" ] && [ "${line##*:}" = "$announced_generation" ]; then
+        FM_RECOVERY_MARKER_ACTION='recover'
+      fi
       ;;
     pending:downtime:*)
       if ! _fm_recovery_marker_write_locked "$marker" downtime "${line##*:}" announced; then
@@ -1199,6 +1220,7 @@ _fm_recovery_marker_arm_check() {
           fm_lock_release "$FM_WAKE_QUEUE_LOCK"
           return 1
         fi
+        FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
         # shellcheck disable=SC2034 # Output read by callers after this function returns.
         FM_RECOVERY_MARKER_ACTION='recover'
       fi
@@ -1303,7 +1325,7 @@ fm_recovery_transition() {
       _fm_recovery_marker_ack "$marker" "$target"
       ;;
     arm-check)
-      _fm_recovery_marker_arm_check "$marker" "$bound"
+      _fm_recovery_marker_arm_check "$marker" "$bound" "$target"
       ;;
     reopen-announced)
       _fm_recovery_marker_reopen_announced "$marker" "$bound"
@@ -1314,9 +1336,11 @@ fm_recovery_transition() {
     handback)
       _fm_recovery_marker_publish "$marker" downtime "" handback
       ;;
-    release-lock)
+    release-lock|release-lock-delivered)
       [ -n "$target" ] || return 1
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
+      local source=watcher
+      [ "$action" != release-lock-delivered ] || source=delivered
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" "$source" || return 1
       fm_lock_release "$target"
       ;;
     release-lock-existing)
@@ -1364,7 +1388,8 @@ fm_recovery_marker_begin_handling() {
 }
 
 fm_recovery_marker_arm_check() {
-  fm_recovery_transition "$1" arm-check "" "" "${2:-}"
+  # <marker> [lock-bound] [generation announced by this caller for delivery]
+  fm_recovery_transition "$1" arm-check "${3:-}" "" "${2:-}"
 }
 
 fm_recovery_marker_reopen_announced() {

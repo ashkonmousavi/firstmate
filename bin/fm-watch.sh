@@ -4029,6 +4029,8 @@ watcher_cleanup() {
     if [ "${WATCHER_RECOVERY_PENDING:-0}" -eq 1 ] \
       && [ "${FM_WATCH_DELIVERED_REASON:-}" = "check: rearm-resurface" ]; then
       transition=release-lock-existing
+    elif [ -n "${FM_WATCH_DELIVERED_REASON:-}" ]; then
+      transition=release-lock-delivered
     fi
   fi
   # Quietly: a stop usually lands inside the waited event wait, and bash would
@@ -4088,9 +4090,7 @@ startup_lock_failed() {
   exit 1
 }
 WATCHER_RECOVERY_PENDING=0
-if [ -n "${FM_LOCK_RECOVERED_PID:-}" ]; then
-  WATCHER_RECOVERY_PENDING=1
-fi
+WATCHER_RECOVERY_GENERATION=
 if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ] \
   && [ "${FM_WATCH_FOREGROUND_CHECKPOINT:-0}" != 1 ]; then
   fm_recovery_marker_reopen_announced "$WATCHER_DOWNTIME_MARKER" "$STARTUP_LOCK_BOUND" \
@@ -4102,6 +4102,7 @@ if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" = 1 ]; then
   WATCHER_RECOVERY_PENDING=0
 elif [ "$FM_RECOVERY_MARKER_ACTION" = recover ]; then
   WATCHER_RECOVERY_PENDING=1
+  WATCHER_RECOVERY_GENERATION=${FM_RECOVERY_MARKER_TOKEN##*:}
 fi
 # Side-band ledger publication, detached from the poll loop.
 #
@@ -4212,13 +4213,14 @@ resurface_after_downtime() {
     [ "$FM_RECOVERY_MARKER_QUEUED" = 1 ] || return 0
     wake "check: rearm-resurface"
   fi
-  if [ "$WATCHER_RECOVERY_PENDING" -ne 1 ]; then
-    if ! fm_recovery_marker_arm_check "$WATCHER_DOWNTIME_MARKER"; then
-      echo "watcher: recovery state could not be consumed safely" >&2
-      exit 1
-    fi
-    [ "$FM_RECOVERY_MARKER_ACTION" = recover ] || return 0
+  if ! fm_recovery_marker_arm_check "$WATCHER_DOWNTIME_MARKER" "" "$WATCHER_RECOVERY_GENERATION"; then
+    echo "watcher: recovery state could not be consumed safely" >&2
+    exit 1
   fi
+  WATCHER_RECOVERY_GENERATION=
+  WATCHER_RECOVERY_PENDING=0
+  [ "$FM_RECOVERY_MARKER_ACTION" = recover ] || return 0
+  WATCHER_RECOVERY_PENDING=1
   wake "check: rearm-resurface"
 }
 
