@@ -1346,7 +1346,7 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
 status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [timed|emitted]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor kind fold_version timed=${3:-}
+  local target_cursor ordinary_cursor kind fold_version timed=${3:-}
   case "$timed" in ''|timed|emitted) ;; *) return 2 ;; esac
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
   kind=$(_fm_status_kind "$f")
@@ -1456,6 +1456,16 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [
       printf 'ident=%s\n' "$cur_ident"
       if [ -n "$open" ]; then printf '%s' "$open"; fi
     } > "$target_cursor" || return 1
+    if [ "$timed" = emitted ]; then
+      ordinary_cursor=$(_fm_open_decisions_cursor_path "$f")
+      {
+        printf 'version=%s\n' "$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
+        printf 'offset=%s\n' "$offset"
+        printf 'ident=%s\n' "$cur_ident"
+        if [ -n "$open" ]; then printf '%s' "$open" | cut -f1,2,4-; fi
+      } > "$ordinary_cursor.tmp.$$" || return 1
+      mv -f "$ordinary_cursor.tmp.$$" "$ordinary_cursor" || return 1
+    fi
     mv -f "$target_cursor" "$cf" || return 1
   fi
   printf '%s' "$open"

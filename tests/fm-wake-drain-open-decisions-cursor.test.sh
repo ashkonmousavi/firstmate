@@ -408,6 +408,54 @@ test_kind_changes_invalidate_folded_decisions() {
   pass "folded decisions are rebuilt when task-kind evidence changes"
 }
 
+test_drains_keep_supervision_readers_on_the_maintained_fold() {
+  local mode dir state status probe out expected offset bytes before after actual
+  for mode in fresh existing; do
+    dir=$(make_case "cursor-supervision-$mode")
+    state="$dir/state"; status="$state/task.status"; probe="$dir/probe.tsv"; out="$dir/drain.out"
+    printf 'needs-decision [key=choice] [at=1793775437]: choose\n' > "$status"
+    append_filler "$status" 100 >/dev/null
+    if [ "$mode" = existing ]; then
+      bash -c '. "$1"; status_open_decisions_incremental "$2" >/dev/null' \
+        _ "$ROOT/bin/fm-classify-lib.sh" "$status" || fail "could not seed ordinary cursor"
+    fi
+    printf 'blocked [at=1793775438]: keyless\twith tab\nneeds-decision [key=latest] [at=1793775439]: newest\n' >> "$status"
+    if [ "$mode" = existing ]; then append_wake "$state" check unrelated payload; fi
+    FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "$mode supervision drain failed"
+    expected=$'choice\tneeds-decision\tchoose\ndefault\tblocked\tkeyless\twith tab\nlatest\tneeds-decision\tnewest'
+    before=$(cksum "$state/.task.open-decisions-cursor")
+    : > "$probe"
+    actual=$(FM_OPEN_DECISIONS_READ_PROBE="$probe" bash -c '
+      . "$1"
+      [ "$(status_worker_wait_verb "$2")" = needs-decision ] || exit 1
+      [ "$(status_own_open_decisions "$2")" = "$3" ] || exit 1
+      status_open_decisions_peek "$2"
+    ' _ "$ROOT/bin/fm-classify-lib.sh" "$status" "$expected") || fail "$mode supervision reads failed"
+    [ "$actual" = "$expected" ] || fail "$mode peek changed ordinary row format"
+    [ ! -s "$probe" ] || fail "$mode supervision readers re-folded already drained bytes"
+    offset=$(bash -c '. "$1"; status_open_decisions_cursor_offset "$2"' _ "$ROOT/bin/fm-classify-lib.sh" "$status")
+    bytes=$(LC_ALL=C wc -c < "$status" | tr -d '[:space:]')
+    [ "$offset" = "$bytes" ] || fail "$mode ordinary offset did not reach the drain endpoint"
+    printf 'resolved [key=choice]: answered\n' >> "$status"
+    expected=$'default\tblocked\tkeyless\twith tab\nlatest\tneeds-decision\tnewest'
+    actual=$(FM_OPEN_DECISIONS_READ_PROBE="$probe" bash -c '. "$1"; status_open_decisions_peek "$2"' \
+      _ "$ROOT/bin/fm-classify-lib.sh" "$status")
+    [ "$actual" = "$expected" ] || fail "$mode peek failed to fold an undrained resolution"
+    [ "$(last_probe_bytes "$probe" "$status")" = "$(printf 'resolved [key=choice]: answered\n' | wc -c | tr -d '[:space:]')" ] \
+      || fail "$mode peek read more than the undrained tail"
+    after=$(cksum "$state/.task.open-decisions-cursor")
+    [ "$before" = "$after" ] || fail "$mode peek committed a cursor"
+    printf 'resolved: answered keyless\nresolved [key=latest]: answered\n' >> "$status"
+    FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "$mode resolution drain failed"
+    : > "$probe"
+    actual=$(FM_OPEN_DECISIONS_READ_PROBE="$probe" bash -c '. "$1"; status_open_decisions_peek "$2"' \
+      _ "$ROOT/bin/fm-classify-lib.sh" "$status")
+    [ -z "$actual" ] && [ ! -s "$probe" ] || fail "$mode closed decisions or consumed bytes resurfaced"
+  done
+  pass "both drain paths maintain ordinary supervision rows and bounded non-committing reads"
+}
+
+test_drains_keep_supervision_readers_on_the_maintained_fold
 test_terminal_supersession_reaches_cached_drains
 test_kind_changes_invalidate_folded_decisions
 test_truncated_log_falls_back_to_a_full_refold_not_a_dropped_decision
