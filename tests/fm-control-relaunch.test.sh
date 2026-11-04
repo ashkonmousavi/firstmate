@@ -4465,7 +4465,7 @@ test_existing_step_children() {
   SLICE: main/demo | result | role=owner
   TESTER TASK: $child
 - [ ] $child - child (repo: proj) (kind: ship)
-  SLICE: main/demo | result | role=${child_effect#launch-} owner=main:sliceowner
+  SLICE: main/demo | result | role=${child_effect#launch-} builder=main:sliceowner
 ## Queued
 ## Done
 EOF

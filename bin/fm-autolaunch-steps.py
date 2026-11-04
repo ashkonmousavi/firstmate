@@ -41,6 +41,8 @@ WALK PROJECT, WALK TARGET (explicit MAIN dispatcher routing), TESTER PATHS,
 TESTER RULE, RISKS, JOURNEY (checkpoint matching), COVERAGE ONLY (yes only for a
 list-only cut with no product work). TESTER TASK comes from the owner task,
 else <owner>-tester.
+Generated child SLICE bindings use builder=<home>:<task>; readers also accept
+the legacy owner= binding on already-filed children.
 Direct MAIN walks require bot, project and target from these fields or their
 FM_WALK_REQUEST_* defaults; secondmate requests use MAIN's carrier routing.
 No-mistakes review evidence uses `pipeline-review round=<round> head=<sha>`
@@ -280,7 +282,7 @@ def launch_admission(task, candidate, action):
     role = identity.get("role")
     if role not in ("tester", "review"):
         return "unexpected-step-target" if action else ""
-    home, sep, owner = identity.get("owner", "").partition(":")
+    home, sep, owner = identity.get("builder", identity.get("owner", "")).partition(":")
     if not sep or home != (read(HOME / ".fm-secondmate-home").strip() or "main") or not SLUG.fullmatch(owner):
         return "child-owner-unresolved"
     if role == "tester" and not tester_admitted(owner, task, candidate=candidate):
@@ -944,15 +946,16 @@ class Slice:
         slice_line = fields(effect["body"]).get("SLICE", "")
         if "role=owner" not in slice_line:
             raise ValueError("owner SLICE role is missing")
-        child_slice = slice_line.replace("role=owner", f"role={role} owner={self.home_id}:{self.owner}")
+        child_slice = slice_line.replace("role=owner", f"role={role} builder={self.home_id}:{self.owner}")
         return {"brief.md": brief, "prep.md": effect["prep"],
                 "autolaunch-prep": f"project={effect['repo']}\nkind=scout\n",
                 "step-body.md": f"SLICE: {child_slice}\nPrep: data/{target}/prep.md\nStep action: {effect['id']}\n"}
 
     def child_owned(self, effect, shown):
-        child_slice = fields(task_body(shown)).get("SLICE", "").split()
+        child_slice = tokens(fields(task_body(shown)).get("SLICE", ""))
         role = "tester" if effect["kind"] in ("file-tester", "launch-tester", "relaunch-tester") else "review"
-        return f"role={role}" in child_slice and f"owner={self.home_id}:{self.owner}" in child_slice
+        return (child_slice.get("role") == role and
+                child_slice.get("builder", child_slice.get("owner", "")) == f"{self.home_id}:{self.owner}")
 
     def child_prepared(self, effect, shown):
         files = self.child_files(effect)
