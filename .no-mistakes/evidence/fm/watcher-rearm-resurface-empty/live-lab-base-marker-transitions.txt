@@ -1,0 +1,15 @@
+=== 06:41:58 TURN 1 sent
+06:41:58 marker=<none> watcher=<none> queue_rows=0
+06:41:57 marker=<none> watcher=86449 queue_rows=0
+=== 06:42:38 TURN 2 sent
+=== 06:43:26 GENUINE decision appended via fm_wake_append
+06:43:26 marker=pending:downtime:12954.1793799806.nbE7cU watcher=86449 queue_rows=1
+06:43:35 marker=announced:downtime:12954.1793799806.nbE7cU watcher=<none> queue_rows=1
+06:43:47 marker=announced:downtime:12954.1793799806.nbE7cU watcher=27290 queue_rows=1
+06:43:50 marker=announced:handling:12954.1793799806.nbE7cU watcher=27290 queue_rows=1
+06:43:53 marker=acked:handling:12954.1793799806.nbE7cU watcher=27290 queue_rows=0
+06:43:55 marker=acked:handling:12954.1793799806.nbE7cU watcher=<none> queue_rows=0
+06:43:55 marker=acked:handling:12954.1793799806.nbE7cU watcher=76153 queue_rows=0
+=== 06:44:40 TURN 3 sent
+=== 06:45:26 TURN 4 sent
+=== 06:46:11 TURN 5 sent

@@ -1,0 +1,2 @@
+ok - acknowledgement retires startup recovery before notification, while later work still wakes once
+exit=0

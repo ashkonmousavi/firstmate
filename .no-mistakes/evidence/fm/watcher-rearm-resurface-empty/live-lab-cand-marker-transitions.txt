@@ -1,0 +1,27 @@
+06:29:27 marker=<none> watcher=<none> queue_rows=0
+=== 06:29:32 TURN 1 sent
+06:29:34 marker=<none> watcher=42242 queue_rows=0
+=== 06:31:13 TURN 2 sent
+=== 06:32:07 TURN 3 sent
+=== 06:32:50 TURN 4 sent
+=== 06:33:44 GENUINE decision appended via fm_wake_append
+06:33:45 marker=pending:downtime:24642.1793799224.YVKf17 watcher=42242 queue_rows=1
+06:33:56 marker=announced:downtime:24642.1793799224.YVKf17 watcher=<none> queue_rows=1
+06:34:08 marker=announced:downtime:24642.1793799224.YVKf17 watcher=21504 queue_rows=1
+06:34:13 marker=announced:handling:24642.1793799224.YVKf17 watcher=21504 queue_rows=1
+06:34:16 marker=acked:handling:24642.1793799224.YVKf17 watcher=21504 queue_rows=0
+06:34:18 marker=acked:handling:24642.1793799224.YVKf17 watcher=<none> queue_rows=0
+06:34:19 marker=acked:handling:24642.1793799224.YVKf17 watcher=55301 queue_rows=0
+=== 06:35:12 TURN 5 sent
+=== 06:36:00 TURN 6 sent
+=== 06:36:45 TURN 7 sent
+=== 06:37:46 ADVERSARIAL kill -TERM watcher 55301 (genuine downtime)
+06:37:46 marker=pending:downtime:55301.1793799466.Dc9nc0 watcher=<none> queue_rows=0
+06:37:46 marker=announced:downtime:55301.1793799466.Dc9nc0 watcher=85615 queue_rows=0
+06:37:47 marker=announced:downtime:55301.1793799466.Dc9nc0 watcher=<none> queue_rows=0
+06:37:47 marker=announced:downtime:55301.1793799466.Dc9nc0 watcher=88572 queue_rows=0
+06:37:51 marker=announced:handling:55301.1793799466.Dc9nc0 watcher=88572 queue_rows=0
+06:37:52 marker=acked:handling:55301.1793799466.Dc9nc0 watcher=88572 queue_rows=0
+06:37:57 marker=acked:handling:55301.1793799466.Dc9nc0 watcher=35342 queue_rows=0
+=== 06:39:21 TURN 8 sent
+=== 06:40:09 TURN 9 sent

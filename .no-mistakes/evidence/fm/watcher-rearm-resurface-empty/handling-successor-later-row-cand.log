@@ -1,0 +1,3 @@
+ok - watch-arm: handling successor delivers fresh new inbox work before-ack (intact counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work after-ack (intact counter) without consuming or looping
+exit=0

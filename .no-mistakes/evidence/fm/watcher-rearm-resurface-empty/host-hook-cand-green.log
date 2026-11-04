@@ -1,0 +1,4 @@
+1..1
+ok - host+hook: acknowledging a delivered successor before cleanup keeps later Stops quiet
+FM_TEST_COMPLETE
+exit=0
