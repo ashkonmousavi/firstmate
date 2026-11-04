@@ -6,6 +6,16 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Claude during-turn continuity
+
+The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and the unchanged Stop wake path.
+Its clock fixture is deterministic regression evidence, not proof that a real Claude hook remains scheduled for 20 wall-clock minutes.
+The real-harness refresh command is `FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh`.
+That guard names the installed Claude version, exercises the tracked async and synchronous registrations in an isolated Claude session, and refuses a pass without both during-tool cycles and an observed stale-send denial.
+The arm and send executables are fixtures, so this establishes hook transport and lifetime, not backend dispatch or real worker lifecycle behavior.
+Live results for this new guard are pending validation; existing Stop-hook results do not establish its behavior.
+Linux, macOS, Windows, interactive sessions, remote installations and separate account pins remain live-proof gaps until dated results are recorded here.
+
 ## Claude state-claim Stop check
 
 The [state-claim check](../turnend-guard.md#state-claim-check) owns the current operator contract.
