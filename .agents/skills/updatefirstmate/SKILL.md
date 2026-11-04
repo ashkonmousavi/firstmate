@@ -108,3 +108,10 @@ This touches only the firstmate repo and its own worktrees, never anything under
   A restart replaces that mate's agent in the same home and endpoint after its open work is written down; it is never a teardown and never forced.
   Its crewmates keep running in their own endpoints, and every durable record - backlog, held captain calls, unread status, unhandled instructions - is re-presented to the replacement at startup.
   Read the restart command's per-mate result before attributing running instructions or settings; its [header](../../../bin/fm-secondmate-restart.sh) owns verification, failure classification, whether a re-read nudge was sent, and whether the running incarnation is known.
+
+## Shared instruction propagation
+
+Firstmate's shared instruction surface reaches running homes only after it lands on the default branch and those homes fast-forward.
+Only `AGENTS.md`, `bin/`, and `.agents/skills/` are loaded by a running firstmate; public `skills/` is an installer-facing surface.
+When the captain invokes `/updatefirstmate` or asks to update firstmate, load the `/updatefirstmate` skill.
+The skill owns the guarded fleet update and restart procedure; it never touches anything under `projects/`.

@@ -1204,7 +1204,7 @@ The declaration is per-home untracked state under `data/`, like every other capt
 A fresh primary home has no declaration until the captain re-declares the `Memory layering` section there from their own records.
 Until then local files are the only memory owners.
 
-[`AGENTS.md`](../AGENTS.md) section 6 owns what a declaration changes about knowledge routing, and the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns how curation reads the declaration and protects tier-owned entries from pruning.
+The internal [`stow` skill](../.agents/skills/stow/SKILL.md#knowledge-placement) owns what a declaration changes about knowledge routing and how curation reads the declaration and protects tier-owned entries from pruning.
 The section counts toward the startup memory budget like the rest of its file, so keep it to the mapping rather than restating these rules.
 
 ## Startup memory budget (config/startup-memory-budget)
@@ -1732,6 +1732,7 @@ A home that authenticates Claude through environment credentials on purpose shou
 
 ### Failures, reporting, and inheritance
 
+The [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns pin-change authority, including exhausted-Claude recovery.
 A malformed file, a root that is not a readable directory, or a signed-out account refuses the launch and names the file to fix; Firstmate never falls back to the ambient account and never changes a global login or copies a credential.
 The spawn prints the pin as `account=` (plus `account_provider=` for Pi) and records the same fields in the task record, so the session-start digest shows which account each worker launched on.
 
@@ -2032,7 +2033,7 @@ Firstmate cannot see which part of a worker's life uses the resource, so the lim
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
 Firstmate chooses the best matching rule with judgment; shell scripts do not match the natural-language rules.
-Firstmate resolves the rule's profile object or array under `AGENTS.md` section 4 and `quota-array-dispatch`, then passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+Firstmate resolves the rule's profile object or array under the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) and `quota-array-dispatch`, then passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
 
 **Spawn requirements**
 
@@ -2069,7 +2070,7 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
 **Contract owners**
 
 This section is the single owner of the canonical schema and its per-field semantics.
-`AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
+`AGENTS.md` section 4 owns the always-loaded intake trigger; the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns dispatch decisions, and `quota-array-dispatch` owns completion-aware profile-array selection.
 
 ```json
 {
@@ -2148,7 +2149,7 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap's resolver-only validation gate is described under "Validation and diagnostics" below; the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson) applies independently of it.
 
-Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
+Typed resolution additively recognizes `gemini` because the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
 | --- | --- |
@@ -2319,7 +2320,7 @@ Every result above exits 0.
 
 **Firstmate retains the dispatch decision**
 
-The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
+The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns what firstmate does with each outcome.
 By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
 The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` enforces only the fixed-horizon [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
 Firstmate still applies those gates before dispatch, including when `preferred_provider` is present.

@@ -382,7 +382,7 @@ The intake and authority contract in `AGENTS.md` owns when separate scout resear
 ## Dispatch profiles
 
 Crewmate and scout dispatch can stay on the static crewmate harness resolved by `config/crew-harness`, or it can use local dispatch profiles in `config/crew-dispatch.json`.
-[`AGENTS.md` section 4](../AGENTS.md) owns firstmate's dispatch decision boundary, and [`quota-array-dispatch`](../.agents/skills/quota-array-dispatch/SKILL.md) owns its profile-array selection procedure.
+[`harness-adapters`](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns firstmate's dispatch decision boundary, and [`quota-array-dispatch`](../.agents/skills/quota-array-dispatch/SKILL.md) owns its profile-array selection procedure.
 The optional typed resolver's rule matching and deterministic profile selection are owned by [configuration.md](configuration.md#typed-dispatch-resolution-env-fm_dispatch_provider-fm_dispatch_model).
 The session-start bootstrap step keeps valid dispatch configuration silent unless verbose facts are enabled and surfaces a concise invalid-config line when validation fails.
 When the file exists, `fm-spawn.sh` refuses crewmate and scout launches without an explicit harness, so `config/crew-harness` is only automatic when no dispatch profile file is active.
@@ -534,13 +534,13 @@ The [Relay configuration reference](configuration.md#promised-public-replies-sta
 
 ## Project memory belongs to projects
 
-Project-memory ownership and the crewmate corrections-only boundary are defined in [`AGENTS.md` section 6](../AGENTS.md#6-project-and-knowledge-management); `data/projects.md` stays a thin private registry.
+Project-memory ownership and the crewmate corrections-only boundary are defined in [stow's knowledge-placement contract](../.agents/skills/stow/SKILL.md#knowledge-placement); `data/projects.md` stays a thin private registry.
 For manual project initialization, [`bin/fm-ensure-agents-md.sh`](../bin/fm-ensure-agents-md.sh) owns the `CLAUDE.md` pointer, self-governance insertion, and case-variant file refusal; its header and help document the explicit mark for equivalent project-owned guidance.
 
 ## Operational memory routing
 
 `/stow` sweeps the current session for durable knowledge that only exists in conversation and routes each finding to the most specific disk home.
-The destination for each kind of knowledge, including project-intrinsic knowledge, is owned by [`AGENTS.md` section 6](../AGENTS.md#6-project-and-knowledge-management).
+The destination for each kind of knowledge, including project-intrinsic knowledge, is owned by [stow's knowledge-placement contract](../.agents/skills/stow/SKILL.md#knowledge-placement).
 Memory writes use inspect-then-update rather than blind append; the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns tier markers, decay, cold archival, and offload.
 The same pass also persists open-work record state the session is holding - filing a thread that was never recorded and correcting one the session knows went stale - bounded to the open work that session is actually holding.
 Its input is the volatile context, so it can only preserve what the session still knows; durable PR checks belong to the [backlog closeout path](../bin/fm-inactive-reconcile.sh).
