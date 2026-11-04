@@ -347,14 +347,8 @@ def current_reads(path, deadline, cwd=None):
         if not isinstance(message, dict):
             continue
         content = message.get("content", [])
-        if row.get("type") == "user":
-            if isinstance(content, str) or (isinstance(content, list) and any(
-                isinstance(b, dict) and b.get("type") == "text" for b in content
-            )):
-                pending, completed, boundary = {}, [], True
-        if not isinstance(content, list):
-            continue
-        for block in content:
+        blocks = content if isinstance(content, list) else []
+        for block in blocks:
             if not isinstance(block, dict):
                 continue
             if row.get("type") == "assistant" and block.get("type") == "tool_use" and block.get("name") == "Bash":
@@ -368,6 +362,14 @@ def current_reads(path, deadline, cwd=None):
                 if command:
                     completed.extend(item for item in read_commands(command, deadline, cwd)
                                      if item[0] != 'capacity' or not block.get('is_error', False))
+        # Tool results can share a user row with harness reminder text.
+        # Match those results above; only a text-only user row starts a turn.
+        if row.get("type") == "user" and not any(
+            isinstance(b, dict) and b.get("type") == "tool_result" for b in blocks
+        ) and (isinstance(content, str) or any(
+            isinstance(b, dict) and b.get("type") == "text" for b in blocks
+        )):
+            pending, completed, boundary = {}, [], True
     return completed if boundary else None
 
 

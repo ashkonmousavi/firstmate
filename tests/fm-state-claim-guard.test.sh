@@ -74,6 +74,31 @@ def check(label, message, commands=(), expected=2, rows=None, active=False, path
     return elapsed
 
 
+# Claude can append harness text to the same user row as a tool result.
+reminder = {"type": "text", "text": "<system-reminder>Read current capacity.</system-reminder>"}
+for extra_text in (reminder, {"type": "text", "text": "Hook feedback: continue working."}):
+    capacity = tool(activity_read, ident="activity")
+    capacity[1]["message"]["content"].append(extra_text)
+    check("capacity result with harness text counts: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *capacity], capacity_read=False, expected=0)
+    later = tool("printf OK", ident="later")
+    later[1]["message"]["content"].append(extra_text)
+    check("later harness result preserves completed capacity: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *tool(activity_read), *later],
+          capacity_read=False, expected=0)
+    failed = tool(activity_read, ident="failed", error=True)
+    failed[1]["message"]["content"].append(extra_text)
+    check("failed capacity with harness text does not count: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *failed], capacity_read=False)
+for human in (user, {"type": "user", "message": {"content": [
+        {"type": "text", "text": "Report current state again."}]}}):
+    check("human text resets completed capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, *tool(activity_read), human], capacity_read=False)
+    call, result = tool(activity_read)
+    check("human text resets pending capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, call, human, result], capacity_read=False)
+
+
 check("planted queue claim without read blocks and names claim", "PR https://github.com/example/repo/pull/9 is in the queue.",
       named_claim="PR https://github.com/example/repo/pull/9 is in the queue.")
 check("matching PR read passes", "PR https://github.com/example/repo/pull/9 is merged.",
