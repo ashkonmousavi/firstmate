@@ -1,0 +1,8 @@
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+z blocked: newest keyless
+a [key=a] needs-decision: tie first key
+a [key=b] needs-decision: tie second key
+z [key=newer] needs-decision: numeric newer
+z [key=older] needs-decision: numeric older
+z [key=legacy] needs-decision: unstamped legacy
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'

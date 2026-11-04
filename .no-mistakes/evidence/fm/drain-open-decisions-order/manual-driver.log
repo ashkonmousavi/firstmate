@@ -1,0 +1,47 @@
+{
+  "02-fresh-after-250-old": {
+    "shown": 62,
+    "omitted": 189,
+    "total": 251
+  },
+  "03-repeat-with-no-new-wake": {
+    "shown": 62,
+    "omitted": 189,
+    "total": 251
+  },
+  "04-unrelated-queued-wake": {
+    "shown": 62,
+    "omitted": 189,
+    "total": 251
+  },
+  "old-records": {
+    "sha256_before_and_after": "7929f0d1ae55484db722eb340852fa90ac877ba416d9bb2377759e885f4e8a28",
+    "records_unchanged": 250
+  },
+  "05-resolution-and-keyless-arrival": {
+    "shown": 63,
+    "omitted": 188,
+    "total": 251
+  },
+  "06-reopened-decision": {
+    "shown": 63,
+    "omitted": 189,
+    "total": 252
+  },
+  "07-numeric-keyless-legacy-ties": {
+    "shown": 6,
+    "omitted": 0,
+    "total": 6
+  },
+  "08-newest-long-note-cap": {
+    "shown": 60,
+    "omitted": 193,
+    "total": 253
+  },
+  "10-base-reproduces-starvation": {
+    "fresh_missing_from_open_decisions": true,
+    "shown": 64,
+    "omitted": 187,
+    "total": 251
+  }
+}
