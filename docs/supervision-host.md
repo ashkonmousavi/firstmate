@@ -117,7 +117,7 @@ If that publish fails, the host prints a `watcher: FAILED` line instead of the c
 The default successor is one-shot, so a lost main continuation can still leave supervision down after that successor's next close.
 The opt-in [acknowledged hand-back](#acknowledged-hand-back) keeps replacing those closed cycles until main acknowledges.
 The session's next park without `--restart` requests a take-over to restore a single host-owned arm; the [host header](../bin/fm-supervision-host.sh) owns successor persistence and cleanup, and the [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.
-OpenCode and omp still launch the host with `--restart`, which takes precedence over recorded take-over and lacks its acknowledgement-preserving handover; changing that first-cycle path remains a follow-up.
+OpenCode and omp still launch the host with `--restart`, which takes precedence over recorded take-over; that restart applies the same acknowledgement-preserving owner-stop handover, which [Generation reuse](watcher-continuity.md#generation-reuse) owns.
 The host-off Claude Stop hook's detached handling successor is also unchanged; see [Claude handling successor](watcher-continuity.md#claude-handling-successor).
 It also passes the close through unchanged, with no added line, when any of these holds (`fm_supervision_host_attended_ready` in `bin/fm-supervision-engine-lib.sh` owns the list):
 

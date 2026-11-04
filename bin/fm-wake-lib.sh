@@ -1260,8 +1260,8 @@ _fm_recovery_marker_reopen_announced() {
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
 
-# The handover rule for a watcher stopped by bin/fm-watch-arm.sh --take-over
-# (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
+# The handover rule for owner stops by bin/fm-watch-arm.sh --take-over and
+# --restart (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
 # the marker token and the queue's append sequence under both locks before the
 # stop; handover-restore puts an acknowledged token back only while that
 # sequence is unchanged and the marker reads the fresh pending downtime the
@@ -1309,6 +1309,46 @@ _fm_recovery_marker_handover_restore() {
   fi
   fm_lock_release "$lock"
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  return "$status"
+}
+
+# The stopped watcher's EXIT cleanup can miss the marker lock inside its bound
+# and retain its singleton, leaving the acknowledged marker untouched. The next
+# start would then publish fresh downtime while stealing that stale lock. The
+# stopping arm (take-over or --restart), which knows the stop was its own,
+# clears that exact dead holder's
+# lock instead, under the same snapshot rule: only while the queue sequence and
+# the acknowledged token are both unchanged. Anything else is left for the
+# ordinary stale-lock steal, which publishes downtime.
+_fm_recovery_marker_handover_clear_stale() {
+  local marker=$1 token=$2 seq=$3 watch_lock=$4 stopped_pid=$5 lock steal status=1
+  case "$token" in acked:*) ;; *) return 1 ;; esac
+  case "$stopped_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(cat "$watch_lock/pid" 2>/dev/null || true)" = "$stopped_pid" ] || return 1
+  ! fm_pid_alive "$stopped_pid" || return 1
+  lock="${marker}.lock"
+  steal="${watch_lock}.steal"
+  fm_lock_acquire_wait "$steal" || return 1
+  if ! fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK"; then
+    fm_lock_release "$steal"
+    return 1
+  fi
+  if ! fm_lock_acquire_wait "$lock"; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    fm_lock_release "$steal"
+    return 1
+  fi
+  if [ "$(cat "$STATE/.wake-queue.seq" 2>/dev/null || true)" = "$seq" ] \
+    && fm_recovery_marker_read "$marker" \
+    && [ "$FM_RECOVERY_MARKER_TOKEN" = "$token" ] \
+    && [ "$(cat "$watch_lock/pid" 2>/dev/null || true)" = "$stopped_pid" ] \
+    && ! fm_pid_alive "$stopped_pid" \
+    && fm_lock_remove_path "$watch_lock"; then
+    status=0
+  fi
+  fm_lock_release "$lock"
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  fm_lock_release "$steal"
   return "$status"
 }
 
@@ -1398,6 +1438,11 @@ fm_recovery_marker_reopen_announced() {
 
 fm_recovery_marker_handover_restore() {  # <marker> <snapshot-token> <snapshot-seq>
   fm_recovery_transition "$1" handover-restore "$2" "$3"
+}
+
+# <marker> <snapshot-token> <snapshot-seq> <watch-lock> <stopped-pid>
+fm_recovery_marker_handover_clear_stale() {
+  _fm_recovery_marker_handover_clear_stale "$@"
 }
 
 # fm_lock_reap_dead_link <lockdir>
