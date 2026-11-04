@@ -2,7 +2,8 @@
 # Opt-in credentialed Claude live regression for the Stop-owned auto-arm
 # (bin/fm-claude-stop-autoarm.sh + bin/fm-turnend-guard.sh --claude).
 # Proves, against the real installed Claude Code and the real tracked hook
-# registration: a fresh session with in-flight work, no watcher, and a stale
+# SessionStart/Stop registration in an unguarded home: a fresh session with
+# in-flight work, no watcher, and a stale
 # session lock receives the full session-start digest through the tracked
 # SessionStart hook; session start reclaims the dead owner; at least two
 # tokenless auto-arm and rewake cycles then complete with zero model-issued arm
@@ -33,6 +34,13 @@ TRANSCRIPT="$LAB/claude.jsonl"
 CLAUDE_VERSION=$(claude --version)
 
 cleanup() {
+  if [ -n "${FM_CLAUDE_STOP_DIAGNOSTICS:-}" ]; then
+    mkdir -p "$FM_CLAUDE_STOP_DIAGNOSTICS"
+    cp "$TRANSCRIPT" "$FM_CLAUDE_STOP_DIAGNOSTICS/claude.jsonl" 2>/dev/null || true
+    for record in arm-ran arm-callers successor-ran drain-ran tool-calls.log .claude-autoarm-epoch; do
+      cp "$HOME_DIR/state/$record" "$FM_CLAUDE_STOP_DIAGNOSTICS/$record" 2>/dev/null || true
+    done
+  fi
   rm -rf "$LAB"
 }
 trap cleanup EXIT
@@ -42,7 +50,12 @@ mkdir -p "$LAB"
 # working-tree surfaces under test (same pattern as the continuity live E2E).
 git clone -q "$ROOT" "$PROJECT"
 cp -R "$ROOT/bin/." "$PROJECT/bin/"
-cp "$ROOT/.claude/settings.json" "$PROJECT/.claude/settings.json"
+# This legacy regression proves Stop behavior without a during-turn guard.
+# Its rapid-death arm fixture has no singleton or watcher health and cannot
+# be shared with the independent guard, whose transport has its own live test.
+# Keep the tracked SessionStart and Stop registrations and all their assertions.
+jq '(.hooks[][] | .hooks) |= map(select(.command | contains("fm-claude-watch-guard") | not))' \
+  "$ROOT/.claude/settings.json" > "$PROJECT/.claude/settings.json"
 # The lab keeps the real tracked .claude/settings.json SessionStart run hook,
 # Stop guard, and asyncRewake auto-arm registration.
 # The only local hook records model-issued Bash calls without acquiring the
@@ -81,8 +94,16 @@ printf '9999999\n' > "$HOME_DIR/state/.lock"
 # a misbehaving session can never loop forever.
 cat > "$PROJECT/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
+# As in the portable Stop fixture, a handling successor acknowledges its start
+# without consuming the next foreground event that Stop must deliver.
+if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
+  printf 'arm=%s predecessor=%s\n' "$$" "$FM_WATCH_PREDECESSOR_ARM_PID" >> "$FM_HOME/state/successor-ran"
+  printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
+  exit 0
+fi
 N=$(cat "$FM_HOME/state/arm-count" 2>/dev/null || echo 0); N=$((N+1)); echo "$N" > "$FM_HOME/state/arm-count"
 echo "arm-run=$N pid=$$" >> "$FM_HOME/state/arm-ran"
+printf 'arm-run=%s handling-successor=%s\n' "$N" "${FM_WATCH_HANDLING_SUCCESSOR:-0}" >> "$FM_HOME/state/arm-callers"
 if [ "$N" -ge 3 ]; then
   rm -f "$FM_HOME/state/task.meta"
   printf 'watcher: attached pid=%s (beacon 2s)\n' "$$"

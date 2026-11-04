@@ -19,7 +19,7 @@ set -u
 TMP_ROOT=$(fm_test_tmproot fm-turnend-guard)
 fm_git_identity fmtest fmtest@example.invalid
 
-REQUIRED_REASON='watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn'
+REQUIRED_REASON='FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart'
 AWAY_REQUIRED_REASON='Away mode owns watcher supervision'
 
 # REQUIRED_REASON is the CLAUDE repair line, so the cases asserting it need
@@ -895,7 +895,8 @@ test_tracked_claude_entries_inert_under_grok() {
   dir="$TMP_ROOT/claude-entries-grok-inert"
   mkdir -p "$dir/bin"
   for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh \
-    fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh; do
+    fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh \
+    fm-claude-watch-guard.sh; do
     printf '#!/usr/bin/env bash\nprintf ran >> %q\n' "$dir/invoked" > "$dir/bin/$script"
     chmod +x "$dir/bin/$script"
   done
@@ -936,7 +937,7 @@ test_tracked_claude_entries_inert_under_grok() {
       || fail "tracked entry for $target ran under a legacy GROK_AGENT environment"
   done < <(jq -r '.hooks[][].hooks[].command' "$ROOT/.claude/settings.json")
 
-  [ "$guarded" -eq 7 ] || fail "expected 7 grok-guarded tracked entries, saw $guarded"
+  [ "$guarded" -eq 10 ] || fail "expected 10 grok-guarded tracked entries, saw $guarded"
   [ "$unguarded" -eq 1 ] || fail "expected 1 documented unguarded tracked entry, saw $unguarded"
   pass "tracked .claude/settings.json entries: $guarded inert under grok, the documented subagent exception still armed, all live under Claude"
 }

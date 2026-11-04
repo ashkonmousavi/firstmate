@@ -1,4 +1,5 @@
 Mode: Claude Stop-hook-owned supervision.
+The [during-turn continuity guard](../watcher-continuity.md#claude-during-turn-continuity) keeps checks running through long turns.
 
 When this session owns supervision and away mode is not active:
 1. Drain first with `bin/fm-wake-drain.sh`.
@@ -11,11 +12,11 @@ When this session owns supervision and away mode is not active:
    Do not invent a wake from an attach-status line alone; drain and act only on real wake records, the drain's `OPEN DECISIONS` and `UNREAD STATUS` entries, or a real watcher reason line.
 4. On the one `Stop hook feedback` automatic-mechanism failure notice (`firstmate watcher auto-arm FAILED ...`), drain, inspect the automatic mechanism failure, and do not turn the notice into a repeating manual-arm loop.
 5. If the Stop hook does not claim the home or reports an exhausted failure, inspect its registration and watcher startup path before ending blind.
-   Keep the Stop-owned automatic mechanism as the only Claude arm owner.
+   Inspect the during-turn continuity guard as well as the Stop-owned wake path.
 6. Treat `watcher: started ...` and `watcher: attached ...` inside automatic arm output as proof that one live cycle exists.
    On attach, the arm follows verified identity-matched successors instead of exiting when the first cycle ends.
 7. The durable wake queue preserves actionable events between a rewake and the next Stop-launched arm, while the bounded turn-end guard prevents a blind Stop when recovery did not start.
-   No PreToolUse hook denies fleet commands based on watcher status.
+   Follow the [during-turn admission and repair contract](../watcher-continuity.md#claude-during-turn-continuity) before new spawns or sends.
    [`watcher-continuity.md`](../watcher-continuity.md) owns the exact session-lock recovery boundary.
 8. The turn-end guard (`bin/fm-turnend-guard.sh --claude`) remains the final backstop.
    It requires the PID-strict live-watcher and fresh-beacon predicate at the Stop boundary, except for the Claude-specific foreign-live-owner safe exit owned by [`turnend-guard.md`](../turnend-guard.md#guard-predicates); that document also owns the distinct model-aware mid-turn pull-guard rules.

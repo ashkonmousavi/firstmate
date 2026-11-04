@@ -6,6 +6,31 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Claude during-turn continuity
+
+The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and Stop wake delivery.
+Its independent elapsed-time observer uses an accelerated clock and is regression evidence, not proof that a real Claude hook remains scheduled for 20 wall-clock minutes.
+The real-harness refresh command is `FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh`.
+That guard names the installed Claude version, exercises the tracked async and synchronous registrations in an isolated Claude session, and refuses a pass without both during-tool cycles and an observed stale-send denial.
+The arm and send executables are fixtures, so this establishes hook transport and lifetime, not backend dispatch or real worker lifecycle behavior.
+Verified on 2026-11-04 UTC, Linux x86_64, Claude Code 2.1.318, using the existing signed-in account without account-pin changes.
+The isolated print-mode run observed 65 new arm-fixture cycles during the eight-second Bash tool and an actual synchronous stale-send denial.
+
+```text
+FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh
+ok - 2.1.318 (Claude Code) async continuity ran during a tool; synchronous stale send refused
+FM_TEST_COMPLETE
+FM_CLAUDE_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-stop-autoarm-live-e2e.test.sh
+ok - Claude 2.1.318 (Claude Code) live E2E reclaimed a stale session lock through session start, completed two tokenless Stop-owned rewake cycles, and preserved the competing-live-owner boundary
+```
+
+The legacy Stop live guard deliberately excludes during-turn guard hooks because its immediate-return arm fixture has no shared singleton; handling successors acknowledge separately without consuming its two foreground wake events.
+The portable guard additionally covers real watcher coexistence, guarded pending-wake recovery, and preservation of healthy watchers in unguarded plain and hosted Stop paths.
+A separate isolated real-Claude check using the production arm, watcher, registered check, spawn and send entrypoints observed a 0-1 second beat age during twelve samples, stale and absent-beat refusal through `env -S`, and recovery through the emitted restart command.
+That check also preserved the same healthy watcher PID and queued wake when unguarded plain and hosted Stop paths attached, and confirmed worker, secondmate and unmarked callers remained outside admission enforcement.
+This is short wall-clock coverage alongside the independent simulated 20-minute proof, not a 20-minute real-Claude run.
+macOS, Windows, interactive sessions, remote installations and separate account pins remain live-proof gaps.
+
 ## Claude state-claim Stop check
 
 The [state-claim check](../turnend-guard.md#state-claim-check) owns the current operator contract.

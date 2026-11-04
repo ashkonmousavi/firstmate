@@ -272,6 +272,8 @@ if [ ! -d "$STATE" ]; then
   exit 1
 fi
 
+"$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE"
+
 # Pending replies load the backend, marker, classifier, and timeout helpers.
 # Reuse those imports before loading the control and inbox helpers.
 # shellcheck source=bin/fm-pending-reply-lib.sh

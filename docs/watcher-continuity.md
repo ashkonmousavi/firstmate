@@ -19,7 +19,7 @@ In this document, an arm is one run of `bin/fm-watch-arm.sh`, which starts a wat
 
 ## Ownership
 
-On Pi, omp, OpenCode, Cursor, and Claude primaries, one component owns re-arming the watcher.
+Each primary integration owns re-arming through the shared singleton arm wrapper.
 Codex and Grok keep their own protocols; see [Manual recovery and other harnesses](#manual-recovery-and-other-harnesses).
 
 | Harness | Re-arm owner |
@@ -28,7 +28,7 @@ Codex and Grok keep their own protocols; see [Manual recovery and other harnesse
 | omp | `.omp/extensions/fm-primary-omp-watch.ts` |
 | OpenCode | `.opencode/plugins/fm-primary-watch-arm.js` |
 | Cursor | `.cursor/hooks.json` `stop` hook (`bin/fm-turnend-guard-cursor.sh`) |
-| Claude | `.claude/settings.json` Stop `asyncRewake` hook (`bin/fm-claude-stop-autoarm.sh`) |
+| Claude | The during-turn continuity guard and Stop `asyncRewake` owner, described below |
 
 On a non-Pi primary, a home that runs the supervision host also changes what the owner runs; see [Supervision host](#supervision-host).
 
@@ -90,6 +90,25 @@ If a session exits mid-cycle and leaves an orphaned Stop hook, the replacement s
 [`turnend-guard.md`](turnend-guard.md#auto-arm-generation-claim) owns the open-claim definition.
 While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
 
+### Claude during-turn continuity
+
+`bin/fm-claude-watch-guard.sh` runs as a Claude-owned async hook on UserPromptSubmit and PreToolUse.
+Its home-scoped identity lock admits one guard for the owning Claude session, including while the model is thinking or a tool is running.
+It maintains a watcher even before tasks exist, so a first spawn cannot race missing supervision.
+It defers to a healthy watcher or an open Stop auto-arm claim, and otherwise tracks one child of the existing `fm-watch-arm.sh` wrapper, restarting after a one-shot close.
+The arm wrapper remains the owner of watcher singleton arbitration, verification and durable wake publication.
+The guard consumes no wake rows, invokes no branch actor, and leaves notification to the existing Stop path.
+It stops and reaps its child when session ownership changes or away/daemon supervision takes over.
+Foreign primary harnesses and linked worker copies are inert.
+
+The same script's synchronous PreToolUse check warns when no live verified cycle exists.
+The shared `fm-claude-watch-admission.sh` admission owner refuses an absent beacon or one older than 300 seconds at the real `fm-spawn.sh` and `fm-send.sh` entry points, before mutation, and supplies the same warning and refusal text to PreToolUse.
+Admission applies only when this caller owns the primary session and its identity matches the existing guard marker; unmarked homes, workers, secondmate homes and away supervision are inert.
+Stop uses that same applicability predicate for its pending-wake restart; homes outside it retain attachment to their healthy watcher.
+A leftover guard marker remains applicable after its guard dies while the primary still owns that session, so a stale beat still refuses until the home-scoped repair restores freshness.
+The PreToolUse classifier retains early refusal for recognized calls; the entry points enforce admission independently of shell syntax, while reads, command lookups and the home-scoped repair instruction emitted by `fm-supervision-instructions.sh` remain available.
+The check does not change other harnesses' supervision models or away/quiet policy.
+
 ### Claude session-lock ownership
 
 The hook handles the session lock as follows:
@@ -114,7 +133,7 @@ The beacon is `state/.last-watcher-beat`, which only the watcher process touches
 
 ### Supervision host
 
-On a non-Pi primary, a home that runs the supervision host runs `bin/fm-supervision-host.sh` in place of the arm its re-arm owner would start.
+On a non-Pi primary, a home that runs the supervision host uses the [host arm owners](supervision-host.md#arm-owners).
 The host owns successive watcher cycles through the same arm.
 [supervision-host.md](supervision-host.md#failure-direction) owns the default hand-back's downtime restoration, including when the successor already exited.
 Its [acknowledged hand-back](supervision-host.md#acknowledged-hand-back) section owns the opt-in Claude transfer that preserves supervision and retries delivery until main acknowledges the specific queued check.
@@ -201,7 +220,7 @@ When the host instead hands the accepted close back to main and leaves that succ
 ### Manual recovery and other harnesses
 
 - The model no longer re-arms after ordinary wakes.
-- No PreToolUse hook denies fleet commands based on watcher status.
+- Claude's during-turn guard owns its stale-beacon fleet-command check; other harnesses keep their existing guards.
 - A genuine auto-arm failure describes the automatic mechanism as broken and never directs a routine manual background arm.
 - Terminal arm-output classification (`started`, `attached`, or `FAILED`) remains defense in depth for the manual recovery path.
 - Codex retains its bounded foreground checkpoint protocol unless the home opts in to its [native Stop park](supervision-protocols/codex.md).
@@ -514,7 +533,8 @@ It checks that a newly appended keyed decision is classified without rereading e
 
 ### Claude auto-arm and turn-end guard
 
-`tests/fm-subagent-pretool-check.test.sh` proves Claude retains only the non-status Bash seatbelts.
+`tests/fm-claude-watch-guard.test.sh` covers the simulated 20-minute turn, stale-beacon refusal and recovery, command positions, foreign-harness exclusions, duplicate hooks and session-end cleanup.
+`tests/fm-claude-watch-guard-live-e2e.test.sh` is the opt-in real-Claude hook transport guard; current evidence and gaps belong in [runtime verification](verification/runtime-backends.md#claude-during-turn-continuity).
 
 `tests/fm-claude-stop-autoarm.test.sh` covers:
 

@@ -61,7 +61,8 @@ Until they land, their current behavior stays as described in their own owners.
 
 ### Arm owners
 
-On a home that runs the host, each primary's existing arm owner runs it in place of its watcher command.
+On a home that runs the host, the arm owners below run it in place of their watcher command.
+For Claude's separate during-turn guard, see [watcher continuity](watcher-continuity.md#claude-during-turn-continuity).
 The arm owner delivers a handed-back wake through the wake path that harness already trusts.
 The host's header owns the output contract they read.
 
