@@ -271,6 +271,65 @@ EOF_DATA'; do
   pass "fleet mutation command positions include wrappers and nested execution, not data"
 }
 
+test_unguarded_stop_preserves_watcher() {
+  local home host
+  for host in off on; do
+    home="$TMP_ROOT/unguarded-stop-$host"
+    make_guard_home "$home"
+    rm "$home/state/task.meta"
+    if [ "$host" = off ]; then : > "$home/config/supervision-host-off"; fi
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$home/state/continuity.check.sh"
+    chmod 700 "$home/state/continuity.check.sh"
+    FM_HOME="$home" bash "$home/bin/fm-check-register.sh" continuity >/dev/null || fail "check fixture registration"
+    append_wake "$home/state" check fixture "unacknowledged handling wake"
+    touch "$home/state/.last-check"
+    FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+      "$FAKE_CLAUDE" -c '
+      cd "$FM_HOME" || exit 1
+      echo "$$" > state/.lock
+      . bin/fm-wake-lib.sh
+      FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh > state/owner.out 2>&1 &
+      owner=$!
+      watcher_ready() { fm_watcher_healthy "$STATE" "$FM_HOME/bin/fm-watch.sh" 300 "$FM_HOME"; }
+      rc=0
+      wait_until_deadline 60 watcher_ready || rc=1
+      first=$(cat state/.watch.lock/pid 2>/dev/null) || rc=1
+      fm_recovery_marker_snapshot state/.watcher-down || rc=1
+      [[ "$FM_RECOVERY_MARKER_TOKEN" == announced:downtime:* ]] || rc=1
+      [ ! -e state/.claude-watch-guard.lock/session ] || rc=1
+      if [ "$rc" -eq 0 ]; then
+        bin/fm-claude-stop-autoarm.sh > state/stop.out 2> state/stop.err <<EOF_PAYLOAD &
+{}
+EOF_PAYLOAD
+        stop=$!
+        attached_or_replaced() {
+          kill -0 "$first" 2>/dev/null || return 0
+          [ "$(cat state/.watch.lock/pid 2>/dev/null)" = "$first" ] || return 0
+          grep -q "^watcher: attached pid=$first " state/.claude-autoarm-output.* 2>/dev/null
+        }
+        wait_until_deadline 60 attached_or_replaced || rc=1
+        sleep 1
+        kill -0 "$first" 2>/dev/null || rc=1
+        [ "$(cat state/.watch.lock/pid 2>/dev/null)" = "$first" ] || rc=1
+        kill -0 "$stop" 2>/dev/null || rc=1
+        grep -qF "unacknowledged handling wake" state/.wake-queue || rc=1
+      fi
+      touch state/.afk
+      kill "$owner" 2>/dev/null || true
+      wait "$owner" 2>/dev/null || true
+      bin/fm-watch-arm.sh --stop >/dev/null 2>&1
+      if [ -n "${stop:-}" ]; then
+        kill "$stop" 2>/dev/null || true
+        stop_finished() { ! kill -0 "$stop" 2>/dev/null; }
+        if ! wait_until_deadline 60 stop_finished; then kill -KILL "$stop" 2>/dev/null || true; rc=1; fi
+        wait "$stop" 2>/dev/null || true
+      fi
+      [ "$rc" -eq 0 ] || { cat state/owner.out state/stop.out state/stop.err 2>/dev/null; exit 1; }
+    ' || fail "$host unguarded Stop terminated or replaced its healthy watcher"
+  done
+  pass "unguarded plain and hosted Stops attach without terminating the healthy handling successor"
+}
+
 test_pending_wake_keeps_checks_running() {
   local mode home host
   for host in on off; do
@@ -294,6 +353,10 @@ SH
       if [ "$FM_GUARD_MODE" = guard ]; then
         printf "{}" | bin/fm-claude-watch-guard.sh > state/owner.out 2>&1 &
       else
+        . bin/fm-wake-lib.sh
+        . bin/fm-session-lock-lib.sh
+        mkdir -p state/.claude-watch-guard.lock
+        printf "%s:%s\n" "$$" "$(fm_session_pid_identity "$$")" > state/.claude-watch-guard.lock/session
         line=$(bin/fm-supervision-instructions.sh --harness claude --repair-line)
         repair=${line#*watcher with }
         repair=${repair%% as its own*}
@@ -468,4 +531,4 @@ EOF_PAYLOAD
   pass "real Stop hook shares a healthy guard cycle and still delivers exit-2 wake"
 }
 
-fm_test_run test_real_entrypoint_admission test_empty_home_admission test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation
+fm_test_run test_unguarded_stop_preserves_watcher test_real_entrypoint_admission test_empty_home_admission test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation

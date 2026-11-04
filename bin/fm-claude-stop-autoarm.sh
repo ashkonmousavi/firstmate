@@ -572,6 +572,7 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
   RESTART=
   if [ -s "$STATE/.wake-queue" ] \
+    && "$SCRIPT_DIR/fm-claude-watch-admission.sh" applies "$FM_ROOT" "$FM_HOME" "$STATE" \
     && fm_recovery_marker_snapshot "$STATE/.watcher-down" \
     && [[ "$FM_RECOVERY_MARKER_TOKEN" == announced:downtime:* ]] \
     && fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME"; then
