@@ -504,7 +504,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - Generation-bound acknowledgement.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
-- An append that reopens an announced empty recovery.
+- A repeated empty-queue arm that leaves an announced recovery quiet, and an append that reopens it.
 - An external append beside a handling successor's inherited rows that surfaces both before and after the prior handling turn acknowledges its rows, including after a lost or malformed sequence counter and when the new row repeats an acknowledged inherited row byte for byte.
 - A watcher close inside the handling window that must leave the printed acknowledgement valid.
 - A re-arm whose recovery cycle is slowed after confirmation and must still surface rather than read as a watcher that stayed live.
@@ -521,6 +521,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - The once-per-generation announcement bound with the real Pi extension against a refused handling handshake.
 - A handling successor that must surface a real crew event instead of going blind.
 - A handling successor that resurfaces a row appended between its predecessor's close and its own startup handoff.
+- A recovery selected at startup and acknowledged before the first poll, which stays quiet until later work resurfaces once.
 
 `tests/fm-watch-triage.test.sh` proves TERM stops a watcher blocked inside a poll's pane capture and still releases its lock and records an acknowledgeable stop.
 It also exercises a single TERM with a live foreign downtime-marker lock holder, retained stale singleton and subsequent arm-style recovery, including decimal `08` and zero `00` cleanup bounds.
