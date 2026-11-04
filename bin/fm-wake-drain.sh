@@ -505,17 +505,21 @@ fm_wake_decision_hidden_by_owner_park() {
 }
 
 print_open_decisions_section() {
-  local snapshot=${1:-} open task key verb note line item_bytes=220 global_bytes=4000
+  local snapshot=${1:-} open task key verb epoch note line item_bytes=220 global_bytes=4000
   local output='' used=0 shown=0 omitted=0 bytes
 
   if [ -n "$snapshot" ]; then
-    open=$(scan_open_decisions_snapshot "$STATE" "$snapshot") || return 1
+    open=$(scan_open_decisions_snapshot "$STATE" "$snapshot" emitted) || return 1
   else
-    open=$(scan_open_decisions_incremental "$STATE") || return 1
+    open=$(scan_open_decisions_incremental "$STATE" emitted) || return 1
   fi
   [ -n "$open" ] || return 0
 
-  while IFS=$(printf '\t') read -r task key verb note; do
+  # Prioritize emission time before the stale-tail budget. Unknown epochs sort
+  # after stamped events; task/key ties stay deterministic without new receipts.
+  open=$(printf '%s\n' "$open" | LC_ALL=C sort -t "$(printf '\t')" -k4,4nr -k1,1 -k2,2) || return 1
+
+  while IFS=$(printf '\t') read -r task key verb epoch note; do
     [ -n "$task" ] || continue
     fm_wake_decision_hidden_by_owner_park "$task" && continue
     line="$task"
