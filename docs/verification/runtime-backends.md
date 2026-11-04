@@ -2214,7 +2214,7 @@ ok - live Herdr submit confirm: Claude Code (2.1.301 (Claude Code)) on herdr 0.9
 
 Measured 2026-11-04 against Claude Code 2.1.318 and Herdr 0.9.5 in an isolated named Herdr lab.
 The real `/exit` dialog lists `shell · sleep 120`, `1. Exit and stop tasks`, `2. Stay`, and `Enter to confirm · Esc to cancel`, followed by another composer and status footer.
-The strict last-row matcher below misses that layout; the control-plane shell protection in [`fm_control_background_shell_running`](../../bin/fm-control-lib.sh) accepts the dialog at any visible position or an independent positive shell status count.
+The strict last-row matcher below misses that layout; the control-plane shell protection in [`fm_control_background_shell_running`](../../bin/fm-control-lib.sh) accepts the captured dialog with its trailing composer or an independent positive shell status count.
 The live guard uses Claude bash mode and submits no model prompt.
 Refresh with `FM_CONTROL_CLAUDE_BUSY_LIVE=1 bash tests/fm-control-claude-busy-live-e2e.test.sh` after a Claude or Herdr upgrade.
 Exact result:
@@ -2237,7 +2237,6 @@ The control-plane exit guard also runs before submit retries, covering a shell d
 Non-shell picker confirmation follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
 `tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release, validated lane release, unauthorized tasks, and secondmates using non-shell fixture work.
 Its tmux and Herdr cases include compatible-client retry and refusal after the busy state, generation, live dialog, or viewport changes.
-The confirmation guard additionally refuses an unacknowledged inbox message before Enter, including a compatible-client retry.
 A stopped agent whose pane retains dialog text is not treated as busy.
 The confirmation cases use fixtures; the live shell-dialog measurement above proves the vendor surface.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.

@@ -1694,23 +1694,6 @@ test_exit_preserves_unfinished_fm_send() {
   pass 'Claude exit preserves an unfinished real fm-send and its unacknowledged steer'
 }
 
-test_exit_picker_preserves_unacknowledged_inbox() {
-  local dir out rc
-  dir=$(new_case unacknowledged-picker)
-  add_task "$dir" t1 claude
-  alive_as "$dir" claude
-  record_done "$dir" t1
-  exit_picker_screen > "$dir/fake/pane"
-  mkdir -p "$dir/home/state/t1.inbox"
-  printf 'unacknowledged steer\n' > "$dir/home/state/t1.inbox/001.msg"
-  out=$(run_control "$dir" t1 exit --landed-work); rc=$?
-  expect_code 75 "$rc" "even an authorized non-shell picker must preserve an unread steer"$'\n'"$out"
-  assert_contains "$out" 'busy: unacknowledged inbox message' 'the retry names pending delivery'
-  [ ! -s "$dir/fake/keys" ] || fail "the unread steer must prevent a confirming Enter"
-  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail 'inbox must remain unacknowledged'
-  pass 'Claude picker confirmation preserves unacknowledged inbox messages'
-}
-
 test_exit_refuses_an_open_background_picker() {
   local dir out rc
   dir=$(new_case open-picker)
@@ -1749,6 +1732,8 @@ test_exit_confirms_landed_work_without_accepting_the_task() {
       dir=$(new_case "landed-$kind-$stage")
       add_task "$dir" t1 claude "$kind"
       alive_as "$dir" claude
+      mkdir -p "$dir/home/state/t1.inbox"
+      printf 'old unread message\n' > "$dir/home/state/t1.inbox/001.msg"
       cp "$ROOT/.tasks.toml" "$dir/home/.tasks.toml"
       printf '## In flight\n- [ ] t1 - Awaiting proof (repo: alpha) (kind: ship)\n\n## Queued\n\n## Done\n' > "$dir/home/data/backlog.md"
       cp "$dir/home/data/backlog.md" "$dir/backlog-before"
@@ -1768,6 +1753,7 @@ test_exit_confirms_landed_work_without_accepting_the_task() {
         expect_code 1 "$rc" "landed-work must not authorize a secondmate"$'\n'"$out"
         [ "$(cat "$dir/fake/command")" = claude ] || fail "the secondmate must remain alive"
       fi
+      [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail 'exit must not acknowledge the old message'
       cmp -s "$dir/backlog-before" "$dir/home/data/backlog.md" || fail "releasing the worker changed task acceptance"
     done
   done
@@ -2596,7 +2582,6 @@ test_exit_busy_background_shell_is_retryable
 test_exit_busy_shell_after_submit_is_retryable
 test_claude_shell_surface_is_adapter_scoped
 test_quoted_shell_dialog_does_not_block_idle_exit
-test_exit_picker_preserves_unacknowledged_inbox
 test_exit_preserves_unfinished_fm_send
 test_exit_refuses_an_open_background_picker
 test_exit_refuses_the_confirming_enter

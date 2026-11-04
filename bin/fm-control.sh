@@ -594,15 +594,6 @@ refuse_background_shell_exit() {
   fi
 }
 
-refuse_unacknowledged_exit_picker() {
-  local record
-  for record in "$STATE/$ID.inbox"/*.msg; do
-    [ -f "$record" ] || continue
-    printf 'busy: unacknowledged inbox message; task %s remains running\n' "$ID" >&2
-    return 75
-  done
-}
-
 # confirm_exit_picker <dialog-name>: Claude's background-task exit picker has
 # "Exit and stop tasks" as its selected row (the recognizer requires it), so one
 # Enter chooses it.
@@ -611,7 +602,6 @@ refuse_unacknowledged_exit_picker() {
 confirm_exit_picker() {  # <dialog-name> [pre-submit]
   local state why rc
   refuse_background_shell_exit || return $?
-  refuse_unacknowledged_exit_picker || return $?
   if [ "$1" != 'Claude background-task exit picker' ] || [ "$KIND" = secondmate ] \
      || { [ "${2:-}" = pre-submit ] && [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; }; then
     refuse_blocking_prompt "$1"
@@ -967,12 +957,9 @@ exit_background_check() {
 
 fm_control_lane_release_guard() {
   # The backend invokes this again immediately before a compatible-client
-  # retry, so a newly arrived shell or inbox record cannot authorize Enter.
+  # retry, so a newly arrived shell cannot authorize Enter.
   if [ "${exit_input_guard:-0}" = 1 ] || [ "${release_exit_picker:-0}" = 1 ]; then
     refuse_background_shell_exit || return $?
-  fi
-  if [ "${release_exit_picker:-0}" = 1 ]; then
-    refuse_unacknowledged_exit_picker || return $?
   fi
   [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] || return 0
   local record current state seq
