@@ -680,6 +680,8 @@ For session-start and remote-launch convergence, including branch selection and 
 Neither session start nor launch moves the host's own Firstmate copy.
 An unsafe or unavailable target is reported and left untouched.
 A completed sync reports which watched instruction paths its advance changed.
+The primary needs that fact because it cannot diff a checkout it cannot read.
+It uses the fact to decide whether the running remote agent must be replaced to actually reload.
 
 ### Retire a remote second mate
 
