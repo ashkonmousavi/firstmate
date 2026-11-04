@@ -243,6 +243,8 @@ The away return brief treats a still-open handling episode as a wake in progress
 An unacknowledged downtime generation is announced at most once.
 The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
+Before delivering a recovery selected at startup, the first poll revalidates that announcement against the current generation under those same locks.
+An intervening drain acknowledgement or handling handoff cancels that pending delivery; a later durable append still opens recovery normally.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
 A Codex foreground checkpoint skips the announced-episode reopen transition, so an already-announced generation stays announced while the checkpoint continues its bounded supervision.
@@ -250,9 +252,13 @@ Its ordinary arm check still announces a never-announced generation, including o
 
 ### Generation reuse
 
-An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
-A watcher closing to resurface the recovery it found at its start preserves the existing marker instead, while a handling successor resurfacing a later row publishes downtime like any close.
+Every durable queue append publishes downtime, and a watcher close attempts to publish it unless the close delivered its wake and finds an acknowledged episode.
+A delivered close that acquires the downtime-marker lock within its bound keeps an acknowledged episode acknowledged, whenever that acknowledgement happened; on any other marker state it publishes downtime like any close.
+A close without a delivered wake still publishes downtime, including after an acknowledgement.
+A non-successor watcher closing on the recovery wake it delivered preserves the existing marker instead, while a handling successor resurfacing a later row publishes downtime like any delivered close.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
+That deferred publication does not know the close was delivered, so under load a delivered close that missed the lock reopens an acknowledged episode as fresh pending downtime.
+The next watcher then sends one empty recovery wake for that generation, and later empty-queue arms leave it announced, so this load-dependent residual is at most one empty wake per episode and never accumulates.
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
@@ -498,7 +504,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - Generation-bound acknowledgement.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
-- An append that reopens an announced empty recovery.
+- A repeated empty-queue arm that leaves an announced recovery quiet, and an append that reopens it.
 - An external append beside a handling successor's inherited rows that surfaces both before and after the prior handling turn acknowledges its rows, including after a lost or malformed sequence counter and when the new row repeats an acknowledged inherited row byte for byte.
 - A watcher close inside the handling window that must leave the printed acknowledgement valid.
 - A re-arm whose recovery cycle is slowed after confirmation and must still surface rather than read as a watcher that stayed live.
@@ -515,6 +521,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - The once-per-generation announcement bound with the real Pi extension against a refused handling handshake.
 - A handling successor that must surface a real crew event instead of going blind.
 - A handling successor that resurfaces a row appended between its predecessor's close and its own startup handoff.
+- A recovery selected at startup and acknowledged before the first poll, which stays quiet until later work resurfaces once.
 
 `tests/fm-watch-triage.test.sh` proves TERM stops a watcher blocked inside a poll's pane capture and still releases its lock and records an acknowledgeable stop.
 It also exercises a single TERM with a live foreign downtime-marker lock holder, retained stale singleton and subsequent arm-style recovery, including decimal `08` and zero `00` cleanup bounds.
