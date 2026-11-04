@@ -22,7 +22,8 @@ ok - 2.1.316 (Claude Code) real Stop read: exits 0
 ok - 2.1.316 (Claude Code) state-claim live guard checked 2 sessions
 ```
 
-The portable guard exercises MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The portable guard at that verification exercised MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The later capacity and optional reply-format rules have [portable regression coverage](../../tests/fm-state-claim-guard.test.sh); the live results above do not establish coverage for those additions.
 The live guard asserts the affirmative claim in both sessions and verifies that the matching fixture read executed and completed in Claude's transcript.
 Additional real Claude print-mode scenarios in the retained evidence verify resource mismatches, previous-turn reads, another hook's continuation, MAIN and secondmate enforcement, and worker exemption.
 The evidence retained in `state-claim-live-report.md` records a portable maximum of 37.6 ms across five full-hook blocking samples and a largest live full-hook invocation of 65.79 ms, both below the 200 ms budget.

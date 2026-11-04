@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Read one home's numeric hard-floor/PSI/disk policy; never launch or write state.
 
-Ceilings, slot estimates and the separate high-(anon+shmem) reserve remain with
-their existing consumers. This reader's headroom is host MemAvailable bounded
-by every finite cgroup high/max minus max(current-inactive_file, 0).
+Lane ceilings and fixed reserves remain with capacity consumers.
+This reader's effective available memory is host MemAvailable bounded
+by every finite cgroup high/max minus max(memory.current - clean file cache, 0).
+Reclaimable cache is min(max(file - shmem, 0), active_file + inactive_file),
+less file_dirty and file_writeback, floored at zero; shared and dirty pages
+therefore cannot inflate available memory.
 
 Memory PSI "full" is read per window (avg10, avg60, avg300) as the maximum over
 the host and every memory-controller ancestor. Without the optional
@@ -93,13 +96,13 @@ def refusal_reasons(facts, rules, memory_floor=None, disk_floor=None):
     disk_floor = rules['disk_floor_gib'] if disk_floor is None else disk_floor
     reasons = []
     if facts['effective_available_bytes'] <= memory_floor*GIB:
-        reasons.append('Required cache-aware effective memory floor not met')
+        reasons.append(f"Required cache-aware effective memory floor not met: available_bytes={facts['effective_available_bytes']} floor_bytes={memory_floor*GIB} pressure_full_avg60={facts['memory_full_avg60']} pressure_limit={rules['memory_full_avg60_max']}")
     if facts['memory_full_avg60'] >= rules['memory_full_avg60_max']:
-        reasons.append('memory PSI full avg60 refuses')
+        reasons.append(f"memory PSI full avg60 refuses: measured={facts['memory_full_avg60']} limit={rules['memory_full_avg60_max']} available_bytes={facts['effective_available_bytes']} floor_bytes={memory_floor*GIB}")
     if 'memory_full_avg300_max' in rules and facts['memory_full_avg300'] >= rules['memory_full_avg300_max']:
-        reasons.append('memory PSI full avg300 refuses')
+        reasons.append(f"memory PSI full avg300 refuses: measured={facts['memory_full_avg300']} limit={rules['memory_full_avg300_max']} available_bytes={facts['effective_available_bytes']} floor_bytes={memory_floor*GIB} full_avg60={facts['memory_full_avg60']}")
     if not facts['disk_available_bytes'] or any(value <= disk_floor*GIB for value in facts['disk_available_bytes'].values()):
-        reasons.append('Required free disk floor not met')
+        reasons.append(f"Required free disk floor not met: disk_available_bytes={facts['disk_available_bytes']} disk_floor_bytes={disk_floor*GIB} available_bytes={facts['effective_available_bytes']} floor_bytes={memory_floor*GIB} full_avg60={facts['memory_full_avg60']}")
     return reasons
 
 
@@ -124,11 +127,13 @@ def measure(rules, meminfo='/proc/meminfo', pressure_file='/proc/pressure/memory
             current_file = group/'memory.current'
             if current_file.exists():
                 current = integer(current_file.read_text().strip(), 'memory.current')
-                values = [line.split()[1:] for line in (group/'memory.stat').read_text().splitlines() if line.startswith('inactive_file ')]
-                if len(values) != 1 or len(values[0]) != 1:
-                    raise ValueError('missing/invalid inactive_file')
-                inactive = integer(values[0][0], 'inactive_file')
-                working = max(current-inactive, 0)
+                stats = dict(line.split() for line in (group/'memory.stat').read_text().splitlines())
+                def counter(key):
+                    return integer(stats[key], key)
+                cache = min(max(0, counter('file')-counter('shmem')),
+                            counter('active_file')+counter('inactive_file'))
+                clean = max(0, cache-counter('file_dirty')-counter('file_writeback'))
+                working = max(current-clean, 0)
                 limits = []
                 for name in ('memory.high','memory.max'):
                     text = (group/name).read_text().strip()
@@ -136,7 +141,7 @@ def measure(rules, meminfo='/proc/meminfo', pressure_file='/proc/pressure/memory
                         limits.append(integer(text, name))
                 if limits:
                     available = min(available, min(limits)-working)
-                ancestors.append({'path':str(group), 'working_set_bytes':working, 'finite_limits_bytes':limits})
+                ancestors.append({'path':str(group), 'working_set_bytes':working, 'reclaimable_clean_file_bytes':clean, 'finite_limits_bytes':limits})
                 psi = worst(psi, pressure(group/'memory.pressure'))
             elif any((group/name).exists() for name in ('memory.high','memory.max')):
                 raise ValueError('memory controller is missing current/stat: '+str(group))

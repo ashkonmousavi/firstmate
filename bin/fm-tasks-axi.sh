@@ -15,7 +15,7 @@
 # stores it verbatim as a link, which lifecycle transitions record relative to
 # that same root.
 #
-# Optional add/update --owner-request-file consumes a private interpreted packet,
+# add/update --owner-request-file consumes a private interpreted packet,
 # merges its protected section under this task's existing control lock, and
 # verifies the native full-body readback. It is never forwarded to tasks-axi.
 # Ordinary body edits to bound tasks preserve that section exactly.
@@ -23,7 +23,12 @@
 # bin/fm-request-acceptance.py's module header and validator below those fields.
 # Example: fm-tasks-axi.sh add <id> '<title>' --owner-request-file <private-json-path>.
 # Owner-request custody requires an explicit safe task ID; add/create --mint
-# remains the ordinary unbound path and cannot take --owner-request-file.
+# remains available only for unbound intake and cannot take --owner-request-file.
+# An unbound add/create refuses when a whole-word owner/captain appears anywhere
+# in the title or body, including quotations; explicit IDs require a packet,
+# while minted IDs must be replaced with an explicit ID before binding.
+# This detector intentionally errs toward custody: `file owner` is a known
+# false positive, and unstated or paraphrased origin cannot be detected.
 # An exact packet retry confirms the existing native full body without another
 # write; conflicting or unavailable confirmation refuses. Packet updates archive
 # the prior body, preserving ordinary prose and earlier source/correction records.
@@ -308,6 +313,36 @@ cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI
 
 if [ "$help_requested" = 1 ]; then
   exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
+fi
+
+# Enforce the owner-origin preflight described in this script's header.
+if { [ "${1:-}" = add ] || [ "${1:-}" = create ]; } && [ -z "$OWNER_REQUEST_FILE" ]; then
+  origin_rc=0
+  python3 - "$MINT" "$BODY_FILE" "$BODY_LITERAL" "${ARGS[@]}" <<'PYORIGIN' || origin_rc=$?
+import os,re,stat,sys
+mint,bodyfile,body,*args=sys.argv[1:]
+values=[];i=1
+valued={'--kind','--repo','--body','--body-file','--blocked-by','--pr','--report','--priority','--prefix'}
+while i<len(args):
+    arg=args[i]
+    if arg in valued:i+=2;continue
+    if arg.startswith('-'):i+=1;continue
+    values.append(arg);i+=1
+slot=0 if mint=='1' else 1
+title=values[slot] if len(values)>slot else ''
+if bodyfile:
+    try:
+        fd=os.open(bodyfile,os.O_RDONLY|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):raise ValueError('body is not regular')
+            raw=stream.read(2097153)
+        if len(raw)>2097152:raise ValueError('body exceeds 2 MiB')
+        body=raw.decode('utf-8')
+    except (OSError,ValueError,UnicodeError):sys.exit(2)
+sys.exit(3 if re.search(r'\b(?:owner|captain)\b',title+'\n'+body,re.I) else 0)
+PYORIGIN
+  [ "$origin_rc" != 3 ] || fail "owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)"
+  [ "$origin_rc" = 0 ] || fail "owner-origin add preflight could not read the body safely"
 fi
 
 # A control lock covers the full read/merge/write/readback span. Only explicit

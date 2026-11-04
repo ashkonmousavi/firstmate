@@ -315,7 +315,8 @@ The tracked Claude Stop registration enables a fast, deterministic check for sta
 Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, failure behavior, and optional whole-reply checks enabled through `config/reply-shape`, including their lexical detection limits.
 The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
 State claims require a matching completed read command from the current turn; the check does not judge whether the result supports the claim.
-Its blocked-message exemption is independent of the supervision recovery budget.
+Its claim-specific blocked-message exemptions are independent of the supervision recovery budget; capacity claims follow the stricter [module contract](../bin/fm-state-claim-guard.py).
+Homes can also enable [optional reply-format checks](configuration.md#reply-formatting-configreply-shape) through this guard.
 Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
 
 Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.

@@ -8,7 +8,8 @@ No network, subprocess or model is used.
 A per-session blocked-message hash exempts only the next identical
 hook-driven continuation, consuming the exemption when checked.
 Other hooks' continuations and changed claims still require a read.
-Unreadable, malformed or turn-boundary-free transcripts leave state claims unchecked.
+Unreadable, malformed or turn-boundary-free transcripts fail open except
+capacity claims, which require a successful current-turn activity read.
 Only the last 2 MiB are read, and a real user message must establish the
 current turn inside that window (tool results do not).
 The Stop payload owns final text because transcript writes may lag Stop.
@@ -27,15 +28,27 @@ the section 9 exception when no ready-status/metadata URL exists.
 This is a lexical reminder, not a
 proof of the remote state: it requires a completed matching tool command,
 not that the command output supports the prose.
-Claims require a resource subject from POLICY in the same sentence.
+Non-capacity claims require a resource subject from POLICY in the same sentence.
 Matching covers every claimed PR number, explicit URL host and lane name;
 repository identity and requested --json fields deliberately remain unchecked.
 PR claims without explicit IDs, including aggregate counts, still need a PR read.
 gh/gh-axi pr list counts only for claims without PR IDs, regardless of filters;
 its numeric options and search terms never establish a named PR read.
-Read segments in pipelines and redirects can count; segments beyond a
-short-circuit or control-flow boundary do not establish execution.
-'last read at' exempts only its sentence.
+For non-capacity claims, read segments in pipelines and redirects can count;
+segments beyond a short-circuit or control-flow boundary do not establish execution.
+'last read at' exempts only its sentence, except capacity claims.
+Capacity claims also never receive the identical-message continuation exemption.
+Their grammar is a lane/seat/slot/capacity subject with a count or state,
+a machine subject with a count or full/free/admission/room state, or an
+unqualified count-live-of-count, count-free, admission yes/no, or no-room.
+The machine vocabulary and claim/read expressions are owned by POLICY below.
+Negative capacity statements require the same read as positive statements.
+Genuine capacity questions, including supported Markdown and 👉 prefixes,
+are exempt; a question following an assertion does not exempt that assertion.
+Capacity evidence must be a successful standalone command, without pipeline,
+compound-command or control-flow separators; check-wake text never counts.
+Literal script paths resolve symlinks against the Stop cwd before basename
+matching; this authenticates read presence, not script contents or output.
 Straight or curly quoted spans of four or more whitespace-separated words are
 ignored; shorter spans lose their quote delimiters and remain checked.
 'read live' and 'read it live' do not themselves assert deployment; other
@@ -60,6 +73,11 @@ def rx(pattern):
 
 
 POLICY = {"claims": (
+    ("capacity", rx(r"\b(?:full|free|live|occupied|available|capacity|working|running|admission|room)\b|\d"),
+     rx(r"\b(?:lanes?|seats?|slots?|capacity|laptop|server|pc|main|zenbook|q-crew|zb-crew)\b|"
+        r"\b(?:\d+|N)\s+(?:live\s+of\s+(?:\d+|M)|free)\b|"
+        r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"),
+     rx(r"^activity\.sh(?:\s|$)")),
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
      rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks|list)\b|api\s+.*\S*/pulls(?:/|\b))")),
@@ -197,10 +215,20 @@ def claims(text):
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
         if rx(r"^\s*example\s*:").search(sentence):
             continue
-        if rx(r"\blast read at\b").search(sentence):
-            continue
         for family, words, context, _ in POLICY["claims"]:
+            if family == "capacity":
+                for clause in sentence.split(";"):
+                    question_text = re.sub(r"^\s*(?:👉\ufe0f?\s*|(?:[-+*•]|\d+[.)])\s+)+", "", clause)
+                    question = question_text.rstrip().endswith("?") and rx(
+                        r"^\s*(?:how|what|which|who|where|when|why|is|are|was|were|has|have|had|"
+                        r"do|does|did|can|could|would|will|should|may|might|must)\b"
+                    ).search(question_text)
+                    if context.search(clause) and words.search(clause) and not question:
+                        yield family, clause.strip(), set()
+                continue
             if context and not context.search(sentence):
+                continue
+            if rx(r"\blast read at\b").search(sentence):
                 continue
             for clause in CLAUSE_BREAK.split(sentence):
                 for match in words.finditer(clause):
@@ -218,13 +246,15 @@ def claims(text):
                     break
 
 
-def read_commands(command, deadline):
+def read_commands(command, deadline, cwd=None):
     """Recognize executable reads, not quoted examples or write subcommands."""
     if len(command) > 16384 or "<<" in command:
         return
     tokens = shlex.shlex(command.strip(), posix=True, punctuation_chars=";&|()\n")
     tokens.whitespace = " \t\r"
     tokens.whitespace_split = True
+    tokens = list(tokens)
+    capacity_safe = not any(token and all(c in ";&|()\n" for c in token) for token in tokens)
     segments, segment = [], []
     for token in [*tokens, ";"]:
         if time.monotonic() > deadline:
@@ -243,10 +273,12 @@ def read_commands(command, deadline):
         else:
             segment.append(token)
     for segment in segments:
-        yield from read_segment(segment)
+        for item in read_segment(segment, cwd):
+            if item[0] != "capacity" or capacity_safe:
+                yield item
 
 
-def read_segment(segment):
+def read_segment(segment, cwd=None):
     source = " ".join(segment)
     while segment and (re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", segment[0]) or segment[0] == "env"):
         segment.pop(0)
@@ -254,6 +286,16 @@ def read_segment(segment):
         segment.pop(0)
     if not segment:
         return
+    # Resolve before discarding directories: fm-activity.sh may be a symlink
+    # to the one activity.sh owner. Never execute the command to identify it.
+    executable = Path(segment[0])
+    if not executable.is_absolute():
+        executable = Path(cwd or os.getcwd()) / executable
+    try:
+        resolved = executable.resolve()
+    except (OSError, RuntimeError):
+        resolved = None
+    activity_read = resolved is not None and resolved.name == "activity.sh"
     segment[0] = os.path.basename(segment[0])
     # gh's global repository/host flags can precede 'pr'.
     if segment[0] in ("gh", "gh-axi"):
@@ -261,6 +303,10 @@ def read_segment(segment):
             del segment[1:3]
     normalized = " ".join(segment)
     for family, _, _, reads in POLICY["claims"]:
+        if family == "capacity":
+            if activity_read:
+                yield family, source, False
+            continue
         if reads.search(normalized):
             # Requests with a write verb or body are not reads.
             if any(t in ("--data", "--form", "--field", "--raw-field", "--input", "--upload-file")
@@ -277,7 +323,7 @@ def read_segment(segment):
             yield family, source, family == "PR" and segment[1:3] == ["pr", "list"]
 
 
-def current_reads(path, deadline):
+def current_reads(path, deadline, cwd=None):
     # O_NONBLOCK prevents a malicious/accidental FIFO transcript from hanging
     # the Stop hook. The fstat also rejects directories and device streams.
     fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
@@ -320,7 +366,8 @@ def current_reads(path, deadline):
                 # A pending `gh pr checks` exits nonzero but still reads the
                 # forge. This guard checks read presence, not output truth.
                 if command:
-                    completed.extend(read_commands(command, deadline))
+                    completed.extend(item for item in read_commands(command, deadline, cwd)
+                                     if item[0] != 'capacity' or not block.get('is_error', False))
     return completed if boundary else None
 
 
@@ -340,28 +387,37 @@ def main():
     session = payload.get("session_id")
     if not isinstance(session, str) or not session:
         return 0
+    unsupported = list(claims(text))
+    capacity_claim = any(family == 'capacity' for family, _, _ in unsupported)
     state = os.environ.get("FM_STATE_OVERRIDE") or str(Path(os.environ.get("FM_HOME", Path(__file__).parent.parent)) / "state")
     marker = Path(state) / (".state-claim-" + hashlib.sha256(session.encode()).hexdigest() + ".blocked")
     message_hash = hashlib.sha256(text.encode()).hexdigest()
-    if payload["stop_hook_active"] and marker.exists():
+    if not capacity_claim and payload["stop_hook_active"] and marker.exists():
         with marker.open() as previous:
             own_block = previous.read(65) == message_hash
         marker.unlink()
         if own_block:
             return 0
-    elif not payload["stop_hook_active"]:
+    elif not capacity_claim and not payload["stop_hook_active"]:
         marker.unlink(missing_ok=True)
     violations = reply_violations(text)
     if violations:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(message_hash)
-        print("Reply shape: " + " ".join(violations) + " This check blocks only once.", file=sys.stderr)
+        if not capacity_claim:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(message_hash)
+        print("Reply shape: " + " ".join(violations) +
+              ("" if capacity_claim else " This check blocks only once."), file=sys.stderr)
         return 2
-    unsupported = list(claims(text))
     if not unsupported:
         return 0
-    reads = current_reads(payload["transcript_path"], deadline)
+    try:
+        reads = current_reads(payload["transcript_path"], deadline, payload.get("cwd"))
+    except (OSError, ValueError, TypeError, KeyError):
+        reads = None
     if reads is None or time.monotonic() > deadline:
+        if capacity_claim:
+            print('State claim needs a same-turn activity.sh read (capacity); check-wake prose is not a read.', file=sys.stderr)
+            return 2
         return 0
     for family, sentence, pr_ids in unsupported:
         matching = [command for kind, command, aggregate in reads
@@ -379,11 +435,14 @@ def main():
                            for command in matching) for name in lane_names(sentence)):
                 matching = []
         if not matching:
-            marker.parent.mkdir(parents=True, exist_ok=True)
-            marker.write_text(message_hash)
-            print(f"State claim needs a same-turn read ({family}): {sentence[:300]}\n"
-                  "Read that state now, correct the claim, or qualify it with 'last read at'. "
-                  "This claim check blocks only once.", file=sys.stderr)
+            if not capacity_claim:
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text(message_hash)
+            guidance = ("Read activity.sh successfully in this turn; check-wake prose is not a read."
+                        if capacity_claim else
+                        "Read that state now, correct the claim, or qualify it with 'last read at'. "
+                        "This claim check blocks only once.")
+            print(f"State claim needs a same-turn read ({family}): {sentence[:300]}\n{guidance}", file=sys.stderr)
             return 2
     return 0
 
