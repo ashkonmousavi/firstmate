@@ -215,6 +215,70 @@ test_over_long_decision_note_is_capped_with_a_marker() {
   pass "an over-long open decision is cut to its per-item budget with the shared truncation marker"
 }
 
+# Assert only the OPEN DECISIONS rows, so UNREAD STATUS cannot mask starvation.
+open_decision_rows() {
+  awk '/^OPEN DECISIONS \(/{inside=1; next} /^OPEN DECISIONS:/{inside=0} inside {print}' "$1"
+}
+
+test_newest_decisions_survive_stale_tail_cap() {
+  local dir state out rows i shown omitted before after
+  dir=$(make_case newest-before-stale)
+  state="$dir/state"
+  out="$dir/drain.out"
+  for ((i=1; i<=250; i++)); do
+    printf 'needs-decision [key=old-%s] [at=999]: old decision awaiting an answer\n' "$i"
+  done > "$state/a-old.status"
+  before=$(cksum < "$state/a-old.status")
+  # Warm the existing cursor before a fresh decision arrives on a later task.
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "initial stale-tail drain failed"
+  printf 'needs-decision [key=fresh] [at=10000]: fresh decision must be visible in full\n' > "$state/z-new.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "fresh-decision drain failed"
+  rows=$(open_decision_rows "$out")
+  printf '%s\n' "$rows" | grep -Fx 'z-new [key=fresh] needs-decision: fresh decision must be visible in full' >/dev/null \
+    || fail "250 stale decisions omitted the fresh decision"
+  [ "${rows%%$'\n'*}" = 'z-new [key=fresh] needs-decision: fresh decision must be visible in full' ] \
+    || fail "250 stale decisions hid the fresh decision or printed it after old rows"
+  shown=$(printf '%s\n' "$rows" | awk 'END {print NR}')
+  omitted=$(sed -n 's/^OPEN DECISIONS: \([0-9]*\) more omitted (byte cap)$/\1/p' "$out")
+  [ -n "$omitted" ] && [ "$omitted" -gt 0 ] && [ $((shown + omitted)) -eq 251 ] \
+    || fail "shown and omitted decisions must account for all 251 rows"
+  [ "$(printf '%s\n' "$rows" | wc -c)" -le 4000 ] || fail "decision rows exceeded the section byte cap"
+
+  # Multiple fresh decisions in one task must also sort by their own epochs.
+  printf 'blocked [key=newer] [at=10001]: second fresh decision\nneeds-decision [key=newest] [at=10002]: third fresh decision\n' >> "$state/z-new.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "several-fresh drain failed"
+  rows=$(open_decision_rows "$out")
+  [ "$(printf '%s\n' "$rows" | head -n 3)" = 'z-new [key=newest] needs-decision: third fresh decision
+z-new [key=newer] blocked: second fresh decision
+z-new [key=fresh] needs-decision: fresh decision must be visible in full' ] \
+    || fail "several fresh decisions were hidden or not newest first"
+  shown=$(printf '%s\n' "$rows" | awk 'END {print NR}')
+  omitted=$(sed -n 's/^OPEN DECISIONS: \([0-9]*\) more omitted (byte cap)$/\1/p' "$out")
+  [ -n "$omitted" ] && [ $((shown + omitted)) -eq 253 ] || fail "several-fresh omitted count lost rows"
+  after=$(cksum < "$state/a-old.status")
+  [ "$before" = "$after" ] || fail "draining changed old decision records"
+  pass "fresh decisions precede 250 unchanged old rows, with an honest omitted count"
+}
+
+test_newest_decisions_without_stale_rows() {
+  local dir state out rows
+  dir=$(make_case newest-only)
+  state="$dir/state"
+  out="$dir/drain.out"
+  printf 'needs-decision [key=legacy]: unstamped\nneeds-decision [key=older] [at=999]: earlier\nneeds-decision [key=newer] [at=10000]: later\nblocked [at=10001]: keyless latest\n' > "$state/task.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "fresh-only drain failed"
+  rows=$(open_decision_rows "$out")
+  [ "$rows" = 'task blocked: keyless latest
+task [key=newer] needs-decision: later
+task [key=older] needs-decision: earlier
+task [key=legacy] needs-decision: unstamped' ] || fail "fresh-only rows not fully shown newest first"
+  if grep -F 'more omitted' "$out" >/dev/null; then fail "fresh-only drain falsely reported omitted rows"; fi
+  pass "without a stale tail every decision is shown newest first"
+}
+
+test_newest_decisions_survive_stale_tail_cap
+test_newest_decisions_without_stale_rows
+
 test_buried_decision_still_surfaces
 test_over_long_decision_note_is_capped_with_a_marker
 test_explicit_resolution_closes_it
