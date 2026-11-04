@@ -350,9 +350,15 @@
 #   the same isolation test screens every read: a pane still showing the project
 #   or the repository primary while `treehouse get` prepares the slot is waited
 #   out as a transient rather than adopted and then refused, so a home that is
-#   itself a linked worktree of the project repository still launches. A pane
-#   that never reaches an isolated worktree refuses at the end of that wait,
-#   naming the last path seen and why it was rejected.
+#   itself a linked worktree of the project repository still launches. Two
+#   consecutive pane captures confirming this acquisition's nonzero completion
+#   marker refuse early; error text alone never shortens the 60-second wait.
+#   A refusal names the last path seen and why it was rejected, and includes
+#   bounded recent Treehouse output when available, or a note if capture fails.
+#   Unreadable output preserves the full wait. The reader captures only the
+#   pane transcript, never the worker environment. Verification and refresh
+#   commands: docs/verification/runtime-backends.md "Treehouse acquisition
+#   failure diagnostics".
 #   That placement is proven only at launch. Every ship or scout therefore
 #   receives `FM_TASK_ID=<task-id>` before launch, on the same backend-specific
 #   environment channel as GOTMPDIR, and bin/fm-test-run.sh refuses to execute the
