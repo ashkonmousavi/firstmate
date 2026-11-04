@@ -819,7 +819,7 @@ case "$cmd" in
     rm -f "$world/$w.id" "$world/$w.path"
     ;;
   send-keys)
-    if [ "$text" = "treehouse get Enter" ]; then
+    if [[ "$text" = "treehouse get"*" Enter" ]]; then
       w=$(window_name "$target")
       for slot in "$slots"/*/project; do
         jq -e --arg path "$slot" '.worktrees[] | select(.path == $path and .leased == true)' "$slots/treehouse-state.json" >/dev/null && continue

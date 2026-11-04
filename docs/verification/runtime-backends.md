@@ -6,6 +6,33 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Treehouse acquisition failure diagnostics
+
+`bash tests/fm-spawn-worktree-settle.test.sh` exercises the public spawn entrypoint with controlled cwd and capture responses, including failure confirmation, unreadable output, stale exit markers, 180 queued cwd-probe lines after acquisition output, bounded diagnostics and a healthy acquisition settling at the deadline.
+Its token-free live case runs by default when tmux is installed and uses a private tmux server plus a fake Treehouse executable, without acquiring a pool slot or contacting GitHub.
+Force that live case with `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+The fish submission cases execute successful and failing acquisitions through fish when it is installed; force them with `FM_SPAWN_TREEHOUSE_REASON_FISH=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+Fish was absent from PATH for this Linux refresh, so fish execution remains unverified; the suite reports that capability skip explicitly.
+Optional live skips leave the portable cases running; a live failure fails the suite.
+Verified on 2026-11-04 UTC, Linux x86_64, tmux 3.4, using the shell completion marker and the shared backend capture reader.
+The refresh command was `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh tests/fm-spawn-pool-base-freshen.test.sh tests/fm-tangle-guard.test.sh tests/fm-control-relaunch.test.sh`.
+The relevant exact output was:
+
+```text
+ok - 180 queued cwd-probe lines preserve early and deadline failure reasons
+ok - real tmux tmux 3.4: shell exit plus captured error refuses in 2s
+ok - treehouse failure refuses after two reads with its own error
+ok - error output alone never cuts a running get short; deadline includes its reason
+ok - an unreadable pane keeps the full wait and explains the missing output
+ok - healthy get can use the entire wait window
+```
+
+`FM_LIVE=0 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh` also passed on that date, printing `skip: live: disabled by FM_LIVE=0` before the remaining portable cases and `# all fm-spawn-worktree-settle tests passed` at completion.
+An injected tmux startup exit of 47 produced `not ok - could not start private tmux test server` and suite exit 1.
+This proves shell completion, terminal rendering and capture through real tmux with a failing stand-in executable; it does not reproduce GitHub authentication failure or acquire a real Treehouse pool slot.
+Herdr, Zellij, cmux, Paseo, Rex, Tern and hc use the same wait and existing capture dispatch, but this guard does not establish live failure-diagnostic evidence for those backends or for macOS.
+The command runs before agent launch, so model harnesses and account selection are outside this check.
+
 ## Claude during-turn continuity
 
 The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and Stop wake delivery.
