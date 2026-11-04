@@ -1,0 +1,10 @@
+[TARGET crash] checkout=~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY commit=fa329d48
+[TARGET crash] lab home=/tmp/fm-lab.CvytfF
+[TARGET crash] first arm (pid 765, cmd: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY): watcher: started pid=821 (beacon fresh)
+[TARGET crash] drain asked: --ack-through 1 --recovery-generation 5021.1793807872.GPULuP
+[TARGET crash] marker after main's ack: acked:handling:5021.1793807872.GPULuP ; queue bytes=0
+[TARGET crash] watcher pid 821 SIGKILLed (genuine outage); marker: acked:handling:5021.1793807872.GPULuP
+[TARGET crash] re-arm output:
+    | check: rearm-resurface
+[TARGET crash] marker now: announced:downtime:6126.1793807873.2UTGoE
+[TARGET crash] RESULT: genuine outage surfaced to main

@@ -1,0 +1,8 @@
+[TARGET stop] checkout=~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY commit=fa329d48
+[TARGET stop] lab home=/tmp/fm-lab.y7nrii
+[TARGET stop] first arm (pid 96846, cmd: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY): watcher: started pid=96874 (beacon fresh)
+[TARGET stop] drain asked: --ack-through 1 --recovery-generation 98625.1793807868.DRw0L8
+[TARGET stop] marker after main's ack: acked:handling:98625.1793807868.DRw0L8 ; queue bytes=0
+[TARGET stop] --stop said: watcher: stopped pid=96874 (rc=0)
+[TARGET stop] marker after --stop: pending:downtime:96874.1793807868.dMprh7
+[TARGET stop] RESULT: downtime published for owner rewake

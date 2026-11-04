@@ -1,0 +1,8 @@
+[BASE-411ed483 stop] checkout=/tmp/fm-base.mmP4Uu commit=411ed483
+[BASE-411ed483 stop] lab home=/tmp/fm-lab.YyNHPb
+[BASE-411ed483 stop] first arm (pid 7475, cmd: bash /tmp/fm-base.mmP4Uu/bin/fm-watch-arm.sh): watcher: started pid=7492 (beacon fresh)
+[BASE-411ed483 stop] drain asked: --ack-through 1 --recovery-generation 11662.1793807874.xx6j0B
+[BASE-411ed483 stop] marker after main's ack: acked:handling:11662.1793807874.xx6j0B ; queue bytes=0
+[BASE-411ed483 stop] --stop said: watcher: stopped pid=7492 (rc=0)
+[BASE-411ed483 stop] marker after --stop: pending:downtime:7492.1793807875.qd9O58
+[BASE-411ed483 stop] RESULT: downtime published for owner rewake

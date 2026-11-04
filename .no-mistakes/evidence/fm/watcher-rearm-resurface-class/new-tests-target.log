@@ -1,0 +1,7 @@
+watcher: recovery state could not be persisted; retaining stale lock evidence
+ok - watch-arm: an owner take-over after acknowledgement (stale cleanup) keeps the next cycle quiet
+watcher: recovery state could not be persisted; retaining stale lock evidence
+ok - watch-arm: an owner restart after acknowledgement (stale cleanup) keeps the next cycle quiet
+ok - watch-arm: an owner restart after acknowledgement (clean cleanup) keeps the next cycle quiet
+ok - watch-arm: --stop after acknowledgement leaves downtime published for the owner's rewake
+EXIT=0

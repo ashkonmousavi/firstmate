@@ -1,0 +1,3 @@
+watcher: recovery state could not be persisted; retaining stale lock evidence
+not ok - take-over: the next cycle did not start: check: rearm-resurface; marker=announced:downtime:48110.1793807814.wNujop
+EXIT=1

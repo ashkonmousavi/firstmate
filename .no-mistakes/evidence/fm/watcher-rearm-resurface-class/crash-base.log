@@ -1,0 +1,10 @@
+[BASE-411ed483 crash] checkout=/tmp/fm-base.mmP4Uu commit=411ed483
+[BASE-411ed483 crash] lab home=/tmp/fm-lab.ZleIyn
+[BASE-411ed483 crash] first arm (pid 68950, cmd: bash /tmp/fm-base.mmP4Uu/bin/fm-watch-arm.sh): watcher: started pid=68986 (beacon fresh)
+[BASE-411ed483 crash] drain asked: --ack-through 1 --recovery-generation 72181.1793807851.LwuAri
+[BASE-411ed483 crash] marker after main's ack: acked:handling:72181.1793807851.LwuAri ; queue bytes=0
+[BASE-411ed483 crash] watcher pid 68986 SIGKILLed (genuine outage); marker: acked:handling:72181.1793807851.LwuAri
+[BASE-411ed483 crash] re-arm output:
+    | check: rearm-resurface
+[BASE-411ed483 crash] marker now: announced:downtime:74853.1793807853.RmyysG
+[BASE-411ed483 crash] RESULT: genuine outage surfaced to main

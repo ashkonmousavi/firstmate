@@ -1,0 +1,16 @@
+[TARGET take-over] checkout=~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY commit=fa329d48
+[TARGET take-over] lab home=/tmp/fm-lab.N4t7sC
+[TARGET take-over] first arm (pid 7810, cmd: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY): watcher: started pid=7838 (beacon fresh)
+[TARGET take-over] drain asked: --ack-through 1 --recovery-generation 9527.1793807781.T5JMnf
+[TARGET take-over] marker after main's ack: acked:handling:9527.1793807781.T5JMnf ; queue bytes=0
+[TARGET take-over] next-cycle arm output after 5s quiet window:
+    | watcher: started pid=10654 (beacon fresh)
+[TARGET take-over] marker now: acked:handling:9527.1793807781.T5JMnf
+[TARGET take-over] RESULT: quiet (no empty wake); arm still waiting=yes
+[TARGET take-over] after genuine new work, arm output:
+    | watcher: started pid=10654 (beacon fresh)
+    | check: rearm-resurface
+[TARGET take-over] RESULT: new work surfaced
+[TARGET take-over] main's drain after that wake shows:
+    | 1:1793807788	2	signal	live	signal: genuinely new work after the owner stop
+[TARGET take-over] RESULT: drain non-empty (real work delivered)

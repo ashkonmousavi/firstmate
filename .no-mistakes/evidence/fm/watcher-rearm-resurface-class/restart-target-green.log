@@ -1,0 +1,13 @@
+[TARGET restart] checkout=~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY commit=fa329d48
+[TARGET restart] lab home=/tmp/fm-lab.INCGuJ
+[TARGET restart] first arm: watcher: started pid=40637 (beacon fresh)
+[TARGET restart] drain asked: --ack-through 1 --recovery-generation 45337.1793807633.A5SbkL
+[TARGET restart] marker after main's ack: acked:handling:45337.1793807633.A5SbkL ; queue bytes=0
+[TARGET restart] next-cycle arm output after 5s quiet window:
+    | watcher: started pid=47432 (beacon fresh)
+[TARGET restart] marker now: acked:handling:45337.1793807633.A5SbkL
+[TARGET restart] RESULT: quiet (no empty wake); arm still waiting=yes
+[TARGET restart] after genuine new work, arm output:
+    | watcher: started pid=47432 (beacon fresh)
+    | check: rearm-resurface
+[TARGET restart] RESULT: new work surfaced

@@ -1,0 +1,16 @@
+[BASE-411ed483 take-over] checkout=/tmp/fm-base.mmP4Uu commit=411ed483
+[BASE-411ed483 take-over] lab home=/tmp/fm-lab.hQDv02
+[BASE-411ed483 take-over] first arm (pid 96386, cmd: bash /tmp/fm-base.mmP4Uu/bin/fm-watch-arm.sh): watcher: started pid=96403 (beacon fresh)
+[BASE-411ed483 take-over] drain asked: --ack-through 1 --recovery-generation 98226.1793807770.ObDipK
+[BASE-411ed483 take-over] marker after main's ack: acked:handling:98226.1793807770.ObDipK ; queue bytes=0
+[BASE-411ed483 take-over] next-cycle arm output after 5s quiet window:
+    | watcher: started pid=99509 (beacon fresh)
+[BASE-411ed483 take-over] marker now: acked:handling:98226.1793807770.ObDipK
+[BASE-411ed483 take-over] RESULT: quiet (no empty wake); arm still waiting=yes
+[BASE-411ed483 take-over] after genuine new work, arm output:
+    | watcher: started pid=99509 (beacon fresh)
+    | check: rearm-resurface
+[BASE-411ed483 take-over] RESULT: new work surfaced
+[BASE-411ed483 take-over] main's drain after that wake shows:
+    | 1:1793807777	2	signal	live	signal: genuinely new work after the owner stop
+[BASE-411ed483 take-over] RESULT: drain non-empty (real work delivered)

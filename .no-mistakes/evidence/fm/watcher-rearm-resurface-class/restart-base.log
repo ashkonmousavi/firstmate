@@ -1,0 +1,16 @@
+[BASE-411ed483 restart] checkout=/tmp/fm-base.mmP4Uu commit=411ed483
+[BASE-411ed483 restart] lab home=/tmp/fm-lab.jlOyRQ
+[BASE-411ed483 restart] first arm (pid 39063, cmd: bash /tmp/fm-base.mmP4Uu/bin/fm-watch-arm.sh): watcher: started pid=39110 (beacon fresh)
+[BASE-411ed483 restart] drain asked: --ack-through 1 --recovery-generation 43357.1793807811.VbgdZ1
+[BASE-411ed483 restart] marker after main's ack: acked:handling:43357.1793807811.VbgdZ1 ; queue bytes=0
+[BASE-411ed483 restart] next cycle did not report started
+[BASE-411ed483 restart] next-cycle arm output after 5s quiet window:
+    | check: rearm-resurface
+[BASE-411ed483 restart] marker now: announced:downtime:39110.1793807811.q9CSyI
+[BASE-411ed483 restart] RESULT: EMPTY rearm-resurface wake (main woken with nothing to do)
+[BASE-411ed483 restart] after genuine new work, arm output:
+    | check: rearm-resurface
+[BASE-411ed483 restart] RESULT: new work surfaced
+[BASE-411ed483 restart] main's drain after that wake shows:
+    | 1:1793807847	2	signal	live	signal: genuinely new work after the owner stop
+[BASE-411ed483 restart] RESULT: drain non-empty (real work delivered)

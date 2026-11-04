@@ -1,0 +1,16 @@
+[TARGET restart] checkout=~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY commit=fa329d48
+[TARGET restart] lab home=/tmp/fm-lab.pZ8Ivt
+[TARGET restart] first arm (pid 80742, cmd: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6KJVHFZFSKVX5RNVVHNPQRY): watcher: started pid=80830 (beacon fresh)
+[TARGET restart] drain asked: --ack-through 1 --recovery-generation 88114.1793807856.yxXKk5
+[TARGET restart] marker after main's ack: acked:handling:88114.1793807856.yxXKk5 ; queue bytes=0
+[TARGET restart] next-cycle arm output after 5s quiet window:
+    | watcher: started pid=90723 (beacon fresh)
+[TARGET restart] marker now: acked:handling:88114.1793807856.yxXKk5
+[TARGET restart] RESULT: quiet (no empty wake); arm still waiting=yes
+[TARGET restart] after genuine new work, arm output:
+    | watcher: started pid=90723 (beacon fresh)
+    | check: rearm-resurface
+[TARGET restart] RESULT: new work surfaced
+[TARGET restart] main's drain after that wake shows:
+    | 1:1793807863	2	signal	live	signal: genuinely new work after the owner stop
+[TARGET restart] RESULT: drain non-empty (real work delivered)
