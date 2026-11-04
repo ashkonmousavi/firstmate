@@ -100,7 +100,9 @@
 # --stop: the same home-scoped stop without re-arming, for an owner that ends
 # its own supervision cycle on purpose (the supervision host's park boundary,
 # bin/fm-supervision-host.sh). The stopped watcher publishes downtime exactly
-# as any watcher close does; prints "watcher: stopped pid=<N>" or
+# as any watcher close does, and --stop and --restart then apply the owner-stop
+# handover rule (docs/watcher-continuity.md "Generation reuse"); prints
+# "watcher: stopped pid=<N>" or
 # "watcher: none running" and exits 0, or exits 1 when the watcher outlived
 # the stop.
 #

@@ -257,14 +257,18 @@ A delivered close that acquires the downtime-marker lock within its bound keeps 
 A close without a delivered wake still publishes downtime, including after an acknowledgement.
 A non-successor watcher closing on the recovery wake it delivered preserves the existing marker instead, while a handling successor resurfacing a later row publishes downtime like any delivered close.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
-That deferred publication does not know the close was delivered, so under load a delivered close that missed the lock reopens an acknowledged episode as fresh pending downtime.
+When an owner stopped that watcher, the owner clears the retained singleton itself under the owner-stop rule below.
+Otherwise that deferred publication does not know the close was delivered, so under load a delivered close that missed the lock reopens an acknowledged episode as fresh pending downtime.
 The next watcher then sends one empty recovery wake for that generation, and later empty-queue arms leave it announced, so this load-dependent residual is at most one empty wake per episode and never accumulates.
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
 That handling republication gives a successor exactly one recovery presentation without orphaning the acknowledgement already printed for that generation.
-A watcher stopped so an arm can take its cycle over (`bin/fm-watch-arm.sh --take-over`) publishes downtime like any close, but the taking arm restores an acknowledged episode that stop reopened only when the taken-over arm's cycle-ledger row for that exact arm and watcher records the watcher ending by the take-over's TERM and no wake was appended in between.
-The taking arm waits within a short bound for that row; a missing row or any other signal leaves downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
+An owner's deliberate stop of a healthy watcher (`bin/fm-watch-arm.sh --take-over`, `--restart`, or `--stop`) is not an outage.
+The stopped watcher still publishes downtime like any close, but the stopping arm snapshots the marker and the queue's append sequence before its TERM and, while that sequence is unchanged, restores an acknowledged episode the stop reopened.
+When the stopped watcher's cleanup instead missed the marker lock and retained its singleton, the stopping arm removes that dead holder's lock while the acknowledged marker and sequence are both unchanged, so the next start does not publish downtime while stealing it.
+A take-over applies this only when the taken-over arm's cycle-ledger row for that exact arm and watcher records the watcher ending by the take-over's TERM; it waits within a short bound for that row, and a missing row or any other signal leaves downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
+Any wake appended across the stop, or an episode that was not acknowledged, keeps its downtime and recovers once.
 Any other episode is left for the next cycle's arm check.
 
 ### What an acknowledgement retires
