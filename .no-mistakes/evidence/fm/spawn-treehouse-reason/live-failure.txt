@@ -1,0 +1,50 @@
+Scenario: failure
+Backend: tmux 3.4
+Command: bin/fm-spawn.sh live-failure-z1 <disposable-project> --mode no-mistakes --yolo off
+Exit: 1
+Elapsed: 2s
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.Qxn4H3/failure/home/data/live-failure-z1/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-failure-z1
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.Qxn4H3/failure/home/data/live-failure-z1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: treehouse get exited before entering an isolated worktree (last seen '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.Qxn4H3/failure/project': it is the spawning project itself; spawning project '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.Qxn4H3/failure/project'); recent treehouse output: fetch failed: git fetch origin: git@github.com: Permission denied (publickey); window firstmate:fm-live-failure-z1 is closed on exit, returning any pool slot it held
+
+Actual pane transcript (last acquisition capture before cleanup):
+lab$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_36496__=1\n'
+fetch failed: git fetch origin: git@github.com: Permission denied (publickey)
+
+__FM_TREEHOUSE_GET_EXIT_36496__=1
+lab$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

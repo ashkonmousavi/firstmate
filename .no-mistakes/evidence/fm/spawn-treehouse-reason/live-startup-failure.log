@@ -1,0 +1,5 @@
+ok - an unreadable sample restarts consecutive failure confirmation
+ok - diagnostics are bounded and an old exit marker cannot end a new get
+ok - 180 queued cwd-probe lines preserve early and deadline failure reasons
+not ok - could not start private tmux test server
+Observed suite exit: 1 (expected 1)

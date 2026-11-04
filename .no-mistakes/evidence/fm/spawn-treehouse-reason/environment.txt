@@ -1,0 +1,4 @@
+Linux; tmux 3.4; Bash interactive panes at 240x40.
+command -v fish: absent (exit 1). Prior user decision confirms absent on q-crew and zb-crew too; no installation attempted.
+Treehouse is an isolated external executable/function stand-in, not a real pool or GitHub request.
+Actual fm-spawn.sh and tmux run from this gate worktree. Downstream harness is a stub for the slow acquisition scenario; no harness/login behavior is claimed.

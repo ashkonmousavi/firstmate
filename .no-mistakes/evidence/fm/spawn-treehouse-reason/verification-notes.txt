@@ -1,0 +1,16 @@
+Product exercised: actual bin/fm-spawn.sh and tmux 3.4, Linux, private servers, 240x40 panes.
+External setup: disposable Git repositories and Firstmate homes; stand-in Treehouse commands; a stand-in forge response only for released-copy preflight; a downstream harness stub only for successful acquisition. No real pool acquisition, GitHub authentication, or model-harness behavior is claimed.
+
+Successful live scenarios:
+- Ship and scout failures refused promptly with the external command's original SSH error.
+- 180 queued cwd-probe output lines after the failure marker preserved the error and early refusal; the actual pane contains all 60 BEGIN/END pairs.
+- An error and stale marker from a still-running get preserved all 60 polls and sleeps; the deadline refusal included the error.
+- Deliberately unavailable capture preserved all 60 polls and sleeps and named the unreadable pane.
+- Acquisition spending 55 real sleep seconds preparing an isolated cwd succeeded and published the correct worktree. Clock adjustments underreported elapsed time; see timing-analysis.txt.
+- Released-copy acquisition failure returned 75 and retained its released-copy metadata.
+
+The existing focused suite passed with the real tmux guard forced. FM_LIVE=0 preserved all subsequent portable cases and completed successfully. Deliberately injected private tmux startup exit 47 propagated as suite exit 1.
+The first extra driver's elapsed-time assertion failed due to clock steps; its initial backlog queue also used the wrong window target. Both disposable-driver problems were corrected and scenarios re-driven with actual pane output and poll/sleep records. No source or permanent tests changed.
+
+Fish is absent locally; the recorded user decision confirms absence on both allowed remote machines. No installation attempted. Other backends and macOS were not exercised. Existing proof gaps remain explicit.
+All private tmux servers were killed and required suite and driver children completed. Evidence scripts preserve the repeatable setup.

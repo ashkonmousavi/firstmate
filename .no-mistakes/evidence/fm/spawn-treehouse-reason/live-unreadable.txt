@@ -1,0 +1,10 @@
+Scenario: unreadable
+Backend: tmux 3.4
+Command: bin/fm-spawn.sh live-unreadable-z1 <disposable-project> --mode no-mistakes --yolo off
+Exit: 1
+Elapsed: 56s
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/unreadable/home/data/live-unreadable-z1/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-unreadable-z1
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/unreadable/home/data/live-unreadable-z1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: treehouse get did not enter an isolated worktree within 60s (last seen '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/unreadable/project': it is the spawning project itself; spawning project '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/unreadable/project'); pane could not be read; window firstmate:fm-live-unreadable-z1 is closed on exit, returning any pool slot it held
+
+Actual pane transcript (last acquisition capture before cleanup):

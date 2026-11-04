@@ -1,0 +1,53 @@
+Scenario: slow-success
+Backend: tmux 3.4
+Command: bin/fm-spawn.sh live-slow-success-z1 <disposable-project> --mode no-mistakes --yolo off
+Exit: 0
+Elapsed: 54s
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/slow-success/home/data/live-slow-success-z1/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-slow-success-z1
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/slow-success/home/data/live-slow-success-z1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+spawned live-slow-success-z1 harness=codex kind=ship mode=no-mistakes yolo=off window=firstmate:fm-live-slow-success-z1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/slow-success/wt
+
+Actual pane transcript (last acquisition capture before cleanup):
+lab$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_45256__=1\n'
+Fetching origin...
+lab$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/slow-success/wt'
+lab$ export GOTMPDIR=/tmp/fm-live-slow-success-z1/gotmp
+lab$ export COMPACT_ADVISER_DISABLE=1
+lab$ export FM_TASK_ID=live-slow-success-z1
+lab$ . '/tmp/fm-live-slow-success-z1+343357021e50938a6855287ffeeb03bb1ba3e3dbef31cbf8fe5c2169b3af25fd/launch.s1793792128.45256.1401.sh'
+• Working (1s • esc to interrupt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Persisted worktree:
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/slow-success/wt

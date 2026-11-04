@@ -1,0 +1,8 @@
+Timing analysis: wall clock is not monotonic on this host.
+running-error: 60 real cwd polls; 60 one-second sleep invocations (wrapper execs command -v sleep).
+  Clock moved backward after poll 9: 1793791971.698286533 -> 1793791970.001861811; delta=-1.696s.
+  Clock moved backward after poll 38: 1793791998.997168064 -> 1793791997.320062637; delta=-1.677s.
+unreadable: 60 real cwd polls; 60 one-second sleep invocations (wrapper execs command -v sleep).
+  Clock moved backward after poll 7: 1793792026.485413790 -> 1793792025.274636984; delta=-1.211s.
+  Clock moved backward after poll 36: 1793792053.842011929 -> 1793792052.131910563; delta=-1.710s.
+Independent reviewer confirmed these clock steps. The initial disposable-driver elapsed >= 60 assertion failed because it used this clock; the instrumented rerun proved the full wait. Production code and unchanged tests were not edited.

@@ -1,0 +1,4 @@
+ok - LIVE failure: exit=1 elapsed=2s
+ok - LIVE backlog: exit=1 elapsed=2s
+ok - LIVE running-error: exit=1 elapsed=60s
+not ok - wait was shortened

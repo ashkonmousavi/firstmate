@@ -1,0 +1,50 @@
+Scenario: running-error
+Backend: tmux 3.4
+Command: bin/fm-spawn.sh live-running-error-z1 <disposable-project> --mode no-mistakes --yolo off
+Exit: 1
+Elapsed: 58s
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/running-error/home/data/live-running-error-z1/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-running-error-z1
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/running-error/home/data/live-running-error-z1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: treehouse get did not enter an isolated worktree within 60s (last seen '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/running-error/project': it is the spawning project itself; spawning project '~/.no-mistakes/worktrees/049a88734b0e/01M6K2PVFHAGDMR9GPE62WEN11/.gate-test-tmp/fm-spawn-worktree-settle.iEWvaS/running-error/project'); recent treehouse output: fetch failed: still retrying inside treehouse; window firstmate:fm-live-running-error-z1 is closed on exit, returning any pool slot it held
+
+Actual pane transcript (last acquisition capture before cleanup):
+lab$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_21116__=1\n'
+__FM_TREEHOUSE_GET_EXIT_0__=1
+fetch failed: still retrying inside treehouse
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
