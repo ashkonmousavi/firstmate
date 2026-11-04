@@ -1,0 +1,60 @@
+{
+  "scenarios": [
+    {
+      "name": "live-synced",
+      "mode": "earlier-status",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-synced.log"
+    },
+    {
+      "name": "live-current",
+      "mode": "earlier-status",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-current.log"
+    },
+    {
+      "name": "live-wrong-final",
+      "mode": "earlier-status-wrong-final",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-wrong-final.log"
+    },
+    {
+      "name": "live-missing",
+      "mode": "missing",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-missing.log"
+    },
+    {
+      "name": "live-malformed",
+      "mode": "malformed",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-malformed.log"
+    },
+    {
+      "name": "live-missing-endpoint",
+      "mode": "normal",
+      "exit": 0,
+      "primary_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "remote_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "mate_head": "070632f7cf2424ddc6060bff1e1d80359d8ea154",
+      "evidence": "live-missing-endpoint.log"
+    }
+  ],
+  "server_errors": [],
+  "remaining_threads": []
+}

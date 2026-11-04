@@ -1,0 +1,16 @@
+UTC: 2026-11-04T07:16:56Z
+command: bash bin/fm-update.sh (disposable FM_HOME, FM_ROOT_OVERRIDE, real SSH transport)
+response mode: malformed
+expected target: 070632f7cf2424ddc6060bff1e1d80359d8ea154
+exit status: 0
+update target: origin/main 070632f7cf2424ddc6060bff1e1d80359d8ea154
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/parent rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+WARNING: watcher still down (same stale episode; last beat: 11s ago, grace 300s) - full banner already printed this episode.
+remote secondmate sm1: skipped on loopback-lab: malformed update result

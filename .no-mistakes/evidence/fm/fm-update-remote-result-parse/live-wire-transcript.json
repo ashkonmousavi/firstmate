@@ -1,0 +1,122 @@
+[
+  {
+    "mode": "earlier-status",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\nsynced: 070632f7cf2424ddc6060bff1e1d80359d8ea154 instr=\n",
+    "wire_stdout": "current: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\nsynced: 070632f7cf2424ddc6060bff1e1d80359d8ea154 instr=\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "earlier-status",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "state",
+      "sm1"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "unverified\n",
+    "wire_stdout": "unverified\n",
+    "wire_stderr": "error: remote secondmate sm1 endpoint metadata is invalid; refusing access until it is explicitly migrated\n"
+  },
+  {
+    "mode": "earlier-status",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\n",
+    "wire_stdout": "current: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "earlier-status",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "state",
+      "sm1"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "unverified\n",
+    "wire_stdout": "unverified\n",
+    "wire_stderr": "error: remote secondmate sm1 endpoint metadata is invalid; refusing access until it is explicitly migrated\n"
+  },
+  {
+    "mode": "earlier-status-wrong-final",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\n",
+    "wire_stdout": "synced: 070632f7cf2424ddc6060bff1e1d80359d8ea154\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "missing",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\n",
+    "wire_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "malformed",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\n",
+    "wire_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ndiagnostic: synced: 070632f7cf2424ddc6060bff1e1d80359d8ea154\nsynced without colon\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "normal",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "update",
+      "sm1",
+      "main",
+      "070632f7cf2424ddc6060bff1e1d80359d8ea154"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\n",
+    "wire_stdout": "pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\ncurrent: 070632f7cf2424ddc6060bff1e1d80359d8ea154\npr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0\n",
+    "wire_stderr": ""
+  },
+  {
+    "mode": "normal",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "state",
+      "sm1"
+    ],
+    "exit": 0,
+    "actual_product_stdout": "missing\n",
+    "wire_stdout": "missing\n",
+    "wire_stderr": ""
+  }
+]

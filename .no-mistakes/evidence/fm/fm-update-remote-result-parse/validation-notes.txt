@@ -1,0 +1,53 @@
+Validation performed 2026-11-04 UTC.
+
+Source: target f8daf49836162274c7a8c9a7db2f03e2778a5d7c; base 06cd6721cad90ed00ef393fff101602c9e9bdcf9.
+Final authorized diff: bin/fm-update.sh and tests/fm-update.test.sh only.
+No permanent source or test edits were made during this phase.
+
+Commands:
+1. TMPDIR="$PWD/.test-phase/tmp" bash tests/fm-update.test.sh
+   Exit 0. Targeted suite passed; existing t14/t15 fixture-name collision messages remain.
+2. TMPDIR="$PWD/.test-phase/tmp" bash .test-phase/base/tests/regression.sh
+   Exit 1 as expected: baseline parser reported malformed result and restart-secondmates: none.
+   The temporary runner contained the current suite's definitions and invoked only
+   test_remote_status_survives_trailing_diagnostics against the base fm-update.sh.
+3. TMPDIR="$PWD/.test-phase/tmp" bash .test-phase/green/tests/regression.sh
+   Exit 0 with the same regression against the current product script.
+4. python3 -m pip install --quiet --target "$PWD/.test-phase/deps" paramiko
+   Dependency materialized only inside the worktree; no global configuration/install.
+5. PYTHONPATH="$PWD/.test-phase/deps" python3 EVIDENCE/live-update-driver.py
+   Exit 0. Six CLI scenarios completed. Driver retained alongside this report.
+
+Live setup:
+- Disposable origin, primary, remote code root, and secondmate clones were generated
+  from the gate worktree's tracked production code; real Git fast-forwarded all three
+  code copies to the same independently observed origin tip.
+- Real fm-update.sh invoked real fm-on.sh and OpenSSH over loopback with generated
+  disposable keys. A disposable Paramiko SSH server dispatched the decoded argv to
+  the unchanged real fm-remote-secondmate-control.sh. This bypasses account-wide
+  entrypoint installation and the remote-job service; those unchanged layers were
+  not tested. It does not replace the parser, updater, status producer, or rearm helper.
+- The test endpoint appended actual fm-pr-check-rearm.sh output after real update
+  status. Earlier statuses and malformed/wrong-commit replies were intentional
+  transport fault injection; before/after bytes are in live-wire-transcript.json.
+- Real remote state returned unverified for deliberately incomplete lab endpoint
+  metadata. The existing conservative may-be-alive policy selected it for restart.
+  Removing that metadata returned real missing state and correctly excluded it.
+  No real harness, fleet pane, Herdr session, or restart was launched or touched.
+- All SSH threads/connections were closed and joined. The driver removed its clones
+  and generated keys. Remaining temporary baseline/green runners and workspace-local
+  Python dependencies were removed after evidence inspection.
+
+Oracle: author's required updated/current reporting and restart-selection contract;
+last recognized status wins, later diagnostic text cannot replace it; mismatch,
+missing/malformed status, and positively missing endpoint must not be restart candidates.
+
+No linters, formatters, static analysis, broad suites, delivery phases, or production
+updates/restarts were run. CLI-only change: text transcripts are the user-visible
+surface, so browser screenshots do not apply.
+
+Tool versions:
+GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+git version 2.43.0
+OpenSSH_9.6p1 Ubuntu-3ubuntu13.20, OpenSSL 3.0.13 30 Jan 2024
+Python 3.12.3

@@ -1,0 +1,23 @@
+UTC: 2026-11-04T07:16:47Z
+command: bash bin/fm-update.sh (disposable FM_HOME, FM_ROOT_OVERRIDE, real SSH transport)
+response mode: earlier-status
+expected target: 070632f7cf2424ddc6060bff1e1d80359d8ea154
+exit status: 0
+update target: origin/main 070632f7cf2424ddc6060bff1e1d80359d8ea154
+firstmate: updated a0784a6..070632f
+no watches registered
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/parent rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/remote rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JNWBBMJ3RQF5KQF8KKPHWS/.test-phase/live/mate rearmed=0 left=0
+remote secondmate sm1: updated on loopback-lab (070632f7cf2424ddc6060bff1e1d80359d8ea154)
+reread-firstmate: no
+restart-secondmates: fm-sm1
+nudge-secondmates: none
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

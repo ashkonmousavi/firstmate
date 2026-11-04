@@ -1,0 +1,1 @@
+ok - remote synced/current statuses survive trailing diagnostics; missing or malformed statuses are skipped
