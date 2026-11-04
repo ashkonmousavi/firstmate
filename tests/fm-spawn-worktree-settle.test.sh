@@ -485,7 +485,7 @@ test_treehouse_fish_submission() (
     out=$(FM_FAKE_PANE_SHELL=fish FM_FAKE_TREEHOUSE_EXIT="$treehouse_status" \
       FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: Permission denied (publickey)' run_settle_spawn "$id")
     status=$?
-    assert_grep '^get$' "$COUNTFILE.treehouse-calls" 'fish must execute Treehouse before reporting its outcome'
+    grep -Fxq -- 'get' "$COUNTFILE.treehouse-calls" || fail 'fish must execute Treehouse before reporting its outcome'
     reads=$(cat "$COUNTFILE")
     if [ "$treehouse_status" -eq 0 ]; then
       expect_code 0 "$status" "healthy Treehouse acquisition through fish must succeed"$'\n'"$out"
