@@ -1,0 +1,245 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw
+~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw
+/tmp/fml.LD6Bgb
+[exit 0]
+
+$ tmux -L fm-lab new-session -d -x 120 -y 35 -s lab-control -n control -c ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV 'bash --noprofile --norc'
+[exit 0]
+
+$ tmux -L fm-lab new-session -d -x 120 -y 35 -s primary -n claude -c ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV -e FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw claude
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/live.meta live
+alive[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/live.meta live
+[exit 0]
+
+$ tmux -L fm-lab capture-pane -p -t primary:claude
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/gone-0.meta gone-0
+missing[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/gone-0.meta gone-0
+[exit 1]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766421,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":1,"target":8,"free_lanes":7,"secondmates":0,"mem_available_kb":5686212,"reserve_kb":0,"headroom_kb":5686212,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":5676648,"memory_full_avg60":0.79,"disk_free_min_kb":406977296}
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --admit
+capacity: free_lanes=7 reason=ok lanes=1 target=8 secondmates=0 load1=7.73 cores=12 mem_free_pct=20 disk_free_mb=397436 mem_available_kb=5037964 reserve_kb=0 headroom_kb=5037964
+Lanes: 1 of 8; 7 open. Memory headroom: 5037964 kB.
+Host: load 7.73 on 12 cores, memory free 20%, disk free 397436 MB.
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-fleet-view.sh --capacity
+capacity: free_lanes=7 reason=ok lanes=1 target=8 secondmates=0 load1=7.73 cores=12 mem_free_pct=20 disk_free_mb=397436 mem_available_kb=5100304 reserve_kb=0 headroom_kb=5100304
+Lanes: 1 of 8; 7 open. Memory headroom: 5100304 kB.
+Host: load 7.73 on 12 cores, memory free 20%, disk free 397436 MB.
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-fleet-ledger.sh capacity --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766427,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":1,"target":8,"free_lanes":7,"secondmates":0,"mem_available_kb":5037860,"reserve_kb":0,"headroom_kb":5037860,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":5010256,"memory_full_avg60":0.69,"disk_free_min_kb":406974888}
+[exit 0]
+
+SCENARIO PASSED: 96 missing endpoints with explicitly empty copies free seats; a real live Claude endpoint still holds its seat
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/dead-shell.meta dead-shell
+dead[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/dead-shell.meta dead-shell
+[exit 1]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766430,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":1,"target":8,"free_lanes":7,"secondmates":0,"mem_available_kb":5224628,"reserve_kb":0,"headroom_kb":5224628,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":5231936,"memory_full_avg60":0.66,"disk_free_min_kb":407003268}
+[exit 0]
+
+SCENARIO PASSED: A remaining shell with no agent and an explicitly cleared copy is known vacant
+
+$ tmux -L fm-lab new-window -d -t lab-control -n ambiguous -c ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV 'sleep 300'
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/unknown.meta unknown
+unverified[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/unknown.meta unknown
+stderr: error: unknown backend 'unverified' (known: tmux herdr zellij orca cmux paseo rex t3code tern hc)
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/absent-field.meta absent-field
+missing[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/absent-field.meta absent-field
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/missing-directory.meta missing-directory
+missing[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/missing-directory.meta missing-directory
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/bad-target.meta bad-target
+unreadable[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/bad-target.meta bad-target
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/ambiguous.meta ambiguous
+ambiguous[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/ambiguous.meta ambiguous
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766433,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":6,"target":8,"free_lanes":2,"secondmates":0,"mem_available_kb":5163852,"reserve_kb":0,"headroom_kb":5163852,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":5145784,"memory_full_avg60":0.62,"disk_free_min_kb":406995340}
+stderr: error: unknown backend 'unverified' (known: tmux herdr zellij orca cmux paseo rex t3code tern hc)
+[exit 0]
+
+SCENARIO PASSED: Unknown, ambiguous and unreadable endpoints, absent worktree fields and nonexistent directories all retain seats
+
+$ tmux -L fm-lab new-window -d -t lab-control -n retained -c ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/retained-copy 'sleep 300'
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/retained.meta retained
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766436,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":2,"target":8,"free_lanes":6,"secondmates":0,"mem_available_kb":5239068,"reserve_kb":0,"headroom_kb":5239068,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":5246628,"memory_full_avg60":0.6,"disk_free_min_kb":406969644}
+[exit 0]
+
+$ tmux -L fm-lab kill-window -t lab-control:retained
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lane-release.sh read-evidence seat ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/state/retained.meta retained
+[exit 1]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766440,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":1,"target":8,"free_lanes":7,"secondmates":0,"mem_available_kb":4836236,"reserve_kb":0,"headroom_kb":4836236,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":4837704,"memory_full_avg60":0.56,"disk_free_min_kb":406949968}
+[exit 0]
+
+SCENARIO PASSED: A real process in a retained copy keeps a seat until that process stops
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote
+~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --publish
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766441,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote/config/lane-capacity","admitted":true,"lanes":0,"target":4,"free_lanes":4,"secondmates":0,"mem_available_kb":4699800,"reserve_kb":0,"headroom_kb":4699800,"resource_policy_sha256":"646a9bb2d2423466e7209e594a80e862221a35e4bfaddaa99474325dbd6bae01","memory_floor_kb":0,"effective_available_kb":4700888,"memory_full_avg60":0.52,"disk_free_min_kb":406999804}
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766443,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":false,"lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":4716092,"reserve_kb":0,"headroom_kb":4716092,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":4717100,"memory_full_avg60":0.52,"disk_free_min_kb":406999676}
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity: lanes=1 target=1; no free machine lane
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --admit --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/other.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=9.62 cores=12 mem_free_pct=19 disk_free_mb=397457 mem_available_kb=5111976 reserve_kb=0 headroom_kb=5111976 placement=lab%20laptop%2FWest placement_free_lanes=4
+Lanes: 1 of 1; 0 open. Memory headroom: 5111976 kB.
+Host: load 9.62 on 12 cores, memory free 19%, disk free 397457 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity: lanes=1 target=1; no free machine lane
+[exit 75]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-place.sh --json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/other.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json
+{"schema":"fm-lane-capacity.v1","machine":"lab laptop/West","generated_epoch":1793766441,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote/config/lane-capacity","admitted":true,"lanes":0,"target":4,"free_lanes":4,"secondmates":0,"mem_available_kb":4699800,"reserve_kb":0,"headroom_kb":4699800,"resource_policy_sha256":"646a9bb2d2423466e7209e594a80e862221a35e4bfaddaa99474325dbd6bae01","memory_floor_kb":0,"effective_available_kb":4700888,"memory_full_avg60":0.52,"disk_free_min_kb":406999804}
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-place.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/other.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json
+Placement: lab laptop/West (4 lanes free, 4699800 kB memory headroom).
+[exit 0]
+
+SCENARIO PASSED: A full local machine advises the best supplied fresh publication with an encoded name while local admission remains refused
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --admit --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/stale.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/future.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/full.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/unreadable.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/inconsistent.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/malformed.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/missing.json
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=9.62 cores=12 mem_free_pct=18 disk_free_mb=397457 mem_available_kb=4668880 reserve_kb=0 headroom_kb=4668880
+Lanes: 1 of 1; 0 open. Memory headroom: 4668880 kB.
+Host: load 9.62 on 12 cores, memory free 18%, disk free 397457 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity: lanes=1 target=1; no free machine lane
+[exit 75]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-place.sh --json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/stale.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/future.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/full.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/unreadable.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/inconsistent.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/malformed.json ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/missing.json
+stderr: unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/stale.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/future.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/full.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/unreadable.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/inconsistent.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/malformed.json
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/missing.json
+Placement: none (no readable machine has room).
+[exit 75]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --admit --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/stale.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/future.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/full.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/unreadable.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/inconsistent.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/malformed.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/missing.json --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=10.61 cores=12 mem_free_pct=17 disk_free_mb=397505 mem_available_kb=4497140 reserve_kb=0 headroom_kb=4497140 placement=lab%20laptop%2FWest placement_free_lanes=4
+Lanes: 1 of 1; 0 open. Memory headroom: 4497140 kB.
+Host: load 10.61 on 12 cores, memory free 17%, disk free 397505 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity: lanes=1 target=1; no free machine lane
+[exit 75]
+
+SCENARIO PASSED: Stale, future, full, unreadable, malformed, inconsistent and missing publications cannot advertise room; a valid peer still qualifies
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json
+capacity: free_lanes=7 reason=ok lanes=1 target=8 secondmates=0 load1=15.44 cores=12 mem_free_pct=14 disk_free_mb=397505 mem_available_kb=4289268 reserve_kb=0 headroom_kb=4289268
+Lanes: 1 of 8; 7 open. Memory headroom: 4289268 kB.
+Host: load 15.44 on 12 cores, memory free 14%, disk free 397505 MB.
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --machine-facts ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/remote.json --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766459,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw/config/lane-capacity","admitted":true,"lanes":1,"target":8,"free_lanes":7,"secondmates":0,"mem_available_kb":3479924,"reserve_kb":0,"headroom_kb":3479924,"resource_policy_sha256":"ab489adf288e7d60cf3c32e538b9f6a1eb846b15df2779ba81c41df96524affd","memory_floor_kb":0,"effective_available_kb":3529316,"memory_full_avg60":0.49,"disk_free_min_kb":407045512}
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --machine-facts
+stderr: fm-capacity: --machine-facts requires a file
+[exit 2]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-capacity.sh --json --admit
+[exit 2]
+
+SCENARIO PASSED: Local room suppresses the remote hint; JSON stays compatible and invalid arguments fail with usage status
+
+$ tmux -L fm-lab kill-server
+[exit 0]
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.1zpkm5iw
+[exit 0]
+
+CLEANUP: private tmux server stopped; socket directory removed.
+CLEANUP: disposable lab homes removed.

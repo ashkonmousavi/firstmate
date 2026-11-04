@@ -1,0 +1,30 @@
+Seat-count and capacity-hint validation, 2026-11-03 America/Vancouver.
+Run from ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV.
+
+Acceptance oracle: a proven dead/missing endpoint with an explicitly empty copy
+is vacant. Live and uncertain endpoints retain seats. An absent worktree field
+or nonexistent retained directory does not prove vacancy. A real process in a
+retained copy protects its seat. Caller-supplied remote availability is advisory
+and cannot change local admission's refusal or local free-lane count.
+
+Reproduce product scenarios:
+mkdir -p .test-phase-tmp
+python3 ~/.no-mistakes/evidence/01M6JCBKW17X5BMNY1G2F12DMV/live-scenarios.py
+python3 ~/.no-mistakes/evidence/01M6JCBKW17X5BMNY1G2F12DMV/base-regression.py
+
+The drivers create disposable marked lab homes inside .test-phase-tmp and use
+fm-lab-home.sh tmux-dir for a short private socket directory. The real Claude
+CLI starts on a 120x35 terminal without a model prompt. No credential changes,
+Herdr operations or default tmux server operations are performed. Both drivers
+kill their private servers, call the socket-directory teardown helper, and remove
+the lab homes in finally blocks. The base regression copies bin into the lab and
+replaces only the shared seat predicate with its base-commit version; it does
+not change the gate's source files. Live outputs are in live-cli-transcript.txt;
+the before/after capacity JSON is in base-regression.txt.
+
+Supplemental targeted behavioral checks (no full suite, lint or static analysis):
+TMPDIR="$PWD/.test-phase-tmp" bash bin/fm-test-run.sh tests/fm-capacity.test.sh tests/fm-project-capacity.test.sh tests/fm-spawn-deferred.test.sh tests/fm-lane-release.test.sh --per-script-timeout-secs 240 --json ~/.no-mistakes/evidence/01M6JCBKW17X5BMNY1G2F12DMV/targeted-tests.json
+
+See targeted-tests.json for each required child's actual exit status and
+retained targeted-tests.log for its output. These fixture-based checks are
+supplemental; they are not claimed as live runtime proof.

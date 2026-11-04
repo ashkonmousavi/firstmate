@@ -1,0 +1,31 @@
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_
+~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_
+
+[exit 0]
+$ bash bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_
+/tmp/fml.jeQiWB
+
+[exit 0]
+$ tmux -L fm-lab new-session -d -x 100 -y 30 -s primary -n control bash --noprofile --norc
+
+[exit 0]
+$ tmux -L fm-lab display-message -p -t primary:control #{socket_path}
+/tmp/fml.jeQiWB/tmux-1000/fm-lab
+
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_/base-bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766514,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_/config/lane-capacity","admitted":true,"lanes":2,"target":8,"free_lanes":6,"secondmates":0,"mem_available_kb":6535656,"reserve_kb":0,"headroom_kb":6535656,"resource_policy_sha256":"0ee5eea631c86897246396cb3899a6f51130b96ac34df8e9d6a86e905658711e","memory_floor_kb":0,"effective_available_kb":6540896,"memory_full_avg60":5.26,"disk_free_min_kb":406973948}
+
+[exit 0]
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793766514,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_/config/lane-capacity","admitted":true,"lanes":0,"target":8,"free_lanes":8,"secondmates":0,"mem_available_kb":6503868,"reserve_kb":0,"headroom_kb":6503868,"resource_policy_sha256":"0ee5eea631c86897246396cb3899a6f51130b96ac34df8e9d6a86e905658711e","memory_floor_kb":0,"effective_available_kb":6506512,"memory_full_avg60":5.26,"disk_free_min_kb":406973816}
+
+[exit 0]
+REPRODUCED: identical missing endpoints and explicit-empty records count as 2 seats with the base predicate, 0 seats with the target predicate.
+$ tmux -L fm-lab kill-server
+
+[exit 0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-lab.regression.pthk2a6_
+
+[exit 0]
+CLEANUP: private server, socket directory and lab removed.

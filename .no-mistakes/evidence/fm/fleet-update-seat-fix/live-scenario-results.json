@@ -1,0 +1,51 @@
+[
+  {
+    "name": "96 missing endpoints with explicitly empty copies free seats; a real live Claude endpoint still holds its seat",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "A remaining shell with no agent and an explicitly cleared copy is known vacant",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "Unknown, ambiguous and unreadable endpoints, absent worktree fields and nonexistent directories all retain seats",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "A real process in a retained copy keeps a seat until that process stops",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "A full local machine advises the best supplied fresh publication with an encoded name while local admission remains refused",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "Stale, future, full, unreadable, malformed, inconsistent and missing publications cannot advertise room; a valid peer still qualifies",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "Local room suppresses the remote hint; JSON stays compatible and invalid arguments fail with usage status",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.txt",
+    "reason": ""
+  }
+]

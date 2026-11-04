@@ -1,0 +1,162 @@
+FM_TEST_BEGIN 2026-11-04T04:25:00Z tests/fm-capacity.test.sh family=standalone expected_gate_skip=none
+error: unknown backend 'unverified' (known: tmux herdr zellij orca cmux paseo rex t3code tern hc)
+error: unknown backend 'unverified' (known: tmux herdr zellij orca cmux paseo rex t3code tern hc)
+ok - explicit empty copies free gone endpoints; unknown and absent evidence retain seats
+ok - machine ceiling spans local homes and projects; handoffs count while live, secondmates excluded
+ok - activity, ledger and admission share facts; local walk markers do not bypass limits
+ok - memory reserve is fixed and refuses below zero headroom
+ok - missing and malformed machine facts refuse placement
+ok - inaccessible root and nested registry parents refuse admission and placement
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-capacity.zwt6VV/missing.json
+ok - published facts drive placement; full, unreadable and stale hosts refused
+ok - full capacity line names fresh remote room without changing local admission
+ok - capacity counts live endpoints, frees dead records, and retains unknowns
+ok - public capacity command frees shell-only records and counts non-shell work
+ok - stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A
+ok - upstream host probes remain visible and never replace shared admission facts
+ok - finite ancestor excludes file cache and leaves 8.8 GiB before reserve
+fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-capacity.zwt6VV/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-capacity.zwt6VV/cgroup-home/config/lane-capacity) gives headroom=-3145728 kB
+fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-capacity.zwt6VV/cgroup/crew memory.high-(anon+shmem)=-1048577 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/049a88734b0e/01M6JCBKW17X5BMNY1G2F12DMV/.test-phase-tmp/fm-capacity.zwt6VV/cgroup-home/config/lane-capacity) gives headroom=-5242881 kB
+ok - all finite ancestors constrain admission and require readable statistics
+ok - cgroup statistics fail closed instead of falling back to host memory
+ok - all ancestors unlimited falls back to MemAvailable
+ok - root cgroup fallback and unreadable limit/statistics behave safely
+ok - shared admission enforces numeric policy without confusing floor and reserve
+FM_TEST_END 2026-11-04T04:25:17Z tests/fm-capacity.test.sh exit=0 duration_ms=17095 gate_skip=false
+FM_TEST_BEGIN 2026-11-04T04:25:17Z tests/fm-project-capacity.test.sh family=backend-dispatch expected_gate_skip=none
+ok - capped and uncapped copyless same-id retries publish their replacement
+ok - failed stale-record removal prevents capped and uncapped replacement
+ok - a listed window keeps its record, and that record holds the place against its own id and the next one
+ok - an inventory read that omits the window removes the record and admits the next id
+ok - a failed backlog commit with a gone endpoint preserves pooled-copy ownership
+ok - a Herdr kill that returns without closing the pane keeps the record and the place
+ok - a project with no declared capacity keeps today's uncapped dispatch
+ok - a spawn is admitted while its project still has a free place
+ok - a spawn beyond capacity is deferred before any record, brief, endpoint, worktree, or backlog move exists
+ok - a project name with spaces is declared by taking the capacity from the last field
+ok - a project name beginning with # is declared, and a # comment stays a comment
+ok - a home reached through a symlink counts each of its workers once
+ok - a recorded PR handoff or a cleanup each frees exactly one place
+ok - a restart of a task id does not count that task's own record
+ok - only this project's ship and scout records hold places
+ok - a released-copy record holds a place only while its agent is alive
+ok - an exited record frees its place unless a process still works in its worktree
+ok - a dead record with a missing worktree keeps its place
+ok - a live agent keeps its place
+ok - every local home shares one declared capacity per project origin, and remote homes do not count
+ok - an unreadable state directory or task record refuses admission rather than undercounting
+ok - concurrent spawns can never both take the last place
+ok - a spawn that fails after admission leaves no record and holds no place
+ok - an unreadable declaration refuses every fresh spawn rather than guessing the limit
+ok - a batch reports a capacity deferral as deferred, not failed
+ok - an Orca spawn takes the shared project lock whenever a same-origin clone is capped and defers before creating anything
+ok - sixth spawn across three projects stays queued at machine ceiling five
+ok - fresh spawn refuses low memory and unreadable machine facts
+ok - unreadable root state defers local secondmate workers
+ok - inaccessible root registry parent defers a worker from a writable secondmate
+ok - machine admission holds no lock across launch and counts the published lane across projects
+FM_TEST_END 2026-11-04T04:27:05Z tests/fm-project-capacity.test.sh exit=0 duration_ms=108107 gate_skip=false
+FM_TEST_BEGIN 2026-11-04T04:27:05Z tests/fm-spawn-deferred.test.sh family=unclassified expected_gate_skip=none
+ok - manual and absent backlogs cannot establish automatic queued eligibility
+ok - AFK spend caps and raced holds or dependencies preserve retryability
+ok - the sweep returns during a hung spawn and reports completed launches once
+ok - home, task, and project contention preserve existing automatic retries
+ok - non-lane machine refusals do not create retry records
+ok - retries complete serially in deferred order
+ok - refused retries leave the free lane for younger ready work
+ok - retry preserves empty arguments and trailing newlines
+ok - oldest deferred request starts first, one start per free lane
+ok - a finished deferred request is not started twice
+ok - an in-progress claim consumes the free lane
+ok - a held task stays queued and does not take the free lane
+ok - a stale deferred request is reported and not started
+ok - in-flight, done, and missing tasks are removed without a start
+ok - a queued task that already holds a seat is left for the next sweep
+ok - a sweep with a busy lock starts nothing
+ok - a deferred spawn starts within five minutes of a lane freeing (4s)
+ok - a deferred spawn starts within five minutes of a lane freeing (4s)
+ok - a deferred spawn starts within five minutes of a lane freeing (2s)
+ok - a deferred spawn starts within five minutes of a lane freeing (4s)
+FM_TEST_END 2026-11-04T04:28:35Z tests/fm-spawn-deferred.test.sh exit=0 duration_ms=89456 gate_skip=false
+FM_TEST_BEGIN 2026-11-04T04:28:35Z tests/fm-lane-release.test.sh family=unclassified expected_gate_skip=none
+ok - A1 trigger: a quiet pane without a confirmed done, and an exited agent, are never released
+ok - A1 stopped-not-done: question, ask-user, wait, blocker, dialog, compaction, crash, quota, typed reply all keep the seat
+ok - A1 done-not-landed: the only action is the unattended exit; record, log, and copy stay
+ok - A1 needed again: a relaunch makes the marker stale, it is removed, and the new worker keeps its seat
+ok - A1 seat-not-copy: the seat is freed while the copy and report stay
+ok - A1 auto-start: a release starts nothing and leaves the queue alone
+ok - A1 same worker: an open PR and an unread steer keep the worker that has the context
+ok - A1 per home: a sweep acts only on its own home
+ok - A1 harness-agnostic: a control refusal (unverified harness, dialog, composer) keeps the seat
+ok - A1 remote: an unreachable endpoint is unknown in the audit and never released
+ok - stop row finished: a done, merged, idle ship is released silently
+ok - stop row needs-decision: a question a later done hides still keeps the seat
+ok - stop row ask-user: a run parked at a gate keeps the seat
+ok - stop row chat question: a turn that ended long after the done line keeps the seat
+ok - stop row paused: a declared wait keeps the seat
+ok - stop row blocked: an open blocker keeps the seat
+ok - stop row usage limit: an idle worker that never wrote done keeps the seat
+ok - stop row crash: a gone endpoint is not acted on (recovery owns it)
+ok - stop row dialog: an agent at a launch dialog is not proven idle and keeps the seat
+ok - stop row compaction: a busy agent keeps the seat
+ok - stop row looping: a worker crew state reads working keeps the seat
+ok - stop row unsent text: a pending composer keeps the seat
+ok - stop row validation: a running pipeline, and a green PR waiting on merge, keep the seat
+ok - stop row merged while idle: a merged ship that never wrote done is released on the merge anchor
+ok - stop row unreachable: no read means no release and an unknown audit
+ok - stop row failed: a failed worker keeps its seat in A1-core
+ok - stop row interrupted: a worker firstmate interrupted keeps the seat
+ok - stop row unread steer: a done worker with an unhandled message keeps the seat
+ok - stop row scout vs ship: a scout needs its report and gate; a ship needs its merge
+ok - stop row tool failed: a worker that has not finished keeps the seat
+ok - stop row away/restart: the sweep runs in away mode, and a restart is idempotent
+ok - stop row owner typed: the owner's unsent text keeps the seat
+ok - stop row stuck composer: our own unsubmitted doorbell is classified and reported, never released
+ok - extra done-then-question: a steer, relaunch, typed text, or chat turn after done keeps the seat
+ok - a ship's chat question at 2050 after done at 2000 keeps its seat despite merge at 2100
+ok - working at 2020 preserves done at 2000, so a 2050 question keeps its seat after merge at 2100
+ok - extra closed-unmerged: no merge record, no release
+ok - extra scout awaiting promotion: a held, promoting, board-hosting, or ungated scout keeps the seat
+ok - an absent board registry allows a finished scout to release
+ok - an unreadable board registry keeps the scout and is unknown in audit
+ok - an unreadable board source keeps the scout and is unknown in audit
+ok - extra open-PR ship: kept, and reported as phase-2 seat-hours, never as a miss
+ok - extra two at once: each finished worker is stopped once and ledgered once
+ok - extra budget: one sweep starts at most two releases
+ok - extra verification: RELEASED only on a free seat; a held one is RELEASE_INCOMPLETE, woken once, still counted
+ok - unknown seat evidence becomes incomplete after two sweeps, wakes once, and remains counted
+ok - extra switched off: absent or off, a sweep writes nothing, stops nothing, prints nothing
+ok - extra audit setting: a would-release is ledgered once and nothing is stopped
+ok - extra invalid setting: reported once, nothing released
+ok - embedded spaces and split lines are invalid settings and release nothing
+ok - empty, blank and split-line settings report once on one line and release nothing
+ok - extra debounce: one sweep never releases, and a turn between sweeps restarts the wait
+ok - extra deferred: a 75 from control removes the marker and the task is retried on later sweeps
+ok - extra lock: a held lifecycle lock skips the task for a later sweep
+ok - extra budget: a gate read that hangs is cut off inside the sweep budget and keeps the seat
+ok - extra local-only: the excluded ship keeps its seat and appears in audit
+ok - extra audit: read-only, 0 clean, 1 on a holder past 30 minutes, any setting
+ok - extra carrier: arm writes and registers a thin check shim; disarm removes it
+ok - extra carrier: the shim prefers the home code root and reports a missing script instead of 127
+ok - audit counts occupied markers from the anchor and propagates unknown evidence
+ok - agent, busy, composer, doorbell and marker seat reads stop at the sweep deadline
+ok - shared capacity keeps uncertain seats occupied while exposing uncertainty to audit
+ok - a complete turn during any live read, or absent turn history, prevents release
+ok - open-PR metrics require positive OPEN evidence on every provider and propagate all read failures
+ok - verification and candidate work share the durable cursor without starvation
+ok - Herdr rechecks the release guard before each literal, key and protocol retry
+ok - a 2050 chat turn after done at 2000 keeps its seat; unchanged records release after exactly 300 seconds
+ok - all done timestamps and real completion-gate dependency/read failures propagate unknown to audit
+ok - off homes stay inert and only --audit is accepted
+ok - Claude and other Herdr releases preserve foreign, changed and unreadable composer text
+ok - owner-waiting releases the process while preserving task and unlanded files
+FM_TEST_END 2026-11-04T04:32:10Z tests/fm-lane-release.test.sh exit=0 duration_ms=215636 gate_skip=false
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=430430
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=108107 failed=0
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=17095 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=2 duration_ms=305092 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-lane-release.test.sh duration_ms=215636
+FM_TEST_SLOWEST rank=2 script=tests/fm-project-capacity.test.sh duration_ms=108107
+FM_TEST_SLOWEST rank=3 script=tests/fm-spawn-deferred.test.sh duration_ms=89456
+FM_TEST_SLOWEST rank=4 script=tests/fm-capacity.test.sh duration_ms=17095
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6JCBKW17X5BMNY1G2F12DMV/targeted-tests.json
