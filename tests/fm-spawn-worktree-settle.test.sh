@@ -62,8 +62,16 @@ case "${1:-}" in
     printf '%s\n' "$captures" > "$capture_count_file"
     [ "${FM_FAKE_CAPTURE_FAIL_ON:-0}" != "$captures" ] || exit 1
     [ "${FM_FAKE_CAPTURE_UNREADABLE:-0}" = 0 ] || exit 1
-    cat "${FM_FAKE_PANE_COUNTFILE}.output" 2>/dev/null
-    printf '%s\n' "${FM_FAKE_CAPTURE_TRAILER:-}"
+    lines=80
+    previous=
+    for arg in "$@"; do
+      [ "$previous" != -S ] || lines=${arg#-}
+      previous=$arg
+    done
+    {
+      cat "${FM_FAKE_PANE_COUNTFILE}.output" 2>/dev/null
+      printf '%s\n' "${FM_FAKE_CAPTURE_TRAILER:-}"
+    } | tail -n "$lines"
     exit 0 ;;
   display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows) [ ! -s "$window_file" ] || cat "$window_file"; exit 0 ;;
@@ -394,9 +402,42 @@ fetch failed: key-role-name Permission denied (publickey)" run_settle_spawn "$id
   pass "diagnostics are bounded and an old exit marker cannot end a new get"
 }
 
-test_treehouse_failure_real_tmux() {
+test_treehouse_probe_backlog_keeps_reason() {
+  local rec id out status reads trailer backend i treehouse_status expected_reads
+  trailer=$(for backend in ZELLIJ CMUX PASEO; do
+    for i in $(seq 1 20); do
+      printf '__FM_%s_CWD_BEGIN__\n/project/%s\n__FM_%s_CWD_END__\n' "$backend" "$i" "$backend"
+    done
+  done)
+  [ "$(printf '%s\n' "$trailer" | wc -l)" -gt 80 ] || fail 'fixture needs more than 80 queued probe lines'
+  for treehouse_status in 0 1; do
+    id="settle-probe-backlog-$treehouse_status-z14"
+    rec=$(make_settle_case "settle-probe-backlog-$treehouse_status" "$id" 100000)
+    read_settle_record "$rec"
+    STALE_DIR=$PROJ_DIR
+    fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+    out=$(FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' \
+      FM_FAKE_TREEHOUSE_EXIT="$treehouse_status" FM_FAKE_CAPTURE_TRAILER="$trailer" run_settle_spawn "$id")
+    status=$?
+    expect_code 1 "$status" 'acquisition without a worktree must refuse'
+    assert_contains "$out" 'fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' 'queued cwd probes hid the Treehouse reason'
+    [ "${#out}" -lt 2500 ] || fail "probe backlog made the refusal unbounded (${#out} characters)"
+    expected_reads=60
+    if [ "$treehouse_status" -ne 0 ]; then
+      expected_reads=2
+      assert_contains "$out" 'exited before entering an isolated worktree' 'queued cwd probes hid the completion marker'
+    else
+      assert_contains "$out" 'within 60s' 'probe output without a completion marker cut the wait short'
+    fi
+    reads=$(cat "$COUNTFILE")
+    [ "$reads" -eq "$expected_reads" ] || fail "probe backlog case $treehouse_status took $reads cwd reads, expected $expected_reads"
+  done
+  pass '180 queued cwd-probe lines preserve early and deadline failure reasons'
+}
+
+test_treehouse_failure_real_tmux() (
   local rec id out status real_tmux socket started elapsed
-  fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_LIVE tmux || return 0
+  fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_LIVE tmux
   real_tmux=$(command -v tmux)
   socket="fm-treehouse-reason-$$"
   id=settle-real-failure-z12
@@ -428,7 +469,7 @@ SH
   assert_contains "$out" 'exited before entering' 'real pane was treated as a timeout'
   [ "$elapsed" -lt 30 ] || fail "real failed get took ${elapsed}s"
   pass "real tmux $($real_tmux -V): shell exit plus captured error refuses in ${elapsed}s"
-}
+)
 
 test_treehouse_fish_submission() (
   fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_FISH fish
@@ -463,7 +504,8 @@ test_treehouse_fish_submission() (
 
 test_failure_reads_must_be_consecutive
 test_treehouse_output_bound_and_stale_marker
-test_treehouse_failure_real_tmux
+test_treehouse_probe_backlog_keeps_reason
+test_treehouse_failure_real_tmux || exit $?
 
 test_treehouse_failure_reason
 test_treehouse_error_while_running_keeps_waiting

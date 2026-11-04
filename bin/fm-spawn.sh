@@ -5944,7 +5944,7 @@ spawn_treehouse_read_output() {
   local pane plain detail
   TREEHOUSE_GET_EXITED=0
   TREEHOUSE_GET_CAPTURE_NOTE=""
-  if ! pane=$(fm_backend_capture "$BACKEND" "$WT_TARGET" 80 "$W" 2>/dev/null); then
+  if ! pane=$(fm_backend_capture "$BACKEND" "$WT_TARGET" 2000 "$W" 2>/dev/null); then
     TREEHOUSE_GET_CAPTURE_NOTE="pane could not be read"
     return 1
   fi
