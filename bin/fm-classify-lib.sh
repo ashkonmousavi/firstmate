@@ -1181,6 +1181,8 @@ EOF
 # kind, as `<n>:<kind>`), `offset`, `ident`, then the folded open set.
 # Optional timed/emitted views use separate cursors and version suffixes;
 # status_open_decisions_incremental owns their row format.
+# An emitted-view commit also refreshes the ordinary cursor without its epoch
+# column, so supervision peeks reuse the drain's consumed prefix and row format.
 # FM_OPEN_DECISIONS_FOLD_VERSION must be bumped whenever
 # _fm_decision_fold_line semantics change, so persisted state from an older
 # interpretation is discarded and rebuilt from byte 0; the kind suffix does the
@@ -1353,7 +1355,9 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
   cf=$(_fm_open_decisions_cursor_path "$f")
   # A separate cursor keeps the ordinary presentation view byte-compatible.
-  # Timed rows are <key> TAB <verb> TAB <epoch-or-unknown> TAB <note>.
+  # Timed/emitted rows are <key> TAB <verb> TAB <epoch-or-unknown> TAB <note>.
+  # Emitted rows retain keyless timestamps for presentation; timed rows keep
+  # keyless ages unknown for the reminder policy.
   if [ -n "$timed" ]; then cf="$cf.$timed"; fold_version="$fold_version:$timed"; fi
   offset=0
   ident=''
