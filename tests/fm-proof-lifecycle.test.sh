@@ -35,20 +35,15 @@ case "${1:-}" in
     out=$(run_control "$dir" proof-parent exit)
     assert_contains "$out" 'already-stopped' 'second exit should be idempotent'
     cmp "$dir/before.meta" "$dir/home/state/proof-parent.meta"
+    # shellcheck disable=SC2031 # Imported fixture subshells do not change this shell's PATH.
     report=$(FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" "$ROOT/bin/fm-capacity.sh" --json)
     jq -e '.lanes==0' <<< "$report" >/dev/null || fail 'retained endpoint/meta consumed released seat'
-    (
-      cd "$dir/wt"
-      exec sleep 60
-    ) &
-    # shellcheck disable=SC2031 # The PID is captured immediately in this shell.
-    proof_work_pid=$!
-    trap 'kill "$proof_work_pid" 2>/dev/null || true; wait "$proof_work_pid" 2>/dev/null || true; relaunch_cleanup' EXIT
-    report=$(FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" "$ROOT/bin/fm-capacity.sh" --json)
-    jq -e '.lanes==1' <<< "$report" >/dev/null || fail 'live worktree process lost its seat'
-    kill "$proof_work_pid"; wait "$proof_work_pid" 2>/dev/null || true
-    trap relaunch_cleanup EXIT
-    pass 'released seat follows real non-shell process occupancy, not retained metadata or endpoint'
+    # The external reader owns process classification; replay its next snapshot
+    # with one working lane while the retained task record stays unchanged.
+    # shellcheck disable=SC2031 # Imported fixture subshells do not change this shell's PATH.
+    report=$(FM_TEST_ACTIVITY_LANES=1 FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" "$ROOT/bin/fm-capacity.sh" --json)
+    jq -e '.lanes==1' <<< "$report" >/dev/null || fail 'activity snapshot lost its occupied seat'
+    pass 'released seat follows external activity snapshots despite retained metadata and endpoint'
     FM_HOME="$dir/home" "$ROOT/bin/fm-tasks-axi.sh" unhold proof-parent >/dev/null
     out=$(run_control "$dir" proof-parent relaunch --note 'Deployment completed; resume the pending journey proof from data/proof-parent/proof.md. Task remains unaccepted.')
     assert_contains "$out" 'relaunched proof-parent' 'native relaunch should resume preserved work'
@@ -60,6 +55,7 @@ case "${1:-}" in
     tasks-axi show proof-child --file "$dir/home/data/backlog.md" | grep -q 'blocked_by: proof-parent' || fail 'resume released child before proof'
     pass 'native relaunch resumes same task/worktree with new generation while proof and dependents remain pending'
     (
+      # shellcheck disable=SC2030 # This home is intentionally scoped to the replay subshell.
       FM_HOME="$dir/home"
       # shellcheck source=bin/fm-tasks-axi-lib.sh
       . "$ROOT/bin/fm-tasks-axi-lib.sh"

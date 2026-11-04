@@ -141,7 +141,7 @@ case "${1:-}" in
         *pane_current_path*)
           if [ -n "${FM_FAKE_CWD_RACE_READY:-}" ]; then
             : > "$FM_FAKE_CWD_RACE_READY"
-            /bin/sleep 1
+            while [ ! -e "$FM_FAKE_CWD_RACE_READY.release" ]; do /bin/sleep 0.01; done
           fi
           cat "$D/cwd"; printf '\n'; exit 0 ;;
       esac
@@ -1042,7 +1042,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
     run_control "$dir" rl28 relaunch --note "continue after publication" > "$dir/control.out" &
   control_pid=$!
   while [ ! -e "$prepare" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
+    /bin/sleep 0.1
     i=$((i + 1))
   done
   [ -e "$prepare" ] || {
@@ -1061,7 +1061,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
   link_pid=$!
   i=0
   while [ ! -e "$waiting" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
+    /bin/sleep 0.1
     i=$((i + 1))
   done
   [ -e "$waiting" ] && [ ! -e "$ready" ] || {
@@ -1074,7 +1074,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
   : > "$launch_release"
   i=0
   while [ ! -e "$ready" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
+    /bin/sleep 0.1
     i=$((i + 1))
   done
   [ -e "$ready" ] || {
@@ -2466,7 +2466,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
 
 # shellcheck disable=SC2031 # PATH intentionally retains the parent environment between cases.
 test_prepublication_failure_keeps_concurrent_durable_metadata() {
-  local dir control_pid link_out rc i=0
+  local dir control_pid link_pid rc i=0
   dir=$(new_case rollback-race rl30)
   add_ship_task "$dir" rl30 claude
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
@@ -2475,18 +2475,36 @@ test_prepublication_failure_keeps_concurrent_durable_metadata() {
       > "$dir/control.out" &
   control_pid=$!
   while [ ! -e "$dir/cwd-race-ready" ] && [ "$i" -lt 200 ]; do
-    /bin/sleep 0.01
+    /bin/sleep 0.1
     i=$((i + 1))
   done
   [ -e "$dir/cwd-race-ready" ] || {
+    : > "$dir/cwd-race-ready.release"
     kill "$control_pid" 2>/dev/null || true
     wait "$control_pid" 2>/dev/null || true
-    fail "relaunch did not reach its pre-publication endpoint check"
+    fail "relaunch did not reach its pre-publication endpoint check: $(cat "$dir/control.out")"
   }
-  link_out=$(env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+  # Endpoint validation owns the metadata lock. Observe the writer waiting
+  # before releasing validation, then let the queued publication complete.
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+    FM_FAKE_LOCK_WAITING="$dir/link-waiting" \
     "$X_LINK" rl30 request-30 --carry-count 2 --carry-ts 1700000000 \
-      --carry-platform x --carry-max 280 2>&1); rc=$?
-  expect_code 0 "$rc" "concurrent durable metadata publication should succeed"$'\n'"$link_out"
+      --carry-platform x --carry-max 280 > "$dir/link.out" 2>&1 &
+  link_pid=$!
+  i=0
+  while [ ! -e "$dir/link-waiting" ] && [ "$i" -lt 500 ]; do
+    /bin/sleep 0.1
+    i=$((i + 1))
+  done
+  : > "$dir/cwd-race-ready.release"
+  [ -e "$dir/link-waiting" ] || {
+    kill "$link_pid" "$control_pid" 2>/dev/null || true
+    wait "$link_pid" 2>/dev/null || true
+    wait "$control_pid" 2>/dev/null || true
+    fail "concurrent metadata writer did not wait for endpoint validation: $(cat "$dir/link.out")"
+  }
+  wait "$link_pid"; rc=$?
+  expect_code 0 "$rc" "concurrent durable metadata publication should succeed"$'\n'"$(cat "$dir/link.out")"
   wait "$control_pid"; rc=$?
   expect_code 1 "$rc" "the staged pre-publication launch failure should fail closed"
   [ "$(meta_field "$dir" rl30 x_request)" = request-30 ] \
@@ -3721,7 +3739,7 @@ test_recovery_eligibility_holds_the_lifecycle_lock() {
   worker=$!
   i=0
   while [ ! -e "$dir/probe-ready" ] && [ "$i" -lt 300 ]; do
-    /bin/sleep 0.01
+    /bin/sleep 0.1
     i=$((i + 1))
   done
   if [ ! -e "$dir/probe-ready" ]; then
@@ -4447,7 +4465,7 @@ test_existing_step_children() {
   SLICE: main/demo | result | role=owner
   TESTER TASK: $child
 - [ ] $child - child (repo: proj) (kind: ship)
-  SLICE: main/demo | result | role=${child_effect#launch-} owner=main:sliceowner
+  SLICE: main/demo | result | role=${child_effect#launch-} builder=main:sliceowner
 ## Queued
 ## Done
 EOF
