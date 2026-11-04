@@ -1958,6 +1958,7 @@ test_submit_retry_obeys_control_exit_guard() (
   FM_TEST_PICKER_ENTERS=$(mktemp)
   # The first Enter opens a vendor surface the older dialog sink cannot
   # recognize. A control guard must still stop the next Enter.
+  # shellcheck disable=SC2329 # Called by fm_composer_submit_retry_core in the imported library.
   fm_control_lane_release_guard() { [ ! -s "$FM_TEST_PICKER_ENTERS" ]; }
   fm_composer_dialog_sink_prepare || fail 'could not prepare submit dialog sink'
   out=$(fm_composer_submit_retry_core fm_test_picker_send fm_test_picker_state win 3 0)
