@@ -143,7 +143,7 @@ test_wrapper_writes_through_to_home() {
     wrapper_from_code "$dir" start "ship-$i" >/dev/null || fail "start ship-$i failed"
     wrapper_from_code "$dir" "done" "ship-$i" >/dev/null || fail "done ship-$i failed"
   done
-  wrapper_from_code "$dir" add call-1 "captain call" >/dev/null || fail "add call-1 failed"
+  wrapper_from_code "$dir" add call-1 "hold routing" >/dev/null || fail "add call-1 failed"
   wrapper_from_code "$dir" hold call-1 --reason "awaiting the captain" --kind captain >/dev/null \
     || fail "hold call-1 failed"
   printf 'RELATIVE-BODY-MARKER\n' > "$dir/code/body.md"

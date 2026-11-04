@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pure structural custody and merge for explicitly bound native owner requests.
+"""Structural custody, merge and reporting for bound native owner requests.
 
 Owner-request packet authoring contract for fm-tasks-axi.sh --owner-request-file:
 For each owner-origin request that creates or updates a native task, including
@@ -9,7 +9,7 @@ A mid-task addition or change is bound first, before the brief's Captain's
 intent is updated: append its source-linked requirement or correction to the
 same bound task, or create a separate bound item when the existing task is a
 legacy unbound row.
-Non-owner tasks and historical unbound rows keep their existing task path.
+Unbound intake eligibility is owned by fm-tasks-axi.sh's header.
 Write one private UTF-8 JSON file with the required PACKET keys below;
 proof_updates is the only optional top-level key.
 For add, expected_body_sha256 is null; for update it is SHA256 of the exact
@@ -68,6 +68,18 @@ Transfer, archive and relaunch retain the section rather than reinterpret it.
 The helper validates structure and retained source custody only. A task Done,
 an acknowledgement, or a syntactically accepted disposition never establishes
 the qualified owner receipt and current proof required by B6.
+
+open-summary --home <home> reads native tasks through that home's
+bin/fm-tasks-axi.sh and emits JSON; it does not mutate the backlog.
+Only queued/in_flight tasks with a validated acceptance section contribute.
+open_requirements counts pending, proof_owed and held requirement dispositions;
+tasks counts contributing task records, sources counts their source rows, and
+items carries each task's id, open_requirements, requirements and sources counts.
+These are custody counts, not evidence of qualified acceptance or free lanes.
+Incomplete listings or invalid acceptance metadata refuse the summary.
+--body-file <json> instead accepts a task snapshot only with FM_TEST_SEAM=1;
+each row supplies id, state and native show --full text as show.
+open-summary needs no --task-id; every other command still requires it.
 """
 import argparse
 import hashlib
@@ -412,16 +424,78 @@ def shown_body(show, task_id):
     return decoded
 
 
+def open_summary(tasks):
+    """Count unresolved native requirements, distinct from tasks and sources."""
+    result = {'readable':True, 'open_requirements':0, 'tasks':0, 'sources':0, 'items':[]}
+    for task in tasks:
+        if task['state'] not in ('queued','in_flight'): continue
+        body = shown_body(task['show'],task['id'])
+        if START not in body: continue
+        metadata = section(body)[2]
+        validate(metadata,task['id'],None)
+        pending = [row for row in metadata['requirements'] if row['disposition'] in ('pending','proof_owed','held')]
+        result['open_requirements'] += len(pending)
+        result['tasks'] += 1
+        result['sources'] += len(metadata['sources'])
+        result['items'].append({'id':task['id'],'open_requirements':len(pending), 'requirements':len(metadata['requirements']), 'sources':len(metadata['sources'])})
+    return result
+
+
+def native_open_summary(home):
+    import concurrent.futures, os, subprocess, time
+    wrapper = Path(home)/'bin/fm-tasks-axi.sh'
+    env = {key:value for key,value in os.environ.items() if not (key.startswith('FM_') and key.endswith('_OVERRIDE'))}
+    env.update(FM_HOME=str(home), PYTHONDONTWRITEBYTECODE='1')
+    deadline = time.monotonic()+20
+    def call(args):
+        remaining = deadline-time.monotonic()
+        if remaining<=0: raise Invalid('native owner-request read deadline')
+        proc = subprocess.run(['bash',str(wrapper),*args], env=env, text=True, capture_output=True, timeout=remaining)
+        if proc.returncode: raise Invalid('native owner-request read failed')
+        return proc.stdout
+    records = {}
+    for state in ('queued','in_flight','held'):
+        text = call(['list','--state',state,'--limit','256'])
+        count = re.search(r'^count: ([0-9]+)$',text,re.M)
+        ids = re.findall(r'^  ([A-Za-z0-9._-]+),(?:queued|in_flight),',text,re.M)
+        if not count or int(count[1])!=len(ids) or len(ids)>=256:
+            raise Invalid('native owner-request listing incomplete')
+        records.update({task:state for task in ids})
+    def show(pair):
+        task,state=pair
+        text=call(['show',task,'--full'])
+        observed=re.search(r'^  state: (\S+)$',text,re.M)
+        if not observed:raise Invalid('native owner-request state missing')
+        return {'id':task,'state':observed[1],'show':text}
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            tasks=list(pool.map(show,records.items()))
+        return open_summary(tasks)
+    except subprocess.TimeoutExpired as error:
+        raise Invalid('native owner-request read deadline') from error
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("merge", "validate", "show-body", "compare-show", "validate-show", "compare-section"))
+    parser.add_argument("command", choices=("merge", "validate", "show-body", "compare-show", "validate-show", "compare-section", "open-summary"))
     parser.add_argument("--body-file")
     parser.add_argument("--packet-file")
-    parser.add_argument("--task-id", required=True)
+    parser.add_argument("--task-id")
     parser.add_argument("--home")
     parser.add_argument("--operation", choices=("add", "update"))
     args = parser.parse_args()
     try:
+        if args.command == 'open-summary':
+            import os
+            if args.body_file:
+                if os.environ.get('FM_TEST_SEAM')!='1':raise Invalid('owner summary fixture requires FM_TEST_SEAM=1')
+                result=open_summary(read_json(Path(args.body_file).read_text()))
+            else:
+                if not args.home:raise Invalid('native owner summary requires --home')
+                result=native_open_summary(args.home)
+            print(json.dumps(result,sort_keys=True))
+            return 0
+        if not args.task_id:raise Invalid('task id required')
         if args.command in ("show-body", "compare-show", "validate-show"):
             body = shown_body(sys.stdin.read(), args.task_id)
             if args.command == "show-body":
