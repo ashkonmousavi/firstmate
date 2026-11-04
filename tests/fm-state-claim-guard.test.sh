@@ -422,8 +422,14 @@ for assertion in ("PC has 2 free", "2 seats are available", "3 slots are occupie
 for question in ("how many lanes are free?", "How many seats are available?",
                  "Are slots occupied?", "Is admission no?", "Is there no room?",
                  "Is lane-b running?", "Are lane alpha and worker beta running?"):
-    check("pure capacity question needs no activity: " + question, question,
-          capacity_read=False, expected=0)
+    for prefix in ("", "👉 ", "- ", "+ ", "* ", "1. ", "1) ", "• ", "  - 👉 ", "👉 - "):
+        check("pure capacity question needs no activity: " + prefix + question, prefix + question,
+              capacity_read=False, expected=0)
+for prefix in ("👉 ", "- ", "+ ", "* ", "1. ", "1) ", "• ", "  - 👉 ", "👉 - "):
+    message = prefix + "PC has 2 free; should I fill them?"
+    check("presentation cannot exempt an assertion: " + prefix, message, capacity_read=False)
+    check("presentation cannot exempt repeated assertion: " + prefix, message, capacity_read=False, active=True)
+    check("supported formatted assertion passes: " + prefix, message, expected=0)
 for records in ([user, *tool(activity_read, error=True)],
                 [user, *tool(activity_read), user],
                 [user, tool(activity_read)[0]],

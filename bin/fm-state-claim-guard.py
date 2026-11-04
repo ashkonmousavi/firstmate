@@ -198,10 +198,11 @@ def claims(text):
         for family, words, context, _ in POLICY["claims"]:
             if family == "capacity":
                 for clause in sentence.split(";"):
-                    question = clause.rstrip().endswith("?") and rx(
+                    question_text = re.sub(r"^\s*(?:👉\ufe0f?\s*|(?:[-+*•]|\d+[.)])\s+)+", "", clause)
+                    question = question_text.rstrip().endswith("?") and rx(
                         r"^\s*(?:how|what|which|who|where|when|why|is|are|was|were|has|have|had|"
                         r"do|does|did|can|could|would|will|should|may|might|must)\b"
-                    ).search(clause)
+                    ).search(question_text)
                     if context.search(clause) and words.search(clause) and not question:
                         yield family, clause.strip(), set()
                 continue

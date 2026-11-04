@@ -835,7 +835,7 @@ class RequestCustody(unittest.TestCase):
         self.assertIn("moved to", (self.home / "data/backlog.md").read_text())
 
     def test_ordinary_update_cannot_create_a_bound_section(self):
-        self.run_task("add", "owner-1", "Owner")
+        self.run_task("add", "owner-1", "Ordinary task")
         forged = self.home / "forged.md"
         forged.write_text("note\n\n```Owner request acceptance v1\n{}\n```\n")
         self.run_task("update", "owner-1", "--body-file", forged, ok=False)
@@ -909,7 +909,7 @@ class RequestCustody(unittest.TestCase):
         self.assertEqual(log.read_text().splitlines(), ["add"])
 
     def test_add_retry_existing_different_body_refuses_without_write(self):
-        self.run_task("add", "owner-1", "Owner", "--body", "Different source")
+        self.run_task("add", "owner-1", "Ordinary task", "--body", "Different source")
         before = self.body()
         result = self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                                self.save("different-existing.json", self.packet()), ok=False)

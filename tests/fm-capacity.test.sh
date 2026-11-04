@@ -5,6 +5,16 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 TMP_ROOT=$(fm_test_tmproot fm-capacity)
 CAPACITY="$ROOT/bin/fm-capacity.sh"
+export FM_ACTIVITY_READER="$TMP_ROOT/activity.sh" FM_CAPACITY_ACTIVITY_FACTS="$TMP_ROOT/activity.json"
+cat > "$FM_ACTIVITY_READER" <<'SH'
+#!/usr/bin/env bash
+cat "$FM_CAPACITY_ACTIVITY_FACTS"
+SH
+activity_reading() {
+  jq -cn --argjson lanes "$1" --argjson target "$2" --argjson free "$3" \
+    '{readable:true,lanes:$lanes,target:$target,free_lanes:$free}' > "$FM_CAPACITY_ACTIVITY_FACTS"
+}
+activity_reading 5 5 0
 mkdir -p "$TMP_ROOT/home/"{state,config,data} "$TMP_ROOT/mate/"{state,config,data}
 export FM_HOME="$TMP_ROOT/home" FM_CAPACITY_MEMINFO="$TMP_ROOT/meminfo"
 printf '5 3\n' > "$FM_HOME/config/lane-capacity"
@@ -24,17 +34,19 @@ assert_contains "$out" 'lanes=5 target=5' 'all projects and local homes count'
 printf 'pr=https://github.com/o/r/pull/1\n' >> "$TMP_ROOT/mate/state/task-5.meta"
 out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
 expect_code 75 "$rc" 'a ready PR does not hide a live or unknown worker'
-rm "$TMP_ROOT/mate/state/task-5.meta"
+activity_reading 4 5 1
 out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
-expect_code 0 "$rc" 'removed worker record frees a place'
+expect_code 0 "$rc" 'activity confirms a stopped worker frees a place despite its retained record'
 assert_contains "$out" 'free_lanes=1' 'secondmate holds no place'
 pass 'machine ceiling spans local homes and projects; handoffs count while live, secondmates excluded'
 # External bots do not create local task records. A local walk cannot evade
 # admission by naming itself after an exempt external bot.
 fm_write_meta "$FM_HOME/state/local-walk.meta" kind=ship walk_owner=grok-bot
+activity_reading 5 5 0
 out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
 expect_code 75 "$rc" 'ordinary local walk holds a lane'
 rm "$FM_HOME/state/local-walk.meta"
+activity_reading 4 5 1
 out=$(bash "$ROOT/bin/fm-fleet-view.sh" --capacity) || fail 'activity facts failed'
 assert_contains "$out" 'lanes=4 target=5' 'activity uses machine reading'
 out=$(bash "$ROOT/bin/fm-fleet-ledger.sh" capacity --json) || fail 'ledger facts failed'
@@ -48,7 +60,7 @@ printf 'MemAvailable: 356000 kB\n' > "$FM_CAPACITY_MEMINFO"
 out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
 expect_code 75 "$rc" 'low memory'
 assert_contains "$out" 'reason=memory' 'memory refusal'
-assert_contains "$out" "$FM_CAPACITY_MEMINFO" 'reading named'
+assert_contains "$out" 'available_kb=356000' 'measured memory reported'
 pass 'memory reserve is fixed and refuses below zero headroom'
 for bad in '' '5' '5 -1' '5 3 extra' 'NaN 3'; do
   printf '%s\n' "$bad" > "$FM_HOME/config/lane-capacity"
@@ -123,87 +135,43 @@ bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'stale machine never chosen'
 pass 'published facts drive placement; full, unreadable and stale hosts refused'
 
-# Exercise the record loop through its public read API. Endpoint states are
-# supplied at the existing backend boundary; cwd scans use real processes.
 (
   . "$ROOT/bin/fm-wake-lib.sh"
   . "$ROOT/bin/fm-backend.sh"
   . "$ROOT/bin/fm-secondmate-registry-lib.sh"
   . "$ROOT/bin/fm-project-capacity-lib.sh"
   . "$ROOT/bin/fm-capacity-lib.sh"
-  mkdir -p "$TMP_ROOT/live/"{state,config,data} "$TMP_ROOT/empty-worktree"
+  mkdir -p "$TMP_ROOT/live/"{state,config,data}
   FM_HOME="$TMP_ROOT/live"
-  printf '5 3\n' > "$TMP_ROOT/live/config/lane-capacity"
-  fm_test_machine_policy "$TMP_ROOT/live/config"
-  fm_backend_agent_state() {
-    case "$2" in
-      live-*) printf alive ;;
-      gone-*) printf missing ;;
-      *) printf unreadable ;;
-    esac
-  }
-  for n in 1 2; do
-    fm_write_meta "$TMP_ROOT/live/state/dead-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/empty-worktree"
-  done
-  for n in 1 2 3 4 5; do
-    fm_write_meta "$TMP_ROOT/live/state/live-$n.meta" kind=ship "window=live-$n" "worktree=$TMP_ROOT/empty-worktree"
-  done
-  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
-  expect_code 75 "$rc" 'five live workers fill ceiling despite dead records'
-  expect_code 5 "$FM_CAPACITY_LANES" 'dead endpoints with no worktree process hold no seats'
-  [ "$FM_CAPACITY_REASON" = full ] || fail 'live workers should fill ceiling'
-  rm "$TMP_ROOT/live/state/live-5.meta"
-  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'four live workers should admit'
-  expect_code 1 "$FM_CAPACITY_FREE" 'dead records leave one seat free'
-  for n in 1 2; do
-    fm_write_meta "$TMP_ROOT/live/state/rel-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/live/state/rel-$n.released-copy"
-  done
-  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'released-copy records should not block admission'
-  expect_code 4 "$FM_CAPACITY_LANES" 'dead teardown-completed records with a released copy hold no seat'
-  fm_write_meta "$TMP_ROOT/live/state/liverel.meta" kind=ship "window=live-9" "worktree=$TMP_ROOT/live/state/liverel.released-copy"
-  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
-  expect_code 75 "$rc" 'a live released-copy record fills the fifth seat'
-  expect_code 5 "$FM_CAPACITY_LANES" 'a released-copy record whose agent is alive still holds its seat'
-  rm "$TMP_ROOT/live/state/liverel.meta" "$TMP_ROOT/live/state/rel-1.meta" "$TMP_ROOT/live/state/rel-2.meta"
-  fm_write_meta "$TMP_ROOT/live/state/unknown.meta" kind=ship window=unknown "worktree=$TMP_ROOT/empty-worktree"
-  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
-  expect_code 75 "$rc" 'unknown endpoint liveness holds a seat'
-  expect_code 5 "$FM_CAPACITY_LANES" 'unknown record counted'
-  rm "$TMP_ROOT/live/state/unknown.meta"
-  pass 'capacity counts live endpoints, frees dead records, and retains unknowns'
-) || exit 1
-
-(
-  mkdir -p "$TMP_ROOT/shell-home/"{state,config,data} "$TMP_ROOT/shell-worktree" "$TMP_ROOT/fakebin"
-  FM_HOME="$TMP_ROOT/shell-home"
-  export FM_HOME
   printf '5 3\n' > "$FM_HOME/config/lane-capacity"
   fm_test_machine_policy "$FM_HOME/config"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/fakebin/tmux"
-  chmod +x "$TMP_ROOT/fakebin/tmux"
-  fm_test_codex_first_turn_wrap "$TMP_ROOT/fakebin"
-  mkfifo "$TMP_ROOT/shell-input" "$TMP_ROOT/shell-ready"
-  exec 3<> "$TMP_ROOT/shell-input"
-  bash -c 'cd "$1"; printf "ready\n"; read -r _' bash "$TMP_ROOT/shell-worktree" \
-    < "$TMP_ROOT/shell-input" > "$TMP_ROOT/shell-ready" &
-  # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
-  parked_pid=$!
-  work_pid=
-  trap 'kill "$parked_pid" ${work_pid:+"$work_pid"} 2>/dev/null || true; wait 2>/dev/null || true' EXIT
-  read -r ready < "$TMP_ROOT/shell-ready"
-  [ "$ready" = ready ] || fail 'parked shell did not start'
-  fm_write_meta "$FM_HOME/state/parked.meta" kind=ship window=test:gone "worktree=$TMP_ROOT/shell-worktree"
-  out=$(PATH="$TMP_ROOT/fakebin:$PATH" bash "$CAPACITY" --json) || fail 'shell-only capacity report failed'
-  jq -e '.lanes == 0 and .free_lanes == 5' <<< "$out" >/dev/null || fail 'idle shell incorrectly holds a seat'
-  (
-    cd "$TMP_ROOT/shell-worktree" || exit 1
-    exec sleep 60
-  ) &
-  # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
-  work_pid=$!
-  out=$(PATH="$TMP_ROOT/fakebin:$PATH" bash "$CAPACITY" --json) || fail 'non-shell capacity report failed'
-  jq -e '.lanes == 1 and .free_lanes == 4' <<< "$out" >/dev/null || fail 'non-shell worktree process lost its seat'
-  pass 'public capacity command frees shell-only records and counts non-shell work'
+  for n in 1 2 3 4 5 6 7 8; do
+    fm_write_meta "$FM_HOME/state/retained-$n.meta" kind=ship window=unknown "worktree=$TMP_ROOT/reused-copy"
+  done
+  activity_reading 3 5 2
+  fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state" || fail 'canonical occupancy should admit'
+  expect_code 3 "$FM_CAPACITY_LANES" 'retained metadata cannot replace the activity reading'
+  expect_code 2 "$FM_CAPACITY_FREE" 'physical free seats come from the canonical reading'
+  activity_reading 5 5 0
+  fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state"; rc=$?
+  expect_code 75 "$rc" 'a full activity reading refuses admission'
+  [ "$FM_CAPACITY_REASON" = full ] || fail 'full canonical reading should name capacity'
+  activity_reading 0 5 5
+  fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state" || fail 'empty activity reading should admit'
+  expect_code 0 "$FM_CAPACITY_LANES" 'dead records do not hold physical seats'
+  for bad in '{}' '{"readable":false,"lanes":0,"target":5}' '{"readable":true,"lanes":-1,"target":5}' 'broken'; do
+    printf '%s\n' "$bad" > "$FM_CAPACITY_ACTIVITY_FACTS"
+    fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state"; rc=$?
+    expect_code 75 "$rc" 'unreadable or malformed activity evidence refuses admission'
+    [ "$FM_CAPACITY_REASON" = unreadable ] || fail 'bad activity evidence must stay unknown'
+  done
+  activity_reading 0 6 6
+  fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state"; rc=$?
+  expect_code 75 "$rc" 'mismatched activity target refuses admission'
+  activity_reading 0 5 5
+  FM_ACTIVITY_READER="$TMP_ROOT/missing-reader" fm_capacity_read "$FM_HOME" "$FM_HOME/config" "$FM_HOME/state"; rc=$?
+  expect_code 75 "$rc" 'failed activity read refuses admission'
+  pass 'capacity follows canonical activity facts and refuses unknown or inconsistent evidence'
 ) || exit 1
 
 (
@@ -229,6 +197,7 @@ exec "${BASH_SOURCE[0]%/*}/tmux-original" "$@"
 SH
   chmod +x "$fakebin/tmux"
   fm_test_codex_first_turn_wrap "$fakebin"
+  activity_reading 0 1 1
   export FM_FAKE_PANE_COMMAND=bash FM_FAKE_LAUNCH_LOG="$case_dir/launch.log"
   out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-a" "$fakebin" \
     capacity-a "$case_dir/project-capacity-a" --mode no-mistakes --yolo off); rc=$?
@@ -238,6 +207,7 @@ SH
     capacity-b "$case_dir/project-capacity-b" --mode no-mistakes --yolo off); rc=$?
   expect_code 0 "$rc" "stopped A frees its seat for B: $out"
   export FM_FAKE_DUPLICATE_WINDOW=$'fm-capacity-a\nfm-capacity-b' CAPACITY_B_LIVE=1
+  activity_reading 1 1 0
   cp "$relaunch_home/state/capacity-a.meta" "$case_dir/prior.meta"
   : > "$FM_FAKE_LAUNCH_LOG"
   out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-a" "$fakebin" capacity-a --relaunch); rc=$?
@@ -255,6 +225,7 @@ SH
   pass 'stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A'
 ) || exit 1
 
+activity_reading 0 5 5
 make_probes() {
   local fakebin
   fakebin=$(fm_fakebin "$1")
@@ -293,109 +264,101 @@ SH
   pass 'upstream host probes remain visible and never replace shared admission facts'
 ) || exit 1
 
-# Fixture membership and hierarchy exercise the same public admission read as
-# fm-spawn without depending on the test host's cgroup or page cache.
 test_cgroup_memory() {
-  local FM_HOME="$TMP_ROOT/cgroup-home"
-  local FM_CAPACITY_MEMINFO="$TMP_ROOT/cgroup-meminfo"
-  local FM_CAPACITY_CGROUP_FILE="$TMP_ROOT/self-cgroup"
-  local FM_CAPACITY_CGROUP_ROOT="$TMP_ROOT/cgroup"
-  local out rc bad
-  export FM_HOME FM_CAPACITY_MEMINFO FM_CAPACITY_CGROUP_FILE FM_CAPACITY_CGROUP_ROOT
-  mkdir -p "$FM_HOME/"{config,state,data} "$FM_CAPACITY_CGROUP_ROOT/crew/lane"
+  local FM_HOME="$TMP_ROOT/cgroup-home" FM_CAPACITY_MEMINFO="$TMP_ROOT/cgroup-meminfo"
+  local FM_RESOURCE_CGROUP_FILE="$TMP_ROOT/self-cgroup" FM_RESOURCE_CGROUP_ROOT="$TMP_ROOT/cgroup"
+  local out rc bad field
+  export FM_HOME FM_CAPACITY_MEMINFO FM_RESOURCE_CGROUP_FILE FM_RESOURCE_CGROUP_ROOT
+  mkdir -p "$FM_HOME/"{config,state,data} "$FM_RESOURCE_CGROUP_ROOT/crew/lane"
   printf '5 4\n' > "$FM_HOME/config/lane-capacity"
   fm_test_machine_policy "$FM_HOME/config"
-  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
-  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
-  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-  printf 'anon 5000000000\nfile 12000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-  printf '17500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.current"
-  printf 'MemAvailable: 1 kB\n' > "$FM_CAPACITY_MEMINFO"
-  out=$(bash "$CAPACITY" --json) || fail "cache-heavy cgroup must admit: $out"
-  jq -e '.reason == "ok" and .mem_available_kb == 9277343 and .reserve_kb == 4194304 and .headroom_kb == 5083039 and .headroom_kb >= 3145728' <<< "$out" >/dev/null || fail 'cgroup must leave room for a 3 GiB lane after reserve'
-  pass 'finite ancestor excludes file cache and leaves 8.8 GiB before reserve'
+  printf '0::/crew/lane\n' > "$FM_RESOURCE_CGROUP_FILE"
+  printf 'MemAvailable: 67108864 kB\n' > "$FM_CAPACITY_MEMINFO"
+  for group in "$FM_RESOURCE_CGROUP_ROOT/crew" "$FM_RESOURCE_CGROUP_ROOT/crew/lane"; do
+    printf 'max\n' > "$group/memory.high"
+    printf 'max\n' > "$group/memory.max"
+    printf '4294967296\n' > "$group/memory.current"
+    printf 'file 0\nshmem 0\nactive_file 0\ninactive_file 0\nfile_dirty 0\nfile_writeback 0\n' > "$group/memory.stat"
+    cp "$ROOT/tests/captures/capacity-pressure" "$group/memory.pressure"
+  done
+  printf '17179869184\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
+  printf '21474836480\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.current"
+  printf 'file 9663676416\nshmem 1073741824\nactive_file 4294967296\ninactive_file 4294967296\nfile_dirty 0\nfile_writeback 0\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'cache-heavy cgroup reading failed'
+  jq -e '.reason == "ok" and .mem_available_kb == 4194304 and .reserve_kb == 4194304 and .headroom_kb == 0' <<< "$out" >/dev/null || fail 'clean active and inactive cache must leave exactly four GiB'
+  pass 'cache-aware effective availability supplies reserve and hard floor on one snapshot'
 
-  # The smallest finite balance wins and must use its own statistics.
-  printf '8589934592\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
-  printf 'shmem 0\nanon 4294967296\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
-  out=$(bash "$CAPACITY" --json) || fail 'exact cgroup reserve must admit'
-  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'smallest balance not used'
-  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-  printf 'anon 15032385536\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  printf '8589934592\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/lane/memory.high"
+  printf '16106127360\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
+  printf '15032385536\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.current"
+  printf 'file 0\nshmem 0\nactive_file 0\ninactive_file 0\nfile_dirty 0\nfile_writeback 0\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
   out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
-  expect_code 75 "$rc" 'enclosing pressure refuses despite admissible child'
-  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew memory.high" 'refusal identifies limiting ancestor'
-  out=$(bash "$CAPACITY" --json) || fail 'enclosing pressure must remain readable'
-  jq -e '.reason == "memory" and .readable == true and .admitted == false and .free_lanes == 0 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'parent one GiB balance must leave minus three GiB after reserve'
-  printf 'anon 17179869185\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  expect_code 75 "$rc" 'one GiB enclosing balance refuses despite four GiB child balance'
+  out=$(bash "$CAPACITY" --json) || fail 'resource refusal must remain readable'
+  jq -e '.reason == "memory" and .readable == true and .admitted == false and .free_lanes == 5 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'resource refusal must preserve physical free seats'
+  printf '17179869184\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
+  printf '18253611009\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.current"
   out=$(bash "$CAPACITY" --json) || fail 'over-limit ancestor must remain readable'
-  jq -e '.mem_available_kb == -1048577 and .headroom_kb == -5242881' <<< "$out" >/dev/null || fail 'negative ancestor balance must round down'
-  printf 'anon 11811160064\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-  out=$(bash "$CAPACITY" --json) || fail 'ample parent balance must admit'
-  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'larger parent balance must not replace child balance'
-  printf '17179869184\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.high"
-  printf 'anon 16106127360\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
+  jq -e '.mem_available_kb == -1048577 and .headroom_kb == -5242881' <<< "$out" >/dev/null || fail 'negative availability must round down to KiB'
+  printf '11811160064\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.current"
+  out=$(bash "$CAPACITY" --json) || fail 'ample ancestor balance must admit'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'child balance must still be limiting'
+
+  for field in memory.high memory.max memory.current memory.stat memory.pressure; do
+    cp "$FM_RESOURCE_CGROUP_ROOT/crew/$field" "$FM_RESOURCE_CGROUP_ROOT/$field"
+  done
+  printf '16106127360\n' > "$FM_RESOURCE_CGROUP_ROOT/memory.current"
   out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
   expect_code 75 "$rc" 'outermost finite ancestor must also constrain admission'
-  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT memory.high" 'outermost limiting ancestor named'
-  rm "$FM_CAPACITY_CGROUP_ROOT/memory.high" "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
-  for bad in '' 'broken'; do
-    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
-    expect_code 75 "$rc" 'malformed ancestor high refuses despite finite child'
+  rm "$FM_RESOURCE_CGROUP_ROOT/"memory.{high,max,current,stat,pressure}
+  for field in memory.high memory.max; do
+    for bad in '' broken; do
+      printf '%s\n' "$bad" > "$FM_RESOURCE_CGROUP_ROOT/crew/$field"
+      bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+      expect_code 75 "$rc" 'malformed ancestor limit refuses despite a readable child'
+    done
+    printf '17179869184\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/$field"
   done
-  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-  printf 'anon 1\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
-  expect_code 75 "$rc" 'malformed ancestor statistics refuse despite finite child'
-  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
-  expect_code 75 "$rc" 'missing ancestor statistics refuse despite finite child'
-  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat" 'unreadable ancestor named'
-  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-  printf 'anon 5000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-  pass 'all finite ancestors constrain admission and require readable statistics'
-  printf 'anon 4294967297\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
-  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
-  expect_code 75 "$rc" 'one byte below reserve refuses'
-  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/lane" 'cgroup refusal identifies source'
-  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
-
-  for bad in '' 'anon nope' 'anon 5000000000' $'anon 1\nshmem -1' $'anon 1\nanon 2\nshmem 0'; do
-    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  for bad in '' 'file nope' 'file 0' $'file 0\nshmem -1\nactive_file 0\ninactive_file 0\nfile_dirty 0\nfile_writeback 0'; do
+    printf '%s\n' "$bad" > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
     bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
-    expect_code 75 "$rc" 'malformed cgroup statistics refuse'
+    expect_code 75 "$rc" 'missing or malformed required cache counters refuse'
   done
-  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  rm "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
   out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
-  expect_code 75 "$rc" 'unreadable cgroup statistics refuse'
-  assert_contains "$out" 'memory.stat' 'unreadable statistics named'
-  pass 'cgroup statistics fail closed instead of falling back to host memory'
+  expect_code 75 "$rc" 'missing ancestor statistics refuse'
+  assert_contains "$out" 'memory.stat' 'missing controller evidence named'
+  printf 'file 0\nshmem 0\nactive_file 0\ninactive_file 0\nfile_dirty 0\nfile_writeback 0\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
+  pass 'all finite ancestors constrain admission and require readable limits and cache counters'
 
-  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf '4294967297\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/lane/memory.current"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'one byte below the reserve refuses'
+  assert_contains "$out" 'headroom=-1 kB' 'sub-KiB reserve deficit reported'
+  printf 'max\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/lane/memory.high"
+  printf 'max\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
+  printf 'max\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.max"
   printf 'MemAvailable: 8388608 kB\n' > "$FM_CAPACITY_MEMINFO"
-  out=$(bash "$CAPACITY" --json) || fail 'unlimited cgroup must use host memory'
+  out=$(bash "$CAPACITY" --json) || fail 'unlimited cgroups must use host memory'
   jq -e '.mem_available_kb == 8388608 and .headroom_kb == 4194304' <<< "$out" >/dev/null || fail 'host fallback differs'
-  pass 'all ancestors unlimited falls back to MemAvailable'
-
-  printf '0::/\n' > "$FM_CAPACITY_CGROUP_FILE"
-  out=$(bash "$CAPACITY" --json) || fail 'root cgroup without memory.high must fall back'
+  printf '0::/\n' > "$FM_RESOURCE_CGROUP_FILE"
+  out=$(bash "$CAPACITY" --json) || fail 'root without a controller must use host memory'
   jq -e '.mem_available_kb == 8388608' <<< "$out" >/dev/null || fail 'root fallback differs'
-  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
-  printf 'broken\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf '0::/crew/lane\n' > "$FM_RESOURCE_CGROUP_FILE"
+  printf 'broken\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
   bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
-  expect_code 75 "$rc" 'malformed high refuses instead of falling back'
+  expect_code 75 "$rc" 'malformed controller evidence never falls back to host memory'
   if [ "$(id -u)" != 0 ]; then
-    printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
-    printf 'anon 1\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
-    chmod 000 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    printf 'max\n' > "$FM_RESOURCE_CGROUP_ROOT/crew/memory.high"
+    chmod 000 "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
     bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
-    chmod 600 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    chmod 600 "$FM_RESOURCE_CGROUP_ROOT/crew/memory.stat"
     expect_code 75 "$rc" 'permission denied statistics refuse'
   fi
-  pass 'root cgroup fallback and unreadable limit/statistics behave safely'
+  pass 'reserve boundaries, host fallback and unreadable controller evidence remain safe'
 }
 test_cgroup_memory || exit 1
+
 
 test_resource_policy() {
   local FM_HOME="$TMP_ROOT/resource-home" FM_CAPACITY_MEMINFO="$TMP_ROOT/resource-memory"

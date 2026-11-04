@@ -182,7 +182,13 @@ for assertion in ('PC has 2 free', '2 seats are available', '3 slots are occupie
 for question in ('how many lanes are free?', 'How many seats are available?', 'Are slots occupied?',
                  'Is admission no?', 'Is there no room?', 'Is lane-b running?',
                  'Are lane alpha and worker beta running?'):
-    guard(question)
+    for prefix in ('', '👉 ', '- ', '+ ', '* ', '1. ', '1) ', '• ', '  - 👉 ', '👉 - '):
+        guard(prefix + question)
+for prefix in ('👉 ', '- ', '+ ', '* ', '1. ', '1) ', '• ', '  - 👉 ', '👉 - '):
+    message = prefix + 'PC has 2 free; should I fill them?'
+    guard(message, expected=2)
+    guard(message, expected=2, active=True)
+    guard(message, [read])
 for machine in ('MAIN', 'PC', 'server', 'laptop', 'zenbook', 'q-crew', 'zb-crew'):
     guard(f'{machine} merged PR #219.', [read, 'gh pr view 219'])
     guard(f'The {machine} deployment is live.', [read, 'curl https://service.example/health'])
