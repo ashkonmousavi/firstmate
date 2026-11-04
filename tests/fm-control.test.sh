@@ -213,6 +213,8 @@ case "${1:-}" in
           # A modelled Devin screen parks the cursor on its composer row.
           if [ -f "$D/devin" ]; then
             devin_screen "$(cat "$D/devin")" | awk '/^❭ /{ print NR - 1; exit }'
+          elif [ -f "$D/cursor-y" ]; then
+            cat "$D/cursor-y"
           else
             printf '1\n'
           fi
@@ -1624,6 +1626,44 @@ test_claude_shell_surface_is_adapter_scoped() {
   pass 'background-shell exit protection is Claude-only and leaves ordinary idle composers alone'
 }
 
+test_quoted_shell_dialog_does_not_block_idle_exit() {
+  local dir out rc composer shot
+  for composer in ruled boxed running; do
+    dir=$(new_case "quoted-shell-$composer")
+    add_task "$dir" t1 claude
+    alive_as "$dir" claude
+    {
+      printf '● Read the captured fixture:\n'
+      cat "$ROOT/tests/fixtures/claude-exit-background-shell-2.1.318.capture"
+      if [ "$composer" = boxed ]; then
+        printf '╭────╮\n│    │\n╰────╯\n'
+      else
+        claude_composer_screen ''
+      fi
+      [ "$composer" != running ] || printf '  1 shell · ↓ to manage\n'
+    } > "$dir/fake/pane"
+    awk '/^❯[ \t]*$|^│[ \t]*│$/ { cursor=NR-1 } END { print cursor }' "$dir/fake/pane" > "$dir/fake/cursor-y"
+    shot=$(cat "$dir/fake/pane")
+    if [ "$composer" = running ]; then
+      fm_control_background_shell_running claude "$shot" || fail 'the live status count must override quoted dialog text'
+    else
+      if fm_control_background_shell_running claude "$shot"; then
+        fail 'a quoted capture above an ordinary composer is not a live dialog'
+      fi
+    fi
+    out=$(run_control "$dir" t1 exit --landed-work); rc=$?
+    if [ "$composer" = running ]; then
+      expect_code 75 "$rc" "a live shell count must still defer exit"$'\n'"$out"
+      [ ! -s "$dir/fake/keys" ] || fail 'a live shell count must prevent exit input'
+    else
+      expect_code 0 "$rc" "quoted capture must permit idle exit"$'\n'"$out"
+      assert_contains "$out" 'stopped t1' 'the idle agent should stop normally'
+      [ "$(literals "$dir")" = /exit ] || fail 'idle exit must send the ordinary exit command'
+    fi
+  done
+  pass 'quoted shell captures permit idle exit while an independent live shell count still defers'
+}
+
 test_exit_preserves_unfinished_fm_send() {
   local dir out rc pid i
   dir=$(new_case unfinished-send)
@@ -2555,6 +2595,7 @@ test_exit_drops_meta_busy_gen_with_the_sidecar
 test_exit_busy_background_shell_is_retryable
 test_exit_busy_shell_after_submit_is_retryable
 test_claude_shell_surface_is_adapter_scoped
+test_quoted_shell_dialog_does_not_block_idle_exit
 test_exit_picker_preserves_unacknowledged_inbox
 test_exit_preserves_unfinished_fm_send
 test_exit_refuses_an_open_background_picker

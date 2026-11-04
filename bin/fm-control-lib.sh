@@ -312,8 +312,7 @@ fm_control_exit_command() {  # <harness> [opencode-major]
 }
 
 # Positive-only Claude exit protection: a status-row shell count OR the
-# background-shell exit dialog is enough to defer. The dialog can be followed
-# by a composer/footer (Claude 2.1.318); its position is not a safety signal.
+# background-shell exit dialog is enough to defer.
 # Missing either vendor surface is not evidence that the shell has finished.
 # Other harnesses retain their adapter's existing behavior.
 fm_control_background_shell_running() {  # <harness> <visible-screen>
@@ -323,12 +322,23 @@ fm_control_background_shell_running() {  # <harness> <visible-screen>
   case "$count" in ''|*[!0-9]*) count=0 ;; esac
   [ "$count" -gt 0 ] && return 0
   printf '%s\n' "${2-}" | fm_composer_strip_ansi | LC_ALL=C awk '
-    /^[ \t]*Background work is running[ \t\r]*$/ { heading=1 }
+    /[^ \t\r]/ { row[++n]=$0 }
+    /^[ \t]*Background work is running[ \t\r]*$/ { heading=n; shell=stop=stay=footer=0 }
     heading && /^[ \t]*shell · / { shell=1 }
     heading && /^[ \t]*(❯ )?1\. Exit and stop tasks[ \t\r]*$/ { stop=1 }
     heading && /^[ \t]*(❯ )?[23]\. Stay[ \t\r]*$/ { stay=1 }
-    heading && /^[ \t]*Enter to confirm · Esc to cancel[ \t\r]*$/ { footer=1 }
-    END { exit !(heading && shell && stop && stay && footer) }
+    heading && /^[ \t]*Enter to confirm · Esc to cancel[ \t\r]*$/ { footer=n }
+    END {
+      if (!(heading && shell && stop && stay && footer)) exit 1
+      if (footer == n) exit 0
+      if (row[heading-1] !~ /^[ \t]*(─)+[ \t\r]*$/ ||
+          row[footer+1] !~ /^[ \t]*(─)+[ \t\r]*$/ ||
+          row[footer+2] !~ /^[ \t]*❯[ \t\r]*$/ ||
+          row[footer+3] !~ /^[ \t]*(─)+[ \t\r]*$/) exit 1
+      for (i=footer+4; i<=n; i++)
+        if (row[i] ~ /^[ \t]*(─|╭|╰|│|❯)/) exit 1
+      exit 0
+    }
   '
 }
 
