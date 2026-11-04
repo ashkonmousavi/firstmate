@@ -1,0 +1,42 @@
+ok - startup recovery refuses shared copies before checkpoint or replacement
+ok - Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree
+ok - rebooted tmux ship and scout recovery preserves work through control and spawn
+ok - missing malformed future and current-boot generations never prove tmux absence
+ok - recovery respects active parked terminal and unreadable attributed runs
+ok - a done-before-validation worker resumes its unpublished commits after reboot
+ok - serial recovery rereads capacity and stops at the first deferred launch
+ok - recovery skips a task relaunched since startup discovery
+ok - recovery locks eligibility through replacement and releases the lifecycle lock
+ok - conditional recovery rechecks the task kind, record, and unlanded work
+ok - fm-spawn --relaunch: tracked opencode wiring is retired as on main
+ok - fm-control removes the dialog file after exit and after relaunch
+ok - fm-control exit removes the dialog file before it releases the control lock
+ok - fm-control relaunch: a same-harness relaunch replaces the agent in the same endpoint and worktree
+ok - fm-control relaunch: pending composer text refuses before the exit command is typed
+ok - fm-control relaunch: an unreadable composer fails safe before the exit command is typed
+ok - fm-control relaunch: a linked spawning home preserves committed and unfinished work in the recorded copy
+ok - fm-control relaunch: an armed PR poll survives replacement launch publication
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-control-relaunch.3Iumua/conflict-poll-18394/home/data/rl-conflict/launch-brief.md records no ship branch; defaulting to legacy branch fm/rl-conflict
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-control-relaunch.3Iumua/conflict-poll-18394/home/data/rl-conflict/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+relaunched rl-conflict harness=claude from=claude model=default effort=default backend=tmux endpoint=fmses:fm-rl-conflict worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-control-relaunch.3Iumua/conflict-poll-18394/wt
+ok - real relaunch preserves poll authentication and wakes once after unresolved replacement exit
+ok - fm-control relaunch: a traced replacement keeps an armed PR poll authenticated
+ok - fm-control relaunch: delivery and concurrent task metadata publication serialize
+ok - fm-control relaunch: disabling tracing clears metadata and pane context
+ok - fm-control relaunch: progress and the Firstmate-worktree worker identity reach the replacement
+ok - fm-control relaunch: the progress note's inbox listing is silent on an empty inbox
+ok - fm-control relaunch: a ship task refuses without the progress note its replacement needs
+ok - fm-control relaunch: switching harness is one ordinary relaunch, and the old wiring goes with the old agent
+ok - fm-control relaunch: a refused relaunch onto polytoken keeps the project's own hook layer and the running agent
+ok - fm-control relaunch: a refused polytoken profile leaves the running agent untouched
+ok - fm-spawn --relaunch: retiring a raw polytoken launch's wiring keeps the project's own layers
+ok - fm-control relaunch: a harness switch resets model and effort unless they are named too
+ok - fm-control relaunch: a prefixed recorded harness can switch adapters transactionally
+ok - fm-control relaunch: a prefixed command requires an explicit replacement harness
+ok - fm-control relaunch: a same-harness relaunch keeps the profile axes it was running with
+ok - native Ultra relaunch preserves its profile and rejects an unsupported model before stopping
+ok - fm-control relaunch: a signed-out worker account pin refuses before the old agent stops
+ok - fm-control relaunch: the replacement follows the home's current worker account pin
+not ok - the secondmate should relaunch on its claude pin: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-control-relaunch.3Iumua/sm-account-claude-27061/wt
+error: the replacement agent for rl-sm-acct could not be launched on claude
+error: rl-sm-acct's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-control-relaunch.3Iumua/sm-account-claude-27061/wt: expected exit 0, got 1

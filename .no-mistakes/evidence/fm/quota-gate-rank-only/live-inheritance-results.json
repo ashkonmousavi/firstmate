@@ -1,0 +1,12 @@
+[
+  {
+    "policy": "rank-only",
+    "exit": 0,
+    "bytes_correct": true
+  },
+  {
+    "policy": "absent",
+    "exit": 0,
+    "bytes_correct": true
+  }
+]

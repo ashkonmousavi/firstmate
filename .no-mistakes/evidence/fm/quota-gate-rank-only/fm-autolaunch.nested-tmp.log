@@ -1,0 +1,22 @@
+ok - X prep PERSONA/DOCTOR/XAI-SURFACE refusal, correction, small fix, Markdown, linked prep, dated grace and usage coverage
+ok - free lanes launch in ready-queue order, one launched record per lane
+ok - a blocked-by edge to finished work clears; one to queued work blocks
+ok - unprepared, held and already-deferred items refuse with their reason and never spawn
+ok - deferred identity contract distinguishes foo.bar from foo-bar in listing and launching
+ok - launches require a writable record destination and retain it for recording
+ok - a machine without a free lane records one no-capacity refusal and spawns nothing
+ok - spawn deferral and spawn errors are recorded and the lane moves to the next item
+ok - a quota refusal advances through ranked defaults and all refused records quota
+ok - default-only dispatch ignores natural-language rules and makes no model request
+ok - static dispatch applies only when the dispatch file is absent
+ok - defaults rank by spendPriority and exhausted or short-runway profiles are skipped
+ok - rank-only autolaunch never removes a default because of quota
+ok - one pass takes at most one quota snapshot
+ok - uncertain defaults follow passing profiles in declared order
+ok - passing defaults precede numeric notices and uncertain profiles retain declared order under either policy
+ok - profile contract preserves absent model and effort fields in the candidate reader
+ok - ship and scout dispatch preserve their distinct argument contracts
+ok - default eligibility honors tool, account, capture, backend and profile contracts with known or unavailable quota
+error: this home runs as firstmate user/operator and holds no publication authority for github.com/ashkonmousavi/firstmate
+error: to let this home publish to github.com/ashkonmousavi/firstmate, write 'maintainer github.com/ashkonmousavi/firstmate' into ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.quota-test-tmp/fm-autolaunch.UDQWs6/home/config/firstmate-role (docs/configuration.md "Firstmate role"), or pass --upstream-consent github.com/ashkonmousavi/firstmate for this one task with the captain's explicit approval
+not ok - ship scaffold for derivation

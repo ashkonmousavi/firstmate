@@ -1,0 +1,162 @@
+
+### Create marked isolated home
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+exit=0
+
+### Preview: pass priority 2 before notice priority 9; policy=absent
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:39Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/bin/fm-spawn.sh preview ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness codex --model gpt-5.5
+would-record: 2026-11-04T11:34:39Z	-	preview	codex:gpt-5.5	would-launch-when-a-lane-frees
+exit=0
+
+### Preview: pass priority 2 before notice priority 9; policy=rank-only
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:39Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/bin/fm-spawn.sh preview ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness codex --model gpt-5.5
+would-record: 2026-11-04T11:34:40Z	-	preview	codex:gpt-5.5	would-launch-when-a-lane-frees
+exit=0
+
+### Preview: all defaults exhausted; policy=absent
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:40Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+would-record: 2026-11-04T11:34:40Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview: all defaults exhausted; policy=rank-only
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:40Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/bin/fm-spawn.sh preview ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness codex --model gpt-5.5
+would-record: 2026-11-04T11:34:41Z	-	preview	codex:gpt-5.5	would-launch-when-a-lane-frees
+exit=0
+
+### Preview invalid setting 'typo\n' attempt=1
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:41Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'typo', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:41Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting 'typo\n' attempt=2
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:41Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'typo', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:41Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting '' attempt=1
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:42Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds '', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:42Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting '' attempt=2
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:42Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds '', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:42Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting ' \n' attempt=1
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:42Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds ' ', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:43Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting ' \n' attempt=2
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:43Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds ' ', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:43Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting 'rank-only\n\n' attempt=1
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:43Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'rank-only\n', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:43Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting 'rank-only\n\n' attempt=2
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:43Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'rank-only\n', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:44Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting 'rank-only\r\n' attempt=1
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:44Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'rank-only\r', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:44Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Preview invalid setting 'rank-only\r\n' attempt=2
+$ bash bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-04T11:34:44Z	-	-	-	refused:no capacity: unreadable; ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown
+notice: config/quota-gate holds 'rank-only\r', expected rank-only; retaining quota refusal behavior
+would-record: 2026-11-04T11:34:44Z	-	preview	-	refused:quota: claude:opus provider claude runway exhausted_now at all_models
+exit=0
+
+### Explicit spawn short quota; policy=absent
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+error: fm-spawn refuses explicit harness claude model opus: provider claude runway at all_models (80% remaining) ends 2026-11-04T13:34:39Z, 1h59m from now, within the 3h0m spawn horizon. Best alternative: provider codex (spendPriority 1): --harness codex --model gpt-5.5. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### Explicit spawn short quota; policy=rank-only
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+notice: fm-spawn quota check for claude opus (provider claude runway at all_models (80% remaining) ends 2026-11-04T13:34:39Z, 1h59m from now, within the 3h0m spawn horizon); proceeding under config/quota-gate=rank-only (best alternative: provider codex (spendPriority 1): --harness codex --model gpt-5.5)
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown; task explicit stays queued
+exit=75
+
+### Explicit spawn exhausted quota; policy=absent
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+error: fm-spawn refuses explicit harness claude model opus: provider claude runway exhausted_now at all_models. Best alternative: none with known runway and spendPriority in this reading. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### Explicit spawn exhausted quota; policy=rank-only
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+notice: fm-spawn quota check for claude opus (provider claude runway exhausted_now at all_models); proceeding under config/quota-gate=rank-only (best alternative: none with known runway and spendPriority in this reading)
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown; task explicit stays queued
+exit=75
+
+### Explicit spawn long quota; policy=absent
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown; task explicit stays queued
+exit=75
+
+### Explicit spawn long quota; policy=rank-only
+$ bash bin/fm-spawn.sh explicit ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/projects/sample --scout --harness claude --model opus --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/lane-capacity is missing or unreadable; available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown; task explicit stays queued
+exit=75
+
+### Real Codex signed-out status
+$ codex -c cli_auth_credentials_store="file" login status
+Not logged in
+exit=1
+
+### Native account preflight retains authentication refusal under rank-only
+$ python3 bin/fm-codex-accounts.py preflight --config ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/codex-accounts --model gpt-5.5
+error: codex-accounts has no usable signed-in folder with shared configuration
+exit=1
+
+### Native account select retains authentication refusal under rank-only
+$ python3 bin/fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/codex-accounts --model gpt-5.5
+error: codex-accounts has no usable signed-in folder with config.toml, AGENTS.md and rules; no default fallback
+exit=1
+
+### Preselected signed-out account remains refused
+$ python3 bin/fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/config/codex-accounts --folder ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.q/signed-out --model gpt-5.5
+error: codex-accounts preselected folder is no longer usable; no fallback
+exit=1
+
+Disposed isolated home. No native worker was launched by these preview/authentication scenarios.

@@ -1,0 +1,86 @@
+
+### Create isolated home
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/h
+~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/h
+exit=0
+
+### Private model-free parked endpoint; no native primary or worker is launched
+$ tmux -L fm-lab new-session -d -s parked -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/mate bash --noprofile --norc
+exit=0
+
+### Private socket identity
+$ tmux -L fm-lab display-message -p -t parked #{socket_path},#{pid},0
+~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/h/tmux/tmux-1000/fm-lab,6979,0
+exit=0
+
+### Public config push; source setting=rank-only
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/code/bin/fm-config-push.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/h -> live secondmate homes
+secondmate labmate (~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/mate):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: pushed
+  quota-gate: pushed
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  codex-approval-mode: unchanged
+  lavish-axi-host: unchanged
+  t3code-instances: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+secondmate labmate: parked, skipped; it reads config at launch
+exit=0
+Observed destination quota-gate: b'rank-only\n'
+
+### Public config push; source setting=absent
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/code/bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/h -> live secondmate homes
+secondmate labmate (~/.no-mistakes/worktrees/049a88734b0e/01M6K2Y2DSAB6SW983JD0NTC91/.i/mate):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  quota-gate: pushed - mirrored primary absence
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  codex-approval-mode: unchanged
+  lavish-axi-host: unchanged
+  t3code-instances: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+secondmate labmate: parked, skipped; it reads config at launch
+exit=0
+Observed destination quota-gate: absent
+
+### Stop private backend
+$ tmux -L fm-lab kill-server
+exit=0
+private backend stop exit=0
+Disposed code copy and both operational homes.

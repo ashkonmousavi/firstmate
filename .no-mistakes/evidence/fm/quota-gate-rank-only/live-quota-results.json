@@ -1,0 +1,102 @@
+[
+  {
+    "name": "marked lab creation",
+    "passed": true
+  },
+  {
+    "name": "preview passing-first absent",
+    "passed": true
+  },
+  {
+    "name": "preview passing-first rank-only",
+    "passed": true
+  },
+  {
+    "name": "preview all-exhausted absent",
+    "passed": true
+  },
+  {
+    "name": "preview all-exhausted rank-only",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'typo\\n' 0",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'typo\\n' 1",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write '' 0",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write '' 1",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write ' \\n' 0",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write ' \\n' 1",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'rank-only\\n\\n' 0",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'rank-only\\n\\n' 1",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'rank-only\\r\\n' 0",
+    "passed": true
+  },
+  {
+    "name": "invalid preview diagnostic and no write 'rank-only\\r\\n' 1",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary short absent",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary short rank-only",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary exhausted absent",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary exhausted rank-only",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary long absent",
+    "passed": true
+  },
+  {
+    "name": "explicit quota boundary long rank-only",
+    "passed": true
+  },
+  {
+    "name": "real Codex rejects signed-out local root",
+    "passed": true
+  },
+  {
+    "name": "authentication refusal preflight",
+    "passed": true
+  },
+  {
+    "name": "authentication refusal select",
+    "passed": true
+  },
+  {
+    "name": "preselected authentication refusal",
+    "passed": true
+  }
+]
