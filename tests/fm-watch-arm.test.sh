@@ -933,6 +933,10 @@ test_append_wakes_live_announced_watcher() {
   start_rearm_arm "$home" "$state" "$fakebin" "$idle_out"
   is_live_non_zombie "$ARM_PID" \
     || fail "the announced empty recovery did not leave a live watcher"
+  sleep 3
+  if grep -F 'check: rearm-resurface' "$idle_out" >/dev/null || ! is_live_non_zombie "$ARM_PID"; then
+    fail "a repeated empty-queue arm re-announced the same recovery: $(cat "$idle_out")"
+  fi
   append_wake "$state" check inbox:fixture 'check: captain inbox note fixture' \
     || fail "the generic producer could not append its wake"
   wait_for_exit "$ARM_PID" 80 \
