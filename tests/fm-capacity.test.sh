@@ -22,6 +22,37 @@ printf '5 3\n' > "$FM_HOME/config/lane-capacity"
 fm_test_machine_policy "$FM_HOME/config"
 printf 'MemTotal: 16777216 kB\nMemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
 printf -- '- mate - local (home: %s; scope: tests; projects: a; added 2026-09-01)\n' "$TMP_ROOT/mate" > "$FM_HOME/data/secondmates.md"
+# Explicitly cleared copies are vacant only after authoritative endpoint loss.
+(
+  cleared_home="$TMP_ROOT/cleared-home"
+  mkdir -p "$cleared_home/"{state,config,data} "$TMP_ROOT/cleared-bin"
+  printf '5 3\n' > "$cleared_home/config/lane-capacity"
+  fm_test_machine_policy "$cleared_home/config"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/cleared-bin/tmux"
+  chmod +x "$TMP_ROOT/cleared-bin/tmux"
+  fm_write_meta "$cleared_home/state/gone.meta" kind=ship window=test:gone worktree=
+  env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$ROOT/bin/fm-lane-release.sh" read-evidence seat "$cleared_home/state/gone.meta" gone; rc=$?
+  expect_code 1 "$rc" 'release reader must report proven vacancy'
+  fm_write_meta "$cleared_home/state/unknown.meta" kind=scout backend=unverified window=test:unknown worktree=
+  fm_write_meta "$cleared_home/state/absent.meta" kind=ship window=test:gone
+  fm_write_meta "$cleared_home/state/missing.meta" kind=ship window=test:gone "worktree=$TMP_ROOT/nonexistent"
+  for record in unknown absent missing; do
+    env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$ROOT/bin/fm-lane-release.sh" read-evidence seat "$cleared_home/state/$record.meta" "$record"; rc=$?
+    expect_code 2 "$rc" "$record evidence must retain its uncertain seat"
+  done
+  cat > "$TMP_ROOT/cleared-bin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  list-windows) printf 'live\n' ;;
+  display-message) printf 'codex\n' ;;
+esac
+SH
+  fm_write_meta "$cleared_home/state/live.meta" kind=ship window=test:live worktree=
+  env FM_HOME="$cleared_home" PATH="$TMP_ROOT/cleared-bin:$PATH" bash "$ROOT/bin/fm-lane-release.sh" read-evidence seat "$cleared_home/state/live.meta" live; rc=$?
+  expect_code 0 "$rc" 'a live agent with an explicit empty copy retains its seat'
+  pass 'explicit empty copies free gone endpoints; unknown and absent evidence retain seats'
+) || exit 1
+
 for n in 1 2 3; do
   fm_write_meta "$FM_HOME/state/task-$n.meta" kind=ship "project=project-$n"
 done
@@ -135,6 +166,21 @@ jq '.generated_epoch=1' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/stale.json"
 bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'stale machine never chosen'
 pass 'published facts drive placement; full, unreadable and stale hosts refused'
+
+(
+  activity_reading 5 5 0
+  jq '.machine="laptop"' "$TMP_ROOT/server.json" > "$TMP_ROOT/remote.json"
+  out=$(bash "$CAPACITY" --admit --machine-facts "$TMP_ROOT/stale.json" --machine-facts "$TMP_ROOT/remote.json" 2>&1); rc=$?
+  expect_code 75 "$rc" 'remote room must not change local admission'
+  first=${out%%$'\n'*}
+  assert_contains "$first" 'placement=laptop placement_free_lanes=3' 'full capacity first line must name available machine'
+  out=$(bash "$CAPACITY" --machine-facts "$TMP_ROOT/stale.json" --machine-facts "$TMP_ROOT/missing.json" 2>&1) || fail 'unavailable remote facts must not fail local report'
+  case "${out%%$'\n'*}" in *placement=*) fail 'stale or missing facts advertised room' ;; esac
+  activity_reading 4 5 1
+  out=$(bash "$CAPACITY" --machine-facts "$TMP_ROOT/remote.json") || fail 'local room report failed'
+  case "${out%%$'\n'*}" in *placement=*) fail 'local room should not suggest remote placement' ;; esac
+  pass 'full capacity line names fresh remote room without changing local admission'
+) || exit 1
 
 (
   . "$ROOT/bin/fm-wake-lib.sh"
