@@ -8,7 +8,7 @@
 # block below for why that dialog is otherwise left for the worker to wedge
 # on rather than answered on the human's behalf.
 #
-# Usage: fm-claude-trust.sh <worktree> <project>
+# Usage: fm-claude-trust.sh [--check] <worktree> <project>
 #        fm-claude-trust.sh --secondmate-home <home> <id>
 #        fm-claude-trust.sh --lab-home <home>
 #   <worktree>  the isolated task worktree this spawn launches into
@@ -195,6 +195,8 @@ usage() {
 # MODE selects which structural scope test decides the argument, and SCOPE_NOUN
 # names what the argument was expected to be so every shared refusal below reads
 # correctly in both modes.
+CHECK_ONLY=0
+if [ "${1:-}" = --check ]; then CHECK_ONLY=1; shift; fi
 case "${1:-}" in
   --secondmate-home)
     [ "$#" -eq 3 ] || usage
@@ -268,8 +270,20 @@ esac
 # store this cannot reach means the worker meets the dialog after all.
 CONFIG_DIR_REAL=$(real_dir "$CONFIG_DIR") || true
 if [ -z "$CONFIG_DIR_REAL" ]; then
-  mkdir -p "$CONFIG_DIR" 2>/dev/null || true
-  CONFIG_DIR_REAL=$(real_dir "$CONFIG_DIR") || true
+  if [ "$CHECK_ONLY" = 1 ]; then
+    CONFIG_PARENT=$CONFIG_DIR
+    CONFIG_SUFFIX=
+    while [ ! -e "$CONFIG_PARENT" ] && [ ! -L "$CONFIG_PARENT" ]; do
+      CONFIG_SUFFIX="/${CONFIG_PARENT##*/}$CONFIG_SUFFIX"
+      CONFIG_PARENT=$(dirname "$CONFIG_PARENT")
+    done
+    CONFIG_PARENT_REAL=$(real_dir "$CONFIG_PARENT") || true
+    [ -n "$CONFIG_PARENT_REAL" ] || refuse "Claude config directory '$CONFIG_DIR' has an unresolved parent"
+    CONFIG_DIR_REAL="${CONFIG_PARENT_REAL%/}$CONFIG_SUFFIX"
+  else
+    mkdir -p "$CONFIG_DIR" 2>/dev/null || true
+    CONFIG_DIR_REAL=$(real_dir "$CONFIG_DIR") || true
+  fi
 fi
 [ -n "$CONFIG_DIR_REAL" ] || refuse "Claude config directory '$CONFIG_DIR' does not exist and could not be created"
 
@@ -460,11 +474,11 @@ if [ "$MODE" = worktree ]; then
 else
   WRITE_ARGS=("$STORE" "$MODE" "$TARGET_REAL" "" "$TRUST_FLAG" "$IMPORT_FLAGS")
 fi
-if ! node - "${WRITE_ARGS[@]}" <<'NODE'
+if ! node - "${WRITE_ARGS[@]}" "$CHECK_ONLY" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const [store, mode, target, project, trustFlag, importFlagsJson] = process.argv.slice(2);
+const [store, mode, target, project, trustFlag, importFlagsJson, checkOnly] = process.argv.slice(2);
 const importFlags = JSON.parse(importFlagsJson);
 const readStore = () => {
   try {
@@ -544,6 +558,7 @@ const attempt = () => {
   // writable by another local account, and a predictable path could be
   // pre-created there as a symlink that a plain write would follow into some
   // other file this user owns. "wx" refuses an existing path outright.
+  if (checkOnly === "1") return "recorded";
   const unique = `${process.pid}.${crypto.randomBytes(8).toString("hex")}`;
   const tmp = path.join(path.dirname(store), `.claude.json.fm-trust.${unique}`);
   // Two-space pretty-printed, because that is the format Claude Code itself

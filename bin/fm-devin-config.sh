@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Write a private Devin worker config, preserving user settings and hooks.
-# Usage: fm-devin-config.sh <state-dir> <task-id> <busy-gen> [<user-config>]
+# Usage: fm-devin-config.sh [--check] <state-dir> <task-id> <busy-gen> [<user-config>]
 # The default source is ~/.config/devin/config.json (Devin's --config default).
 # An absent source starts from {}; unreadable or malformed sources refuse.
 # Output: <state-dir>/<task-id>.devin-config.json, mode 600, atomically replaced.
@@ -26,6 +26,8 @@ case "${1:-}" in
     exit 0
     ;;
 esac
+CHECK_ONLY=0
+if [ "${1:-}" = --check ]; then CHECK_ONLY=1; shift; fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE=${1:?state directory required}
 ID=${2:?task id required}
@@ -42,10 +44,7 @@ submit="$prefix busy $suffix --event user-prompt-submit >/dev/null 2>&1 || true"
 stop="$prefix idle $suffix --event stop >/dev/null 2>&1 && touch $(quote "$STATE/$ID.turn-ended"); true"
 end="$prefix idle $suffix --event session-end >/dev/null 2>&1 || true"
 if [ ! -e "$SOURCE" ] && [ ! -L "$SOURCE" ]; then SOURCE=/dev/null; fi
-umask 077
-temp=$(mktemp "$STATE/.$ID.devin-config.XXXXXX")
-trap 'rm -f "$temp"' EXIT
-jq -s --arg keep "$KEEP" --arg submit "$submit" --arg stop "$stop" --arg end "$end" '
+config=$(jq -s --arg keep "$KEEP" --arg submit "$submit" --arg stop "$stop" --arg end "$end" '
   (if length == 0 then {} elif length == 1 then .[0] else error("expected one config object") end) |
   if type != "object" then error("expected config object") else . end |
   (if $keep == "1" then . else .attribution = false end) |
@@ -55,5 +54,10 @@ jq -s --arg keep "$KEEP" --arg submit "$submit" --arg stop "$stop" --arg end "$e
   .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [hook($submit)]) |
   .hooks.Stop = ((.hooks.Stop // []) + [hook($stop)]) |
   .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [hook($end)])
-' "$SOURCE" > "$temp"
+' "$SOURCE")
+[ "$CHECK_ONLY" = 0 ] || exit 0
+umask 077
+temp=$(mktemp "$STATE/.$ID.devin-config.XXXXXX")
+trap 'rm -f "$temp"' EXIT
+printf '%s\n' "$config" > "$temp"
 mv "$temp" "$STATE/$ID.devin-config.json"

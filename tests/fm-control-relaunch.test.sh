@@ -4672,34 +4672,30 @@ REX
   done
 }
 
+make_admission_fixture_root() {
+  local dir=$1 entry
+  mkdir -p "$dir/root/bin"
+  for entry in "$ROOT/bin/"*; do
+    ln -s "$entry" "$dir/root/bin/${entry##*/}"
+  done
+}
+
 run_admission_only() {
-  local dir=$1; shift
-  # shellcheck disable=SC2016
-  run_lifecycle_fixture "$dir" bash -c '
-    set -eu
-    SCRIPT_DIR=$1/bin
-    FM_ROOT=${FM_ROOT_OVERRIDE:-$1}
-    XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share
-    ID=ap2 KIND=ship RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
-    STATE=${FM_ADMISSION_TEST_STATE:-$FM_HOME/state} DATA=$FM_HOME/data CONFIG=$FM_HOME/config
-    HARNESS=$2 MODEL=$3 EFFORT=default BACKEND=tmux RAW_LAUNCH=0 ARG3= LAUNCH=
-    for library in fm-config-inherit-lib fm-wake-lib fm-lease-lib fm-backend fm-control-lib fm-backlog-transition-lib fm-tasks-axi-lib fm-project-capacity-lib fm-capacity-lib fm-polytoken-lib fm-cursor-lib fm-timeout-lib fm-exclude-tools-lib fm-omp-profile-lib fm-spawn-admission-lib; do
-      . "$SCRIPT_DIR/$library.sh"
-    done
-    fm_backend_validate_spawn "$BACKEND" || exit $?
-    fm_spawn_launch_env_admit || exit $?
-    fm_spawn_adapter_admit || exit $?
-    fm_spawn_backlog_admit || exit $?
-    fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" "${4:-0}"
-  ' _ "$ROOT" "$@"
+  local dir=$1 harness=$2 model=$3
+  run_lifecycle_fixture "$dir" "$SPAWN" ap2 --relaunch --admission-only \
+    --harness "$harness" --model "$model"
 }
 
 test_admission_only_has_no_side_effects() {
-  local dir before out rc scenario harness model expected diagnostic
+  local dir before out rc scenario harness model expected diagnostic spawn_path
+  local SPAWN=$SPAWN
+  spawn_path=$SPAWN
   for scenario in admitted existing-sample backlog capacity overlay hook-path credential model executable; do
+    SPAWN=$spawn_path
     dir=$(new_case "admission-only-$scenario" ap2)
     add_ship_task "$dir" ap2 claude
     seed_backlog "$dir" ap2 in_flight
+    mkdir -p "$dir/user-home"
     harness=claude model=default expected=0 diagnostic=
     case "$scenario" in
       existing-sample)
@@ -4713,7 +4709,8 @@ test_admission_only_has_no_side_effects() {
       overlay)
         harness=omp expected=1 diagnostic='omp worker posture overlay missing'
         printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/omp"
-        mkdir -p "$dir/root"
+        make_admission_fixture_root "$dir"
+        SPAWN="$dir/root/bin/fm-spawn.sh"
         ;;
       hook-path|model)
         harness=kiro expected=1 diagnostic='kiro hook scripts would live'
@@ -4722,6 +4719,7 @@ test_admission_only_has_no_side_effects() {
           model=unlisted diagnostic="kiro model 'unlisted' is not listed"
         else
           mkdir -p "$dir/home/state space"
+          mv "$dir/home/state/ap2.meta" "$dir/home/state space/ap2.meta"
         fi
         ;;
       credential)
@@ -4731,27 +4729,206 @@ test_admission_only_has_no_side_effects() {
       executable) harness=devin expected=1 diagnostic='devin executable not found on PATH' ;;
     esac
     chmod +x "$dir/fakebin/"*
-    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
     case "$scenario" in
       hook-path)
-        out=$(FM_ADMISSION_TEST_STATE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+        out=$(FM_STATE_OVERRIDE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
       overlay)
         out=$(FM_ROOT_OVERRIDE="$dir/root" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
       executable)
         out=$(PATH=/usr/bin:/bin run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-      *) out=$(FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+      *) out=$(XDG_CONFIG_HOME="$dir/user-home/.config" XDG_DATA_HOME="$dir/user-home/.local/share" \
+          FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
     esac
     expect_code "$expected" "$rc" "$scenario admission: $out"
     [ -z "$diagnostic" ] || assert_contains "$out" "$diagnostic" "$scenario: wrong admission refusal"
-    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
     pass "admission-only $scenario leaves state and task files byte-identical"
   done
   dir=$(new_case sampled-admission ap2)
   add_ship_task "$dir" ap2 claude
-  out=$(run_admission_only "$dir" claude default 1); rc=$?
-  expect_code 0 "$rc" "sampled admission failed: $out"
+  out=$(run_control "$dir" ap2 relaunch --note 'ordinary relaunch still samples'); rc=$?
+  expect_code 0 "$rc" "ordinary relaunch failed: $out"
   assert_present "$dir/home/state/machine-admission.log" 'ordinary admission stopped recording resource samples'
   pass 'ordinary admission still records resource samples'
+}
+
+test_configuration_admission_preserves_running_agent() {
+  local dir scenario harness out rc before expected control_path real_perl
+  local CONTROL=$CONTROL
+  local -a args
+  control_path=$CONTROL
+  real_perl=$(command -v perl)
+  for scenario in claude-permission codex-approval codex-permission lavish-host keep-ai-trailers watcher kimi-missing kimi-malformed claude-trust devin-config polytoken-config operational-path; do
+    CONTROL=$control_path
+    dir=$(new_case "configuration-admission-$scenario" cp1)
+    add_ship_task "$dir" cp1 claude
+    mkdir -p "$dir/user-home"
+    harness=claude
+    args=()
+    case "$scenario" in
+      claude-permission)
+        printf 'invalid\n' > "$dir/home/config/claude-permission-mode"
+        expected='config/claude-permission-mode' ;;
+      codex-approval)
+        harness=codex
+        printf 'invalid\n' > "$dir/home/config/codex-approval-mode"
+        expected='config/codex-approval-mode' ;;
+      codex-permission)
+        harness=codex
+        printf 'invalid\n' > "$dir/home/config/codex-permission-mode"
+        expected='config/codex-permission-mode' ;;
+      lavish-host)
+        printf 'two hosts\n' > "$dir/home/config/lavish-axi-host"
+        expected='config/lavish-axi-host' ;;
+      keep-ai-trailers)
+        cat > "$dir/fakebin/perl" <<'PERL'
+#!/usr/bin/env bash
+last=
+for value in "$@"; do last=$value; done
+case "$last" in
+  */config/keep-ai-trailers)
+    printf 'error: cannot inspect configuration source at %s: Permission denied\n' "$last" >&2
+    exit 1 ;;
+esac
+exec "$FM_ADMISSION_REAL_PERL" "$@"
+PERL
+        chmod +x "$dir/fakebin/perl"
+        expected='cannot inspect configuration source at' ;;
+      watcher)
+        make_admission_fixture_root "$dir"
+        rm "$dir/root/bin/fm-claude-watch-admission.sh"
+        cat > "$dir/root/bin/fm-claude-watch-admission.sh" <<'WATCHER'
+#!/usr/bin/env bash
+printf '[watcher-continuity] No verified watcher cycle; new spawns refused.\n' >&2
+exit 2
+WATCHER
+        chmod +x "$dir/root/bin/fm-claude-watch-admission.sh"
+        CONTROL="$dir/root/bin/fm-control.sh"
+        expected='[watcher-continuity]' ;;
+      claude-trust)
+        printf '{\n' > "$dir/user-home/.claude.json"
+        expected='could not record trust' ;;
+      devin-config)
+        harness=devin
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/devin"
+        chmod +x "$dir/fakebin/devin"
+        mkdir -p "$dir/user-home/.config/devin"
+        printf '{\n' > "$dir/user-home/.config/devin/config.json"
+        expected='parse error' ;;
+      polytoken-config)
+        harness=polytoken
+        cat > "$dir/fakebin/polytoken" <<'POLYTOKEN'
+#!/usr/bin/env bash
+case "$*" in
+  'print models') printf '%s\n' 'zai/glm-5.3-flash' 'zai/glm-5.3-flash(low)' ;;
+  *) exit 1 ;;
+esac
+POLYTOKEN
+        chmod +x "$dir/fakebin/polytoken"
+        args=(--model zai/glm-5.3-flash --effort low)
+        expected='is missing; a polytoken worker needs' ;;
+      operational-path)
+        mkdir -p "$dir/home/operational'inbox"
+        ln -s "$dir/home/operational'inbox" "$dir/home/state/operational-inbox"
+        expected='operational-inbox path cannot carry a launch doorbell' ;;
+      kimi-missing|kimi-malformed)
+        harness=kimi
+        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/kimi"
+        chmod +x "$dir/fakebin/kimi"
+        if [ "$scenario" = kimi-malformed ]; then
+          mkdir -p "$dir/user-home/.kimi-code"
+          printf 'hooks = [\n' > "$dir/user-home/.kimi-code/config.toml"
+          expected='config.toml is malformed TOML'
+        else
+          expected='Kimi config directory is missing or unexpected'
+        fi
+        ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    if [ "$scenario" = watcher ]; then
+      out=$(FM_ROOT_OVERRIDE="$dir/root" run_control "$dir" cp1 relaunch --harness "$harness" "${args[@]}" --note 'must not be recorded'); rc=$?
+    else
+      out=$(XDG_CONFIG_HOME="$dir/user-home/.config" XDG_DATA_HOME="$dir/user-home/.local/share" \
+        FM_ADMISSION_REAL_PERL="$real_perl" run_control "$dir" cp1 relaunch --harness "$harness" "${args[@]}" --note 'must not be recorded'); rc=$?
+    fi
+    [ "$rc" -ne 0 ] || fail "$scenario: invalid prepare input was admitted"
+    assert_contains "$out" "$expected" "$scenario: wrong admission refusal"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: pre-commit refusal changed state, instructions, endpoint or worktree"
+    assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
+    pass "configuration admission refuses $scenario before stopping the running agent"
+  done
+}
+
+test_spawn_prepare_commit_boundary() {
+  local dir out rc before
+  dir=$(new_case prepare-last-refusal bp1)
+  add_ship_task "$dir" bp1 claude
+  mkdir -p "$dir/user-home"
+  before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+  out=$(FM_TEST_SPAWN_FAIL_AT=prepare-last run_control "$dir" bp1 relaunch --note 'must not be recorded'); rc=$?
+  [ "$rc" -ne 0 ] || fail 'the last prepare refusal was admitted'
+  assert_contains "$out" 'injected prepare-last refusal' 'the last pre-commit refusal was not reached'
+  assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" 'last pre-commit refusal changed task files or state'
+  assert_equals claude "$(cat "$dir/fake/command")" 'last pre-commit refusal stopped the old agent'
+  assert_equals '' "$(cat "$dir/fake/literal")" 'last pre-commit refusal sent input'
+  pass 'the last pre-commit refusal preserves the running agent and byte-identical state'
+
+  dir=$(new_case commit-first-failure bp2)
+  add_ship_task "$dir" bp2 claude
+  out=$(FM_TEST_SPAWN_FAIL_AT=commit-first run_control "$dir" bp2 relaunch --note 'commit attempt'); rc=$?
+  [ "$rc" -ne 0 ] || fail 'the first commit failure was reported as success'
+  assert_contains "$out" 'injected commit-first failure' 'the first commit step was not reached'
+  assert_contains "$out" 'commit-phase failure' 'post-commit failure lacks its distinct classification'
+  assert_equals zsh "$(cat "$dir/fake/command")" 'commit-phase execution did not stop the old agent after prepare'
+  assert_absent "$dir/fake/created-windows" 'the first commit step created another endpoint'
+  pass 'the first post-commit failure has a distinct commit-phase failure message'
+}
+
+test_spawn_prepare_refuses_changed_copy_shape() {
+  local dir direction out rc expected_state real_cat
+  real_cat=$(command -v cat)
+  for direction in retained-to-released released-to-retained; do
+    dir=$(new_case "prepare-shape-$direction" shape1)
+    add_ship_task "$dir" shape1 claude
+    printf zsh > "$dir/fake/command"
+    cp "$dir/home/state/shape1.meta" "$dir/retained.meta"
+    sed "s|^worktree=.*|worktree=$dir/home/state/shape1.released-copy|" \
+      "$dir/retained.meta" > "$dir/released.meta"
+    case "$direction" in
+      retained-to-released)
+        cp "$dir/retained.meta" "$dir/initial.meta"
+        cp "$dir/released.meta" "$dir/expected.meta" ;;
+      released-to-retained)
+        cp "$dir/released.meta" "$dir/initial.meta"
+        cp "$dir/retained.meta" "$dir/expected.meta" ;;
+    esac
+    cp "$dir/expected.meta" "$dir/home/state/shape1.meta"
+    expected_state=$(admission_snapshot "$dir/home/state")
+    cp "$dir/initial.meta" "$dir/home/state/shape1.meta"
+    cat > "$dir/fakebin/cat" <<'CAT'
+#!/usr/bin/env bash
+if [ "$#" = 1 ] && [ "$1" = "$FM_SHAPE_META" ] && [ ! -e "$FM_SHAPE_FLIPPED" ]; then
+  "$FM_SHAPE_REAL_CAT" "$@" || exit $?
+  cp "$FM_SHAPE_EXPECTED" "$FM_SHAPE_META" || exit $?
+  : > "$FM_SHAPE_FLIPPED"
+  exit 0
+fi
+exec "$FM_SHAPE_REAL_CAT" "$@"
+CAT
+    chmod +x "$dir/fakebin/cat"
+    out=$(FM_SHAPE_META="$dir/home/state/shape1.meta" FM_SHAPE_EXPECTED="$dir/expected.meta" \
+      FM_SHAPE_FLIPPED="$dir/flipped" FM_SHAPE_REAL_CAT="$real_cat" \
+      run_spawn "$dir" shape1 --relaunch --harness claude); rc=$?
+    expect_code 1 "$rc" "$direction must refuse stale preparation: $out"
+    assert_present "$dir/flipped" "$direction: concurrent metadata change was not injected"
+    assert_contains "$out" 'task record changed during preparation' "$direction: copy shape was not revalidated"
+    assert_equals "$expected_state" "$(admission_snapshot "$dir/home/state")" "$direction: spawn changed state beyond the external metadata update"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$direction: stale preparation sent endpoint input"
+    assert_absent "$dir/fake/created-windows" "$direction: stale preparation allocated an endpoint"
+    pass "prepare refuses $direction metadata drift before allocation"
+  done
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
@@ -4807,6 +4984,9 @@ test_relaunch_admission_refusal_preserves_running_agent() {
 }
 
 test_adapter_admission_preserves_running_agent
+test_configuration_admission_preserves_running_agent
+test_spawn_prepare_commit_boundary
+test_spawn_prepare_refuses_changed_copy_shape
 test_admission_only_has_no_side_effects
 test_relaunch_admission_refusal_preserves_running_agent
 test_recovery_refuses_a_shared_copy

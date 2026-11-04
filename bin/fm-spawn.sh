@@ -67,6 +67,7 @@
 #   steering inbox. This never rewrites a project's instruction files or a
 #   secondmate's charter.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>] [--quota-override <reason>]
+#   --admission-only with --relaunch checks a retained task without mutation.
 #   --relaunch normally launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
 #   endpoint still exists, instead of creating either from scratch. It is
@@ -788,8 +789,25 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # shellcheck source=bin/fm-backlog-transition-lib.sh
 . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 
-# shellcheck source=bin/fm-spawn-admission-lib.sh
-. "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
+resolve_directory_input() {
+  local name=$1 path=$2 resolved raw_bytes
+  raw_bytes=$(fm_backlog_bytes_of_string "$path") || return 1
+  if ! fm_backlog_control_bytes_valid 0 "$raw_bytes"; then
+    echo "error: $name directory contains an invalid control byte" >&2
+    return 1
+  fi
+  case "$path" in
+  /*)
+    printf '%s\n' "$path"
+    return 0
+    ;;
+  esac
+  resolved=$(CDPATH='' cd -- "$path" 2>/dev/null && pwd -P) || {
+    echo "error: $name directory cannot be resolved: $path" >&2
+    return 1
+  }
+  printf '%s\n' "$resolved"
+}
 
 FM_HOME=$(resolve_directory_input FM_HOME "$FM_HOME") || exit 1
 if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
@@ -806,7 +824,24 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-exclude-tools-lib.sh
 . "$SCRIPT_DIR/fm-exclude-tools-lib.sh"
-fm_spawn_launch_env_admit || exit 1
+if ! LAUNCH_ENV_ENABLED=$(fm_config_source_present "$CONFIG/launch-env-allowlist"); then
+  exit 1
+fi
+LAUNCH_ENV_NAMES=
+if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+  if [ ! -f "$CONFIG/launch-env-allowlist" ] || [ ! -r "$CONFIG/launch-env-allowlist" ]; then
+    echo "error: config/launch-env-allowlist must be a readable regular file" >&2
+    exit 1
+  fi
+  if ! LAUNCH_ENV_NAMES=$(jq -Rrs '
+    split("\n") | map(select(. != "" and (startswith("#") | not))) |
+    if all(.[]; test("^[A-Za-z_][A-Za-z0-9_]*$")) then .[]
+    else error("expected environment names only") end
+  ' "$CONFIG/launch-env-allowlist" 2>/dev/null); then
+    echo "error: config/launch-env-allowlist must contain one environment name per line, blank lines, or # comments" >&2
+    exit 1
+  fi
+fi
 # config/claude-permission-mode (header above): resolved once per spawn or
 # relaunch, before any mutation, so a malformed file refuses instead of
 # launching a worker on a permission posture the captain did not choose.
@@ -979,7 +1014,7 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 fm_refuse_if_gate_agent
 # Skip the watcher guard when re-exec'd for one pair of a batch (FM_SPAWN_NO_GUARD is
 # set by the batch loop below), so the guard runs once for the batch, not once per pair.
-[ -n "${FM_SPAWN_NO_GUARD:-}" ] || "$FM_ROOT/bin/fm-guard.sh" || true
+[ -n "${FM_SPAWN_NO_GUARD:-}" ] || FM_GUARD_READ_ONLY=1 "$FM_ROOT/bin/fm-guard.sh" || true
 KIND=ship
 KIND_SET=0
 HARNESS_ARG=
@@ -1005,6 +1040,7 @@ TRACEPARENT_SET=0
 QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 RELAUNCH=0
+ADMISSION_ONLY=0
 # Opt-in only: exact-resume presentation-order lock waits instead of refusing.
 # Absent/unset keeps upstream refuse-on-contention. See header.
 HERDR_RESUME_LOCK_WAIT=0
@@ -1083,6 +1119,7 @@ for a in "$@"; do
     KIND_SET=1
     ;;
   --relaunch) RELAUNCH=1 ;;
+  --admission-only) ADMISSION_ONLY=1; continue ;;
   --herdr-resume-lock-wait) HERDR_RESUME_LOCK_WAIT=1 ;;
   --harness) want_value=harness ;;
   --harness=*)
@@ -1208,6 +1245,11 @@ case "$EFFORT" in
   exit 1
   ;;
 esac
+
+if [ "$ADMISSION_ONLY" = 1 ] && [ "$RELAUNCH" != 1 ]; then
+  echo 'error: --admission-only requires --relaunch of a retained task' >&2
+  exit 1
+fi
 
 # --relaunch takes identity from the existing task's record, including when
 # recreating a released copy, so the axes resolved for a fresh spawn come from that
@@ -1680,6 +1722,7 @@ spawn_remote_secondmate() {
   return 0
 }
 
+SPAWN_COMMIT_STARTED=0
 BACKEND=
 ORCA_ABORT_CLEANUP=0
 ORCA_WORKTREE_ID=
@@ -1966,6 +2009,9 @@ spawn_orca_reclaim_launch_file() {
 
 spawn_abort_cleanup() {
   local status=$?
+  if [ "$status" -ne 0 ] && [ "$SPAWN_COMMIT_STARTED" = 1 ]; then
+    echo "error: commit-phase failure: spawn of $ID failed after preparation succeeded" >&2
+  fi
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$RELEASED_COMMITTED" = 0 ]; then
     trap '' HUP INT TERM
     if [ "$status" -ne 0 ] && [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
@@ -2545,22 +2591,53 @@ spawn_require_relocated_queued_work() {
     exit 1
   fi
 }
+spawn_relaunch_record_admit() {
+  if [ ! -e "$RELAUNCH_META" ] && [ ! -L "$RELAUNCH_META" ]; then
+    echo "error: --relaunch needs an existing task record; no $RELAUNCH_META" >&2
+    exit 1
+  fi
+  fm_backlog_record_present "$RELAUNCH_META" "task record" "$STATE" || {
+    echo "error: --relaunch refused: $FM_BACKLOG_TRANSITION_ERROR" >&2
+    exit 1
+  }
+}
+spawn_relaunch_control_lock() {
+  if [ "$RELAUNCH" -eq 1 ]; then
+    SPAWN_CONTROL_LOCK="$STATE/.control-$ID.lock"
+    control_owner=$(cat "$SPAWN_CONTROL_LOCK/pid" 2>/dev/null || true)
+    if [ "$control_owner" = "$PPID" ] && fm_pid_alive "$control_owner"; then
+      SPAWN_CONTROL_PARENT=1
+    elif [ "$(fm_lease_actor)" = branch ]; then
+      # Role partition refinement: branch recovery relaunches only through the
+      # fm-control transaction that owns the control lock, never by invoking
+      # this entrypoint directly (contract: bin/fm-lease-lib.sh).
+      echo "error: relaunch (fm-spawn) refused - the supervision branch must relaunch through fm-control" >&2
+      exit "$FM_LEASE_REFUSE_EXIT"
+    elif fm_lock_try_acquire "$SPAWN_CONTROL_LOCK"; then
+      SPAWN_CONTROL_LOCK_HELD=1
+    else
+      echo "error: another lifecycle action is already running for task $ID" >&2
+      exit 1
+    fi
+  fi
+}
+if [ "$RELAUNCH" = 1 ]; then
+  RELAUNCH_META="$STATE/$ID.meta"
+  spawn_relaunch_record_admit
+  if [ "$(fm_meta_get "$STATE/$ID.meta" worktree)" = "$STATE/$ID.released-copy" ]; then
+    RELAUNCH_FROM_RELEASED=1
+    [ "$ADMISSION_ONLY" = 0 ] || { echo 'error: --admission-only requires a retained task copy' >&2; exit 1; }
+    spawn_relaunch_control_lock
+  fi
+fi
 if [ "$RELAUNCH" -eq 1 ]; then
   SPAWN_CONTROL_LOCK="$STATE/.control-$ID.lock"
   control_owner=$(cat "$SPAWN_CONTROL_LOCK/pid" 2>/dev/null || true)
   if [ "$control_owner" = "$PPID" ] && fm_pid_alive "$control_owner"; then
     SPAWN_CONTROL_PARENT=1
   elif [ "$(fm_lease_actor)" = branch ]; then
-    # Role partition refinement: branch recovery relaunches only through the
-    # fm-control transaction that owns the control lock, never by invoking
-    # this entrypoint directly (contract: bin/fm-lease-lib.sh).
     echo "error: relaunch (fm-spawn) refused - the supervision branch must relaunch through fm-control" >&2
     exit "$FM_LEASE_REFUSE_EXIT"
-  elif fm_lock_try_acquire "$SPAWN_CONTROL_LOCK"; then
-    SPAWN_CONTROL_LOCK_HELD=1
-  else
-    echo "error: another lifecycle action is already running for task $ID" >&2
-    exit 1
   fi
 fi
 ORCA_LAUNCH_ENV_ENABLED=0
@@ -2692,13 +2769,16 @@ if [ "$RELAUNCH" -eq 0 ]; then
     fi
   fi
 fi
-SPAWN_TASK_LOCK="$STATE/.spawn-$ID.lock"
-if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
-  echo "error: another spawn is already creating task $ID" >&2
-  [ "$RELAUNCH" -ne 0 ] || exit 75
-  exit 1
-fi
-SPAWN_TASK_LOCK_HELD=1
+spawn_task_lock_acquire() {
+  SPAWN_TASK_LOCK="$STATE/.spawn-$ID.lock"
+  if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
+    echo "error: another spawn is already creating task $ID" >&2
+    [ "$RELAUNCH" -ne 0 ] || exit 75
+    exit 1
+  fi
+  SPAWN_TASK_LOCK_HELD=1
+}
+if [ "$RELAUNCH" = 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then spawn_task_lock_acquire; fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
   echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
   exit 1
@@ -2723,22 +2803,14 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: --relaunch takes the task id only; its project or home comes from the task's own record" >&2
     exit 1
   }
-  RELAUNCH_META="$STATE/$ID.meta"
-  if [ ! -e "$RELAUNCH_META" ] && [ ! -L "$RELAUNCH_META" ]; then
-    echo "error: --relaunch needs an existing task record; no $RELAUNCH_META" >&2
-    exit 1
+  spawn_relaunch_record_admit
+  PREPARED_META=$(cat "$RELAUNCH_META") || exit 1
+  if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+    SPAWN_META_LOCK=$(fm_meta_lock_path "$RELAUNCH_META") || exit 1
+    fm_lock_acquire_wait "$SPAWN_META_LOCK"
+    SPAWN_META_LOCK_HELD=1
   fi
-  fm_backlog_record_present "$RELAUNCH_META" "task record" "$STATE" || {
-    echo "error: --relaunch refused: $FM_BACKLOG_TRANSITION_ERROR" >&2
-    exit 1
-  }
-  SPAWN_META_LOCK=$(fm_meta_lock_path "$RELAUNCH_META") || exit 1
-  fm_lock_acquire_wait "$SPAWN_META_LOCK"
-  SPAWN_META_LOCK_HELD=1
-  fm_backlog_record_present "$RELAUNCH_META" "task record" "$STATE" || {
-    echo "error: --relaunch refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
-    exit 1
-  }
+  spawn_relaunch_record_admit
   fm_backend_validate_task_endpoint "$RELAUNCH_META" "$ID" || exit 1
   BACKEND=$FM_BACKEND_VALIDATED_BACKEND
   RELAUNCH_TARGET=$FM_BACKEND_VALIDATED_TARGET
@@ -2746,7 +2818,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # relaunch recreates one from the pull request's branch
   # (docs/agent-control.md "Relaunching a released copy").
   if [ "$(fm_meta_get "$RELAUNCH_META" worktree)" = "$STATE/$ID.released-copy" ]; then
-    RELAUNCH_FROM_RELEASED=1
+    [ "$RELAUNCH_FROM_RELEASED" = 1 ] || {
+      echo 'error: task record changed during preparation' >&2
+      exit 1
+    }
     trap 'exit 129' HUP
     trap 'exit 130' INT
     trap 'exit 143' TERM
@@ -2757,6 +2832,9 @@ if [ "$RELAUNCH" -eq 1 ]; then
         exit 1
         ;;
     esac
+  elif [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+    echo 'error: task record changed during preparation' >&2
+    exit 1
   fi
   if [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$(fm_meta_get "$RELAUNCH_META" kind)" != secondmate ]; then
     fm_worktree_require_exclusive_record "$STATE" "$(fm_meta_get "$RELAUNCH_META" worktree)" "$RELAUNCH_META" || exit 1
@@ -2798,39 +2876,48 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # owns that vocabulary). The proof itself lives in one place for the whole
   # control plane - fm_control_endpoint_absence_verdict - so `exit` and
   # `relaunch` cannot reach two different answers about one endpoint.
-  RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
-  if [ "$RELAUNCH_STATE" = missing ] && [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$BACKEND" = tmux ]; then
-    # Teardown writes the sentinel only after it closed this endpoint and
-    # confirmed the close, so for this record alone a tmux window that reads
-    # missing is gone. Every other tmux record keeps the reboot proof below.
-    :
-  elif fm_control_absence_recheck_applies "$BACKEND" "$RELAUNCH_STATE"; then
-    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET" "$RELAUNCH_META")
-    case "${RELAUNCH_ABSENCE%%$'\t'*}" in
-      gone) RELAUNCH_STATE=missing ;;
-      dead) RELAUNCH_STATE=dead ;;
-      alive) RELAUNCH_STATE=alive ;;
+  spawn_relaunch_endpoint_admit() {
+    local ADMISSION_ONLY=${1:-0} RELAUNCH_ABSENCE
+    RELAUNCH_REBIND=0
+    RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
+    if [ "$RELAUNCH_STATE" = missing ] && [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$BACKEND" = tmux ]; then
+      # Teardown writes the sentinel only after it closed this endpoint and
+      # confirmed the close, so for this record alone a tmux window that reads
+      # missing is gone. Every other tmux record keeps the reboot proof below.
+      :
+    elif fm_control_absence_recheck_applies "$BACKEND" "$RELAUNCH_STATE"; then
+      RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET" "$RELAUNCH_META")
+      case "${RELAUNCH_ABSENCE%%$'\t'*}" in
+        gone) RELAUNCH_STATE=missing ;;
+        dead) RELAUNCH_STATE=dead ;;
+        alive) RELAUNCH_STATE=alive ;;
+        *)
+          echo "error: task $ID's recorded endpoint $RELAUNCH_TARGET reads '$RELAUNCH_STATE', but ${RELAUNCH_ABSENCE#*$'\t'}. An endpoint that cannot be proven absent may still hold a live agent on this task's worktree; refusing rather than launching a second agent into it" >&2
+          exit 1
+          ;;
+      esac
+    fi
+    if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$RELAUNCH_STATE" = dead ]; then
+      echo "error: task $ID's copy was released, but its endpoint $RELAUNCH_TARGET still exists; close that window first, then relaunch" >&2
+      exit 1
+    fi
+    case "$RELAUNCH_STATE:$ADMISSION_ONLY" in
+      dead:*|alive:1) ;;
+      missing:*) RELAUNCH_REBIND=1 ;;
       *)
-        echo "error: task $ID's recorded endpoint $RELAUNCH_TARGET reads '$RELAUNCH_STATE', but ${RELAUNCH_ABSENCE#*$'\t'}. An endpoint that cannot be proven absent may still hold a live agent on this task's worktree; refusing rather than launching a second agent into it" >&2
+        echo "error: task $ID's endpoint reads '$RELAUNCH_STATE'; a relaunch requires a positively agent-free endpoint (stop the agent first with bin/fm-control.sh $ID exit)" >&2
         exit 1
         ;;
     esac
-  fi
-  if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$RELAUNCH_STATE" = dead ]; then
-    echo "error: task $ID's copy was released, but its endpoint $RELAUNCH_TARGET still exists; close that window first, then relaunch" >&2
-    exit 1
-  fi
-  case "$RELAUNCH_STATE" in
-    dead) ;;
-    missing) RELAUNCH_REBIND=1 ;;
-    *)
-      echo "error: task $ID's endpoint reads '$RELAUNCH_STATE'; a relaunch requires a positively agent-free endpoint (stop the agent first with bin/fm-control.sh $ID exit)" >&2
+    if [ "$RELAUNCH_REBIND" -eq 1 ] && [ "$KIND" = secondmate ]; then
+      echo "error: secondmate $ID's recorded endpoint is gone; its recovery is owned by the secondmate respawn path, not by relaunch (run bin/fm-spawn.sh $ID --secondmate, or let the session-start liveness sweep do it)" >&2
       exit 1
-      ;;
-  esac
-  RELAUNCH_PRIOR_HARNESS=$(fm_meta_get "$RELAUNCH_META" harness)
+    fi
+  }
   KIND=$(fm_meta_get "$RELAUNCH_META" kind)
   [ -n "$KIND" ] || KIND=ship
+  spawn_relaunch_endpoint_admit "$ADMISSION_ONLY"
+  RELAUNCH_PRIOR_HARNESS=$(fm_meta_get "$RELAUNCH_META" harness)
   if [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
     echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
     exit 1
@@ -2841,10 +2928,6 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # up (bin/fm-bootstrap.sh; the secondmate-provisioning skill). Rebinding one
   # here as well would be a second path to the same outcome, so this refuses
   # and names the one that owns it.
-  if [ "$RELAUNCH_REBIND" -eq 1 ] && [ "$KIND" = secondmate ]; then
-    echo "error: secondmate $ID's recorded endpoint is gone; its recovery is owned by the secondmate respawn path, not by relaunch (run bin/fm-spawn.sh $ID --secondmate, or let the session-start liveness sweep do it)" >&2
-    exit 1
-  fi
   MODE=$(fm_meta_get "$RELAUNCH_META" mode)
   YOLO=$(fm_meta_get "$RELAUNCH_META" yolo)
   UPSTREAM_CONSENT=$(fm_meta_get "$RELAUNCH_META" upstream_consent)
@@ -2936,6 +3019,166 @@ shell_quote() {
   printf "'"
 }
 
+resolve_pi_executable() {
+  local candidate dir
+  candidate=$(type -P -- "$1" 2>/dev/null) || return 1
+  [ -x "$candidate" ] || return 1
+  case "$candidate" in
+  /*) printf '%s\n' "$candidate" ;;
+  *)
+    dir=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || return 1
+    printf '%s/%s\n' "$dir" "$(basename "$candidate")"
+    ;;
+  esac
+}
+
+# Pi's CLI surface is version-dependent, so probe the resolved executable's help
+# before composing the optional regular-TUI flag. An absent or inconclusive probe
+# omits the flag so older Pi versions can still spawn.
+pi_supports_tui_mode() {
+  local executable=$1 help
+  help=$("$executable" --help 2>&1) || return 1
+  printf '%s\n' "$help" | grep -Eq -- '(^|[[:space:]])--tui-mode([[:space:]=]|$)'
+}
+
+# Same help-probe shape as pi_supports_tui_mode for the session-scoped project
+# trust flag. A seeded secondmate home carries tracked .pi/extensions that gate
+# Pi behind "Trust project folder?" on first launch; --approve trusts that
+# launch cwd for the run without rewriting ~/.pi/agent/trust.json.
+pi_supports_approve() {
+  local executable=$1 help
+  help=$("$executable" --help 2>&1) || return 1
+  # Pi prints "--approve, -a"; allow comma (and any non-token char) after the name.
+  printf '%s\n' "$help" | grep -Eq -- '(^|[[:space:]])--approve([^[:alnum:]_-]|$)'
+}
+
+# omp pre-launch model validation. `omp models --json` (omp 18.1.11) prints
+# {"models":[{"provider","id","selector":"<provider>/<id>",...}]} for built-in and
+# auto-discovered providers only; it never lists a provider an extension
+# registers at runtime (claude-bridge is the verified example), so the check is
+# scoped exactly to what the listing can prove: a <provider>/<id> whose provider
+# IS listed must be listed too, a provider the listing does not know passes
+# through with a notice, a bare fuzzy pattern is omp's own matcher's job, and an
+# unreadable listing establishes nothing (harness-adapters model-and-effort.md).
+omp_model_validate() { # <omp-bin> <model> [<profile>]
+  local bin=$1 model=$2 profile=${3:-} provider listing providers
+  local -a profile_args=()
+  [ -n "$model" ] && [ "$model" != default ] || return 0
+  case "$model" in */*) ;; *) return 0 ;; esac
+  command -v jq >/dev/null 2>&1 || return 0
+  # A pinned profile has its own provider logins, so list its catalog.
+  [ -z "$profile" ] || profile_args=(--profile "$profile")
+  listing=$(OMP_SKIP_SETUP=1 "$bin" "${profile_args[@]+"${profile_args[@]}"}" models --json 2>/dev/null) || return 0
+  providers=$(printf '%s' "$listing" | jq -r '.models[]?.provider // empty' 2>/dev/null | sort -u) || return 0
+  [ -n "$providers" ] || return 0
+  provider=${model%%/*}
+  if ! printf '%s\n' "$providers" | grep -qxF -- "$provider"; then
+    echo "notice: omp provider '$provider' is not in 'omp models --json' (extension-registered providers are never listed); launching '$model' unvalidated" >&2
+    return 0
+  fi
+  if printf '%s' "$listing" | jq -e --arg m "$model" '.models[]? | select(.selector == $m)' >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "error: omp model '$model' is not listed by 'omp models --json' although provider '$provider' is; choose a listed <provider>/<id> or omit --model" >&2
+  return 1
+}
+
+# agy pre-launch model validation. `agy models` (agy 1.2.0) prints one model per
+# line as "<id>\t<label>" for the account's catalog only; model ids are bare
+# (gemini-3.8-flash-high), never provider-prefixed. A requested model absent
+# from a reachable listing is concrete unsupported evidence and refuses the
+# spawn, so a stale id (the unlisted bare gemini-3.8-flash) fails loudly here
+# instead of wedging a worker pane. The listing is a remote fetch that needs
+# network and a signed-in account, so the probe runs under the shared hard
+# bound (bin/fm-timeout-lib.sh) with stdin detached: a stalled fetch or a
+# sign-in prompt can never block the spawn before any pane exists. An
+# unreachable listing establishes nothing (harness-adapters
+# model-and-effort.md) and launches unvalidated with a notice.
+agy_model_validate() {  # <agy-bin> <model>
+  local bin=$1 model=$2 listing rc=0 bound=${FM_AGY_MODELS_TIMEOUT:-15}
+  case "$bound" in ''|*[!0-9]*|0*) bound=15 ;; esac
+  [ -n "$model" ] && [ "$model" != default ] || return 0
+  listing=$(fm_run_timed "$bound" "$bin" models 2>/dev/null < /dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$listing" ]; then
+    if [ "$rc" -eq 124 ]; then
+      echo "notice: 'agy models' did not answer within ${bound}s; launching with --model '$model' unvalidated" >&2
+    else
+      echo "notice: 'agy models' listing is unreachable (exit $rc); launching with --model '$model' unvalidated" >&2
+    fi
+    return 0
+  fi
+  if printf '%s\n' "$listing" | awk '{print $1}' | grep -qxF -- "$model"; then
+    return 0
+  fi
+  echo "error: agy model '$model' is not listed by 'agy models'; choose a listed id or omit --model" >&2
+  return 1
+}
+
+# kiro pre-launch model validation. `kiro-cli chat --agent-engine v2
+# --list-models -f json` (kiro-cli 2.21.4) prints
+# {"models":[{"model_id":"<id>",...}],"default_model":"auto"} for the account's
+# catalog; model ids are bare (claude-opus-5, auto), never provider-prefixed. A
+# requested model absent from a reachable listing is concrete unsupported
+# evidence and refuses the spawn, so a stale id fails loudly here instead of
+# wedging a worker pane. The listing is a remote fetch that needs network and a
+# signed-in account, so the probe runs under the shared hard bound
+# (bin/fm-timeout-lib.sh) with stdin detached: a stalled fetch or a sign-in
+# prompt can never block the spawn before any pane exists. model_ids are read
+# with grep/sed rather than jq so the check has no extra dependency. An
+# unreachable listing establishes nothing (harness-adapters model-and-effort.md)
+# and launches unvalidated with a notice. The field pattern tolerates whitespace
+# around the JSON colon so a pretty-printed listing still yields model ids
+# instead of refusing every requested model. A listing that yields no model_id at
+# all - a renamed field, or an empty catalog - also establishes nothing about
+# whether the model exists, so it takes the same unvalidated-launch notice; only
+# a listing that parses and omits the requested id is unsupported evidence.
+kiro_model_validate() {  # <kiro-bin> <model>
+  local bin=$1 model=$2 listing ids rc=0 bound=${FM_KIRO_MODELS_TIMEOUT:-15}
+  case "$bound" in ''|*[!0-9]*|0*) bound=15 ;; esac
+  [ -n "$model" ] && [ "$model" != default ] || return 0
+  listing=$(fm_run_timed "$bound" "$bin" chat --agent-engine v2 --list-models -f json 2>/dev/null < /dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$listing" ]; then
+    if [ "$rc" -eq 124 ]; then
+      echo "notice: 'kiro-cli --list-models' did not answer within ${bound}s; launching with --model '$model' unvalidated" >&2
+    else
+      echo "notice: 'kiro-cli --list-models' listing is unreachable (exit $rc); launching with --model '$model' unvalidated" >&2
+    fi
+    return 0
+  fi
+  ids=$(printf '%s' "$listing" | grep -oE '"model_id"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    | sed 's/.*:[[:space:]]*"//;s/"$//')
+  if [ -z "$ids" ]; then
+    echo "notice: 'kiro-cli --list-models' listing carries no model_id; launching with --model '$model' unvalidated" >&2
+    return 0
+  fi
+  if printf '%s\n' "$ids" | grep -qxF -- "$model"; then
+    return 0
+  fi
+  echo "error: kiro model '$model' is not listed by 'kiro-cli --list-models'; choose a listed model_id or omit --model" >&2
+  return 1
+}
+
+# kiro's hook commands are single-token absolute paths, so a hook path carrying
+# whitespace or a shell-special character cannot be delivered as one token under
+# both interpretations - a shell splits or expands it, an argv split does not,
+# and no quoting fixes both. kiro has no second state source, so the seeded
+# busy record would never clear and the supervisor would read the worker as
+# provably working forever. Refuse alongside the model check, before any
+# worktree or pane exists, and name the path. The physical resolution is what
+# gets embedded, so that is what is checked; an unresolvable state dir falls
+# back to the configured string.
+kiro_hook_path_validate() {  # <state-dir> <id>
+  local state=$1 id=$2 real
+  real=$(cd "$state" 2>/dev/null && pwd -P) || real=$state
+  [ -n "$real" ] || real=$state
+  case "$real/$id.kiro-home" in
+    *[[:space:]\'\"\\\$\`\;\&\|\<\>\(\)\*\?\[\]\{\}\!]*)
+      echo "error: kiro hook scripts would live under '$real/$id.kiro-home', whose path contains whitespace or a shell-special character; kiro hook commands must be a single unquoted token, so point FM_HOME or FM_STATE_OVERRIDE at a path free of both" >&2
+      return 1 ;;
+  esac
+  return 0
+}
+
 # The Claude task-worker channel statement: the launch brief and the Firstmate
 # instruction inbox are first-party, everything else keeps the model's normal
 # distrust. One owner for both carriers: the pane launch appends it to the
@@ -2957,6 +3200,14 @@ spawn_claude_task_channel_statement() {
 # launch, readiness gate, typed submit) for a codex that stops running
 # positional prompts; docs/verification/runtime-backends.md "Codex launch
 # brief" owns the verified behavior.
+fm_spawn_codex_launch_gate_supported() {
+  case "$BACKEND" in tmux|herdr|zellij|cmux|orca|paseo) return 0 ;; *) return 1 ;; esac
+}
+
+fm_spawn_codex_positional_brief_probe() {
+  ! fm_spawn_codex_launch_gate_supported || [ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ]
+}
+
 launch_template() {
   local harness=$1 kind=${2:-ship}
   # shellcheck disable=SC2016  # single quotes are deliberate: $(cat ...) expands in the crewmate pane, not here
@@ -3355,6 +3606,49 @@ case "$ARG3" in
   ;;
 esac
 
+# muse, gemini, devin, commandcode, polytoken, cortex, and kiro are verified as CREWMATE/SCOUT adapters only. A secondmate is
+# a firstmate instance, so it needs a primary supervision protocol.
+# gemini has none: docs/supervision-protocols/ carries no gemini wake protocol
+# and this task verified only crewmate-side launch, busy state, interrupt, and
+# exit, so a gemini secondmate is refused rather than stood up on an unverified
+# supervision path. muse has none either, and its
+# Claude-compatible hook dialect explicitly rejects the model-reawakening and
+# asyncRewake handlers that firstmate's primary turn-end supervision is built on
+# (muse 0.1.0-R708.1). Refusing here keeps that gap loud instead of standing up a
+# secondmate whose supervision cycle could never be armed.
+# devin has none either: only its worker lifecycle hooks are verified, and
+# docs/supervision-protocols/ carries no devin wake protocol (devin 3000.11.1).
+# commandcode has none either: only its worker busy mod is verified, and
+# docs/supervision-protocols/ carries no Command Code wake protocol (1.74.1).
+# polytoken has none either: only the crewmate/scout lifecycle is verified;
+# docs/supervision-protocols/ carries no polytoken primary wake protocol.
+# cortex has none either: only its worker lifecycle hooks are verified, and
+# docs/supervision-protocols/ carries no cortex wake protocol (cortex 1.1.104).
+# kiro has none either: this task verified only crewmate-side launch, busy state,
+# interrupt, exit, and resume on the V2 engine, and docs/supervision-protocols/
+# carries no kiro wake protocol (kiro-cli 2.21.4).
+if [ "$KIND" = secondmate ] && { [ "$HARNESS" = muse ] || [ "$HARNESS" = gemini ] || [ "$HARNESS" = devin ] || [ "$HARNESS" = commandcode ] || [ "$HARNESS" = polytoken ] || [ "$HARNESS" = cortex ] || [ "$HARNESS" = kiro ]; }; then
+  echo "error: $HARNESS is a verified crewmate/scout adapter only and cannot run a secondmate; it has no primary supervision protocol. Select a harness verified for secondmates." >&2
+  exit 1
+fi
+
+# rovo carries the same primary-supervision gap as muse: no turn-end hook, no
+# verified primary integration, so a secondmate (a firstmate instance that must
+# itself act as a primary) could never be supervised. Refuse loudly rather than
+# standing one up with no way to arm its watch cycle.
+if [ "$KIND" = secondmate ] && [ "$HARNESS" = rovo ]; then
+  echo "error: rovo is a verified crewmate/scout adapter only and cannot run a secondmate; it has no primary supervision protocol. Select a harness verified for secondmates." >&2
+  exit 1
+fi
+
+# Command Code's idle placeholder reads empty only with a Command Code pane
+# identity, which tmux and Herdr supply and zellij, cmux, orca, paseo, and tern do not, so
+# there the composer would never read empty and steering would stall.
+if [ "$HARNESS" = commandcode ] && [ "$BACKEND" != tmux ] && [ "$BACKEND" != herdr ]; then
+  echo "error: commandcode is verified on the tmux and herdr backends only; backend=$BACKEND cannot prove its composer empty. Select backend tmux or herdr." >&2
+  exit 1
+fi
+
 secondmate_registry_value() {
   secondmate_registry_field "$DATA/secondmates.md" "$1" "$2"
 }
@@ -3395,7 +3689,7 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
 fi
 
 CODEX_LAUNCH_CWD=
-if [ "$KIND" != secondmate ] && [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
   CODEX_LAUNCH_CWD=$RELAUNCH_WT
 fi
 CODEX_DEFER_DEFAULT=0
@@ -3429,10 +3723,45 @@ elif [ -n "$QUOTA_OVERRIDE" ] && { [ "$CODEX_DEFER_DEFAULT" = 0 ] || [ "$QUOTA_H
   exit 1
 fi
 
+# Cortex's titled composer box is proven only with a Cortex pane identity,
+# which tmux and Herdr supply and zellij, cmux, orca, paseo, rex, and t3code do not, so there the
+# composer would never read empty and steering would stall.
+if [ "$HARNESS" = cortex ] && [ "$BACKEND" != tmux ] && [ "$BACKEND" != herdr ]; then
+  echo "error: cortex is verified on the tmux and herdr backends only; backend=$BACKEND cannot prove its composer empty. Select backend tmux or herdr." >&2
+  exit 1
+fi
+
 # config/crew-exclude-tools (header above): refuse before worker provisioning
 # if this launch cannot honor the list. Secondmate agents are not covered.
-fm_spawn_adapter_admit || exit $?
-if [ "$HARNESS" = pi ] || [ "$HARNESS" = pi-signed ]; then
+EXCLUDE_TOOLS=
+if [ "$KIND" != secondmate ]; then
+  EXCLUDE_TOOLS=$(fm_exclude_tools_check "$HARNESS" "$RAW_LAUNCH" "$CONFIG") || exit 1
+fi
+
+case "$HARNESS" in
+devin)
+  DEVIN_BIN=$(command -v devin) || {
+    echo "error: devin executable not found on PATH" >&2
+    exit 1
+  }
+  ;;
+commandcode)
+  COMMANDCODE_BIN=$(command -v commandcode) || {
+    echo "error: commandcode executable not found on PATH" >&2
+    exit 1
+  }
+  ;;
+cortex)
+  CORTEX_BIN=$(command -v cortex) || {
+    echo "error: cortex executable not found on PATH" >&2
+    exit 1
+  }
+  ;;
+pi | pi-signed)
+  PI_BIN=$(resolve_pi_executable "$HARNESS") || {
+    echo "error: $HARNESS executable not found on PATH; install it or select a different verified harness" >&2
+    exit 1
+  }
   PI_TUI_MODE=
   if pi_supports_tui_mode "$PI_BIN"; then
     PI_TUI_MODE=' --tui-mode regular'
@@ -3451,8 +3780,95 @@ if [ "$HARNESS" = pi ] || [ "$HARNESS" = pi-signed ]; then
   [ -z "$EXCLUDE_TOOLS" ] || PI_EXCLUDE=" --exclude-tools $(shell_quote "$EXCLUDE_TOOLS")"
   LAUNCH=${LAUNCH//__PIEXCLUDE__/$PI_EXCLUDE}
   LAUNCH="FM_PI_HARNESS=$HARNESS $LAUNCH"
-fi
+  ;;
+cursor)
+  # `cursor` is not the CLI name, and the legacy alias `agent` is far too
+  # generic to launch on its name alone, so resolution runs through the
+  # verified owner rather than a bare command lookup. Refusing here keeps a
+  # missing install a loud spawn refusal instead of a pane that dies with a
+  # command-not-found the supervisor would read as a wedged worker.
+  CURSOR_BIN=$(fm_cursor_resolve_binary) || exit 1
+  if [ -n "$MODEL" ] && [ "$MODEL" != default ]; then
+    if CURSOR_MODELS=$(fm_cursor_list_models "$CURSOR_BIN"); then
+      if ! printf '%s\n' "$CURSOR_MODELS" | fm_cursor_catalog_has_model "$MODEL"; then
+        echo "error: Cursor model '$MODEL' is not available from '$CURSOR_BIN --list-models'; choose an id listed by that command or omit --model" >&2
+        exit 1
+      fi
+    fi
+  fi
+  ;;
+omp)
+  OMP_BIN=$(resolve_pi_executable omp) || {
+    echo "error: omp executable not found on PATH; install Oh My Pi or select a different verified harness" >&2
+    exit 1
+  }
+  OMP_WORKER_CFG="$FM_ROOT/.omp/fm-worker-overlay.yml"
+  [ -f "$OMP_WORKER_CFG" ] || {
+    echo "error: omp worker posture overlay missing at $OMP_WORKER_CFG; a worker launched without it can park on the captain's own approval or plan-mode settings" >&2
+    exit 1
+  }
+  ;;
+agy)
+  AGY_BIN=$(resolve_pi_executable agy) || {
+    echo "error: agy executable not found on PATH; install Antigravity CLI or select a different verified harness" >&2
+    exit 1
+  }
+  ;;
+kiro)
+  KIRO_BIN=$(resolve_pi_executable kiro-cli) || {
+    echo "error: kiro-cli executable not found on PATH; install Kiro CLI or select a different verified harness" >&2
+    exit 1
+  }
+  ;;
+polytoken)
+  POLYTOKEN_BIN=$(fm_polytoken_binary) || {
+    echo "error: polytoken executable not found; install Polytoken CLI or select a different verified harness" >&2
+    exit 1
+  }
+  ;;
+esac
 
+fm_backend_validate_harness "$BACKEND" "$HARNESS" || exit 1
+# Ultra is an explicit native capability, never a Pi thinking-level alias.
+# Validate the fully resolved profile before worktree or endpoint provisioning.
+if [ "$EFFORT" = ultra ]; then
+  "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$HARNESS" "$MODEL" "$EFFORT" || exit 1
+  [ "$RAW_LAUNCH" = 0 ] || {
+    echo "error: --effort ultra requires the canonical --harness pi or pi-signed launch so its native flag cannot be omitted" >&2
+    exit 1
+  }
+fi
+# Per-secondmate omp profile pin (header above): resolved before any endpoint,
+# worktree, or record exists, and before the catalog check that must read the
+# same profile. A ship or scout passes no mate, so it never reads a pin.
+OMP_PROFILE_MATE=
+[ "$KIND" != secondmate ] || OMP_PROFILE_MATE=$ID
+OMP_PROFILE_RAW=
+[ "$RAW_LAUNCH" = 0 ] || OMP_PROFILE_RAW=$ARG3
+OMP_PROFILE_PIN=$(fm_omp_profile_select "$HARNESS" "$CONFIG" "$OMP_PROFILE_MATE" "$OMP_PROFILE_RAW") || exit 1
+if [ "$HARNESS" = omp ]; then
+  omp_model_validate "$OMP_BIN" "$MODEL" "$OMP_PROFILE_PIN" || exit 1
+fi
+if [ "$HARNESS" = agy ]; then
+  agy_model_validate "$AGY_BIN" "$MODEL" || exit 1
+fi
+# polytoken's model validation composes firstmate's model and effort axes into
+# the launch model reference (bin/fm-polytoken-lib.sh owns the reasoning): the
+# base model must be concrete and listed, and effort maps to the nearest
+# compatible selectable `<model>(<effort>)` reference. Resolved
+# before the busy wiring arms, so the generated launch command carries the
+# composed reference and task metadata keeps the separate axes.
+if [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+  POLYTOKEN_MODEL_REF=$(fm_polytoken_launch_ref "$POLYTOKEN_BIN" "$MODEL" "$EFFORT") || exit 1
+elif [ "$HARNESS" = polytoken ]; then
+  POLYTOKEN_MODEL_REF=$(fm_polytoken_model_ref "$POLYTOKEN_BIN" "$MODEL" "$EFFORT") || exit 1
+fi
+if [ "$HARNESS" = kiro ]; then
+  kiro_model_validate "$KIRO_BIN" "$MODEL" || exit 1
+  if [ "$RAW_LAUNCH" -eq 0 ]; then
+    kiro_hook_path_validate "$STATE" "$ID" || exit 1
+  fi
+fi
 # Worker account pin (header above). An absent pin selects nothing and leaves every later launch
 # step exactly as it was. A pinned Claude root is exported here as well, so the
 # trust registration below writes the store the worker will actually read.
@@ -3548,6 +3964,119 @@ if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$
   fi
 fi
 
+
+resolve_kimi_binary() {
+  local candidate dir fallback
+  candidate=$(command -v kimi 2>/dev/null || true)
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    case "$candidate" in
+    /*)
+      printf '%s\n' "$candidate"
+      return 0
+      ;;
+    *)
+      dir=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || dir=
+      if [ -n "$dir" ]; then
+        printf '%s/%s\n' "$dir" "$(basename "$candidate")"
+        return 0
+      fi
+      ;;
+    esac
+  fi
+  fallback="${HOME:-}/.kimi-code/bin/kimi"
+  if [ -n "${HOME:-}" ] && [ -x "$fallback" ]; then
+    printf '%s\n' "$fallback"
+    return 0
+  fi
+  echo "error: kimi executable not found; searched PATH for 'kimi' and fallback '$fallback'" >&2
+  return 1
+}
+
+resolve_muse_binary() {
+  local candidate dir
+  candidate=$(command -v muse 2>/dev/null || true)
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    case "$candidate" in
+    /*)
+      printf '%s\n' "$candidate"
+      return 0
+      ;;
+    *)
+      dir=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || dir=
+      if [ -n "$dir" ]; then
+        printf '%s/%s\n' "$dir" "$(basename "$candidate")"
+        return 0
+      fi
+      ;;
+    esac
+  fi
+  echo "error: muse executable not found on PATH; install Muse Code or select a different verified harness" >&2
+  return 1
+}
+
+resolve_rovo_binary() {
+  local candidate dir fallback
+  candidate=$(command -v rovo 2>/dev/null || true)
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    case "$candidate" in
+    /*)
+      printf '%s\n' "$candidate"
+      return 0
+      ;;
+    *)
+      dir=$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P) || dir=
+      if [ -n "$dir" ]; then
+        printf '%s/%s\n' "$dir" "$(basename "$candidate")"
+        return 0
+      fi
+      ;;
+    esac
+  fi
+  fallback="${HOME:-}/.local/bin/rovo"
+  if [ -n "${HOME:-}" ] && [ -x "$fallback" ]; then
+    printf '%s\n' "$fallback"
+    return 0
+  fi
+  echo "error: rovo executable not found; searched PATH for 'rovo' and fallback '$fallback'" >&2
+  return 1
+}
+
+# muse_credential_present: 0 when a launched muse pane can reach its provider
+# without an interactive login. muse offers exactly two credential paths
+# (verified, muse 0.1.0-R708.1): the META_API_KEY environment variable, which
+# always takes priority, and a stored credential written by `muse auth set` or
+# `muse login` into <config>/muse/auth.json. This is a PREFLIGHT rather than a
+# rendered-screen check because an unauthenticated pane does not exit - it sits
+# on an OAuth device-code prompt ("Sign in at this page ... Waiting for
+# approval...") waiting for a human who is not there, which would look to
+# supervision like a wedged worker rather than a missing credential.
+muse_worker_meta_api_key_present() {
+  local session worker_env
+  if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+    case $'\n'"$LAUNCH_ENV_NAMES"$'\n' in
+    *$'\nMETA_API_KEY\n'*) ;;
+    *) return 1 ;;
+    esac
+  fi
+  [ "$BACKEND" = tmux ] || return 1
+  if [ -n "${TMUX:-}" ]; then
+    fm_backend_source tmux >/dev/null 2>&1 || return 1
+    session=$(fm_backend_tmux_own_session 2>/dev/null) || return 1
+  else
+    tmux has-session -t firstmate 2>/dev/null || return 1
+    session=firstmate
+  fi
+  worker_env=$(tmux show-environment -t "$session" META_API_KEY 2>/dev/null) || return 1
+  case "$worker_env" in
+  META_API_KEY=?*) return 0 ;;
+  esac
+  return 1
+}
+
+muse_credential_present() {
+  local auth=$1
+  [ -s "$auth" ] || muse_worker_meta_api_key_present
+}
 
 # relaunch_resume_args: the launch arguments that keep a RELAUNCH bound to the
 # agent session this endpoint's runtime already reports, so the runtime's own
@@ -3764,26 +4293,60 @@ effort_flag_for_harness() {
 
 case "$LAUNCH" in
 *__MUSEBIN__*)
+  MUSE_BIN=$(resolve_muse_binary) || exit 1
+  MUSE_CONFIG_HOME=$(resolve_directory_input XDG_CONFIG_HOME "${XDG_CONFIG_HOME:-${HOME:-}/.config}") || exit 1
+  MUSE_DATA_HOME=$(resolve_directory_input XDG_DATA_HOME "${XDG_DATA_HOME:-${HOME:-}/.local/share}") || exit 1
+  MUSE_AUTH_FILE="$MUSE_CONFIG_HOME/muse/auth.json"
+  if ! muse_credential_present "$MUSE_AUTH_FILE"; then
+    if [ -n "${META_API_KEY:-}" ]; then
+      echo "error: muse has no worker-reachable credential; META_API_KEY is set for fm-spawn but cannot be proven present in the $BACKEND worker environment. Store the fleet credential at '$MUSE_AUTH_FILE' with 'muse login' or 'muse auth set --api-key-stdin'. The secret will not be copied into the launch command." >&2
+    else
+      echo "error: muse has no worker-reachable credential; META_API_KEY cannot be proven present in the $BACKEND worker environment and '$MUSE_AUTH_FILE' is absent or empty. Store the fleet credential with 'muse login' or 'muse auth set --api-key-stdin'." >&2
+    fi
+    exit 1
+  fi
   LAUNCH=${LAUNCH//__MUSEBIN__/$(shell_quote "$MUSE_BIN")}
   LAUNCH=${LAUNCH//__MUSECONFIG__/$(shell_quote "$MUSE_CONFIG_HOME")}
   LAUNCH=${LAUNCH//__MUSEDATA__/$(shell_quote "$MUSE_DATA_HOME")}
   ;;
 esac
 
+KIMI_INSTALL_REQUIRED=0
 case "$LAUNCH" in
 *__KIMIBIN__*)
+  KIMI_BIN=$(resolve_kimi_binary) || exit 1
   LAUNCH=${LAUNCH//__KIMIBIN__/$(shell_quote "$KIMI_BIN")}
+  fm_backend_visible_capture_supported "$BACKEND" || {
+    echo "error: refusing Kimi spawn because backend '$BACKEND' has no verified viewport-bounded capture; Kimi 2.0.0 gates a fresh worktree on a trust dialog that can only be answered and confirmed cleared from a scrollback-free read of the live pane" >&2
+    exit 1
+  }
   if [ "$KIND" != secondmate ]; then
-    "$FM_ROOT/bin/fm-kimi-turnend-hook.sh" install || {
-      echo "error: refusing Kimi spawn because the global turn-end hook could not be installed safely" >&2
+    KIMI_INSTALL_REQUIRED=1
+    "$FM_ROOT/bin/fm-kimi-turnend-hook.sh" check || {
+      echo "error: refusing Kimi spawn because the global turn-end hook configuration was not admitted" >&2
       exit 1
     }
   fi
   ;;
 esac
 
+# The codex typed-brief gates answer codex's own folder-trust and update
+# dialogs from the live pane, so a backend with no viewport-bounded capture
+# cannot prove a dialog cleared and the typed path is refused at preflight,
+# the same boundary the kimi gate draws. The default positional launch keeps
+# the brief on the launch command; its first-turn gate answers dialogs only
+# where the viewport is readable.
+if [ "$HARNESS" = codex ] && [ "$RAW_LAUNCH" -ne 1 ] \
+  && ! fm_spawn_codex_positional_brief_probe; then
+  fm_backend_visible_capture_supported "$BACKEND" || {
+    echo "error: refusing codex spawn because backend '$BACKEND' has no verified viewport-bounded capture; codex gates a fresh worktree on a trust dialog whose clearing can only be proven from a scrollback-free read of the live pane" >&2
+    exit 1
+  }
+fi
+
 case "$LAUNCH" in
 *__ROVOBIN__*)
+  ROVO_BIN=$(resolve_rovo_binary) || exit 1
   LAUNCH=${LAUNCH//__ROVOBIN__/$(shell_quote "$ROVO_BIN")}
   ;;
 esac
@@ -3854,17 +4417,19 @@ claude_add_dirs_flag() {  # <kind> <state-dir> <data-dir> <code-root> <task-id>
   state_real=$(cd "$state_dir" && pwd -P) || return 1
   case "$kind" in
   secondmate)
-    mkdir -p "$state_real/$id.inbox/handled" || return 1
     dirs=("$state_real/$id.inbox")
     ;;
   *)
     data_real=$(cd "$data_dir" && pwd -P) || return 1
     root_real=$(cd "$code_root" && pwd -P) || return 1
     [ -d "$root_real/.agents/skills" ] || return 1
-    mkdir -p "$state_real/operational-inbox" "$state_real/$id.inbox/handled" "$data_real/$id" || return 1
     dirs=("$state_real/operational-inbox" "$state_real/$id.inbox" "$data_real/$id" "$root_real/.agents/skills")
     ;;
   esac
+  for d in "${dirs[@]}" "$state_real/$id.inbox/handled"; do
+    if { [ -e "$d" ] || [ -L "$d" ]; } && [ ! -d "$d" ]; then return 1; fi
+    if [ "${6:-1}" = 1 ]; then mkdir -p "$d" || return 1; fi
+  done
   for d in "${dirs[@]}"; do
     out="$out--add-dir $(shell_quote "$d") "
   done
@@ -4000,6 +4565,7 @@ if [ "$KIND" = secondmate ]; then
     SECONDMATE_PROJECTS=$SECONDMATE_REGISTRY_MATCH_PROJECTS
   fi
   WT="$PROJ_ABS"
+  spawn_sync_secondmate() {
   # Local-HEAD sync: before launch, fast-forward this secondmate's worktree to the
   # PRIMARY checkout's current fleet-branch commit (fm-ff-lib.sh fleet_branch),
   # so a freshly spawned or recovery-respawned secondmate runs the primary's version (AGENTS.md
@@ -4047,6 +4613,8 @@ if [ "$KIND" = secondmate ]; then
       propagate_secondmate_inheritance "$FM_HOME" "$PROJ_ABS" "$CONFIG" "$DATA" ||
       echo "warning: secondmate $ID inheritance failed for $PROJ_ABS" >&2
   fi
+  }
+  if [ "$RELAUNCH" = 0 ]; then spawn_sync_secondmate; fi
   if [ -f "$PROJ_ABS/data/charter.md" ]; then
     BRIEF="$PROJ_ABS/data/charter.md"
   else
@@ -4067,7 +4635,8 @@ fi
 # A relaunch replaces its own record; persistent secondmate startup is exempt.
 # No machine lock spans launch or publication (fm-capacity-lib.sh owns the rules).
 if [ "$KIND" != secondmate ]; then
-  if ! fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND"; then
+  if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$((1 - RELAUNCH))"; then
+    echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
     if [ "$RELAUNCH" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
       POS[1]=$PROJ_ABS
       if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
@@ -4101,7 +4670,8 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" 
   SPAWN_PROJECT_CAPACITY=$FM_PROJECT_CAPACITY
   SPAWN_PROJECT_CAPACITY_ANY=$FM_PROJECT_CAPACITY_ANY
 fi
-if [ "$KIND" != secondmate ] &&
+if { [ "$RELAUNCH" != 1 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } &&
+  [ "$KIND" != secondmate ] &&
   { [ "$BACKEND" != orca ] || [ -n "$SPAWN_PROJECT_CAPACITY_ANY" ]; }; then
   SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
     echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
@@ -4203,6 +4773,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   # pre-scope briefs and relaunches. Charters never enter this worker path.
   # The overlap note is best-effort: the helper exits 0, and a failure still
   # must not refuse the launch.
+  spawn_render_worker_brief() {
   # Keep a complete snapshot through launch delivery so a safe rollback can
   # restore the brief over both the overlap note below and the progress note
   # written after allocation.
@@ -4226,6 +4797,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   SOURCE_BRIEF=$BRIEF
   BRIEF="$DATA/$ID/launch-brief.md"
   render_launch_brief || exit 1
+  }
+  SOURCE_BRIEF=$BRIEF
+  if [ "$RELAUNCH" = 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then spawn_render_worker_brief; fi
 fi
 
 delivery_rigor_rank() { # <mode> -> 3 (most rigor) .. 1 (least); 0 = not a task mode
@@ -4519,7 +5093,7 @@ validate_spawn_worktree() { # <source> <inspect-target>
     # A misdirected allocator has handed us somebody else's copy. Abort must
     # not delete it, or let an interactive Treehouse shell return/reset it.
     ORCA_ABORT_CLEANUP=0
-    if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
+    if [ "$SPAWN_COMMIT_STARTED" = 1 ] && fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
       fm_treehouse_hold_recorded_copy "$PROJ_ABS" "$WT" "$ID" || true
     fi
     exit 1
@@ -4754,14 +5328,154 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
   esac
 }
 
+OPENCODE_BIN=
+OPENCODE_VERSION=
+if [ "$HARNESS" = opencode ]; then
+  OPENCODE_BIN=$(resolve_pi_executable opencode) || OPENCODE_BIN=
+  if [ -n "$OPENCODE_BIN" ]; then
+    OPENCODE_VERSION=$("$OPENCODE_BIN" --version 2>/dev/null \
+      | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+  fi
+fi
+# The effective major the launch, plugin, and exit shapes branch on. A resolved
+# x.y.z yields its numeric major (the grep above guarantees digits); an empty or
+# unparseable probe falls back to 1, so only a genuine major >= 2 ever takes the
+# 2.x path.
+case "$OPENCODE_VERSION" in
+'') OPENCODE_MAJOR=1 ;;
+*) OPENCODE_MAJOR=${OPENCODE_VERSION%%.*} ;;
+esac
+
+
+EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL" "$OPENCODE_MAJOR") || exit 1
+  case "$HARNESS" in
+  codex*)
+    if fm_busy_codex_semantic_source; then
+      echo "error: codex semantic busy-state wiring is not implemented; extend the probe only together with verified wiring" >&2
+      exit 1
+    fi
+    ;;
+  esac
+case "$HARNESS" in
+  kimi*)
+    # Standalone Kimi stays unknown until fm_busy_kimi_verified opens on a
+    # live-verified installed version (bin/fm-busy-lib.sh owns the gate and
+    # the required evidence). Arming without wiring would seed a busy record
+    # nothing can ever clear, so the arm waits for the wiring.
+    if fm_busy_kimi_verified; then
+      echo "error: kimi semantic busy-state wiring is not implemented; open the gate only together with verified wiring" >&2
+      exit 1
+    fi
+    ;;
+esac
+if [ "$HARNESS" = rovo ]; then
+  ROVOCONFIGOVERRIDE=$(rovo_config_override_flag "$EFFORT" "$DATA" "$STATE" "$ID") || {
+    echo "error: could not resolve this task's home paths for rovo's allowedExternalPaths grant" >&2
+    exit 1
+  }
+  LAUNCH=${LAUNCH//__ROVOCONFIGOVERRIDE__/$ROVOCONFIGOVERRIDE}
+fi
+case "$LAUNCH" in
+*__CLAUDEADDDIRS__*)
+  CLAUDE_ADD_DIRS=$(claude_add_dirs_flag "$KIND" "$STATE" "$DATA" "$FM_ROOT" "$ID" 0) || {
+    echo "error: could not resolve the task-channel directories for $ID's claude --add-dir grant" >&2
+    exit 1
+  }
+  LAUNCH=${LAUNCH//__CLAUDEADDDIRS__/$CLAUDE_ADD_DIRS}
+  ;;
+esac
+
+TASK_TMP="/tmp/fm-$ID"
+if [ -e "$TASK_TMP" ] || [ -L "$TASK_TMP" ]; then
+  if [ -L "$TASK_TMP" ] || [ ! -d "$TASK_TMP" ] || [ ! -O "$TASK_TMP" ] ||
+    [ -n "$(find "$TASK_TMP" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ]; then
+    echo "error: task temp root $TASK_TMP already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
+    exit 1
+  fi
+fi
+
+SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
+spawn_launch_home_token() {
+  local home=$1 root hash
+  root=$(cd "$home" 2>/dev/null && pwd -P) || root=$home
+  if command -v shasum >/dev/null 2>&1; then
+    hash=$(printf '%s' "$root" | shasum -a 256 | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    hash=$(printf '%s' "$root" | sha256sum | awk '{print $1}')
+  else
+    return 1
+  fi
+  case "$hash" in
+    *[!0-9a-fA-F]*|'') return 1 ;;
+  esac
+  printf '%s' "$hash"
+}
+LAUNCH_HOME_TOKEN=$(spawn_launch_home_token "$FM_HOME") || LAUNCH_HOME_TOKEN=
+if [ -z "$LAUNCH_HOME_TOKEN" ]; then
+  echo "error: could not derive a home identity for the staged launch file" >&2
+  exit 1
+fi
+case "$SPAWN_GEN" in
+  *[!A-Za-z0-9.]*|'') echo "error: spawn incarnation token is not a usable launch-file nonce" >&2; exit 1 ;;
+esac
+LAUNCH_DIR="/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
+if [ -e "$LAUNCH_DIR" ] || [ -L "$LAUNCH_DIR" ]; then
+    if [ -L "$LAUNCH_DIR" ] || [ ! -d "$LAUNCH_DIR" ] || [ ! -O "$LAUNCH_DIR" ] ||
+      [ -n "$(find "$LAUNCH_DIR" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ]; then
+      echo "error: task launch directory $LAUNCH_DIR already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
+      exit 1
+    fi
+fi
+  LAUNCH_FILE="$LAUNCH_DIR/launch.$SPAWN_GEN.sh"
+  LAUNCH_STAGE="$LAUNCH_DIR/.launch.$SPAWN_GEN.tmp"
+  if [ -e "$LAUNCH_FILE" ] || [ -L "$LAUNCH_FILE" ]; then
+    echo "error: task launch file $LAUNCH_FILE already exists; refusing to replace it" >&2
+    exit 1
+  fi
+
 # Backlog preflight (bin/fm-backlog-transition-lib.sh). This spawn is about to
 # become the sole owner of the row's In-flight transition, so prove the row is
 # transitionable BEFORE any endpoint, worktree, or record exists: a refusal here
 # costs nothing to unwind, while the same refusal after publication would strand
 # a live pane. The authoritative mutation still runs under the meta lock below.
-fm_spawn_backlog_admit || exit $?
+BACKLOG_TRANSITION=0
+BACKLOG_ROW_STATE=
+if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
+  BACKLOG_TRANSITION=1
+  if fm_backlog_row_probe "$DATA" "$ID"; then
+    BACKLOG_ROW_STATE=$FM_BACKLOG_ROW_STATE
+  elif [ "$FM_BACKLOG_ROW_RESULT" = not_found ]; then
+    echo "error: task $ID has no backlog item in this home, so dispatching it would leave a worker no record owns; add it first (bin/fm-tasks-axi.sh add $ID '<title>' --kind $KIND) and re-run" >&2
+    exit 1
+  else
+    echo "error: task $ID's backlog item could not be read before dispatch ($FM_BACKLOG_ROW_ERROR)" >&2
+    exit 75
+  fi
+  spawn_preflight_actor=$(fm_lease_actor) || exit "$FM_LEASE_REFUSE_EXIT"
+  if [ "$RELAUNCH" -ne 1 ] && [ "$spawn_preflight_actor" = branch ] && fm_lease_away_relocated; then
+    if [ "$BACKLOG_ROW_STATE" != "queued no no" ]; then
+      echo "error: spawn refused - the supervision branch under the away-posture record may dispatch only queued unblocked work (already queued, or filed by the branch from the captain's away words); task $ID has no dispatchable backlog item in this home" >&2
+      [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
+      exit 1
+    fi
+  elif [ "$RELAUNCH_FROM_RELEASED" = 1 ] && released_backlog_hold_is_teardown_own; then
+    # Lifted only at the commit point below, once the worker is launched, so
+    # every refusal before then leaves the item held exactly as teardown left it.
+    RELEASED_LIFT_HOLD=1
+  elif ! fm_backlog_row_dispatchable "$BACKLOG_ROW_STATE"; then
+    echo "error: this home's backlog item $ID is not dispatchable in state $BACKLOG_ROW_STATE; refusing before creating its endpoint or local copy" >&2
+    [ "$RELAUNCH" -ne 0 ] || [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
+    exit 1
+  fi
+else
+  BACKLOG_GATE_STATUS=$?
+  if [ "$BACKLOG_GATE_STATUS" -eq 2 ]; then
+    echo "error: task $ID cannot be dispatched because its backlog data directory is inaccessible: $DATA ($FM_BACKLOG_TRANSITION_ERROR)" >&2
+    exit 1
+  fi
+fi
 
-if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
+if [ "$RELAUNCH" = 0 ] && [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
   fm_lock_acquire_wait "$SPAWN_META_LOCK"
   SPAWN_META_LOCK_HELD=1
@@ -4771,8 +5485,79 @@ if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
   exit 1
 fi
 
+if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+  WT=$RELAUNCH_WT
+  STATE_REAL=$(cd "$STATE" && pwd -P) || exit 1
+  if [ "$KIND" != secondmate ]; then validate_spawn_worktree relaunch "$RELAUNCH_TARGET"; fi
+  if [ "$HARNESS" = devin ] && [ "$RAW_LAUNCH" = 0 ]; then
+    FM_KEEP_AI_TRAILERS="$KEEP_AI_TRAILERS" "$SCRIPT_DIR/fm-devin-config.sh" --check "$STATE_REAL" "$ID" prepare || exit 1
+  fi
+  if [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" = 0 ]; then
+    fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$STATE_REAL" "$ID")" || exit 1
+    fm_control_harness_wiring_paths "$RELAUNCH_PRIOR_HARNESS" "$WT" "$STATE_REAL" "$ID" "$KIND" \
+      | grep -qxF "$(fm_polytoken_hooks_file "$WT")" || fm_polytoken_require_hooks_free "$WT" || exit 1
+    fm_polytoken_write_config "$(fm_polytoken_config_dir "$STATE_REAL" "$ID")" check || exit 1
+  fi
+  case "$LAUNCH" in
+    *__BRIEFDOORBELL__*)
+      if [ "$KIND" = secondmate ]; then brief_opstate="$PROJ_ABS/state"; else brief_opstate=$STATE; fi
+      fm_operational_record_directory "$brief_opstate" brief_record_directory || {
+        echo "error: task $ID's operational-inbox path cannot carry a launch doorbell" >&2
+        exit 1
+      }
+      ;;
+  esac
+  case "$HARNESS" in
+    claude*)
+      if [ "$KIND" = secondmate ]; then
+        spawn_trust_args=(--secondmate-home "$PROJ_ABS" "$ID")
+      else
+        spawn_trust_args=("$WT" "$PROJ_ABS")
+      fi
+      "$FM_ROOT/bin/fm-claude-trust.sh" --check "${spawn_trust_args[@]}" >/dev/null || exit 1
+      ;;
+  esac
+fi
+if [ "${FM_TEST_SEAM:-0}:${FM_TEST_SPAWN_FAIL_AT:-}" = 1:prepare-last ]; then
+  echo 'error: injected prepare-last refusal' >&2
+  exit 1
+fi
+if [ "$ADMISSION_ONLY" = 1 ]; then exit 0; fi
+SPAWN_COMMIT_STARTED=1
+if [ "${FM_TEST_SEAM:-0}:${FM_TEST_SPAWN_FAIL_AT:-}" = 1:commit-first ]; then
+  echo 'error: injected commit-first failure' >&2
+  exit 1
+fi
+if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then spawn_relaunch_control_lock; fi
+if [ "$RELAUNCH" = 1 ]; then
+  if [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+    spawn_task_lock_acquire
+    SPAWN_META_LOCK=$(fm_meta_lock_path "$RELAUNCH_META") || exit 1
+    fm_lock_acquire_wait "$SPAWN_META_LOCK"
+    SPAWN_META_LOCK_HELD=1
+  fi
+  [ "$PREPARED_META" = "$(cat "$RELAUNCH_META")" ] || { echo 'error: task record changed after preparation' >&2; exit 1; }
+  [ "$RELAUNCH_FROM_RELEASED" = 1 ] || spawn_relaunch_endpoint_admit 0
+  [ "$KIND" != secondmate ] || spawn_sync_secondmate
+  if [ "$KIND" != secondmate ]; then
+    if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
+      echo "error: $FM_CAPACITY_ERROR" >&2
+      exit 75
+    fi
+    if [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then spawn_render_worker_brief; fi
+    BRIEF_DIR_REAL=$(cd "$(dirname "$BRIEF")" && pwd -P)
+    BRIEF_REAL="$BRIEF_DIR_REAL/$(basename "$BRIEF")"
+  fi
+fi
+if [ "$HARNESS" = claude ]; then
+  claude_add_dirs_flag "$KIND" "$STATE" "$DATA" "$FM_ROOT" "$ID" >/dev/null || exit 1
+fi
+if [ "$KIMI_INSTALL_REQUIRED" = 1 ]; then
+  "$FM_ROOT/bin/fm-kimi-turnend-hook.sh" install || exit 1
+fi
+
 # Reserve every retained legacy copy before any allocator can reset it.
-if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+if { [ "$RELAUNCH" != 1 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   fm_treehouse_protect_recorded_copies "$STATE" "$PROJ_ABS" || exit 1
 fi
 if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$KIND" != secondmate ]; then
@@ -6413,16 +7198,10 @@ esac
 # this user and writable by nobody else, then tightened, so no other local user
 # can plant or swap a file in it. The staged launch command lives in a sibling
 # directory namespaced by home identity, not in this shared per-id root.
-TASK_TMP="/tmp/fm-$ID"
 if (umask 077 && mkdir "$TASK_TMP") 2>/dev/null; then
   { [ "$HARNESS" != polytoken ] && [ "$HARNESS" != codex ]; } || SPAWN_TASK_TMP_CREATED=1
 else
-  if [ -L "$TASK_TMP" ] || [ ! -d "$TASK_TMP" ] || [ ! -O "$TASK_TMP" ] ||
-    [ -n "$(find "$TASK_TMP" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ] ||
-    ! chmod 700 "$TASK_TMP"; then
-    echo "error: task temp root $TASK_TMP already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
-    exit 1
-  fi
+  chmod 700 "$TASK_TMP" || exit 1
 fi
 mkdir -p "$TASK_TMP/gotmp"
 
@@ -6548,7 +7327,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     exit 1
   }
 fi
-if [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+if { [ "$RELAUNCH" = 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" -eq 0 ]; then
   fm_polytoken_require_hooks_free "$WT" || exit 1
   fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$STATE_REAL" "$ID")" || exit 1
 fi
@@ -6581,24 +7360,6 @@ fi
 # leaves the version empty - the probe records no version (1.x launch/exit
 # defaults) and the launch falls back to a bare `opencode` the pane resolves
 # itself, exactly as before this gate existed.
-OPENCODE_BIN=
-OPENCODE_VERSION=
-if [ "$HARNESS" = opencode ]; then
-  OPENCODE_BIN=$(resolve_pi_executable opencode) || OPENCODE_BIN=
-  if [ -n "$OPENCODE_BIN" ]; then
-    OPENCODE_VERSION=$("$OPENCODE_BIN" --version 2>/dev/null \
-      | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
-  fi
-fi
-# The effective major the launch, plugin, and exit shapes branch on. A resolved
-# x.y.z yields its numeric major (the grep above guarantees digits); an empty or
-# unparseable probe falls back to 1, so only a genuine major >= 2 ever takes the
-# 2.x path.
-case "$OPENCODE_VERSION" in
-'') OPENCODE_MAJOR=1 ;;
-*) OPENCODE_MAJOR=${OPENCODE_VERSION%%.*} ;;
-esac
-
 # Arm the semantic busy-state contract (bin/fm-busy-lib.sh) for every
 # adapter with a verified semantic source, including a --secondmate launch.
 # The parent watcher reads this home's record; skipping the arm left a
@@ -6638,14 +7399,6 @@ if [ "$KIND" = secondmate ]; then
 fi
 BUSY_GEN=
   case "$WIRING_HARNESS" in
-  codex*)
-    if fm_busy_codex_semantic_source; then
-      echo "error: codex semantic busy-state wiring is not implemented; extend the probe only together with verified wiring" >&2
-      exit 1
-    fi
-    ;;
-  esac
-  case "$WIRING_HARNESS" in
   claude* | opencode* | pi | pi-signed | omp)
     # opencode arms on every detected major: OpenCode 2 and the OpenCode 1 /
     # undetected->1.x path both provision a busy-state plugin below that needs
@@ -6664,16 +7417,6 @@ BUSY_GEN=
         exit 1
       }
       [ "$RELAUNCH" -ne 1 ] || RELAUNCH_REPLACEMENT_BUSY_GEN=$BUSY_GEN
-    fi
-    ;;
-  kimi*)
-    # Standalone Kimi stays unknown until fm_busy_kimi_verified opens on a
-    # live-verified installed version (bin/fm-busy-lib.sh owns the gate and
-    # the required evidence). Arming without wiring would seed a busy record
-    # nothing can ever clear, so the arm waits for the wiring.
-    if fm_busy_kimi_verified; then
-      echo "error: kimi semantic busy-state wiring is not implemented; open the gate only together with verified wiring" >&2
-      exit 1
     fi
     ;;
   esac
@@ -7436,7 +8179,6 @@ fi
 META_WINDOW=$T
 [ "$BACKEND" = orca ] && META_WINDOW=$W
 [ "$BACKEND" = t3code ] && META_WINDOW=$W
-SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 SPAWN_META_PATH="$STATE/$ID.meta"
 if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
@@ -7703,7 +8445,6 @@ if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
 fi
 # A pinned Pi launch confines Pi's model lookup to the declared provider.
 [ -z "$WORKER_ACCOUNT_PROVIDER" ] || MODELFLAG="--provider $(shell_quote "$WORKER_ACCOUNT_PROVIDER") $MODELFLAG"
-EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL" "$OPENCODE_MAJOR") || exit 1
 LAUNCH=${LAUNCH//__MODELFLAG__/$MODELFLAG}
 LAUNCH=${LAUNCH//__EFFORTFLAG__/$EFFORTFLAG}
 # Relaunch session continuity. Computed here, where the adopted endpoint (T) is
@@ -7733,13 +8474,7 @@ if [ "$KEEP_AI_TRAILERS" = 1 ]; then
 else
   LAUNCH=${LAUNCH//__CLAUDEATTRIBUTION__/,'"attribution":{"commit":"","pr":"","sessionUrl":false}'}
 fi
-if [ "$HARNESS" = rovo ]; then
-  ROVOCONFIGOVERRIDE=$(rovo_config_override_flag "$EFFORT" "$DATA" "$STATE" "$ID") || {
-    echo "error: could not resolve this task's home paths for rovo's allowedExternalPaths grant" >&2
-    exit 1
-  }
-  LAUNCH=${LAUNCH//__ROVOCONFIGOVERRIDE__/$ROVOCONFIGOVERRIDE}
-fi
+
 LAUNCH=${LAUNCH//__BRIEF__/$sq_brief}
 LAUNCH=${LAUNCH//__TURNEND__/$sq_turnend}
 LAUNCH=${LAUNCH//__PIEXT__/$sq_piext}
@@ -7822,15 +8557,6 @@ case "$LAUNCH" in
   LAUNCH=${LAUNCH//__BRIEFDOORBELL__/"$(shell_quote "$brief_doorbell")"}
   ;;
 esac
-case "$LAUNCH" in
-*__CLAUDEADDDIRS__*)
-  CLAUDE_ADD_DIRS=$(claude_add_dirs_flag "$KIND" "$STATE" "$DATA" "$FM_ROOT" "$ID") || {
-    echo "error: could not resolve the task-channel directories for $ID's claude --add-dir grant" >&2
-    exit 1
-  }
-  LAUNCH=${LAUNCH//__CLAUDEADDDIRS__/$CLAUDE_ADD_DIRS}
-  ;;
-esac
 case "$HARNESS" in
 claude | codex | opencode | pi | pi-signed | grok | kimi | gemini | muse | rovo | agy | devin | commandcode | cortex | kiro)
   LAUNCH="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI $LAUNCH"
@@ -7869,30 +8595,6 @@ fi
 # Implement the launch-delivery contract in this script's header. The full
 # home-identity hash isolates equal task ids across homes, and the spawn token in
 # the final filename keeps a buffered source line bound to this incarnation.
-spawn_launch_home_token() {
-  local home=$1 root hash
-  root=$(cd "$home" 2>/dev/null && pwd -P) || root=$home
-  if command -v shasum >/dev/null 2>&1; then
-    hash=$(printf '%s' "$root" | shasum -a 256 | awk '{print $1}')
-  elif command -v sha256sum >/dev/null 2>&1; then
-    hash=$(printf '%s' "$root" | sha256sum | awk '{print $1}')
-  else
-    return 1
-  fi
-  case "$hash" in
-    *[!0-9a-fA-F]*|'') return 1 ;;
-  esac
-  printf '%s' "$hash"
-}
-LAUNCH_HOME_TOKEN=$(spawn_launch_home_token "$FM_HOME") || LAUNCH_HOME_TOKEN=
-if [ -z "$LAUNCH_HOME_TOKEN" ]; then
-  echo "error: could not derive a home identity for the staged launch file" >&2
-  exit 1
-fi
-case "$SPAWN_GEN" in
-  *[!A-Za-z0-9.]*|'') echo "error: spawn incarnation token is not a usable launch-file nonce" >&2; exit 1 ;;
-esac
-LAUNCH_DIR="/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
 # Pane-scoped override: git in this worker reads our commit-msg strip without
 # rewriting the project's core.hooksPath. GIT_CONFIG_* takes precedence over
 # config files and is inherited by child git processes. Without an installed
@@ -8127,23 +8829,12 @@ if [ "$BACKEND" = t3code ]; then
   T3CODE_HOME_ENV=0
 else
   if ! (umask 077 && mkdir "$LAUNCH_DIR") 2>/dev/null; then
-    if [ -L "$LAUNCH_DIR" ] || [ ! -d "$LAUNCH_DIR" ] || [ ! -O "$LAUNCH_DIR" ] ||
-      [ -n "$(find "$LAUNCH_DIR" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ] ||
-      ! chmod 700 "$LAUNCH_DIR"; then
-      echo "error: task launch directory $LAUNCH_DIR already exists and is not a private directory owned by this user; refusing to stage the launch command there; inspect and remove it, then retry" >&2
-      exit 1
-    fi
+    chmod 700 "$LAUNCH_DIR" || exit 1
   fi
-  LAUNCH_FILE="$LAUNCH_DIR/launch.$SPAWN_GEN.sh"
-  LAUNCH_STAGE="$LAUNCH_DIR/.launch.$SPAWN_GEN.tmp"
   if [ "$ORCA_LAUNCH_ENV_ENABLED" = 1 ]; then
     # The sourcing shell already holds the open file; unlink the credentials
     # before launching the worker, including on a later command failure.
     LAUNCH="command rm -- $(shell_quote "$LAUNCH_FILE") || { echo 'error: cannot remove private launch file; refusing worker launch' >&2; return 1 2>/dev/null || exit 1; }; $LAUNCH"
-  fi
-  if [ -e "$LAUNCH_FILE" ] || [ -L "$LAUNCH_FILE" ]; then
-    echo "error: task launch file $LAUNCH_FILE already exists; refusing to replace it" >&2
-    exit 1
   fi
   if ! (umask 077 && printf '%s\n' "$LAUNCH" >"$LAUNCH_STAGE" &&
     chmod 0600 "$LAUNCH_STAGE" && mv -f "$LAUNCH_STAGE" "$LAUNCH_FILE"); then

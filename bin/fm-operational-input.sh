@@ -248,17 +248,33 @@ fm_operational_record_prune() {  # <record-dir>
 # Write one generic-kind record under <state-dir> and return its doorbell line.
 # Exits 2 for invalid input and 1 when the record cannot be published or its
 # physical path cannot be carried by a printable-ASCII doorbell.
+fm_operational_record_directory() {
+  local state=${1-} result=${2-} directory resolved
+  local LC_ALL=C
+  [ -n "$state" ] && [ -n "$result" ] || return 2
+  directory="$state/$FM_OPERATIONAL_RECORD_DIRNAME"
+  resolved=$directory
+  local suffix=''
+  while [ ! -e "$resolved" ] && [ ! -L "$resolved" ]; do
+    suffix="/${resolved##*/}$suffix"
+    resolved=$(dirname "$resolved")
+  done
+  resolved=$(cd -P "$resolved" 2>/dev/null && pwd -P) || return 1
+  resolved="${resolved%/}$suffix"
+  case "$resolved" in
+    *"'"*|*[![:print:]]*) return 1 ;;
+  esac
+  printf -v "$result" '%s' "$resolved"
+}
+
 fm_operational_record_write() {  # <state-dir> <kind> <body> <doorbell-var>
   local state=${1-} kind=${2-} body=${3-} result_var=${4-} encoded dir abs nonce name tmp
   local LC_ALL=C
   [ -n "$state" ] && [ -n "$result_var" ] || return 2
   fm_operational_input_encode "$kind" "$body" encoded || return 2
   dir="$state/$FM_OPERATIONAL_RECORD_DIRNAME"
+  fm_operational_record_directory "$state" abs || return 1
   mkdir -p "$dir" 2>/dev/null || return 1
-  abs=$(cd -P "$dir" 2>/dev/null && pwd -P) || return 1
-  case "$abs" in
-    *"'"*|*[![:print:]]*) return 1 ;;
-  esac
   nonce=$(od -An -N8 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
   case "$nonce" in ''|*[!0-9a-f]*) return 1 ;; esac
   name="$(date +%s)-$nonce.msg"

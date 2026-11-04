@@ -1383,9 +1383,6 @@ resolve_relaunch_profile() {
   else
     TARGET_EFFORT=default
   fi
-  if [ "$TARGET_EFFORT" = ultra ]; then
-    "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$TARGET_HARNESS" "$TARGET_MODEL" "$TARGET_EFFORT" || return 1
-  fi
   # The launch owner applies this home's worker account pin too, but only after
   # the old agent has been stopped, so a pin that no longer resolves or is
   # signed out must refuse here, while nothing has changed yet. Codex's opt-in
@@ -1395,7 +1392,7 @@ resolve_relaunch_profile() {
   [ "$KIND" != secondmate ] || account_mate=$ID
   local account_selection='' account_cwd='' codex_defer_default=0
   [ "$RELEASED" = 1 ] || account_cwd=$WT
-  if [ "$TARGET_HARNESS" = codex ] && { [ "$RELEASED" = 1 ] || [ "$KIND" = secondmate ]; } && [ -z "$account_model" ] &&
+  if [ "$TARGET_HARNESS" = codex ] && [ "$RELEASED" = 1 ] && [ -z "$account_model" ] &&
     { [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ] || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ]; }; then
     python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" || return 1
     codex_defer_default=1
@@ -1408,32 +1405,6 @@ resolve_relaunch_profile() {
     TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
     account_model=${account_selection##*$'\t'}
     TARGET_MODEL=$account_model
-  fi
-  fm_omp_profile_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_mate" >/dev/null || return 1
-  # Likewise polytoken's launch profile and wiring refusals
-  # (bin/fm-polytoken-lib.sh owns them). The launch owner retires the prior
-  # incarnation's own generated hook layer, so only one it did not generate
-  # refuses here.
-  if [ "$TARGET_HARNESS" = polytoken ]; then
-    local polytoken_bin polytoken_state
-    polytoken_bin=$(fm_polytoken_binary) || return 1
-    fm_polytoken_launch_ref "$polytoken_bin" "$TARGET_MODEL" "$TARGET_EFFORT" >/dev/null || return 1
-    polytoken_state=$(cd "$STATE" && pwd -P) || return 1
-    fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$polytoken_state" "$ID")" || return 1
-    # A released copy has no worktree yet: the launch owner checks the hook
-    # layer of the copy it recreates before arming anything there.
-    if [ "$RELEASED" = 0 ]; then
-      fm_control_harness_wiring_paths "$PRIOR_HARNESS" "$WT" "$STATE" "$ID" "$KIND" \
-          | grep -qxF "$(fm_polytoken_hooks_file "$WT")" \
-        || fm_polytoken_require_hooks_free "$WT" || return 1
-    fi
-  fi
-  # Likewise config/crew-exclude-tools: a malformed file, or a replacement
-  # runtime that cannot hide the listed tools, refuses here, before the old
-  # agent stops. Secondmate agents are not covered.
-  if [ "$KIND" != secondmate ]; then
-    fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
   fi
   # Likewise the spawn quota gate for an explicitly chosen harness. The launch
   # owner does not gate a relaunch this transaction drives, so this is the one
@@ -1479,7 +1450,7 @@ safe_checkpoint() {
   else
     die "task $ID's worktree HEAD cannot be inspected; refusing to relaunch from an unreadable checkout"
   fi
-  status_output=$(git -C "$WT" status --porcelain 2>/dev/null) \
+  status_output=$(GIT_OPTIONAL_LOCKS=0 git -C "$WT" status --porcelain 2>/dev/null) \
     || die "task $ID's worktree status cannot be inspected; refusing to relaunch without accounting for local changes"
   if [ -n "$status_output" ]; then
     dirty=yes
@@ -1569,47 +1540,6 @@ record_note() {
   esac
 }
 
-# Dynamic-scope locals preserve control's resolved context while the shared
-# admission readers use their ordinary globals, without a subshell boundary.
-relaunch_admission_preflight() {
-  local STATE=$STATE FM_HOME=$FM_HOME DATA=$DATA ID=$ID KIND=$KIND BACKEND=$BACKEND
-  local CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
-  local RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
-  local HARNESS=$TARGET_HARNESS MODEL=$TARGET_MODEL EFFORT=$TARGET_EFFORT
-  local RAW_LAUNCH=0 ARG3='' LAUNCH='' EXCLUDE_TOOLS=''
-  local DEVIN_BIN COMMANDCODE_BIN CORTEX_BIN PI_BIN CURSOR_BIN CURSOR_MODELS
-  local OMP_BIN OMP_WORKER_CFG AGY_BIN KIRO_BIN POLYTOKEN_BIN POLYTOKEN_MODEL_REF
-  local OMP_PROFILE_MATE OMP_PROFILE_RAW OMP_PROFILE_PIN
-  local MUSE_BIN MUSE_CONFIG_HOME MUSE_DATA_HOME MUSE_AUTH_FILE KIMI_BIN ROVO_BIN
-  local LAUNCH_ENV_ENABLED LAUNCH_ENV_NAMES
-  local BACKLOG_TRANSITION BACKLOG_ROW_STATE BACKLOG_GATE_STATUS spawn_preflight_actor
-  local FM_BACKLOG_TRANSITION_SKIP FM_BACKLOG_TRANSITION_ERROR FM_BACKLOG_ROW_RESULT
-  local FM_BACKLOG_ROW_STATE FM_BACKLOG_ROW_ERROR FM_BACKLOG_ROW_HOLD_KIND
-  # shellcheck source=bin/fm-tasks-axi-lib.sh
-  . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
-  # shellcheck source=bin/fm-backlog-transition-lib.sh
-  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
-  # shellcheck source=bin/fm-project-capacity-lib.sh
-  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
-  # shellcheck source=bin/fm-capacity-lib.sh
-  . "$SCRIPT_DIR/fm-capacity-lib.sh"
-  # shellcheck source=bin/fm-spawn-admission-lib.sh
-  . "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
-  # shellcheck source=bin/fm-config-inherit-lib.sh
-  . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
-  # shellcheck source=bin/fm-cursor-lib.sh
-  . "$SCRIPT_DIR/fm-cursor-lib.sh"
-  fm_backend_validate_spawn "$BACKEND" || return $?
-  fm_spawn_launch_env_admit || return $?
-  fm_spawn_adapter_admit || return $?
-  fm_spawn_backlog_admit || return $?
-  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
-  if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
-    echo "error: task $ID has a pending authoritative backlog close; finish or repair it before relaunch" >&2
-    return 1
-  fi
-}
-
 do_relaunch() {
   local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
@@ -1656,8 +1586,13 @@ do_relaunch() {
     do_relaunch_released "$note_line"
     return
   fi
-  relaunch_admission_preflight || exit $?
   safe_checkpoint
+  spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
+  [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
+  [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
+  FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
+    "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" --admission-only >/dev/null || exit $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"
@@ -1674,10 +1609,6 @@ do_relaunch() {
   # per-task harness wiring before arming the new one, so nothing to do here.
   RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
   journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
-  spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
-  [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
-  [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
-  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
@@ -1696,18 +1627,21 @@ do_relaunch() {
        && [ -n "$FM_BACKEND_VALIDATED_TARGET" ]; then
       T=$FM_BACKEND_VALIDATED_TARGET
     else
-      die "the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row), so this transaction cannot say which endpoint to confirm it on; reconcile $META before any further control action"
+      die "commit-phase failure: the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row), so this transaction cannot say which endpoint to confirm it on; reconcile $META before any further control action"
     fi
   else
     spawn_status=$?
     [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ] \
       || RELAUNCH_META_PUBLISHED=1
-    [ "$spawn_status" -ne 75 ] || exit 75
-    die "the replacement agent for $ID could not be launched on $TARGET_HARNESS"
+    if [ "$spawn_status" = 75 ]; then
+      echo "error: commit-phase failure: replacement spawn for $ID was deferred after its old agent stopped" >&2
+      exit 75
+    fi
+    die "commit-phase failure: the replacement agent for $ID could not be launched on $TARGET_HARNESS"
   fi
 
   state=$(wait_agent_state "$LAUNCH_WAIT" alive) || {
-    die "the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
+    die "commit-phase failure: the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
   }
   RELAUNCH_AGENT_CONFIRMED=1
 
