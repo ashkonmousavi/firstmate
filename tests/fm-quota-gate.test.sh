@@ -8,6 +8,40 @@ export FM_TEST_FIXTURE_IMPORT=spawn-quota
 . "$ROOT/tests/fm-spawn-dispatch-profile.test.sh"
 unset FM_TEST_FIXTURE_IMPORT
 
+# The home setting changes admission, retaining the same snapshot and ranking.
+for setting_case in absent rank-only invalid empty blank multiline; do
+  id="quota-setting-$setting_case"
+  quota_gate_case "$id" grok "$id" short:7200
+  case "$setting_case" in
+    absent) ;;
+    rank-only) printf 'rank-only\n' > "$HOME_DIR/config/quota-gate" ;;
+    invalid) printf 'typo\n' > "$HOME_DIR/config/quota-gate" ;;
+    empty) : > "$HOME_DIR/config/quota-gate" ;;
+    blank) printf ' \n' > "$HOME_DIR/config/quota-gate" ;;
+    multiline) printf 'rank-only\n\n' > "$HOME_DIR/config/quota-gate" ;;
+  esac
+  for attempt in 1 2; do
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness grok --model grok-4.7); rc=$?
+    if [ "$setting_case" = rank-only ]; then
+      expect_code 0 "$rc" "rank-only must admit the short-runway launch: $out"
+      assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "setting notice missing"
+      assert_contains "$out" 'best alternative: provider codex' "rank-only lost ranking"
+      assert_no_grep 'quota_override=' "$HOME_DIR/state/$id.meta" "setting invented an override"
+      break
+    fi
+    expect_code 1 "$rc" "$setting_case must retain refusal: $out"
+    if [ "$setting_case" != absent ]; then
+      if [ "$attempt" = 1 ]; then
+        assert_contains "$out" 'expected rank-only' "invalid setting needs a diagnostic"
+      else
+        assert_not_contains "$out" 'expected rank-only' "unchanged invalid setting reported twice"
+      fi
+    fi
+  done
+done
+pass "home quota setting admits with notice; absent and invalid values retain refusal and warn once"
+
 test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
 test_quota_alternatives_obey_launch_capabilities
 test_secondmate_quota_refusal_names_a_supported_alternative
@@ -313,6 +347,22 @@ POLY
   done
   pass "explicit $quota_harness relaunch refuses exhausted quota before stopping its agent"
 done
+
+for lifecycle in ordinary released; do
+  id="quota-setting-control-$lifecycle"
+  dir=$(new_case "$id" "$id")
+  if [ "$lifecycle" = released ]; then add_released_ship_task "$dir" "$id"; else add_ship_task "$dir" "$id" claude; fi
+  printf 'grok' > "$dir/fake/becomes"
+  printf 'rank-only\n' > "$dir/home/config/quota-gate"
+  printf '%s\n' '{"default":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol"}]}' > "$dir/home/config/crew-dispatch.json"
+  fm_test_quota_snapshot "$dir/quota.json" short:7200
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok --model grok-4.7 --note 'home quota setting'); rc=$?
+  expect_code 0 "$rc" "rank-only must admit $lifecycle control relaunch: $out"
+  [ "$(meta_field "$dir" "$id" harness)" = grok ] || fail "rank-only did not relaunch"
+  [ "$(printf '%s\n' "$out" | grep -c 'proceeding under config/quota-gate=rank-only')" = 1 ] || fail "setting notice lost or duplicated: $out"
+  assert_no_grep 'quota_override=' "$dir/home/state/$id.meta" "setting invented an override"
+done
+pass "rank-only covers ordinary and released control relaunch without an override"
 
 for lifecycle in ordinary released; do
   for delegation_case in refuse override notice; do

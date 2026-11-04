@@ -112,6 +112,7 @@
 # use fm-spawn.sh's static crew harness.
 # With shared_quota=true, eligible defaults retain declared order without
 # requesting a quota snapshot or applying quota ranking.
+# config/quota-gate=rank-only keeps tight defaults in the same quota ranking.
 # A spawn whose own quota gate refuses moves to the next candidate.
 #
 # RECORDS. Ready-queue decisions in state/autolaunch.log, append-only:
@@ -551,7 +552,8 @@ check_item() {
 # outcome for the rest of the pass.
 QUOTA_SNAP=
 default_candidates() {
-  local kind=$1 backend=$2 defaults all snap resolved='[]' eligible='[]' p r h
+  local kind=$1 backend=$2 defaults all snap resolved='[]' eligible='[]' p r h rank_only=false
+  fm_quota_gate_rank_only "$CONFIG" && rank_only=true
   DEFAULT_REFUSAL=
   defaults=$(jq -c '
     def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
@@ -589,14 +591,19 @@ default_candidates() {
     resolved=$(jq -c --argjson r "$r" '. + [$r]' <<<"$resolved")
   done < <(jq -c '.[]' <<<"$defaults")
   FM_QUOTA_GATE_HORIZON_SECONDS=$FM_QUOTA_GATE_HORIZON_SECONDS jq -r -n \
-    --slurpfile quota "$snap" --argjson cands "$resolved" \
+    --slurpfile quota "$snap" --argjson cands "$resolved" --argjson rank_only "$rank_only" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'
     ($quota[0]) as $q | now as $now |
-    [$cands[] | quota_gate_verdict($q; .; $now)] as $v |
-    ([$v[] | select(.verdict == "pass" and (.spendPriority | type) == "number")] | sort_by(-.spendPriority))
-    + [$v[] | select(.verdict == "notice" or (.verdict == "pass" and (.spendPriority | type) != "number"))]
+    [$cands[] | quota_gate_verdict($q; .; $now)
+     # Refused rows retain bounds but normally omit the ranking scalar.
+     # Reuse the same limiting-bound minimum when enforcement is disabled.
+     | if $rank_only and .verdict == "refuse" and ((.bounds // []) | length) > 0
+          and all(.bounds[]; (.spendPriority | type) == "number")
+       then . + {spendPriority: ([.bounds[].spendPriority] | min)} else . end] as $v |
+    ([$v[] | select((.verdict == "pass" or $rank_only) and (.spendPriority | type) == "number")] | sort_by(-.spendPriority))
+    + [$v[] | select((.verdict == "notice" and ($rank_only | not)) or ((.verdict == "pass" or $rank_only) and (.spendPriority | type) != "number"))]
     | (.[] | "cand\t\(.profile.harness)\t\(.profile.model // "")\t\(.profile.effort // "")"),
-      ([$v[] | select(.verdict == "refuse")] | first | select(. != null)
+      ([$v[] | select(.verdict == "refuse" and ($rank_only | not))] | first | select(. != null)
        | "refused\t\(.profile.harness):\(.profile.model // "-") \(.reason // "refused")")' 2>/dev/null \
     > "$TMPD/defaults.tsv" || return 0
   DEFAULT_REFUSAL=$(sed -n 's/^refused\t//p' "$TMPD/defaults.tsv" | head -1)

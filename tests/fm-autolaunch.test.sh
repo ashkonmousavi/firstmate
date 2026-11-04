@@ -367,6 +367,21 @@ assert_not_contains "$(cat "$FAKE/spawn.log")" 'claude' 'an exhausted default is
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'codex' 'a short-runway default is never tried'
 pass 'defaults rank by spendPriority and exhausted or short-runway profiles are skipped'
 
+# Even when every default is tight, rank-only retains spendPriority order.
+reset 1
+printf '%s\n' '- [ ] rank-only - prepared (repo: proj) (kind: ship)' | backlog
+prep rank-only proj
+printf 'rank-only\n' > "$H/config/quota-gate"
+printf '%s\n' '{"default":[{"harness":"claude","model":"opus"},{"harness":"codex","model":"gpt-5.5"}]}' > "$H/config/crew-dispatch.json"
+jq '(.providers[].quotaSemantics.effectiveAvailability[]) |=
+  (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now") |
+  (.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 9' \
+  "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/rank-only.json"
+FM_QUOTA_SNAPSHOT_FILE="$FAKE/rank-only.json" bash "$AL" >/dev/null 2>&1
+assert_equals $'codex:gpt-5.5\tlaunched' "$(cut -f4,5 "$LOG" | head -1)" 'rank-only retains exhausted defaults and ranks them'
+rm "$H/config/quota-gate"
+pass 'rank-only autolaunch never removes a default because of quota'
+
 reset 0
 printf '%s\n' '- [ ] snap-1 - prepared (repo: proj) (kind: ship)' \
   '- [ ] snap-2 - prepared (repo: proj) (kind: ship)' \
