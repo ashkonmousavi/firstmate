@@ -246,6 +246,14 @@ def claims(text):
                     break
 
 
+CAPACITY_GUIDANCE = ("Run activity.sh successfully in this turn as its own Bash command; "
+                     "printing its source is not a read. A pipe, chain or subshell (|, ;, &&, ||, &, "
+                     "parentheses) hides its exit status, so that run does not count: redirect only "
+                     "stdout (> file, without 2>&1) and filter in a later command; the tool result "
+                     "already reports its exit status, so do not append echo $?. "
+                     "check-wake prose is not a read.")
+
+
 def read_commands(command, deadline, cwd=None):
     """Recognize executable reads, not quoted examples or write subcommands."""
     if len(command) > 16384 or "<<" in command:
@@ -418,7 +426,7 @@ def main():
         reads = None
     if reads is None or time.monotonic() > deadline:
         if capacity_claim:
-            print('State claim needs a same-turn activity.sh read (capacity); check-wake prose is not a read.', file=sys.stderr)
+            print('State claim needs a same-turn activity.sh read (capacity).\n' + CAPACITY_GUIDANCE, file=sys.stderr)
             return 2
         return 0
     for family, sentence, pr_ids in unsupported:
@@ -440,7 +448,7 @@ def main():
             if not capacity_claim:
                 marker.parent.mkdir(parents=True, exist_ok=True)
                 marker.write_text(message_hash)
-            guidance = ("Read activity.sh successfully in this turn; check-wake prose is not a read."
+            guidance = (CAPACITY_GUIDANCE
                         if capacity_claim else
                         "Read that state now, correct the claim, or qualify it with 'last read at'. "
                         "This claim check blocks only once.")

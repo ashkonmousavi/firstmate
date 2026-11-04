@@ -97,6 +97,17 @@ for human in (user, {"type": "user", "message": {"content": [
     call, result = tool(activity_read)
     check("human text resets pending capacity: " + repr(human), "There are 7 free lanes.",
           rows=[user, call, human, result], capacity_read=False)
+# A Bash result reports only the last pipeline/chain stage, so a piped or
+# chained read cannot prove activity.sh succeeded. The refusal must say so,
+# or the agent repeats the same refused read (MAIN 593af4e3, 2026-11-04).
+saved = lab / "activity-saved.txt"
+for command in (f"{activity_read} | awk '/lanes/' | sort | uniq -c",
+                f"{activity_read} > {saved}; echo rc=$?"):
+    check("piped or chained capacity read names standalone form: " + command,
+          "There are 7 free lanes.", [command], capacity_read=False,
+          expected_hint="as its own Bash command")
+check("standalone capacity read redirected to a file counts", "There are 7 free lanes.",
+      [f"{activity_read} > {saved}"], capacity_read=False, expected=0)
 
 
 check("planted queue claim without read blocks and names claim", "PR https://github.com/example/repo/pull/9 is in the queue.",
