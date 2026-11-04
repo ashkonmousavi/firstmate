@@ -1952,6 +1952,24 @@ test_dialog_note_skips_the_match_when_no_sink_is_set() {
   pass "a dialog note without a sink skips the match, and release leaves a caller RETURN trap"
 }
 
+test_submit_retry_obeys_control_exit_guard() (
+  local out enters
+  FM_TEST_PICKER_SCREEN=$(quoted_exit_picker_screen)
+  FM_TEST_PICKER_ENTERS=$(mktemp)
+  # The first Enter opens a vendor surface the older dialog sink cannot
+  # recognize. A control guard must still stop the next Enter.
+  # shellcheck disable=SC2329 # Called by fm_composer_submit_retry_core in the imported library.
+  fm_control_lane_release_guard() { [ ! -s "$FM_TEST_PICKER_ENTERS" ]; }
+  fm_composer_dialog_sink_prepare || fail 'could not prepare submit dialog sink'
+  out=$(fm_composer_submit_retry_core fm_test_picker_send fm_test_picker_state win 3 0)
+  enters=$(grep -c '^Enter$' "$FM_TEST_PICKER_ENTERS" || true)
+  [ "$out" = unknown ] || fail "a refused retry must return unknown, got $out"
+  [ "$enters" = 1 ] || fail "a refused retry sent $enters Enters"
+  fm_composer_dialog_sink_release
+  rm -f "$FM_TEST_PICKER_ENTERS"
+  pass 'shared submit loop obeys the control exit guard before a confirming retry'
+)
+
 test_quoted_exit_picker_text_is_not_a_dialog() {
   local screen out rc sink enters
   screen=$(quoted_exit_picker_screen)
@@ -2008,6 +2026,7 @@ test_claude_background_shell_count_is_read_below_the_composer
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog
+test_submit_retry_obeys_control_exit_guard
 
 test_composerless_capture_is_unknown_not_pending() {
   local fill screen caps reason

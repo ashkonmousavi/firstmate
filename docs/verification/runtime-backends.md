@@ -790,7 +790,8 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 
 ## Claude background exit
 
-Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+The live guard's control arm disables Firstmate's launch safeguards and exercises a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+The [background-task exit picker measurement](#claude-background-task-exit-picker) records the shell dialog with the handoff disabled.
 Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
 The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
@@ -2237,21 +2238,33 @@ ok - live Herdr submit confirm: Claude Code (2.1.301 (Claude Code)) on herdr 0.9
 
 ### Claude background-task exit picker
 
-Measured 2026-10-05 against Claude Code 2.1.289 in an isolated tmux session.
-The Herdr lab was not running, so the Herdr path is covered by the existing fakes.
-Typing `/exit` while a background shell is still running opens a picker whose selected row is "Exit and stop tasks" and whose footer is "Enter to confirm · Esc to cancel".
-That screen still classifies as pending, the same verdict as unsubmitted composer text.
-A second Enter would confirm the selected row.
-The picker is recognised by its recorded structure only: the heading on its own line, then the selected row alone on its row, with `Enter to confirm · Esc to cancel` as the last non-blank row.
-The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
-Submit retries now stop after the Enter that opened the picker and report unknown.
-A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
-`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release without accepting the task, validated lane release without backlog Done, and refusal for unauthorized tasks and secondmates.
-Its tmux and Herdr adapter cases include a compatible-client retry and refusal after the busy state, generation, live dialog or viewport changes.
-That coverage uses stubbed panes and a fake Herdr CLI, with no live Claude or Herdr run; the picker's recorded structure is unchanged.
-A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out and applies the same authorization boundary there.
-Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
+Measured 2026-11-04 against Claude Code 2.1.318 and Herdr 0.9.5 in an isolated named Herdr lab.
+The real `/exit` dialog lists `shell · sleep 120`, `1. Exit and stop tasks`, `2. Stay`, and `Enter to confirm · Esc to cancel`, followed by another composer and status footer.
+The strict last-row matcher below misses that layout; the control-plane shell protection in [`fm_control_background_shell_running`](../../bin/fm-control-lib.sh) accepts the captured dialog with its trailing composer or an independent positive shell status count.
+The live guard uses Claude bash mode and submits no model prompt.
+Refresh with `FM_CONTROL_CLAUDE_BUSY_LIVE=1 bash tests/fm-control-claude-busy-live-e2e.test.sh` after a Claude or Herdr upgrade.
+Exact result:
+
+```text
+# harness: 2.1.318 (Claude Code); transport: Herdr 0.9.5
+ok - Claude 2.1.318 (Claude Code): real background-shell exit dialog recognized with no confirmation sent
+```
+
+[`tests/fm-control.test.sh`](../../tests/fm-control.test.sh) replays the captured viewport through executable exit and relaunch, independently blinds the dialog and status-count signals, and verifies status 75, no lifecycle input, and real process survival.
+It also keeps a real `fm-send` waiting in its transport and verifies that exit preserves it and its unacknowledged steer.
+[`tests/fm-remote-secondmate-relaunch.test.sh`](../../tests/fm-remote-secondmate-relaunch.test.sh) verifies that status 75 and its reason survive the remote path without changing the parent's record.
+These caller outcomes use fixtures; the live guard proves the vendor surface rather than claiming a live remote relaunch.
+Other harnesses have no changed dialog mechanics; the portable adapter suite verifies their existing exit commands, and explicitly rejects Claude shell surfaces for those adapters.
+
+The composer-level matcher retains the structure measured on 2026-10-05 against Claude Code 2.1.289: a heading on its own line, the selected `Exit and stop tasks` row, and `Enter to confirm · Esc to cancel` as the last nonblank row.
+The same strings quoted above a normal composer do not satisfy that strict matcher.
+A typed submit that recognizes the picker sends no Enter, and its retry loop stops after an Enter opens one.
+The control-plane exit guard also runs before submit retries, covering a shell dialog that cannot fill the older dialog sink.
+Non-shell picker confirmation follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
+`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release, validated lane release, unauthorized tasks, and secondmates using non-shell fixture work.
+Its tmux and Herdr cases include compatible-client retry and refusal after the busy state, generation, live dialog, or viewport changes.
+A stopped agent whose pane retains dialog text is not treated as busy.
+The confirmation cases use fixtures; the live shell-dialog measurement above proves the vendor surface.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.
 A worker pane parked on it keeps the ordinary stale triage and schedule, and its plain stale reason and its final wedge escalation reason name the picker after `blocked-on-prompt:`; the deferral, dead-record, and declared-wait recheck reasons do not.
 A second mate stays off that path, and a finished worker in away mode is handled as before.
