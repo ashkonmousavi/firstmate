@@ -33,6 +33,8 @@ SCRIPT_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
 # shellcheck source=bin/fm-afk-contract.sh
 . "$SCRIPT_DIR/fm-afk-contract.sh"
+# shellcheck source=bin/fm-secondmate-park-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-park-lib.sh"
 
 DRAIN_TMP=
 DRAIN_VIEW_TMP=
@@ -470,6 +472,38 @@ EOF
 # fm-classify-lib.sh's "incremental (cursor-backed) open-decisions fold").
 # Bounded and silent: prints nothing when no decision is open, which is the
 # common case.
+# Hide owner-parked secondmates' open decisions from the drain summary only.
+# Hide only CLASS=parked. Unsafe, symlink, bad date, empty id, and a missing
+# config stay visible. An empty FM_CONFIG_OVERRIDE is not a config directory.
+# shellcheck shell=bash
+
+# fm_wake_decision_hidden_by_owner_park <task-id>
+# Return 0 when the line must be omitted. Return 1 when it must be shown.
+# Does not unset FM_CONFIG_OVERRIDE or FM_HOME. Does not edit the status file.
+fm_wake_decision_hidden_by_owner_park() {
+  local id=$1 config
+  case "$id" in
+    ''|*[!A-Za-z0-9._-]*)
+      return 1
+      ;;
+  esac
+  if [ -n "${FM_CONFIG_OVERRIDE+x}" ] && [ -z "${FM_CONFIG_OVERRIDE}" ]; then
+    return 1
+  fi
+  if [ -n "${FM_CONFIG_OVERRIDE:-}" ]; then
+    config=$FM_CONFIG_OVERRIDE
+  elif [ -n "${FM_HOME:-}" ]; then
+    config=$FM_HOME/config
+  else
+    return 1
+  fi
+  if fm_secondmate_owner_parked "$config" "$id"; then
+    [ "${FM_SECONDMATE_OWNER_PARK_CLASS:-}" = parked ]
+    return
+  fi
+  return 1
+}
+
 print_open_decisions_section() {
   local snapshot=${1:-} open task key verb note line item_bytes=220 global_bytes=4000
   local output='' used=0 shown=0 omitted=0 bytes
@@ -483,6 +517,7 @@ print_open_decisions_section() {
 
   while IFS=$(printf '\t') read -r task key verb note; do
     [ -n "$task" ] || continue
+    fm_wake_decision_hidden_by_owner_park "$task" && continue
     line="$task"
     [ "$key" = default ] || line="$line [key=$key]"
     line="$line $verb: $note"

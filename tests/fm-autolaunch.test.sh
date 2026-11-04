@@ -75,6 +75,119 @@ field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
 }
 
+# --- x-prep persona, Doctor and XAI surface admission -------------------------
+reset 2
+mkdir -p "$H/projects/NOT_Q"
+backlog <<'MD'
+- [ ] persona-missing - standard screen (repo: NOT_Q) (kind: ship)
+- [ ] doctor-missing - add an XAI tool (repo: NOT_Q) (kind: ship)
+- [ ] surface-missing - changed system prompt (repo: NOT_Q) (kind: ship)
+- [ ] valid-persona - complete full prep (repo: NOT_Q) (kind: ship)
+- [ ] small-persona - small fix (repo: NOT_Q) (kind: ship)
+- [ ] legacy-persona - legacy prep (repo: NOT_Q) (kind: ship)
+MD
+for id in persona-missing doctor-missing surface-missing valid-persona small-persona legacy-persona; do prep "$id" NOT_Q; done
+printf '%s\n' 'DOCTOR: no Doctor change; because this changes only labels.' 'XAI-SURFACE: none; because labels only.' >> "$H/data/persona-missing/prep.md"
+printf '%s\n' 'PERSONA: researcher new to X; see the same strategy evidence.; surfaces=chat; usage=beginner' 'SCOPE: openwebui/tools/new_tool.py' 'XAI-SURFACE: tool openwebui/tools/new_tool.py' >> "$H/data/doctor-missing/prep.md"
+printf '%s\n' 'PERSONA: researcher familiar with X; observe unchanged factual evidence.; surfaces=pages; usage=experienced' 'DOCTOR: knowledge question for the changed prompt; expected evidence.' >> "$H/data/surface-missing/prep.md"
+printf '%s\n' 'PERSONA: admin/owner familiar with X; grants unchanged; observe saved settings.; surfaces=pages; usage=experienced' 'DOCTOR: battery Read-settings; expected saved settings.' 'XAI-SURFACE: tool Read-settings' >> "$H/data/valid-persona/prep.md"
+printf '%s\n' 'SLICE: main/labels; PERSONA: expert trader new to X; unchanged figures.; surfaces=chat; usage=beginner' 'PROOF: existing label check, unchanged factual outcome.' 'DOCTOR: no Doctor change; because this changes labels only.' 'XAI-SURFACE: none; because labels only.' > "$H/data/small-persona/prep.md"
+# Fixed introduction date: 2026-11-03 Pacific midnight, not the filing date.
+python3 - "$H" <<'PY'
+import os, sys
+from pathlib import Path
+h = Path(sys.argv[1])
+for name in ('persona-missing', 'doctor-missing', 'surface-missing', 'valid-persona', 'small-persona'):
+    os.utime(h / 'data' / name / 'prep.md', (1793692800, 1793692800))
+os.utime(h / 'data/legacy-persona/prep.md', (1793692799, 1793692799))
+PY
+list=$(bash "$AL" --list-prepared 2>&1)
+assert_equals $'valid-persona\nsmall-persona\nlegacy-persona' "$list" 'new X preps require PERSONA, DOCTOR and XAI-SURFACE; pre-cutoff prep has dated grace'
+bash "$AL" >/dev/null 2>&1
+for pair in persona-missing:PERSONA doctor-missing:DOCTOR surface-missing:XAI-SURFACE; do
+  id=${pair%:*} label=${pair#*:}
+  assert_contains "$(cat "$LOG")" "$id"$'\t-\trefused:not prepared: '"$label missing" "missing $label refusal is actionable"
+  assert_not_contains "$(cat "$FAKE/spawn.log")" "$id " "missing $label never reaches spawn"
+done
+assert_contains "$(cat "$FAKE/spawn.log")" 'valid-persona ' 'complete full prep reaches spawn'
+assert_contains "$(cat "$FAKE/spawn.log")" 'small-persona ' 'small fix uses persona in SLICE'
+printf '%s\n' 'PERSONA: tester/debugger familiar with X; reproduce the same visible result.; surfaces=pages; usage=experienced' >> "$H/data/persona-missing/prep.md"
+printf '%s\n' 'DOCTOR: knowledge question for the new tool; expected invocation and refusal.' >> "$H/data/doctor-missing/prep.md"
+printf '%s\n' 'XAI-SURFACE: system prompt openwebui/system-prompt.md' >> "$H/data/surface-missing/prep.md"
+assert_equals $'persona-missing\ndoctor-missing\nsurface-missing\nvalid-persona\nsmall-persona\nlegacy-persona' "$(bash "$AL" --list-prepared)" 'adding the missing lines admits the same tasks'
+touch "$H/data/legacy-persona/prep.md"
+assert_not_contains "$(bash "$AL" --list-prepared)" 'legacy-persona' 'revised legacy prep loses grace'
+
+# One complete task, then one malformed declaration at a time, at the CLI seam.
+for invalid in persona-empty doctor-empty surface-empty persona-template doctor-reason surface-reason fenced; do
+  reset 1
+  printf '%s\n' '- [ ] malformed - X prep (repo: NOT_Q) (kind: ship)' | backlog
+  prep malformed NOT_Q
+  persona='PERSONA: researcher new to X; see the same evidence.; surfaces=chat; usage=beginner'
+  doctor='DOCTOR: no Doctor change; because labels only.'
+  surface='XAI-SURFACE: none; because labels only.'
+  case "$invalid" in
+    persona-empty) persona='PERSONA:   ' ;;
+    doctor-empty) doctor='DOCTOR:   ' ;;
+    surface-empty) surface='XAI-SURFACE:   ' ;;
+    persona-template) persona='PERSONA: job/outcome; market expertise; familiarity with X and its terms; explanation preference; desired automation; access principal/grants; starting profile/card state; observable success.' ;;
+    doctor-reason) doctor='DOCTOR: no Doctor change; because' ;;
+    surface-reason) surface='XAI-SURFACE: none' ;;
+  esac
+  if [ "$invalid" = fenced ]; then
+    printf '%s\n' '```' "$persona" "$doctor" "$surface" '```' > "$H/data/malformed/prep.md"
+  else
+    printf '%s\n' "$persona" "$doctor" "$surface" > "$H/data/malformed/prep.md"
+  fi
+  assert_equals '' "$(bash "$AL" --list-prepared)" "$invalid cannot satisfy admission"
+done
+printf '%s\n' '**PERSONA:** researcher new to X; surfaces=chat; usage=beginner' '**DOCTOR:** no Doctor change; because labels only.' '**XAI-SURFACE:** none; because labels only.' > "$H/data/malformed/prep.md"
+assert_equals 'malformed' "$(bash "$AL" --list-prepared)" 'real Markdown fields count'
+# The brief cannot supply a line missing from the selected linked prep.
+printf '%s\n' 'PERSONA: example; surfaces=pages; usage=experienced' 'DOCTOR: battery example' 'XAI-SURFACE: tool example' >> "$H/data/malformed/brief.md"
+mkdir -p "$H/data/shared-prep"
+printf '%s\n' 'PERSONA: researcher new to X; surfaces=chat; usage=beginner' 'DOCTOR: battery Read-settings' > "$H/data/shared-prep/prep.md"
+rm "$H/data/malformed/prep.md"
+printf '%s\n' '- [ ] malformed - X prep (repo: NOT_Q) (kind: ship)' '  Prep: data/shared-prep/prep.md' | backlog
+assert_equals '' "$(bash "$AL" --list-prepared)" 'linked prep must carry its own XAI-SURFACE'
+printf '%s\n' 'XAI-SURFACE: tool Read-settings' >> "$H/data/shared-prep/prep.md"
+assert_equals 'malformed' "$(bash "$AL" --list-prepared)" 'correcting the linked prep admits it'
+# Page+chat outcome: neither middle-only nor either endpoint alone suffices.
+reset 1
+printf '%s\n' '- [ ] dual-channel - same outcome on page and chat (repo: NOT_Q) (kind: ship)' | backlog
+prep dual-channel NOT_Q
+for usage in middle beginner experienced; do
+  printf '%s\n' "PERSONA: researcher; surfaces=pages,chat; usage=$usage; same factual outcome." 'DOCTOR: battery Read-settings; expected unchanged settings.' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+  assert_equals '' "$(bash "$AL" --list-prepared)" "page+chat prep with $usage only misses beginner/experienced coverage"
+done
+printf '%s\n' 'PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced,middle; same task and facts.' 'DOCTOR: battery Read-settings; expected unchanged settings.' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+assert_equals 'dual-channel' "$(bash "$AL" --list-prepared)" 'beginner chat-first and experienced pages-only coverage admits the same dual-channel slice'
+for declarations in \
+  'surfaces=pages/chat; usage=middle' \
+  'surfaces=pages+chat; usage=middle' \
+  'surfaces=pages chat; usage=middle' \
+  'surfaces=pages,chat/other; usage=beginner,experienced' \
+  'surfaces=pages,chat; usage=beginner,experienced/other' \
+  'surfaces=pages,chat; usage=beginner,experienced+middle' \
+  'surfaces=pages,chat; usage=beginner,experienced middle' \
+  'surfaces=pages,chat; usage=beginner,experienced2'; do
+  printf '%s\n' "PERSONA: researcher; $declarations" 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+  assert_equals '' "$(bash "$AL" --list-prepared)" "malformed declaration is not prefix-admitted: $declarations"
+done
+for declarations in \
+  'surfaces=pages; usage=experienced' \
+  'surfaces=chat; usage=beginner' \
+  'surfaces=pages,chat; usage=beginner,experienced' \
+  'surfaces=none; usage=none'; do
+  printf '%s\n' "PERSONA: researcher; $declarations; same factual outcome." 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+  assert_equals 'dual-channel' "$(bash "$AL" --list-prepared)" "complete declaration is admitted: $declarations"
+done
+# Missing declarations cannot silently classify a dual-channel slice as single-channel.
+printf '%s\n' 'PERSONA: researcher; same outcome.' 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+assert_equals '' "$(bash "$AL" --list-prepared)" 'persona must name surfaces and usage styles'
+pass 'X prep PERSONA/DOCTOR/XAI-SURFACE refusal, correction, small fix, Markdown, linked prep, dated grace and usage coverage'
+[ "${1:-}" != --x-prep-only ] || exit 0
+
 # --- launch and stale blocked-by -------------------------------------------
 reset 2
 backlog <<'MD'
@@ -423,8 +536,8 @@ laptop_layout() {  # <free lanes>
     printf 'Delivery contract: mode=direct-PR\nShip branch: %s\n' "$id" > "$H/data/$id/brief.md"
   done
   mkdir -p "$H/data/x-prep-region-registry" "$H/data/x-no-brief" "$H/data/x-plan"
-  printf 'prep\n' > "$H/data/x-prep-region-registry/prep.md"
-  printf 'prep\n' > "$H/data/x-engine-account-currency/prep.md"
+  printf 'PERSONA: admin/owner new to X; observe the saved region; surfaces=chat; usage=beginner\nDOCTOR: no Doctor change; because registry-only fixture.\nXAI-SURFACE: none; because registry-only fixture.\n' > "$H/data/x-prep-region-registry/prep.md"
+  printf 'PERSONA: trader familiar with X; observe the account currency; surfaces=pages; usage=experienced\nDOCTOR: battery Read-settings, expected saved currency.\nXAI-SURFACE: tool Read-settings\n' > "$H/data/x-engine-account-currency/prep.md"
   printf 'prep\n' > "$H/data/x-ops-task/prep.md"
   printf 'prep\n' > "$H/data/x-no-brief/prep.md"
   printf 'plan\n' > "$H/data/x-plan/plan.md"
@@ -628,10 +741,11 @@ assert_absent "$H/state/autolaunch.check.sh" 'disarm removes the shim'
 assert_absent "$H/state/autolaunch.check-trust" 'disarm retires trust through the shared owner'
 bash "$CHECK" disarm >/dev/null || fail 'repeated disarm must succeed'
 out=$(bash "$AL" --print-timer)
-assert_contains "$out" "Environment=FM_HOME=$H" 'timer proposal pins FM_HOME'
+assert_contains "$out" "Environment=\"FM_HOME=$H\"" 'timer proposal pins FM_HOME'
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'
 pass 'the check arms through fm-check-register and the timer is only a printed proposal'
 
 # The step-pass matrix uses this same executable seam and hermetic task store.
+[ "${1:-}" != --launch-only ] || exit 0
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'

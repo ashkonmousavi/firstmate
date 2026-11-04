@@ -7,6 +7,8 @@ import base64
 import hashlib
 import json
 import os
+import shutil
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -611,6 +613,71 @@ done
                 self.assertEqual(self.run_pass().returncode, 0)
                 self.assertEqual(self.run_pass().returncode, 0)
                 self.assertEqual(len(self.completed("cut-delivery")), 1)
+
+    def test_tests_ready_literal_forms_advance_once(self):
+        for form in ("commit=none", "none", "commit=<sha>"):
+            for cut in (False, True):
+                with self.subTest(form=form, cut=cut):
+                    self.setUp()
+                    commit = "none"
+                    if form == "commit=<sha>":
+                        git = ["git", "-C", str(self.home / "projects/proj")]
+                        subprocess.run(git + ["init", "-q", "-b", "fm/owner"], check=True)
+                        subprocess.run(git + ["-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                                              "commit", "--allow-empty", "-qm", "existing tests"], check=True)
+                        commit = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                    phrase = "tests-ready " + form.replace("<sha>", commit)
+                    self.seed("tests", "prep:r1", tester="special-tester", revision="r1")
+                    self.meta("special-tester", "opus", "st.1.1")
+                    self.write("fake/agent-owner", "alive")
+                    if cut:
+                        self.seed("tests", "cut:owner@1:r1:tester", revision="r1")
+                        self.append_status("owner", "working [at=2]: cut ready data/owner/prep.md r1 walk_changed=yes risk_changed=no")
+                    self.append_status("special-tester", f"done [at=3]: {phrase} revision=r1 walk-list=screen-a,screen-b checks=existing")
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    key = "cut:owner@1:r1" if cut else f"tests-ready:{commit}@r1"
+                    rows = [r for r in self.rows() if r["trigger"] == key and r["receipt"] == "completed"]
+                    self.assertEqual(len(rows), 1, self.rows())
+                    self.assertEqual(rows[0]["effect"]["tester_commit"], commit)
+                    before = (self.home / "data/owner/slice-steps.log").read_bytes()
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual((self.home / "data/owner/slice-steps.log").read_bytes(), before)
+                    self.assertEqual(len(list((self.home / "state/owner.inbox").glob("*.msg"))), 1)
+
+    def test_tests_ready_requires_complete_current_admitted_evidence(self):
+        valid = "tests-ready commit=none revision=r1 walk-list=screen-a,screen-b checks=existing"
+        invalid = (
+            valid.replace("revision=r1", "revision=r0"),
+            valid.replace("screen-a,screen-b", "screen-a"),
+            valid.replace(" checks=existing", ""),
+            valid.replace("commit=none", "commit=none-extra"),
+            valid.replace("commit=none", "commit=abcdefg"),
+            valid.replace("commit=none", "none-extra"),
+            valid.replace("tests-ready", "not-tests-ready"),
+            "tests-ready: branch fm/x-j14-save-rerun-tester head 1ff0e3a3ae9d4bfbf6babec63c37f5b683631f9b pushed",
+            "tests-ready for cut 1, branch fm/x-j14-alert-handoff-tester head 35c8df424632201e06a2fef67f4a63e35c40e68c pushed",
+            "tests-ready: branch fm/x-ai-s13-integrate-tester head 6234cb998a5772feaec505719e40254f505a50a9 pushed",
+        )
+        for phrase, model in [(p, "opus") for p in invalid] + [(valid, m) for m in ("gpt-5.5", "default", "")]:
+            with self.subTest(phrase=phrase, model=model):
+                self.setUp()
+                self.seed("tests", "prep:r1", tester="special-tester", revision="r1")
+                self.meta("special-tester", model, "st.1.1")
+                self.write("fake/agent-owner", "alive")
+                self.append_status("special-tester", f"done [at=3]: {phrase}")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(len(self.rows()), 1, self.rows())
+                self.assertEqual(list((self.home / "state/owner.inbox").glob("*.msg")), [])
+
+    def test_tester_brief_spells_literal_commit_forms(self):
+        self.prepare_effect("file-tester")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        brief = (self.home / "data/special-tester/brief.md").read_text()
+        for form in ("commit=<sha>", "commit=none"):
+            self.assertIn(f"tests-ready {form} revision=<revision> walk-list=<ids> checks=<names>", brief)
 
     def test_tester_admission_at_every_continuation_boundary(self):
         for kind in ("launch-tester", "relaunch-tester", "note-owner", "relaunch-owner", "cut-delivery"):
@@ -1465,6 +1532,120 @@ done
         self.run_pass()
         self.assertEqual(check(), "")
         self.assertFalse((self.home / "state/.autolaunch-check.red").exists())
+
+
+class Timer(unittest.TestCase):
+    """Oracle: the printed recipe can read a leased owner with no login shell.
+
+    This replays the emitted Environment/ExecStart contract, not a live timer.
+    The held owner exercises real tasks-axi but cannot launch or contact a forge.
+    """
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="fm-timer-")
+        self.addCleanup(tmp.cleanup)
+        self.home = Path(tmp.name) / 'home'
+        for part in ('config', 'data', 'state'):
+            (self.home / part).mkdir(parents=True, exist_ok=True)
+        (self.home / '.tasks.toml').write_text('[tasks]\nadapter = "markdown"\nfile = "data/backlog.md"\n')
+        (self.home / 'data/backlog.md').write_text(
+            '## In flight\n- [ ] timer-owner - leased fixture (kind: ship) '
+            '(hold: parked: fixture) (hold-kind: external) (hold-until: 2099-01-01)\n'
+            '## Queued\n## Done\n')
+        (self.home / 'config/autolaunch-steps').write_text('act timer-owner\n')
+        self.tools = Path(tmp.name) / 'tool space%z'
+        self.tools.mkdir()
+        self.commands = {name: shutil.which(name) for name in
+                         ('bash', 'sh', 'printenv', 'python3', 'tasks-axi', 'node')}
+        for name, executable in self.commands.items():
+            if executable:
+                (self.tools / name).symlink_to(executable)
+            elif name != 'node':
+                self.fail(f'{name} is required for the Timer fixtures')
+        self.path = str(self.tools) + os.pathsep + '/usr/bin:/bin'
+        self.al = str(ROOT / 'bin/fm-autolaunch.sh')
+        # No host home, account, backend, quota, task or override environment.
+        self.env = dict(HOME=str(self.home), FM_HOME=str(self.home), PATH=self.path)
+
+    def render(self, *flags):
+        result = subprocess.run([self.commands['bash'], self.al, '--print-timer', *flags],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sorted(p.name for p in (self.home / 'state').iterdir()), [])
+        return result.stdout
+
+    def service(self, recipe):
+        # Only the generator's quoted assignments and literal argv are replayed;
+        # actual manager activation remains the installer's proof obligation.
+        env = dict(HOME=str(self.home), PATH='/usr/bin:/bin')
+        command = None
+        for line in recipe.splitlines():
+            if line.startswith('Environment='):
+                for assignment in shlex.split(line.partition('=')[2]):
+                    key, value = assignment.split('=', 1)
+                    env[key] = value.replace('%%', '%')
+            if line.startswith('ExecStart='):
+                command = shlex.split(line.partition('=')[2].replace('%%', '%'))
+        self.assertIsNotNone(command)
+        self.assertEqual(env.get('FM_HOME'), str(self.home))
+        return env, command
+
+    def test_timer_rejects_unrelated_or_extra_flags(self):
+        for flags in (('--dry-run',), ('--steps-only', '--dry-run')):
+            with self.subTest(flags=flags):
+                result = subprocess.run([self.commands['bash'], self.al, '--print-timer', *flags],
+                                        env=self.env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, '')
+
+    def test_plain_timer_carries_path(self):
+        recipe = self.render()
+        env, command = self.service(recipe)
+        self.assertEqual(command, [self.al])
+        result = subprocess.run([self.commands['bash'], str(ROOT / 'bin/fm-tasks-axi.sh'),
+                                 'show', 'timer-owner', '--full'],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('timer-owner', result.stdout)
+        self.assertEqual(env['PATH'], self.path)
+
+    def test_steps_timer_runs_from_emitted_environment(self):
+        recipe = self.render('--steps-only')
+        env, command = self.service(recipe)
+        self.assertEqual(env['PATH'], self.path)
+        self.assertEqual(command, [self.al, '--steps-only'])
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        stamp = json.loads((self.home / 'state/autolaunch-steps.pass').read_text())
+        self.assertEqual(stamp['owners'], ['timer-owner'])
+        self.assertFalse((self.home / 'data/timer-owner/slice-steps.log').exists())
+
+    def test_missing_tool_is_one_owned_failure(self):
+        env, command = self.service(self.render('--steps-only'))
+        (self.tools / 'tasks-axi').unlink()
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stderr.count('owner task unreadable: timer-owner'), 1)
+        self.assertFalse((self.home / 'state/autolaunch-steps.pass').exists())
+
+    def test_cron_alternative_carries_path_and_step_scope(self):
+        for flags in ((), ('--steps-only',)):
+            with self.subTest(flags=flags):
+                recipe = self.render(*flags)
+                line, = [line for line in recipe.splitlines() if line.startswith('*/5 ')]
+                command = line.split(' ', 5)[5].removesuffix(' >/dev/null 2>&1')
+                # cron consumes backslash-percent before passing text to /bin/sh.
+                self.assertNotRegex(command, r'(?<!\\)%')
+                command = command.replace(r'\%', '%')
+                # Inspect argv/environment at the shell boundary without launching
+                # the ordinary ready queue. The step path is executed above.
+                words = shlex.split(command)
+                self.assertEqual(words[2:], [self.al, *flags])
+                assignments = command.rsplit(shlex.quote(self.al), 1)[0]
+                result = subprocess.run([self.commands['sh'], '-c', assignments +
+                    ' ' + shlex.quote(self.commands['printenv']) + ' PATH FM_HOME'],
+                    env=dict(PATH='/usr/bin:/bin'), capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.splitlines(), [self.path, str(self.home)])
 
 
 if __name__ == "__main__":
