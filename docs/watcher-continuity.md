@@ -102,8 +102,10 @@ It stops and reaps its child when session ownership changes or away/daemon super
 Foreign primary harnesses and linked worker copies are inert.
 
 The same script's synchronous PreToolUse check warns when no live verified cycle exists.
-An absent beacon, or one at the 300-second default grace, refuses new `fm-spawn.sh` and `fm-send.sh` commands until a fresh beat appears, including in an otherwise empty home.
-The executable command classifier reuses the arm policy's shell lexer, so quoted documentation and reads remain available along with the home-scoped repair instruction emitted by `fm-supervision-instructions.sh`.
+The shared `fm-claude-watch-admission.sh` admission owner refuses an absent beacon or one older than 300 seconds at the real `fm-spawn.sh` and `fm-send.sh` entry points, before mutation, and supplies the same warning and refusal text to PreToolUse.
+Admission applies only when this caller owns the primary session and its identity matches the existing guard marker; unmarked homes, workers, secondmate homes and away supervision are inert.
+A leftover guard marker remains applicable after its guard dies while the primary still owns that session, so a stale beat still refuses until the home-scoped repair restores freshness.
+The PreToolUse classifier retains early refusal for recognized calls; the entry points enforce admission independently of shell syntax, while reads, command lookups and the home-scoped repair instruction emitted by `fm-supervision-instructions.sh` remain available.
 The check does not change other harnesses' supervision models or away/quiet policy.
 
 ### Claude session-lock ownership

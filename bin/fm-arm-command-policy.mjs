@@ -556,6 +556,7 @@ export function commandPosition(tokens) {
     if (name === "exec" || name === "command" || name === "sudo" || name === "nohup") {
       wrappers.push(name);
       const options = consumeWrapperOptions(name, words, index + 1);
+      if (name === "command" && words.slice(index + 1, options.index).some(word => /^-[pvV]*[vV][pvV]*$/.test(word.value))) break;
       unresolvedWrapperOption ||= options.unresolved;
       wrapperPayloads.push(...options.embeddedPayloads);
       index = options.index;

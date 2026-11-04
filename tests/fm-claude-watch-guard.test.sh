@@ -26,7 +26,13 @@ run_check() {
   jq -cn --arg command "$command" '{tool_name:"Bash",tool_input:{command:$command}}' |
     FM_HOME="$home" "$FAKE_CLAUDE" -c '
       echo "$$" > "$FM_HOME/state/.lock"
-      "$FM_HOME/bin/fm-claude-watch-guard.sh" --check
+      . "$FM_HOME/bin/fm-wake-lib.sh"
+      . "$FM_HOME/bin/fm-session-lock-lib.sh"
+      mkdir -p "$FM_HOME/state/.claude-watch-guard.lock"
+      printf "%s:%s\n" "$$" "$(fm_session_pid_identity "$$")" > "$FM_HOME/state/.claude-watch-guard.lock/session"
+      rc=0
+      "$FM_HOME/bin/fm-claude-watch-guard.sh" --check || rc=$?
+      exit "$rc"
     '
 }
 
@@ -47,6 +53,84 @@ test_stale_refusal_and_recovery() {
   pass "stale spawns and sends refuse; repair and reads remain available; fresh clears"
 }
 
+test_real_entrypoint_admission() {
+  local home="$TMP_ROOT/entrypoints" actor harness
+  make_guard_home "$home"
+  rm "$home/state/task.meta"
+  mkdir -p "$home/fakebin"
+  printf 'window=sess:fm-worker\nkind=ship\nharness=claude\n' > "$home/state/worker.meta"
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  display-message)
+    case "$*" in *cursor_y*) printf '1\n';; *) printf 'fakepane\n';; esac ;;
+  capture-pane) printf '╭────╮\n│    │\n╰────╯\n' ;;
+  list-windows) printf 'fm-worker\nwin\n' ;;
+  send-keys) printf '%s\n' "$*" >> "$FM_HOME/state/typed" ;;
+esac
+SH
+  chmod +x "$home/fakebin/tmux"
+  for actor in primary unmarked codex grok pi secondmate worker; do
+    harness=claude
+    case "$actor" in codex|grok|pi) harness=$actor ;; esac
+    if [ ! -e "$FAKEBIN/$harness" ]; then ln -s "$(command -v bash)" "$FAKEBIN/$harness"; fi
+    FM_HOME="$home" FM_ADMISSION_ACTOR="$actor" FM_SEND_SETTLE=0 FM_BACKEND=tmux PATH="$home/fakebin:$PATH" \
+      "$FAKEBIN/$harness" -c '
+      cd "$FM_HOME" || exit 1
+      echo "$$" > state/.lock
+      . bin/fm-wake-lib.sh
+      . bin/fm-session-lock-lib.sh
+      mkdir -p state/.claude-watch-guard.lock
+      printf "%s:%s\n" "$$" "$(fm_session_pid_identity "$$")" > state/.claude-watch-guard.lock/session
+      rm -f .fm-secondmate-home
+      unset FM_TASK_ID
+      case "$FM_ADMISSION_ACTOR" in
+        unmarked) rm state/.claude-watch-guard.lock/session ;;
+        codex|grok|pi) printf "9999999:previous-claude-session\n" > state/.claude-watch-guard.lock/session ;;
+        secondmate) printf "fixture-mate\n" > .fm-secondmate-home ;;
+        worker) export FM_TASK_ID=worker ;;
+      esac
+      touch -t 200001010000 state/.last-watcher-beat
+      if [ "$FM_ADMISSION_ACTOR" = primary ]; then
+        for beat in stale absent; do
+          [ "$beat" = stale ] || rm state/.last-watcher-beat
+          rc=0
+          env -S "bash -c" "bin/fm-send.sh worker hello" > state/send.out 2> state/send.err || rc=$?
+          if [ "$rc" -ne 2 ] || ! grep -q "New spawns and sends are refused" state/send.err; then
+            durable=no
+            [ ! -f state/worker.inbox/001.msg ] || durable=yes
+            printf "entry admission rc=%s durable=%s\n" "$rc" "$durable"
+            cat state/send.err
+            exit 1
+          fi
+          grep -q "FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart" state/send.err || exit 1
+          [ ! -e state/worker.inbox ] && [ ! -e state/typed ] || exit 1
+          rc=0
+          for mode in --scout --secondmate --relaunch; do
+            rc=0
+            bin/fm-spawn.sh blocked "$FM_HOME" "$mode" > state/spawn.out 2> state/spawn.err || rc=$?
+            [ "$rc" -eq 2 ] && grep -q "New spawns and sends are refused" state/spawn.err || exit 1
+          done
+          [ ! -e state/blocked.meta ] || exit 1
+        done
+        for command in "command -v bin/fm-send.sh" "command -V bin/fm-spawn.sh"; do
+          jq -cn --arg command "$command" "{tool_input:{command:\$command}}" |
+            bin/fm-claude-watch-guard.sh --check >/dev/null || exit 1
+        done
+        touch state/.last-watcher-beat
+      fi
+      before=$(ls state/worker.inbox/*.msg 2>/dev/null | wc -l)
+      env -S "bash -c" "bin/fm-send.sh worker hello" > state/send.out 2> state/send.err || { cat state/send.err; exit 1; }
+      after=$(ls state/worker.inbox/*.msg 2>/dev/null | wc -l)
+      [ "$after" -eq "$((before+1))" ] || exit 1
+      rc=0
+      bin/fm-spawn.sh > state/spawn.out 2> state/spawn.err || rc=$?
+      [ "$rc" -ne 0 ] && ! grep -q "watcher-continuity" state/spawn.err || exit 1
+    ' || fail "$actor real spawn/send admission contract failed"
+  done
+  pass "real entrypoints refuse stale or absent beats through env -S; fresh and out-of-scope callers proceed"
+}
+
 test_empty_home_admission() {
   local beat home command out rc
   for beat in absent stale; do
@@ -62,6 +146,7 @@ test_empty_home_admission() {
     done
     run_check "$home" 'cat bin/fm-send.sh' >/dev/null || fail "empty-home read refused"
     run_check "$home" 'FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart' >/dev/null || fail "empty-home repair refused"
+    rm -rf "$home/state/.claude-watch-guard.lock"
     FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
       FM_TEST_CLAUDE_WATCH_INTERVAL=0.05 "$FAKE_CLAUDE" -c '
       echo "$$" > "$FM_HOME/state/.lock"
@@ -266,7 +351,7 @@ EOF_PAYLOAD
     ' || fail "foreign payload was not inert"
   done
   for harness in codex grok pi pi-signed omp opencode agy; do
-    ln -s "$(command -v bash)" "$FAKEBIN/$harness"
+    if [ ! -e "$FAKEBIN/$harness" ]; then ln -s "$(command -v bash)" "$FAKEBIN/$harness"; fi
     printf '{"tool_input":{"command":"bin/fm-spawn.sh x"}}' |
       FM_HOME="$home" "$FAKEBIN/$harness" -c '
         echo "$$" > "$FM_HOME/state/.lock"
@@ -383,4 +468,4 @@ EOF_PAYLOAD
   pass "real Stop hook shares a healthy guard cycle and still delivers exit-2 wake"
 }
 
-fm_test_run test_empty_home_admission test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation
+fm_test_run test_real_entrypoint_admission test_empty_home_admission test_stale_refusal_and_recovery test_twenty_minute_turn test_command_positions test_pending_wake_keeps_checks_running test_scope test_single_owner_and_session_end test_stop_cooperation

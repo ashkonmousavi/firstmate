@@ -55,17 +55,14 @@ attended_owner || exit 0
 
 if [ "$MODE" = check ]; then
   CMD=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // empty')
-  age=$(fm_path_age "$STATE/.last-watcher-beat")
-  fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME" && exit 0
-  repair=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-supervision-instructions.sh" --harness claude --repair-line)
-  message="[watcher-continuity] No verified watcher cycle (beacon age ${age}s; grace ${GRACE}s). $repair"
-  if [ "$age" -ge "$GRACE" ] && [ -n "$CMD" ]; then
+  message=$("$SCRIPT_DIR/fm-claude-watch-admission.sh" warn "$FM_ROOT" "$FM_HOME" "$STATE")
+  [ -n "$message" ] || exit 0
+  if [ -n "$CMD" ]; then
     verdict=$(printf '%s' "$CMD" | node "$SCRIPT_DIR/fm-fleet-command-policy.mjs" 2>/dev/null) || {
       case "$CMD" in *fm-spawn*|*fm-send*) verdict=deny ;; *) verdict=allow ;; esac
     }
     if [ "$verdict" != allow ]; then
-      printf '%s\n' "$message New spawns and sends are refused until a fresh beat confirms recovery." >&2
-      exit 2
+      "$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE" || exit "$?"
     fi
   fi
   jq -cn --arg message "$message" '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$message}}'
