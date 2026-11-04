@@ -53,7 +53,7 @@
 #        refused:step-receipt-required  a step-owned child stays with its receipt
 #        refused:same-or-unknown-tester-model  tester model admission failed
 #        refused:quota: <reason>       every candidate profile is exhausted or
-#                                      short of runway
+#                                      short of runway under quota enforcement
 #        refused:deferred: <line>      fm-spawn.sh exit 75 (machine or project
 #                                      capacity, project lock); the pass ends
 #                                      when the machine has no lane left
@@ -108,11 +108,15 @@
 # config/crew-dispatch.json are tried deterministically: passing ones by
 # highest known spendPriority, then uncertain ones in declared order, through
 # fm-quota-axi-lib.sh's gate verdict over one quota-axi snapshot. Exhausted or
-# short-runway profiles are never tried. With no config/crew-dispatch.json,
+# short-runway profiles are excluded unless config/quota-gate=rank-only.
+# Under rank-only, numeric refused profiles join numeric passes by descending
+# spendPriority, using the minimum across their applicable bounds; notices
+# remain uncertain in declared order even with a numeric spendPriority.
+# Admitted profiles without a numeric priority also follow in declared order.
+# With no config/crew-dispatch.json,
 # use fm-spawn.sh's static crew harness.
 # With shared_quota=true, eligible defaults retain declared order without
 # requesting a quota snapshot or applying quota ranking.
-# config/quota-gate=rank-only keeps tight defaults in the same quota ranking.
 # A spawn whose own quota gate refuses moves to the next candidate.
 #
 # RECORDS. Ready-queue decisions in state/autolaunch.log, append-only:
