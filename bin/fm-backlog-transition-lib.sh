@@ -525,7 +525,10 @@ fm_backlog_mutate() {  # <data-dir> <verb> <id> [flag...]
     out=$(cd "$FM_BACKLOG_AXI_ROOT" 2>/dev/null && fm_tasks_axi "$verb" "$id" "$@" 2>&1)
   fi
   command_status=$?
-  [ "$command_status" -ne 0 ] || return 0
+  if [ "$command_status" -eq 0 ]; then
+    [ "${FM_BACKLOG_MUTATE_STDOUT:-0}" != 1 ] || printf '%s\n' "$out"
+    return 0
+  fi
   FM_BACKLOG_TRANSITION_ERROR=$(printf '%s\n' "$out" | sed -n '1p')
   if [ -z "$FM_BACKLOG_TRANSITION_ERROR" ]; then
     if fm_tasks_axi_timeout_expired "$command_status" && [ -n "${FM_TASKS_AXI_TIMEOUT:-}" ]; then
@@ -612,7 +615,13 @@ fm_backlog_done() {  # <data-dir> <id> [flag...]
   fm_backlog_scout_phase "$data" "$id" || phase_status=$?
   case "$phase_status" in
     0)
-      for arg in "$@"; do [ "$arg" != --report ] || report_present=1; done
+      for arg in "$@"; do
+        case "$previous_arg" in --pr|--report|--note|--keep) previous_arg=''; continue ;; esac
+        case "$arg" in
+          --report) report_present=1; previous_arg=$arg ;;
+          --pr|--note|--keep) previous_arg=$arg ;;
+        esac
+      done
       if [ "$report_present" = 1 ]; then
         fm_backlog_retain "$data" "$id" "$@"
       else
@@ -630,7 +639,10 @@ fm_backlog_done() {  # <data-dir> <id> [flag...]
     else
       done_args+=("$arg")
     fi
-    previous_arg=$arg
+    case "$previous_arg" in
+      --pr|--report|--note|--keep) previous_arg='' ;;
+      *) previous_arg=$arg ;;
+    esac
   done
   fm_backlog_mutate "$data" "done" "$id" "${done_args[@]+"${done_args[@]}"}"
 }
@@ -678,7 +690,8 @@ fm_backlog_retain() {  # <data-dir> <id> [flag...]
 _fm_backlog_retain_locked() {  # <data-dir> <id> [flag...]
 
   local data authorized_data=$1 id=$2 out command_status previous_arg=''
-  local arg deliverable='' line body new_body tmp prior report=0 phase_status=1
+  local arg deliverable='' line body new_body tmp prior launch_input report=0 phase_status=1
+  local json_requested=0 reopen=1
   local -a row_args=()
   if ! data=$(fm_backlog_data_absolute "$1"); then
     FM_BACKLOG_TRANSITION_ERROR="data directory cannot be resolved: $1"
@@ -704,15 +717,19 @@ _fm_backlog_retain_locked() {  # <data-dir> <id> [flag...]
         fi
         ;;
       --note) deliverable="${deliverable:+$deliverable; }$arg" ;;
+      *) [ "$arg" != --json ] || json_requested=1 ;;
     esac
-    previous_arg=$arg
+    case "$previous_arg" in
+      --pr|--report|--note) previous_arg='' ;;
+      *) previous_arg=$arg ;;
+    esac
   done
   if [ "$report" = 1 ]; then
     phase_status=0
     fm_backlog_scout_phase "$data" "$id" scout || phase_status=$?
     [ "$phase_status" -le 1 ] || return 1
     if [ "$phase_status" = 0 ]; then
-      deliverable="${deliverable:+$deliverable; }scout phase finished; parent outcome remains open"
+      deliverable="${deliverable:+$deliverable; }scout phase finished"
     fi
   fi
   if [ -n "$deliverable" ]; then
@@ -784,17 +801,44 @@ _fm_backlog_retain_locked() {  # <data-dir> <id> [flag...]
           fi
         fi
         rm -f -- "$tmp"
+        body=$new_body
         ;;
     esac
   fi
   if [ "${#row_args[@]}" -gt 0 ]; then
     fm_backlog_mutate "$authorized_data" update "$id" "${row_args[@]}" || return 1
   fi
-  if [ "$phase_status" = 0 ] && { [ -e "$state/$id.meta" ] || [ -L "$state/$id.meta" ]; }; then
+  if [ "$phase_status" = 0 ]; then
     fm_backlog_row_probe "$data" "$id" || { FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR; return 1; }
-    [ "${FM_BACKLOG_ROW_STATE%% *}" = "done" ] || return 0
+    if [ "${FM_BACKLOG_ROW_STATE%% *}" = "done" ] || [ -e "$state/$id.meta" ] || [ -L "$state/$id.meta" ]; then
+      reopen=0
+    else
+      for launch_input in brief.md autolaunch-prep; do
+        if [ -e "$data/$id/$launch_input" ] || [ -L "$data/$id/$launch_input" ]; then
+          fm_backlog_record_remove "$data/$id/$launch_input" "completed scout launch input" "$data" || return 1
+        fi
+      done
+    fi
   fi
-  fm_backlog_mutate "$authorized_data" reopen "$id"
+  if [ "$reopen" = 1 ]; then
+    fm_backlog_mutate "$authorized_data" reopen "$id" || return 1
+  fi
+  if [ "$phase_status" = 0 ] && [ "$json_requested" = 1 ]; then
+    tmp=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-backlog-retain-body.XXXXXX") || {
+      FM_BACKLOG_TRANSITION_ERROR="cannot stage the deliverable for $id"
+      return 1
+    }
+    if ! printf '%s' "$body" > "$tmp"; then
+      rm -f -- "$tmp"
+      FM_BACKLOG_TRANSITION_ERROR="cannot stage the deliverable for $id"
+      return 1
+    fi
+    command_status=0
+    FM_BACKLOG_MUTATE_STDOUT=1 fm_backlog_mutate "$authorized_data" update "$id" --body-file "$tmp" --json || command_status=$?
+    rm -f -- "$tmp"
+    return "$command_status"
+  fi
+  return 0
 }
 
 fm_backlog_canonical_existing() {
@@ -1335,7 +1379,7 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
     fi
     row_state=
   fi
-  if [ -n "$row_state" ] && [ "${args[0]-}" = --report ]; then
+  if [ -n "$row_state" ] && [ "${row_state%% *}" != "done" ] && [ "${args[0]-}" = --report ]; then
     phase_status=0
     fm_backlog_scout_phase "$data" "$id" scout || phase_status=$?
     [ "$phase_status" -le 1 ] || return 1
@@ -1360,20 +1404,16 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
   fi
   case "$row_state" in
     done\ *)
-      if [ "$mode" = retain ] && [ "$phase_status" != 0 ]; then
+      if [ "$mode" = retain ]; then
         # The captain's answer closed the row before this replay; the retained
         # transition owes it nothing more than retiring the record.
         fm_backlog_close_marker_remove "$marker" "$state" || return 1
         FM_BACKLOG_CLOSE_REPLAY_RESULT=answered
         return 0
       fi
-      if fm_backlog_atomic_transition "$mode" '' "$marker" "$data" "$id" "$state" \
+      if fm_backlog_atomic_transition close '' "$marker" "$data" "$id" "$state" \
           "${args[@]+"${args[@]}"}"; then
-        if [ "$phase_status" = 0 ] && [ "$cleanup_incomplete" = 1 ]; then
-          FM_BACKLOG_CLOSE_REPLAY_RESULT=retained_incomplete
-        elif [ "$phase_status" = 0 ]; then
-          FM_BACKLOG_CLOSE_REPLAY_RESULT=retained
-        elif [ "$cleanup_incomplete" = 1 ]; then
+        if [ "$cleanup_incomplete" = 1 ]; then
           FM_BACKLOG_CLOSE_REPLAY_RESULT=closed_incomplete
         else
           FM_BACKLOG_CLOSE_REPLAY_RESULT=closed
