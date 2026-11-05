@@ -69,7 +69,8 @@
 #   request N on the task's branch instead, starting the copy at its head and
 #   recording continue_pr=; --no-forge-check <reason> skips the read and
 #   records forge_check_skipped=. Both are refused on relaunches, scouts,
-#   secondmates and batches (docs/configuration.md "Duplicate-builder
+#   secondmates and batches; --continue-pr is also refused in local-only mode
+#   (docs/configuration.md "Duplicate-builder
 #   admission"; bin/fm-open-pr-lookup.py owns the read).
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
@@ -1117,6 +1118,10 @@ if [ "$DUPLICATE_FLAG_SET" -eq 1 ]; then
   fi
   if [ "$RELAUNCH" -eq 1 ] || [ "$KIND" != ship ]; then
     echo "error: --continue-pr and --no-forge-check apply only to a fresh ship spawn; a relaunch keeps its own pull request, and scouts and secondmates open none" >&2
+    exit 1
+  fi
+  if [ -n "$SPAWN_CONTINUE_PR" ] && [ "$MODE" = local-only ]; then
+    echo "error: --continue-pr needs a forge pull request and local-only has none" >&2
     exit 1
   fi
 fi

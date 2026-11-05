@@ -232,7 +232,8 @@ except Exception:
 # Duplicate-builder admission for a fresh ship spawn. bin/fm-open-pr-lookup.py
 # owns which forge is read and what counts as an open pull request carrying
 # this task (its head is the task's branch, or its body names the task on a
-# SLICE or Task line). An open one refuses the spawn, naming each URL, unless
+# SLICE or Task line anywhere in its body, including code examples).
+# An open one refuses the spawn, naming each URL, unless
 # --continue-pr names exactly that pull request on the task's branch; then the
 # fresh copy starts at its head (SPAWN_CONTINUE_PR_*, freshen_spawn_worktree_base).
 # A forge that cannot be read refuses as UNKNOWN unless --continue-pr or
@@ -321,7 +322,7 @@ else:
 $lines
 EOF
   if [ -n "$others" ]; then
-    echo "error: spawn refused: $ID already has an open pull request:$others - another builder may be on it; attach with --continue-pr <N>, or close it first" >&2
+    echo "error: spawn refused: $ID already has an open pull request:$others - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>" >&2
     return 1
   fi
   if [ -n "${SPAWN_CONTINUE_PR:-}" ] && [ -z "$SPAWN_CONTINUE_PR_URL" ]; then

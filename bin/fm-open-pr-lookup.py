@@ -13,8 +13,8 @@ it is not, and 2 on a usage error:
 
 A pull request carries the task when it is open and either its head branch is
 <branch> ("why" holds "branch") or its body names <id> on a SLICE line
-(SLICE: <home>/<id> | ...) or a Task line (Task:, Task-ID:, Task id:), outside
-fenced code blocks ("why" holds "body"). Any other mention of the id, such as
+(SLICE: <home>/<id> | ...) or a Task line (Task:, Task-ID:, Task id:), anywhere
+in the body, including code examples ("why" holds "body"). Any other mention of the id, such as
 "blocked by <id>" in prose, does not count. Closed and merged pull requests
 never count.
 
@@ -48,16 +48,7 @@ FORGEJO_PAGE = 50
 FORGEJO_PAGES = 20
 SCP_ORIGIN = re.compile(r'^(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+):(?!//)(.+)$')
 URL_ORIGIN = re.compile(r'^(https?|ssh|git|git\+ssh|ssh\+git)://(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+)(?::\d+)?/(.+)$')
-FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
-LIST_ITEM = re.compile(r'^( {0,3})([-+*]|[0-9]{1,9}[.)])( +|$)')
-BLOCK_START = re.compile(
-    r'^ {0,3}(?:#{1,6}(?: |$)|>|(?:\* *){3,}$|(?:- *){3,}$|(?:_ *){3,}$'
-    r'|<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?i:pre|script|style|textarea)(?= |>|$)'
-    r'|/?(?i:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|'
-    r'dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|'
-    r'html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|'
-    r'summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?= |>|/>|$)))')
-DECOR = re.compile(r'^\s*(?:#{1,6}\s+)?(?:[-*+]\s+)?')
+DECOR = re.compile(r'^\s*(?:>\s*|(?:#{1,6}|[-*+]|[0-9]{1,9}[.)])\s+)*')
 STRONG = re.compile(r'^(\*\*|__)(.*?)\1')
 SLICE_LINE = re.compile(r'SLICE:\s*(.*)')
 TASK_LINE = re.compile(r'(?i)task(?:[- ]id)?:\s*(.*)')
@@ -99,66 +90,9 @@ def github_hosts(path):
         return set()
 
 
-def unfenced_lines(body):
-    fenced = ''
-    fence_depth = 0
-    items = []
-    paragraph = False
-    for raw in body.splitlines():
-        line = raw.expandtabs(4)
-        if not line.strip():
-            paragraph = False
-            continue
-        depth = 0
-        for width, _ in items:
-            if not line.startswith(' ' * width):
-                break
-            line = line[width:]
-            depth += 1
-        marker = LIST_ITEM.match(line)
-        fence = FENCE.match(line)
-        opens_fence = fence and (fence[1][0] != '`' or '`' not in fence[2])
-        sibling = marker and depth < len(items) and marker[2][-1] == items[depth][1]
-        interrupts = opens_fence or BLOCK_START.match(line) or (
-            marker and line[marker.end():].strip()
-            and (not marker[2][0].isdigit() or int(marker[2][:-1]) == 1))
-        if paragraph and not fenced and not interrupts and not sibling:
-            yield line
-            continue
-        items = items[:depth]
-        if fenced and fence_depth > depth:
-            fenced = ''
-        if not fenced:
-            while True:
-                marker = LIST_ITEM.match(line)
-                if not marker or BLOCK_START.match(line):
-                    break
-                if paragraph and marker[2][0].isdigit() and int(marker[2][:-1]) != 1 and not sibling:
-                    break
-                width = marker.start(3) + (len(marker[3]) if 1 <= len(marker[3]) <= 4 else 1)
-                items.append((width, marker[2][-1]))
-                line = line[width:]
-                paragraph = False
-        fence = FENCE.match(line)
-        if fenced:
-            if fence and fence[1][0] == fenced[0] and len(fence[1]) >= len(fenced) \
-                    and not fence[2].strip(' \t'):
-                fenced = ''
-            paragraph = False
-            continue
-        if fence and (fence[1][0] != '`' or '`' not in fence[2]):
-            fenced = fence[1]
-            fence_depth = len(items)
-            paragraph = False
-            continue
-        paragraph = not BLOCK_START.match(line) and bool(line.strip()) and (
-            paragraph or not line.startswith('    '))
-        yield line
-
-
 def names_task(body, task_id):
-    """True when a SLICE or Task line outside fences names task_id."""
-    for raw in unfenced_lines(body or ''):
+    """True when a SLICE or Task line anywhere in the body names task_id."""
+    for raw in (body or '').splitlines():
         line = STRONG.sub(r'\2', DECOR.sub('', raw))
         for pattern, separator in ((SLICE_LINE, r'[\s`|]'), (TASK_LINE, r'[\s`|,;]')):
             match = pattern.match(line)

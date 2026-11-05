@@ -136,7 +136,14 @@ test_prose_mentions_and_closed_prs_do_not_refuse() {
   pr_json 50 other $'This waits for dup-prose.\nBlocked by dup-prose until it lands.\n```\nSLICE: q-server/dup-prose | quoted example\n```\nSLICE: ops/task-system | owner slice\n' \
     > "$FORGE_DIR/search.json"
   out=$(run_spawn "$id"); status=$?
-  expect_code 0 "$status" "a pull request that only mentions the task in prose, a fence or another slice refused the spawn"$'\n'"$out"
+  expect_code 1 "$status" "a fenced declaration in an otherwise prose-only body did not refuse"$'\n'"$out"
+  assert_contains "$out" "https://github.com/o/r/pull/50" "the fenced prose-case refusal did not name the PR"
+  assert_nothing_created "$id" "fenced declaration in prose case"
+
+  pr_json 50 other $'This waits for dup-prose.\nBlocked by dup-prose until it lands.\n```\nSLICE: q-server/other-example | quoted example\n```\nSLICE: ops/task-system | owner slice\n' \
+    > "$FORGE_DIR/search.json"
+  out=$(run_spawn "$id"); status=$?
+  expect_code 0 "$status" "a pull request that only mentions the task in prose or declares another slice refused the spawn"$'\n'"$out"
 
   id=dup-closed
   make_case closed "$id"
@@ -152,7 +159,7 @@ test_prose_mentions_and_closed_prs_do_not_refuse() {
   [ -e "$HOME_DIR/state/$id.meta" ] || fail "G9: an empty list did not launch"
   [ -s "$FORGE_DIR/lookup.log" ] || fail "G9: the lookup invocation observer did not record admission"
   assert_contains "$(cat "$FORGE_DIR/argv.log")" "--head fm/$id" "G9: the empty case never asked the forge, so it proves nothing"
-  pass "fm-spawn: prose mentions, fenced examples, other slices, closed and merged pull requests and an empty list do not refuse"
+  pass "fm-spawn: prose mentions, other slices, closed and merged pull requests and an empty list do not refuse"
 }
 
 test_an_unreadable_forge_refuses_as_unknown() {
@@ -208,14 +215,58 @@ test_continue_pr_attaches_to_the_open_pr_head() {
   pass "fm-spawn: --continue-pr <N> attaches only to that open pull request and starts the copy at its head"
 }
 
-test_continue_pr_on_another_branch_refuses() {
-  local id=dup-continue-other out status
+test_continue_pr_on_closed_or_other_branch_refuses() {
+  local id=dup-continue-closed out status
+  make_case continue-closed "$id"
+  pr_json 999 "fm/$id" | python3 -c 'import json, sys; v = json.load(sys.stdin); v[0]["state"] = "CLOSED"; print(json.dumps(v))' > "$FORGE_DIR/head.json"
+  out=$(run_spawn "$id" --continue-pr 999); status=$?
+  expect_code 1 "$status" "--continue-pr attached to a closed pull request"$'\n'"$out"
+  assert_contains "$out" "is not an open pull request" "the closed-PR refusal did not say why"
+  assert_nothing_created "$id" "closed --continue-pr"
+
+  id=dup-continue-other
   make_case continue-other "$id"
   pr_json 12 other-branch $'SLICE: h/dup-continue-other | x\n' > "$FORGE_DIR/search.json"
   out=$(run_spawn "$id" --continue-pr 12); status=$?
   expect_code 1 "$status" "--continue-pr attached to a pull request on another branch"$'\n'"$out"
   assert_contains "$out" "not this task's branch" "the refusal did not name the branch mismatch"
-  pass "fm-spawn: --continue-pr refuses a pull request that is not on the task's branch"
+  assert_nothing_created "$id" "foreign-branch --continue-pr"
+  pass "fm-spawn: --continue-pr refuses closed pull requests and pull requests on another branch"
+}
+
+test_local_only_refuses_continue_pr_before_fetching() {
+  local id=dup-local-continue out status real_git style before
+  make_case local-continue "$id"
+  git -C "$PROJECT_DIR" push --quiet origin "HEAD:refs/heads/fm/$id"
+  before=$(git -C "$POOL_DIR" rev-parse HEAD)
+  real_git=$(command -v git)
+  printf '#!/usr/bin/env bash\nreal_git=%q\n' "$real_git" > "$FAKEBIN_DIR/git"
+  cat >> "$FAKEBIN_DIR/git" <<'SH'
+for arg in "$@"; do
+  if [ "$arg" = fetch ]; then printf '%s\n' "$*" >> "$FM_TEST_GIT_FETCH_LOG"; fi
+done
+exec "$real_git" "$@"
+SH
+  chmod +x "$FAKEBIN_DIR/git"
+  FM_TEST_GIT_FETCH_LOG="$CASE_DIR/fetch.log" PATH="$FAKEBIN_DIR:$PATH" git -C "$PROJECT_DIR" fetch --quiet origin
+  [ -s "$CASE_DIR/fetch.log" ] || fail "the Git fetch observer did not record a real fetch"
+  : > "$CASE_DIR/fetch.log"
+  for style in split equals; do
+    case $style in
+      split) set -- --mode local-only --continue-pr 999 ;;
+      equals) set -- --mode=local-only --continue-pr=999 ;;
+    esac
+    out=$(FM_TEST_GIT_FETCH_LOG="$CASE_DIR/fetch.log" FM_TEST_FORGE="$FORGE_DIR" \
+      fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" "$PROJECT_DIR" "$@" --yolo off); status=$?
+    expect_code 1 "$status" "a local-only --continue-pr was not refused ($style flags)"$'\n'"$out"
+    assert_contains "$out" "--continue-pr needs a forge pull request and local-only has none" "the local-only refusal did not say why"
+    assert_nothing_created "$id" "local-only --continue-pr"
+    [ ! -s "$CASE_DIR/fetch.log" ] || fail "local-only --continue-pr fetched a branch"
+    [ ! -s "$FORGE_DIR/lookup.log" ] || fail "local-only --continue-pr invoked the forge lookup"
+    [ ! -s "$FORGE_DIR/argv.log" ] || fail "local-only --continue-pr read the forge"
+    [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$before" ] || fail "local-only --continue-pr changed the prepared copy"
+  done
+  pass "fm-spawn: local-only --continue-pr refuses before fetching, looking up or recording a pull request"
 }
 
 test_kinds_and_forges_that_do_not_consult_the_forge() {
@@ -247,6 +298,7 @@ test_kinds_and_forges_that_do_not_consult_the_forge() {
   expect_code 0 "$status" "a local-only ship was refused although it opens no pull request"$'\n'"$out"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "a local-only ship read the forge"
   [ ! -s "$FORGE_DIR/lookup.log" ] || fail "a local-only ship invoked the lookup"
+  assert_not_contains "$(cat "$HOME_DIR/state/$id.meta")" 'continue_pr=' "an ordinary local-only spawn recorded a pull request attachment"
 
   for forge in forge=gerrit forge=external; do
     id="dup-${forge#forge=}"
@@ -326,8 +378,8 @@ test_remote_origins_never_skip_as_local() {
   pass "fm-open-pr-lookup: Git remote forms find open PRs, unrecognized remotes are UNKNOWN, and only missing or local origins skip"
 }
 
-test_body_fences_follow_commonmark_delimiters() {
-  local out status
+test_body_declarations_count_regardless_of_fences() {
+  local out status body number=20
   make_case fences t1
   python3 - "$FORGE_DIR/search.json" <<'PY'
 import json, sys
@@ -343,6 +395,8 @@ bodies = [
     "~~~info`\nSLICE: home/t1",
     "   ```markdown\n ```\nSLICE: home/t1",
     "```\n```\nTask id: home:t1",
+    "- \n ```\n example\nTask: t1",
+    "-\n\n ```\nTask: t1\n ```",
 ]
 with open(sys.argv[1], 'w') as handle:
     json.dump([dict(number=n, url=f'https://github.com/o/r/pull/{n}',
@@ -351,17 +405,29 @@ with open(sys.argv[1], 'w') as handle:
 PY
   out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin https://github.com/o/r.git); status=$?
   expect_code 0 "$status" "the fenced-body lookup failed"$'\n'"$out"
-  printf '%s' "$out" | python3 -c 'import json, sys; v = json.load(sys.stdin); assert v["state"] == "ok"; assert [(p["number"], p["why"]) for p in v["prs"]] == [(n, ["body"]) for n in [1, 2, 6, 7, 10, 11]]' \
-    || fail "body declarations were hidden or exposed by a mismatched fence (CommonMark 0.31.2 section 4.5)"$'\n'"$out"
-  pr_json 20 other $'````markdown\n```\nexample\n````\nSLICE: home/t1' > "$FORGE_DIR/search.json"
-  out=$(run_spawn t1); status=$?
-  expect_code 1 "$status" "a ship spawned despite a task declaration after a long fence"$'\n'"$out"
-  assert_contains "$out" "https://github.com/o/r/pull/20" "the fenced-body refusal did not name its PR"
-  assert_nothing_created t1 "body after long fence"
-  pass "fm-open-pr-lookup: SLICE and Task declarations match only outside correctly closed backtick and tilde fences"
+  printf '%s' "$out" | python3 -c 'import json, sys; v = json.load(sys.stdin); assert v["state"] == "ok"; assert [(p["number"], p["why"]) for p in v["prs"]] == [(n, ["body"]) for n in range(1, 14)]' \
+    || fail "fence syntax hid a body declaration (owner-selected R10 contract)"$'\n'"$out"
+  for body in \
+    $'````markdown\n```\nexample\n````\nSLICE: home/t1' \
+    $'- ```\n example\n ```\n\nTask: home/t1' \
+    $'- \n ```\n example\nTask: t1' \
+    $'-\n\n ```\nTask: t1\n ```' \
+    $'```\n**Task: home/t1**\n```'; do
+    pr_json "$number" other "$body" > "$FORGE_DIR/search.json"
+    out=$(run_spawn t1); status=$?
+    expect_code 1 "$status" "a ship spawned despite a declaration in the R3/R9/R10 body cases"$'\n'"$out"
+    assert_contains "$out" "https://github.com/o/r/pull/$number" "the fenced-body refusal did not name its PR"
+    assert_contains "$out" "--no-forge-check <reason>" "the code-example refusal did not name the explicit escape"
+    assert_nothing_created t1 "fenced body declaration"
+    number=$((number + 1))
+  done
+  out=$(run_spawn t1 --no-forge-check 'the declaration is a code example for this task'); status=$?
+  expect_code 0 "$status" "an explicitly reviewed code-example match could not bypass the forge check"$'\n'"$out"
+  assert_contains "$(cat "$HOME_DIR/state/t1.meta")" 'forge_check_skipped=the declaration is a code example for this task' "the code-example bypass reason was not recorded"
+  pass "fm-spawn: SLICE and Task declarations refuse regardless of fences, with the PR URL and a recorded explicit escape"
 }
 
-test_fences_follow_list_containers() {
+test_body_declarations_count_in_containers() {
   make_case list-fences t1
   if ! FM_TEST_FORGE="$FORGE_DIR" python3 - "$FORGE_DIR" "$FAKEBIN_DIR" "$ROOT/bin/fm-open-pr-lookup.py" <<'PY'
 import json
@@ -373,7 +439,7 @@ import sys
 forge, fakebin, program = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 env = dict(os.environ, PATH=fakebin + os.pathsep + os.environ['PATH'])
 
-def check(body, matches):
+def check(body):
     row = dict(number=1, url='https://github.com/o/r/pull/1', headRefName='other',
                headRefOid='abc', state='OPEN', body=body)
     (forge / 'search.json').write_text(json.dumps([row]))
@@ -383,8 +449,7 @@ def check(body, matches):
     assert result.returncode == 0, (body, result.stdout, result.stderr)
     answer = json.loads(result.stdout)
     assert answer['state'] == 'ok', answer
-    assert [(pr['number'], pr['why']) for pr in answer['prs']] == (
-        [(1, ['body'])] if matches else []), (body, matches, answer)
+    assert [(pr['number'], pr['why']) for pr in answer['prs']] == [(1, ['body'])], (body, answer)
 
 for marker in ('-', '+', '*', '1.', '2)', '123456789.'):
     for leading, padding in ((0, 1), (3, 4)):
@@ -392,62 +457,62 @@ for marker in ('-', '+', '*', '1.', '2)', '123456789.'):
         indent = ' ' * len(prefix)
         for fence in ('```', '~~~~'):
             fenced = prefix + fence + '\n' + indent + 'Task: home/t1\n' + indent + fence
-            check(fenced, False)
-            check(fenced + '\n\nTask: home/t1', True)
-            check(prefix + fence + '\n' + indent + 'example\nTask: home/t1', True)
+            check(fenced)
+            check(fenced + '\n\nTask: home/t1')
+            check(prefix + fence + '\n' + indent + 'example\nTask: home/t1')
             check(prefix + 'paragraph\n\n' + indent + fence + '\n' + indent
-                  + 'SLICE: home/t1\n' + indent + fence, False)
+                  + 'SLICE: home/t1\n' + indent + fence)
 
-for body, matches in (
-    ('- ```\n example\n ```\n\nTask: home/t1', False),
-    ('- ```\n  example\n  ```\n\nTask: home/t1', True),
-    ('- ```\n  - Task: home/t1\n  ```', False),
-    ('- ```\n- Task: home/t1', True),
-    ('1. ```\n2. Task: home/t1', True),
-    ('- outer\n  1. ```\n     Task: home/t1\n     ```', False),
-    ('- outer\n  1. ```\n     example\n  Task: home/t1', True),
-    ('- - ```\n    Task: home/t1\n    ```', False),
-    ('1. - 2. ~~~\n        Task: home/t1\n        ~~~', False),
-    ('- outer\n  - paragraph\nlazy text\n    ```\n    Task: home/t1\n    ```', False),
-    ('10. paragraph\nlazy text\n\n    ```\n    Task: home/t1\n    ```', False),
-    ('10. paragraph\n# heading\n    ```\n    Task: home/t1\n    ```', True),
-    ('10. paragraph\n***\n    ```\n    Task: home/t1\n    ```', True),
-    ('paragraph\n2. ```\n   Task: home/t1', True),
-    ('paragraph\n1. ```\n   Task: home/t1\n   ```', False),
-    ('-\n  ```\n  Task: home/t1\n  ```', False),
-    ('-\t```\n\tTask: home/t1\n\t```', False),
-    ('- ````\n  ```\n  SLICE: home/t1\n  ````', False),
-    ('- ````\n  example\n  `````\nTask-ID: home:t1', True),
-    ('1. ~~~~\n   ```\n   Task id: home:t1\n   ~~~~', False),
-    ('- ```\n      ```\n  Task: home/t1', False),
-    ('```\n- ```\nTask: home/t1\n```', False),
-    ('```\n- ```\n```\nSLICE: home/t1', True),
+for body in (
+    '- ```\n example\n ```\n\nTask: home/t1',
+    '- ```\n  example\n  ```\n\nTask: home/t1',
+    '- ```\n  - Task: home/t1\n  ```',
+    '- ```\n- Task: home/t1',
+    '1. ```\n2. Task: home/t1',
+    '- outer\n  1. ```\n     Task: home/t1\n     ```',
+    '- outer\n  1. ```\n     example\n  Task: home/t1',
+    '- - ```\n    Task: home/t1\n    ```',
+    '1. - 2. ~~~\n        Task: home/t1\n        ~~~',
+    '- outer\n  - paragraph\nlazy text\n    ```\n    Task: home/t1\n    ```',
+    '10. paragraph\nlazy text\n\n    ```\n    Task: home/t1\n    ```',
+    '10. paragraph\n# heading\n    ```\n    Task: home/t1\n    ```',
+    '10. paragraph\n***\n    ```\n    Task: home/t1\n    ```',
+    'paragraph\n2. ```\n   Task: home/t1',
+    'paragraph\n1. ```\n   Task: home/t1\n   ```',
+    '-\n  ```\n  Task: home/t1\n  ```',
+    '-\t```\n\tTask: home/t1\n\t```',
+    '- ````\n  ```\n  SLICE: home/t1\n  ````',
+    '- ````\n  example\n  `````\nTask-ID: home:t1',
+    '1. ~~~~\n   ```\n   Task id: home:t1\n   ~~~~',
+    '- ```\n      ```\n  Task: home/t1',
+    '```\n- ```\nTask: home/t1\n```',
+    '```\n- ```\n```\nSLICE: home/t1',
 ):
-    check(body, matches)
-for interrupt, ends_paragraph in (
-    ('<!-- comment -->', True),
-    ('<?processing?>', True),
-    ('<!DOCTYPE html>', True),
-    ('<![CDATA[text]]>', True),
-    ('<pre>', True),
-    ('<script>', True),
-    ('<style>', True),
-    ('<textarea>', True),
-    ('<div>', True),
-    ('</div>', True),
-    ('<DIV class="example">', True),
-    ('<search>', True),
-    ('<p>', True),
-    ('<custom>', False),
-    ('</custom>', False),
-    ('<pre/>', False),
+    check(body)
+for interrupt in (
+    '<!-- comment -->',
+    '<?processing?>',
+    '<!DOCTYPE html>',
+    '<![CDATA[text]]>',
+    '<pre>',
+    '<script>',
+    '<style>',
+    '<textarea>',
+    '<div>',
+    '</div>',
+    '<DIV class="example">',
+    '<search>',
+    '<p>',
+    '<custom>',
+    '</custom>',
+    '<pre/>',
 ):
-    check('10. paragraph\n' + interrupt + '\n    ```\n    Task: home/t1\n    ```', ends_paragraph)
+    check('10. paragraph\n' + interrupt + '\n    ```\n    Task: home/t1\n    ```')
 PY
   then
-    fail "list-contained fence matching disagrees with CommonMark 0.31.2 sections 4.5 and 5.2"
+    fail "a container or fence hid a declaration (owner-selected R10 contract)"
   fi
-  pass "fm-open-pr-lookup: list-contained fences hide declarations inside and expose declarations after closing or leaving their item"
+  pass "fm-open-pr-lookup: task declarations count inside and after all container and fence forms"
 }
 
 test_a_deferred_launch_reads_the_forge_when_it_launches() {
@@ -644,7 +709,11 @@ declarations = [
     ('__Task__: home/t1__', False),
     ('Task: `__home/t1__`', False),
     ('**Task: home/t1', False),
-    ('```\n**Task: home/t1**\n```', False),
+    ('```\n**Task: home/t1**\n```', True),
+    ('```\n> - **Task-ID:** home/t1\n```', True),
+    ('```\n>> 1. __SLICE: home/t1__\n```', True),
+    ('```\nBlocked by t1\n```', False),
+    ('```\nSLICE: home/other\n```', False),
     ('Prose **Task: home/t1**', False),
 ]
 body_rows = [dict(fixtures['github'], number=n, headRefName='other', body=body)
@@ -687,6 +756,9 @@ for provider, fixture in fixtures.items():
         row['headRefName' if provider == 'github' else 'source_branch'] = 'other'
     answer, _ = lookup(provider, response_for(provider, row, 'body'))
     assert [(pr['number'], pr['head'], pr['why']) for pr in answer['prs']] == [(1, 'abc', ['body'])], answer
+    row[body_field] = '```markdown\nTask: t1\n```'
+    answer, _ = lookup(provider, response_for(provider, row, 'body'))
+    assert [(pr['number'], pr['head'], pr['why']) for pr in answer['prs']] == [(1, 'abc', ['body'])], answer
     row['state'] = 'CLOSED' if provider == 'github' else 'closed'
     answer, _ = lookup(provider, response_for(provider, row, 'body'))
     assert answer['prs'] == [], answer
@@ -702,14 +774,15 @@ PY
 test_forge_reader_contracts
 test_every_registry_forge_kind
 test_remote_origins_never_skip_as_local
-test_body_fences_follow_commonmark_delimiters
-test_fences_follow_list_containers
+test_body_declarations_count_regardless_of_fences
+test_body_declarations_count_in_containers
 test_an_open_pr_on_the_branch_refuses_and_names_it
 test_a_pr_body_naming_the_task_refuses_on_another_branch
 test_prose_mentions_and_closed_prs_do_not_refuse
 test_an_unreadable_forge_refuses_as_unknown
 test_continue_pr_attaches_to_the_open_pr_head
-test_continue_pr_on_another_branch_refuses
+test_continue_pr_on_closed_or_other_branch_refuses
+test_local_only_refuses_continue_pr_before_fetching
 test_kinds_and_forges_that_do_not_consult_the_forge
 test_relaunch_with_its_own_open_pr_is_not_refused
 test_a_deferred_launch_reads_the_forge_when_it_launches

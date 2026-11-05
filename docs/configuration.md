@@ -2062,10 +2062,12 @@ When it yields no result, the admission library reads the policy's `projects` ar
 ## Duplicate-builder admission
 
 Before any worktree, task record or lease exists, a fresh ship spawn reads the project's forge and refuses when an open pull request already carries the task, printing each such pull request's URL.
-A pull request carries the task when its head is the task's branch, or when its body names the task id on a `SLICE:` or `Task:` line outside fenced blocks; a prose mention does not count, and closed or merged pull requests never count.
+A pull request carries the task when its head is the task's branch, or when its body names the task id on a `SLICE:` or `Task:` line anywhere, including fenced code examples; a prose mention does not count, and closed or merged pull requests never count.
 A forge that cannot be read, answers too slowly (`FM_SPAWN_FORGE_TIMEOUT`, 30 seconds by default) or returns a list that may be incomplete refuses the spawn as UNKNOWN rather than launching a second builder blind.
 `--continue-pr <N>` attaches the fresh spawn to open pull request N on the task's branch instead of refusing: the worker's copy starts at that pull request's head, and `continue_pr=` is recorded in the task record.
+It is refused in `local-only` mode, which has no forge pull request to attach to.
 `--no-forge-check <reason>` skips the read, and the reason is recorded as `forge_check_skipped=`.
+An example that declares this exact task id can therefore refuse a spawn; review the printed pull request URL and use `--no-forge-check <reason>` when the declaration is only an example.
 Relaunches, scouts, secondmates and `local-only` ships do not read the forge; a `forge=gerrit` or `forge=external` project skips the read with a notice, and a project with no forge origin skips it silently.
 [`bin/fm-open-pr-lookup.py`](../bin/fm-open-pr-lookup.py) owns which forge is read and what counts as carrying the task, and `fm_spawn_duplicate_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns the refusal.
 
