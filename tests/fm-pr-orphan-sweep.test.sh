@@ -113,7 +113,7 @@ test_torn_down_task_conflict_wakes_once() {
   make_home "$home"
   out=$(run_sweep "$home" 2> "$home/err") || fail "sweep failed: $(cat "$home/err")"
   case "$out" in
-    "check: pr-orphan-conflict: $URL (branch fm/lane) has carried the conflict label since "*"no task poll watches it; owner: UNKNOWN, candidate homes: none (no row is named lane and no row cites the pull request); fleet list absent: "*) ;;
+    "check: pr-orphan-conflict: $URL (branch fm/lane) has carried the conflict label since "*"no task poll watches it; owner: UNKNOWN, candidate homes: none (fleet list absent: ownership is UNKNOWN until a fresh list is available); fleet list absent: "*) ;;
     *) fail "torn-down task's conflicted pull request did not wake: [$out] $(cat "$home/err")" ;;
   esac
   [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "a branch outside the ship prefix woke: $out"
@@ -345,6 +345,7 @@ test_literal_fm_prefix() {
   for annotation in 'direct-PR branch=custom/' 'direct-PR branch='; do
     home=$TMP_ROOT/prefix-${annotation##*=}
     make_home "$home" "$annotation"
+    printf 'self\tmain\ngenerated\t%s\nhomes\tmain\n' "$(date +%s)" > "$home/data/blocked-by-fleet-rows.tsv"
     printf '7\tfm/lane\n8\tcustom/lane\n9\tlane\n' > "$home/pr-list.tsv"
     out=$(SHOW_CMD=true run_sweep "$home" 2>&1) || fail "prefix sweep failed"
     case "$out" in
@@ -360,6 +361,7 @@ test_literal_fm_prefix() {
 test_owner_routing() {
   local home=$TMP_ROOT/owned mate=$TMP_ROOT/mate out
   make_home "$home"
+  printf 'self\tmain\ngenerated\t%s\nhomes\tmain\n' "$(date +%s)" > "$home/data/blocked-by-fleet-rows.tsv"
   out=$(SHOW_CMD=true run_sweep "$home" 2>&1) || fail "sweep failed"
   case "$out" in
     *"owner: task lane in this home's backlog") ;;
@@ -371,6 +373,7 @@ test_owner_routing() {
   [ -z "$out" ] && [ "$(orphan_wakes "$mate/state")" = 0 ] \
     || fail "a secondmate woke for a pull request its backlog does not hold: $out"
   ! grep -q '^api graphql' "$mate/gh.log" || fail "a secondmate read an unclaimed pull request's label"
+  printf 'self\tq-server\ngenerated\t%s\nhomes\tq-server\n' "$(date +%s)" > "$mate/data/blocked-by-fleet-rows.tsv"
   out=$(SHOW_CMD=true run_sweep "$mate" 2>&1) || fail "sweep failed"
   [ "$(orphan_wakes "$mate/state")" = 1 ] || fail "a secondmate did not wake for its own task: $out"
   pass "the wake names this home's task, a main home reports unclaimed work, and a secondmate only its own"
@@ -423,6 +426,32 @@ test_owner_lookup_names_the_home_that_owns_the_pull_request() {
     *) fail "an ambiguous owner was not reported as UNKNOWN with its candidates: $out" ;;
   esac
   pass "the wake names the home whose row owns the pull request, or UNKNOWN with the candidate homes"
+}
+
+test_incomplete_fleet_data_preserves_unknown_owner_wakes() {
+  local mode role home out
+  for mode in absent stale; do
+    for role in main candidate unclaimed; do
+      home=$TMP_ROOT/incomplete-$mode-$role
+      make_home "$home"
+      if [ "$role" = candidate ]; then
+        printf 'mate\n' > "$home/.fm-secondmate-home"
+      fi
+      if [ "$role" != unclaimed ]; then
+        printf '## Queued\n- [ ] lane - Local prep (kind: scout) (since 2026-11-05)\n' > "$home/data/backlog.md"
+      fi
+      if [ "$mode" = stale ]; then
+        printf 'self\tlocal\ngenerated\t%s\nhomes\tlocal,server\nrow\tserver\tlane\topen\t%s\n' \
+          "$(( $(date +%s) - 7 * 3600 ))" "$URL" > "$home/data/blocked-by-fleet-rows.tsv"
+      fi
+      out=$(SHOW_CMD=true run_sweep "$home" 2>&1) || fail 'incomplete-data sweep failed'
+      assert_contains "$out" 'owner: UNKNOWN, candidate homes:' 'incomplete fleet data cannot name a definitive local owner'
+      assert_contains "$out" "fleet list $mode:" 'the wake names the missing or stale list'
+      assert_not_contains "$out" "owner: task lane in this home's backlog" 'the fallback cannot reclaim ownership without a fresh list'
+      [ "$(orphan_wakes "$home/state")" = 1 ] || fail 'a main home or candidate secondmate lost its UNKNOWN wake'
+    done
+  done
+  pass 'incomplete fleet data wakes main homes and candidate secondmates with UNKNOWN without claiming local ownership'
 }
 
 test_unswept_projects_and_usage() {
@@ -480,5 +509,6 @@ test_episode_survives_quiet_and_failed_reads
 test_literal_fm_prefix
 test_owner_routing
 test_owner_lookup_names_the_home_that_owns_the_pull_request
+test_incomplete_fleet_data_preserves_unknown_owner_wakes
 test_unswept_projects_and_usage
 test_watcher_wakes_owner_home

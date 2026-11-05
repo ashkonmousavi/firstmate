@@ -31,10 +31,10 @@
 # Without either the script reads the pull request once (`gh pr view <url> --json headRefName`);
 # a failed read leaves rule 3 alone.
 #
-# NO FLEET LIST. With no list, or one older than FM_BLOCKED_BY_FLEET_MAX_AGE
-# (six hours by default), the answer is still given from the rows that can be
-# read, and a fleet_list line names the gap, because an owner in another home
-# may not be seen.
+# FLEET FRESHNESS. With no list, or one older than six hours, ownership is
+# UNKNOWN. This home is a candidate only when its own rows name the branch task
+# or cite the pull request; stale remote rows never establish ownership or
+# candidates. A fleet_list line names the gap.
 #
 # Output (TSV), then exit status:
 #   known<TAB><home><TAB><task><TAB><here|elsewhere><TAB><evidence>     exit 0
@@ -94,16 +94,16 @@ fi
 
 rows=$(fm_blocked_by_fleet_rows "$DATA") || exit 2
 fleet=$(fm_blocked_by_fleet_file "$DATA")
-self=. note=''
+self=. note='' fresh=0
 if [ -f "$fleet" ]; then
   header=$(fm_blocked_by_fleet_header "$fleet") || exit 2
   IFS=$'\t' read -r self gen homes fresh <<<"$header"
-  [ "$fresh" = 1 ] || note="fleet list stale: generated $(fm_blocked_by_iso "$gen") (age $(( ($(date +%s) - gen) / 3600 ))h), covers $homes; an owner in another home may be missing"
+  [ "$fresh" = 1 ] || note="fleet list stale: generated $(fm_blocked_by_iso "$gen") (age $(( ($(date +%s) - gen) / 3600 ))h), covers $homes; ownership is UNKNOWN until a fresh list is available"
 else
-  note="fleet list absent: the owner is decided from this home's rows only, so an owner in another home is not seen"
+  note="fleet list absent: ownership is UNKNOWN until a fresh list is available"
 fi
 
-printf '%s\n' "$rows" | awk -F '\t' -v want="$url" -v task="$task" -v src="$src" -v self="$self" '
+printf '%s\n' "$rows" | awk -F '\t' -v want="$url" -v task="$task" -v src="$src" -v self="$self" -v fresh="$fresh" -v note="$note" '
   function norm(u,   n, base, num) {
     n = index(u, "/pull/"); if (!n) return ""
     base = tolower(substr(u, 1, n - 1)); num = substr(u, n + 6)
@@ -116,6 +116,7 @@ printf '%s\n' "$rows" | awk -F '\t' -v want="$url" -v task="$task" -v src="$src"
     home = $1; id = $2; cites = 0
     m = split($4, u, ",")
     for (i = 1; i <= m; i++) if (u[i] != "-" && norm(u[i]) == target) cites = 1
+    if (home == self && ((task != "" && id == task) || cites)) localcandidate = self
     if (task != "" && id == task) { named = add(named, home); if (cites) namedcite = add(namedcite, home) }
     if (cites) { citing = add(citing, home SUBSEP id); citehomes = add(citehomes, home) }
   }
@@ -126,6 +127,7 @@ printf '%s\n' "$rows" | awk -F '\t' -v want="$url" -v task="$task" -v src="$src"
   function known(h, t, why) { why = shown(why); print "known\t" h "\t" t "\t" (h == self ? "here" : "elsewhere") "\t" why; st = 0 }
   function unknown(c, why) { why = shown(why); print "unknown\t" (c == "" ? "-" : c) "\t" (index("," c ",", "," self ",") ? "here" : "elsewhere") "\t" why; st = 3 }
   END {
+    if (!fresh) { unknown(localcandidate, note); exit st }
     if (named != "") {
       n = split(named, nh, ","); k = (namedcite == "" ? 0 : split(namedcite, ch, ","))
       if (n == 1) known(named, task, src " names a row only in " named)

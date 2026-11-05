@@ -127,6 +127,7 @@ reset() {
   printf '1\n' > "$FAKE/free"
   queue
   printf '' | rules
+  printf 'self\tmain\ngenerated\t%s\nhomes\tmain\n' "$(date +%s)" > "$H/data/blocked-by-fleet-rows.tsv"
 }
 field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
@@ -189,8 +190,15 @@ assert_contains "$(rec 30)" 'refused:owner UNKNOWN for x-j09-basket-approval-bui
 assert_absent "$FAKE/control.log" 'an UNKNOWN owner relaunched nothing'
 rm -f "$H/data/blocked-by-fleet-rows.tsv"
 bash "$TRIAGE" --apply >/dev/null 2>&1
-assert_equals 'launched x-j09-basket-approval-build (queue=not queued)' "$(field "$(rec 30)" 5)" \
-  "with no fleet list this home's open row still owns its pull request"
+assert_contains "$(rec 30)" 'refused:owner UNKNOWN for x-j09-basket-approval-build, candidate homes .: fleet list absent:' \
+  'without a fleet list a local prep row cannot claim a PR'
+assert_absent "$FAKE/control.log" 'a missing fleet list never admits a fix worker'
+printf 'self\tq-zenbook\ngenerated\t%s\nhomes\tq-server,q-zenbook\n' \
+  "$(( $(date +%s) - 7 * 3600 ))" > "$H/data/blocked-by-fleet-rows.tsv"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 30)" 'refused:owner UNKNOWN for x-j09-basket-approval-build, candidate homes q-zenbook: fleet list stale:' \
+  'a stale list cannot make the local prep row the owner'
+assert_absent "$FAKE/control.log" 'a stale fleet list never admits a fix worker'
 pass 'a fix launches only when the owner lookup leaves the pull request with this home'
 
 reset

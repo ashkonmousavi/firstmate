@@ -140,23 +140,36 @@ test_head_branch_is_read_once_when_not_given() {
 }
 
 test_absent_or_stale_list_is_named() {
-  local home out
-  home=$(home_with pc-absent "- [ ] lane - Lane work (kind: ship) (since 2026-11-05)")
-  out=$(owner "$home" "$PR" --branch fm/lane)
-  expect "$out" "known	.	lane	here	branch fm/lane names a row only in this home
-fleet_list	fleet list absent: *
-exit=0" "an absent fleet list was not named beside this home's answer"
-  fleet_list "$home" pc "$(( $(date +%s) - 7 * 3600 ))" pc,server "server|other|open|$PR"
-  out=$(owner "$home" "$PR" --branch fm/zzz)
-  expect "$out" "known	server	other	elsewhere	*
-fleet_list	fleet list stale: generated * (age 7h), covers pc,server; *
-exit=0" "a stale fleet list was not named"
+  local home out mode self args
+  local -a argv
+  home=$(home_with pc-absent "- [ ] lane - Lane work (kind: ship) (since 2026-11-05)" \
+    "- [x] done-lane - Delivered (since 2026-11-05)" \
+    "- [ ] cited-lane - Build (pr: $PR) (since 2026-11-05)")
+  printf '## Archived\n- [x] archive-lane - Archived\n' > "$home/data/done-archive.md"
+  for mode in absent stale; do
+    self=.
+    if [ "$mode" = stale ]; then
+      self=pc
+      fleet_list "$home" pc "$(( $(date +%s) - 7 * 3600 ))" pc,server "server|lane|open|$PR" "server|other|open|$PR"
+    fi
+    for args in '--branch fm/lane' '--task lane' '--branch fm/done-lane' '--branch fm/archive-lane' '--branch fm/zzz'; do
+      read -r -a argv <<<"$args"
+      out=$(owner "$home" "$PR" "${argv[@]}")
+      expect "$out" "unknown	$self	here	fleet list $mode: *
+fleet_list	fleet list $mode: *
+exit=3" "$mode list made local rows definitive or lost their candidacy"
+    done
+    out=$(owner "$home" https://github.com/o/r/pull/8 --branch fm/other)
+    expect "$out" "unknown	-	elsewhere	fleet list $mode: *
+fleet_list	fleet list $mode: *
+exit=3" "$mode list made a stale remote row a candidate or owner"
+  done
   printf 'row\tserver\tx\topen\n' > "$home/data/blocked-by-fleet-rows.tsv"
   out=$(owner "$home" "$PR" --branch fm/zzz 2>&1)
   expect "$out" "*needs self, generated*exit=2" "a malformed fleet list was accepted"
   out=$(owner "$home" https://example.com/o/r/pull/1 2>&1)
   expect "$out" "*not a GitHub pull request URL*exit=2" "a non-GitHub URL was accepted"
-  pass "an absent or stale fleet list is named in the answer, and bad input is refused"
+  pass "an absent or stale fleet list preserves UNKNOWN and only local candidates; bad input is refused"
 }
 
 test_branch_id_in_two_homes_goes_to_the_row_citing_the_pull_request

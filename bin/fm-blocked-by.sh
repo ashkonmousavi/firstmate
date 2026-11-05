@@ -2,13 +2,13 @@
 # fm-blocked-by.sh - show and record whether this home's blocked-by edges still block.
 #
 # Usage:
-#   fm-blocked-by.sh verdicts [--json]
+#   fm-blocked-by.sh verdicts
 #   fm-blocked-by.sh mark <row-id> <target> --pr <pull-request-url>
 #   fm-blocked-by.sh unmark <row-id> <target>
 #
 # verdicts prints bin/fm-blocked-by-lib.sh's verdict for every blocked-by edge
-# in this home's backlog (TSV: row, closed, target, verdict, evidence; --json
-# prints the same as an array of objects). The library header owns the rule.
+# in this home's backlog (TSV: row, closed, target, verdict, evidence).
+# The library header owns the rule.
 #
 # mark records that <target> no longer blocks <row-id> because the pull request
 # that delivered it merged. It reads the pull request once with
@@ -20,7 +20,7 @@
 # unmark appends the reversing line, so the edge reads as it did before the mark.
 # Use mark for a blocker whose only trace is its merged pull request (no done
 # row in this home's backlog or archive); a done or archived row already
-# satisfies the edge without one.
+# satisfies the edge without one when the fleet list is fresh.
 #
 # The data directory is FM_DATA_OVERRIDE, else $FM_HOME/data, else the code
 # root's data/. Exit 0 on success, 1 on a refusal, 2 on a usage error or an
@@ -46,13 +46,7 @@ usage_error() { printf 'fm-blocked-by: %s\n' "$*" >&2; exit 2; }
 verdicts() {
   local out
   out=$(fm_blocked_by_verdicts "$DATA") || exit 2
-  if [ "${1:-}" = --json ]; then
-    printf '%s' "$out" | jq -R -s '
-      split("\n") | map(select(length > 0) | split("\t")
-        | {row:.[0], closed:(.[1] == "1"), target:.[2], verdict:.[3], evidence:.[4]})'
-  else
-    [ -z "$out" ] || printf '%s\n' "$out"
-  fi
+  [ -z "$out" ] || printf '%s\n' "$out"
 }
 
 edge_verdict() {  # <row> <target>
@@ -106,8 +100,8 @@ unmark() {
 case "${1:-}" in
   -h|--help) usage ;;
   verdicts)
-    [ $# -le 2 ] || usage_error "verdicts takes only --json"
-    case "${2:-}" in ''|--json) verdicts "${2:-}" ;; *) usage_error "unknown flag ${2}" ;; esac
+    [ $# -eq 1 ] || usage_error "verdicts takes no arguments"
+    verdicts
     ;;
   mark)
     [ $# -eq 5 ] && [ "$4" = --pr ] || usage_error "usage: fm-blocked-by.sh mark <row-id> <target> --pr <url>"

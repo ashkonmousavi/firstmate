@@ -38,8 +38,8 @@
 # UNKNOWN only when it is one of the candidates, so a home that may own the work
 # still hears of it; otherwise it stays quiet, because the pull request is not its
 # work and its main home sweeps the same project when registered there. When the lookup sees no row at all, this home's
-# backlog is still asked for the head branch's id (bin/fm-tasks-axi.sh show), so a
-# backlog it cannot read directly keeps claiming its own tasks. With no fleet list,
+# backlog is asked for the head branch's id (bin/fm-tasks-axi.sh show) only with
+# a fresh fleet list. With no fleet list,
 # or a stale one, the wake ends with the lookup's fleet_list line.
 # Coverage is local to this home: a pull request a secondmate home also watches
 # may receive a harmless duplicate wake in the main home.
@@ -261,7 +261,7 @@ pr_owner() {
     warn "could not decide the owner of $url"
     cands=- where=elsewhere why="the owner lookup could not read this home's rows"
   fi
-  if [ "$cands" = - ] && task_claimed_here "$task"; then
+  if [ "$rc" = 3 ] && [ -z "$note" ] && [ "$cands" = - ] && task_claimed_here "$task"; then
     printf "task %s in this home's backlog\n" "$task"
     return 0
   fi

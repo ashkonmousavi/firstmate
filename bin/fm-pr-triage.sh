@@ -560,7 +560,7 @@ fix_note() {  # <url> <base> <why>
 # act_fix <number> <url> <rank> <task> <why> <head> <base>
 act_fix() {
   local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 base=$7 q posture rc note owner
-  local out first selected_home id where evidence cands
+  local out first selected_home id where evidence cands fleet_note
   q=$(queue_state "$n")
   note=$(fix_note "$url" "$base" "$why")
   if [ -z "$task" ]; then
@@ -570,13 +570,14 @@ act_fix() {
   rc=0
   out=$(FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-pr-owner.sh" "$url" --task "$task" 2>&1) || rc=$?
   first=$(printf '%s\n' "$out" | sed -n 1p)
+  fleet_note=$(printf '%s\n' "$out" | awk -F '\t' '$1 == "fleet_list" { print $2; exit }')
   case "$rc:${first%%$'\t'*}" in
     0:known)
       IFS=$'\t' read -r _ selected_home id where evidence <<<"$first"
       task=$id ;;
     3:unknown)
       IFS=$'\t' read -r _ cands where evidence <<<"$first"
-      if [ "$cands" = - ]; then
+      if [ "$cands" = - ] && [ -z "$fleet_note" ]; then
         record "$url" "$rank" fix "refused:no home owns $task (queue=$q)"
       else
         record "$url" "$rank" fix "refused:owner UNKNOWN for $task, candidate homes $cands: $evidence (queue=$q)"

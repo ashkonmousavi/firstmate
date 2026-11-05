@@ -15,11 +15,13 @@
 #              row cites), or a recorded mark cites the merged pull request
 #   unknown    none of those; unknown work blocks and is reported, never cleared
 # Checked in that order, so an open row anywhere the list covers beats a done
-# row here and a mark.
+# row here and a mark. Satisfaction requires a fleet list no older than six
+# hours; without one, every edge not blocked by a visible open row is unknown.
 # A merged pull request is never looked up here and never clears an edge by
 # itself: an id whose fm/<id> pull request merged can still be an open row (a
 # contract row held open in another home until it lands), and reading the merge
-# as satisfied would launch its dependents early. A mark records that call.
+# as satisfied would launch its dependents early. Only a manual mark recorded
+# with bin/fm-blocked-by.sh mark can clear an edge on the strength of a merged PR.
 # An edge written <home>:<id> is decided from the fleet list's rows for that
 # home (open blocks, done or archive satisfies, no row is unknown), or as a
 # plain <id> when <home> is this home; with no fleet list it is unknown.
@@ -33,11 +35,11 @@
 #   row<TAB><home><TAB><id><TAB><open|done|archive>[<TAB><pull-request-urls>]
 # with `#` comment lines allowed; the optional last field lists every full
 # pull request URL the row cites, comma-separated (bin/fm-pr-owner.sh reads it). Rows for self are ignored, because this home's
-# own backlog and archive are read live. Without the list a blocker open only in
-# another home is invisible, so an edge whose id is done here still reads
-# satisfied; fm_blocked_by_fleet_note says so on every ready list. A list older
-# than FM_BLOCKED_BY_FLEET_MAX_AGE seconds (default 21600, six hours) is stale:
-# its open rows still block, its done rows satisfy nothing, and the note says so.
+# own backlog and archive are read live. A missing list or a list older than
+# 21600 seconds (six hours) cannot establish satisfaction, including from a
+# local done row, archive row, or recorded mark. Visible open rows still block;
+# every other edge is unknown, with the missing or stale list as evidence.
+# fm_blocked_by_fleet_note reports the gap on ready lists and digests.
 # Edges come from bin/fm-tasks-axi-lib.sh fm_tasks_axi_dependency_edges and rows
 # from the same row grammar (`- [ ] <id> - ...`, `- [x] <id> - ...`,
 # `- **<id>** - ...`; a checked row or any row under `## Done` is done, and every
@@ -97,17 +99,15 @@ fm_blocked_by_fleet_file() {  # <data-dir>
 # fm_blocked_by_fleet_header <file>: "<self><TAB><generated><TAB><homes><TAB><fresh 0|1>",
 # or a diagnostic and 2 when a header line is missing or generated is not an epoch.
 fm_blocked_by_fleet_header() {
-  local file=$1 now max header
+  local file=$1 now header
   now=$(date +%s)
-  max=${FM_BLOCKED_BY_FLEET_MAX_AGE:-21600}
-  case "$max" in ''|*[!0-9]*) max=21600 ;; esac
-  header=$(awk -F '\t' -v now="$now" -v max="$max" '
+  header=$(awk -F '\t' -v now="$now" '
     $1 == "self" && NF >= 2 && $2 != "" { self = $2 }
     $1 == "generated" && $2 ~ /^[0-9]+$/ { gen = $2 }
     $1 == "homes" && NF >= 2 && $2 != "" { homes = $2 }
     END {
       if (self == "" || gen == "" || homes == "") exit 1
-      print self "\t" gen "\t" homes "\t" (now - gen <= max ? 1 : 0)
+      print self "\t" gen "\t" homes "\t" (now - gen <= 21600 ? 1 : 0)
     }' "$file") || {
     printf 'blocked-by: the fleet list %s needs self, generated (epoch) and homes lines\n' "$file" >&2
     return 2
@@ -126,13 +126,13 @@ fm_blocked_by_fleet_note() {
   fleet=$(fm_blocked_by_fleet_file "$data")
   fm_blocked_by_readable "$fleet" "fleet list" || return 2
   if [ ! -f "$fleet" ]; then
-    printf 'fleet list absent: blocked-by edges are decided from this home only, so a blocker open only in another home is not seen\n'
+    printf 'fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks\n'
     return 0
   fi
   header=$(fm_blocked_by_fleet_header "$fleet") || return 2
   [ "${header##*$'\t'}" = 1 ] && return 0
   IFS=$'\t' read -r _ gen homes _ <<<"$header"
-  printf 'fleet list stale: generated %s (age %sh), covers %s; its open rows still block, its done rows satisfy nothing\n' \
+  printf 'fleet list stale: generated %s (age %sh), covers %s; visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks\n' \
     "$(fm_blocked_by_iso "$gen")" "$(( ($(date +%s) - gen) / 3600 ))" "$homes"
 }
 
@@ -196,7 +196,7 @@ fm_blocked_by_fleet_rows() {
 
 fm_blocked_by_verdicts() {  # <data-dir>
   local data=${1%/} backlog archive marks fleet edges rows archived ledger listed header
-  local self='' gen='' homes='' fresh=0 when=''
+  local self='' gen='' homes='' fresh=0 when='' gap
   backlog=$data/backlog.md
   archive=$(fm_blocked_by_archive_file "$data")
   marks=$(fm_blocked_by_marks_file "$data")
@@ -205,6 +205,7 @@ fm_blocked_by_verdicts() {  # <data-dir>
   fm_blocked_by_readable "$archive" archive || return 2
   fm_blocked_by_readable "$marks" "mark ledger" || return 2
   fm_blocked_by_readable "$fleet" "fleet list" || return 2
+  gap=$(fm_blocked_by_fleet_note "$data") || return 2
   listed=
   if [ -f "$fleet" ]; then
     header=$(fm_blocked_by_fleet_header "$fleet") || return 2
@@ -229,7 +230,7 @@ fm_blocked_by_verdicts() {  # <data-dir>
     [ -z "$ledger" ] || printf '%s\n' "$ledger" | sed 's/^/M\t/'
     [ -z "$listed" ] || printf '%s\n' "$listed" | sed 's/^/L\t/'
     [ -z "$edges" ] || printf '%s\n' "$edges" | sed 's/^/E\t/'
-  } | awk -F '\t' -v self="$self" -v homes="$homes" -v fresh="$fresh" -v when="$when" '
+  } | awk -F '\t' -v self="$self" -v homes="$homes" -v fresh="$fresh" -v when="$when" -v gap="$gap" '
     BEGIN { n = split(homes, hs, ","); for (i = 1; i <= n; i++) covered[hs[i]] = 1; list = (self != "") }
     $1 == "R" {
       if ($3 == "open") open[$2] = 1
@@ -254,16 +255,14 @@ fm_blocked_by_verdicts() {  # <data-dir>
         if (list && home == self) home = ""
       }
       if (home != "") {
-        if (!list) {
-          verdict = "unknown"; why = "names home " home "; this home has no fleet list"
-        } else if (!(home in covered)) {
+        if (fresh && !(home in covered)) {
           verdict = "unknown"; why = "names home " home ", which the fleet list from " when " does not cover"
         } else if (fl[home SUBSEP id] == "open") {
           verdict = "blocked"; why = "open in " home " per fleet list " when
-        } else if (fl[home SUBSEP id] != "" && fresh) {
-          verdict = "satisfied"; why = (fl[home SUBSEP id] == "archive" ? "archive row" : "done row") " in " home " per fleet list " when
+        } else if (!fresh) {
+          verdict = "unknown"; why = "names home " home "; " gap
         } else if (fl[home SUBSEP id] != "") {
-          verdict = "unknown"; why = "done in " home " per fleet list " when ", which is stale"
+          verdict = "satisfied"; why = (fl[home SUBSEP id] == "archive" ? "archive row" : "done row") " in " home " per fleet list " when
         } else {
           verdict = "unknown"; why = "no row in " home " per fleet list " when
         }
@@ -271,6 +270,8 @@ fm_blocked_by_verdicts() {  # <data-dir>
         verdict = "blocked"; why = "open row" (id in openin ? "; also open in " openin[id] " per fleet list " when : "")
       } else if (id in openin) {
         verdict = "blocked"; why = "open in " openin[id] " per fleet list " when
+      } else if (!fresh) {
+        verdict = "unknown"; why = gap
       } else if (id in done) {
         verdict = "satisfied"; why = done[id]
       } else if (mark[row SUBSEP target] != "") {

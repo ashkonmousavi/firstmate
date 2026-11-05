@@ -561,15 +561,16 @@ On the default markdown adapter, tasks-axi and manual edits produce the same `##
 
 `bin/fm-tasks-axi.sh ready`, the autolaunch candidates it feeds, the session-start digest, and `bin/fm-fleet-snapshot.sh` share one rule for whether a `blocked-by:` edge still blocks: [`bin/fm-blocked-by-lib.sh`](../bin/fm-blocked-by-lib.sh)'s header owns it.
 An open row blocks, whether it is in this home or, per the fleet list, in another home.
-Otherwise a blocker done in this home's backlog or done archive clears the edge, and so does a recorded mark.
+With a fresh fleet list, a blocker done in this home's backlog or done archive clears the edge, and so does a recorded mark.
 A blocker with no row, no archive row and no mark is unknown, so it blocks and is listed with its evidence rather than cleared.
 A merged pull request never clears an edge by itself, because the same id can still be an open row in another home.
-A blocker whose only trace is its merged pull request is cleared by recording a mark with [`bin/fm-blocked-by.sh`](../bin/fm-blocked-by.sh) `mark`, which `unmark` reverses; the marks live in the home's `data/blocked-by-marks.tsv`.
+Only a manual mark recorded with [`bin/fm-blocked-by.sh`](../bin/fm-blocked-by.sh) `mark` can clear an edge on the strength of a merged PR; `unmark` reverses it, and the marks live in the home's `data/blocked-by-marks.tsv`.
 The optional fleet list `data/blocked-by-fleet-rows.tsv` holds every home's open, done and archived rows; the blocked-by census kit's `fleet-rows` output writes one per home, and it is copied into each home by hand.
 With it, an edge written `<home>:<id>` resolves against that home's rows.
 Its rows also carry the full pull request URLs each row cites, which [`bin/fm-pr-owner.sh`](../bin/fm-pr-owner.sh) reads to name the home and task that own a pull request.
-Without it, or once it is older than six hours (`FM_BLOCKED_BY_FLEET_MAX_AGE` seconds), the ready list and the digest print a `blocked_by_fleet_list:` line saying so.
-A stale list's open rows still block, but its done rows clear nothing.
+Without it, or once it is older than the fixed six-hour limit (21600 seconds), visible open rows still block and every other edge is unknown, including targets done or archived locally and targets with recorded marks.
+The ready list and the digest print a `blocked_by_fleet_list:` line naming the gap.
+PR ownership is also UNKNOWN without a fresh list; only this home's matching rows can make it a candidate, and triage never launches a fix from incomplete fleet data.
 `bin/fm-blocked-by.sh verdicts` prints the verdict for every edge.
 
 ### Using a separate operational home
@@ -3625,7 +3626,6 @@ FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
 FM_SPAWN_FORGE_TIMEOUT=30 # duplicate-builder admission: seconds each forge read may take before a fresh ship spawn refuses as UNKNOWN
-FM_BLOCKED_BY_FLEET_MAX_AGE=21600 # blocked-by fleet list: seconds after its generation time before it reads stale
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds

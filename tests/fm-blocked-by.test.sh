@@ -9,8 +9,8 @@
 # archive citing those URLs; the live 2026-11-05 cross-home case (q-server
 # x-j17-slice6 blocked by x-spine-workshop-contract, open on the Zenbook while its
 # fm/ pull request 1218 merged on 2026-10-19); and the rule fleet-ops set for cut
-# 13 on 2026-11-05: a done row including the archive, or a merged pull request,
-# satisfies; an open row never does; an id with no row, no archive row and no
+# 13 as amended on 2026-11-05: with a fresh fleet list, a done or archive
+# row or a manual merged-PR mark satisfies; an open row never does; an id with no row, no archive row and no
 # pull request is unknown, which blocks and is reported.
 # Fleet-list oracle: the four live edges of the 2026-11-05 census whose blocker
 # is done or archived in the edge's own home and open in the other one (q-server
@@ -46,6 +46,7 @@ make_home() {  # <name> <queued-lines> [<done-lines>]; prints the home
   fm_test_tasks_toml "$home/.tasks.toml"
   { printf '# Backlog\n\n## In flight\n\n## Queued\n%s\n\n## Done\n' "$2"
     [ -z "${3:-}" ] || printf '%s\n' "$3"; } > "$home/data/backlog.md"
+  fleet_list "$home" local "$(date +%s)" local
   printf '%s\n' "$home"
 }
 
@@ -290,12 +291,13 @@ test_the_fleet_list_blocks_the_four_live_cross_home_edges() {
   server=$(live_server fleet-server)
   zen=$(make_home fleet-zen '- [ ] x-ai-s5b-sibling-skills - S5b: sibling skills publish from folders blocked-by: x-recipe-publish-from-folders (repo: proj) (kind: ship) (since 2026-10-31)' \
     "- [x] x-recipe-publish-from-folders - Recipe publishes skills from openwebui/skills folders $PR_2691 (repo: proj) (kind: ship) (merged 2026-10-31)")
+  rm -f "$server/data/blocked-by-fleet-rows.tsv" "$zen/data/blocked-by-fleet-rows.tsv"
   ready=$(ready_ids "$server" | tr '\n' ' ')
-  [ "$ready" = 'x-j17-slice6 x-j09-basket-approval-build x-feedback-apps-status x-free ' ] \
-    || fail "without a fleet list the own-home archive should decide (the red case): '$ready'"
-  FM_HOME=$server "$WRAPPER" ready | grep -Fqx 'blocked_by_fleet_list: "fleet list absent: blocked-by edges are decided from this home only, so a blocker open only in another home is not seen"' \
+  [ "$ready" = 'x-free ' ] \
+    || fail "without a fleet list the own-home archive cannot prove readiness: '$ready'"
+  FM_HOME=$server "$WRAPPER" ready | grep -Fqx 'blocked_by_fleet_list: "fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"' \
     || fail "ready does not say the fleet list is absent: $(FM_HOME=$server "$WRAPPER" ready)"
-  ready_ids "$zen" | grep -Fqx x-ai-s5b-sibling-skills || fail 'without a fleet list the Zenbook done row should decide'
+  ready_ids "$zen" | grep -Fqx x-ai-s5b-sibling-skills && fail 'without a fleet list the Zenbook done row cannot prove readiness'
 
   fleet_list "$server" q-server "$(date +%s)" "$FLEET_HOMES" q-zenbook:x-spine-workshop-contract:open \
     q-zenbook:x-spine-cashier-contract:open q-zenbook:x-j17-slice2:open q-server:x-j17-slice6:open q-pc:x-stray:open
@@ -355,10 +357,8 @@ test_a_stale_fleet_list_is_shown_and_never_reopens_an_edge() {
   printf '%s\n' "$out" | grep -Eq '^blocked_by_fleet_list: "fleet list stale: generated [0-9T:-]+Z \(age 7h\), covers pc,x-ux,fleet-ops,q-server,q-zenbook; ' \
     || fail "ready does not show the stale list with its age and homes: $out"
   ready_ids "$server" | grep -Fqx x-j17-slice6 && fail 'a stale list let x-j17-slice6 launch while its blocker was open on the Zenbook'
-  withheld "$server" | grep -Fq 'x-j17-complete-walk,"q-zenbook:x-j17-slice2",unknown,"done in q-zenbook per fleet list ' \
+  withheld "$server" | grep -Fq 'x-j17-complete-walk,"q-zenbook:x-j17-slice2",unknown,"names home q-zenbook; fleet list stale: generated ' \
     || fail "a stale list's done row satisfied a qualified edge: $(withheld "$server")"
-  FM_BLOCKED_BY_FLEET_MAX_AGE=86400 ready_ids "$server" | grep -Fqx x-j17-complete-walk \
-    || fail 'FM_BLOCKED_BY_FLEET_MAX_AGE does not set the stale age'
   printf 'self\tq-server\nrow\tq-zenbook\tx-j17-slice2\topen\n' > "$server/data/blocked-by-fleet-rows.tsv"
   out=$(FM_HOME=$server "$WRAPPER" ready 2>&1) && fail "ready accepted a fleet list with no generated or homes line: $out"
   printf '%s' "$out" | grep -Fq 'needs self, generated (epoch) and homes lines' || fail "the malformed-list refusal does not say why: $out"
@@ -377,7 +377,53 @@ test_the_archive_path_follows_tasks_toml() {
   pass 'the archive path follows .tasks.toml'
 }
 
+test_missing_or_stale_fleet_data_withholds_every_nonopen_edge() {
+  local home mode out id gh
+  home=$(make_home incomplete '- [ ] wait-done - waits blocked-by: done-id (kind: ship)
+- [ ] wait-archive - waits blocked-by: archive-id (kind: scout)
+- [ ] wait-mark - waits blocked-by: marked-id (kind: ship)
+- [ ] wait-open - waits blocked-by: open-id (kind: ship)
+- [ ] wait-qualified - waits blocked-by: local:done-id (kind: ship)
+- [ ] wait-remote - waits blocked-by: remote:remote-id (kind: ship)
+- [ ] wait-remote-open - waits blocked-by: remote:remote-open-id (kind: ship)
+- [ ] open-id - still open (kind: ship)' '- [x] done-id - delivered')
+  archive "$home" '- [x] archive-id - archived'
+  gh=$TMP_ROOT/incomplete-gh
+  fake_gh "$gh"
+  printf '{"state":"MERGED","url":"%s"}\n' "$PR_2978" > "$gh/2978.json"
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait-mark marked-id --pr "$PR_2978" >/dev/null \
+    || fail 'could not record the manual mark fixture'
+  for mode in absent stale; do
+    if [ "$mode" = absent ]; then
+      rm -f "$home/data/blocked-by-fleet-rows.tsv"
+    else
+      fleet_list "$home" local "$(( $(date +%s) - 7 * 3600 ))" local,remote remote:remote-id:done remote:remote-open-id:open
+    fi
+    out=$(FM_HOME=$home "$TOOL" verdicts)
+    for id in wait-done wait-archive wait-mark wait-qualified wait-remote; do
+      printf '%s\n' "$out" | awk -F '\t' -v row="$id" -v gap="fleet list $mode:" \
+        '$1 == row && $4 == "unknown" && index($5, gap) { found = 1 } END { exit !found }' \
+        || fail "$mode list cleared $id or lost the gap evidence: $out"
+      ready_ids "$home" | grep -Fqx "$id" && fail "$mode list made $id ready"
+    done
+    printf '%s\n' "$out" | grep -Fq 'wait-open	0	open-id	blocked	open row' \
+      || fail "$mode list stopped blocking a visible local open row: $out"
+    if [ "$mode" = stale ]; then
+      printf '%s\n' "$out" | grep -Fq 'wait-remote-open	0	remote:remote-open-id	blocked	open in remote' \
+        || fail "a stale visible remote open row stopped blocking: $out"
+    fi
+    [ "$(snapshot_unresolved "$home" wait-done)" = done-id ] || fail "$mode snapshot cleared local done work"
+    [ "$(snapshot_unresolved "$home" wait-mark)" = marked-id ] || fail "$mode snapshot cleared a recorded mark"
+  done
+  fleet_list "$home" local "$(date +%s)" local,remote remote:remote-id:done remote:remote-open-id:open
+  for id in wait-done wait-archive wait-mark wait-qualified wait-remote; do
+    ready_ids "$home" | grep -Fqx "$id" || fail "fresh fleet data did not restore $id"
+  done
+  pass 'absent or stale fleet data preserves visible blockers and makes every other edge unknown until refreshed'
+}
+
 fm_test_run \
+  test_missing_or_stale_fleet_data_withholds_every_nonopen_edge \
   test_archived_blockers_resolve_and_cite_their_prs \
   test_ready_withholds_unknown_and_other_home_blockers \
   test_a_merged_pr_alone_never_clears_an_absent_blocker \
