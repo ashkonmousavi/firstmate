@@ -1019,7 +1019,9 @@ if [ "$ACTION" = run ]; then
   [ "$controller_rc" != 2 ] || exit 1
   if [ "$controller_rc" = 0 ]; then
     plan_rc=0
+    pass_acquired=0
     if pass_lock_try; then
+      pass_acquired=1
       LOCK_HELD=1
       controller_now > "$LOCK/at" || exit 1
       # Only the planning child is timed. Its parent releases the shared
@@ -1032,7 +1034,7 @@ if [ "$ACTION" = run ]; then
       echo "fm-autolaunch: another pass holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}; seat claims wait" >&2
       plan_rc=73
     fi
-    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-effects "$SCRIPT_DIR/fm-autolaunch.sh" "$plan_rc"
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-effects "$SCRIPT_DIR/fm-autolaunch.sh" "$plan_rc" "$pass_acquired"
     exit $?
   fi
 fi
@@ -1076,7 +1078,7 @@ for id in $ids; do
     record "$slot" "$id" - "refused:$DISPATCH_ERR"
     continue
   fi
-  outcome='' quota_reason='' model=-
+  outcome='' quota_reason='' model=- prepared_candidates=0
   while IFS= read -r line; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
@@ -1088,7 +1090,7 @@ for id in $ids; do
     outcome=''
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
-      if [ "${FM_CONTROLLER_PREPARED:-}" = 1 ]; then
+      if [ "${FM_CONTROLLER_PREPARED:-}" = 1 ] || [ "${FM_CONTROLLER_PREPARED:-}" = all ]; then
         python3 -c 'import json,sys; print("would-argv: " + json.dumps(sys.argv[1:]))' "$SPAWN_BIN" "${SPAWN_ARGV[@]}"
       else
         printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
@@ -1097,6 +1099,11 @@ for id in $ids; do
       fi
       outcome=launched
       [ "$slot" != - ] || outcome=would-launch-when-a-lane-frees
+      if [ "${FM_CONTROLLER_PREPARED:-}" = all ]; then
+        record "$slot" "$id" "$model" "$outcome"
+        prepared_candidates=1
+        continue
+      fi
       break
     fi
     rc=0
@@ -1116,6 +1123,10 @@ for id in $ids; do
     fi
     break
   done < "$TMPD/cands.tsv"
+  if [ "$prepared_candidates" = 1 ]; then
+    [ "$slot" = - ] || LANE=$((LANE + 1))
+    continue
+  fi
   [ -n "$outcome" ] || outcome="refused:quota: ${quota_reason:-no candidate profile launched}"
   record "$slot" "$id" "$model" "$outcome"
   case "$outcome" in

@@ -84,6 +84,249 @@ exit 0
 SH
 }
 
+test_controller_runtime_quota_falls_through_profiles() {
+  local mode token rc
+  for mode in normal saved all retry; do
+    k1_setup "profile-$mode" mate
+    k1_ready k1-profile
+    printf '%s\n' '{"shared_quota":true,"default":[{"harness":"codex","model":"gpt-5.5"},{"harness":"claude","model":"opus"}]}' > "$H/config/crew-dispatch.json"
+    printf '%s\n' "$mode" > "$KF/profile-mode"
+    cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+harness=
+while [ "$#" -gt 0 ]; do [ "$1" != --harness ] || harness=$2; shift; done
+if [ "$(cat "$KF/profile-mode")" = retry ]; then
+  echo 'error: unknown fixture failure' >&2; exit 1
+fi
+if [ "$harness" = codex ] || [ "$(cat "$KF/profile-mode")" = all ]; then
+  echo "error: fm-spawn refuses explicit harness $harness: provider $harness runway exhausted_now. Best alternative: none." >&2
+  exit 1
+fi
+echo 'spawned k1-profile'
+SH
+    if [ "$mode" = saved ] || [ "$mode" = all ]; then
+      controller_save_pending_launch
+    fi
+    k1_pass 0
+    if [ "$mode" = retry ]; then
+      controller_wait_action_receipt ctl-b-launch-k1-profile || fail 'the initial unknown failure must complete'
+      k1_pass 55
+      printf 'normal\n' > "$KF/profile-mode"
+      k1_pass 165
+    elif [ "$mode" = saved ] || [ "$mode" = all ]; then
+      token=$(cat "$KF/pending-action")
+      prep k1-profile proj base_branch=refreshed
+      rc=0
+      FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+        python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" || rc=$?
+      if [ "$mode" = all ]; then
+        expect_code 1 "$rc" 'all runtime quota refusals retain the final failed spawn code'
+      else
+        expect_code 0 "$rc" 'a saved action must reach its next eligible profile'
+      fi
+    fi
+    controller_wait_action_receipt ctl-b-launch-k1-profile || fail 'the bounded profile attempt must publish one result'
+    k1_pass_lock_holder
+    k1_pass 220
+    python3 - "$H/state/autolaunch-controller" "$KF/spawn.log" "$mode" <<'PYCASE' || fail 'ordered fallback must finish within one unchanged action identity and deadline'
+import json,sys
+from pathlib import Path
+root, log, mode=Path(sys.argv[1]),Path(sys.argv[2]),sys.argv[3]
+row=json.loads((root/'ctl-b-launch-k1-profile.json').read_text())
+attempt=json.loads((root/row['attempt']).read_text())
+result=json.loads((root/(row['attempt']+'.result')).read_text())
+lines=log.read_text().splitlines()
+assert len(lines)==(3 if mode=='retry' else 2),lines
+assert '--harness codex' in lines[-2] and '--harness claude' in lines[-1],lines
+assert attempt['deadline']-attempt['started']==600,attempt
+assert attempt['argv'][attempt['argv'].index('--harness')+1]=='claude',attempt
+if mode in ('saved','all'):
+    assert all('--base-branch refreshed' in line for line in lines),lines
+if mode=='all':
+    assert result['wait']=='quota' and result['rc']==1,result
+else:
+    assert result['rc']==0 and not result['wait'],result
+assert row['dispatch']==(2 if mode=='retry' else 1),row
+assert row['model']=='claude:opus',row
+assert row['phase']==('wait' if mode=='all' else 'complete'),row
+if mode=='all': assert row['rung']==0 and row['wait']=='quota' and 'handoff' not in row,row
+PYCASE
+    k1_teardown
+  done
+  pass 'runtime quota refusal falls through current profiles within one action, including saved and retry paths'
+}
+
+test_controller_busy_step_preserves_launch_deadline() {
+  local started task
+  k1_setup busy-launch-bound mate
+  k1_ready k1-due k1-late k1-alive k1-slice
+  printf '3\n' > "$KF/free"
+  printf 'hung-child-exits\n' > "$KF/spawn-mode"
+  printf 'ctl-b-launch-k1-alive\nctl-b-launch-k1-late\n' > "$KF/unkillable-match"
+  k1_pass 0
+  k1_wait_file "$KF/holder-k1-due.pid" || fail 'the bounded launch must start'
+  started=$(k1_units_max_start 1 600 k1-due)
+  assert_equals "$((K1_T0 + 20))" "$started" 'the concrete timeline starts launch at t20'
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  printf 'mode=no-mistakes\n' > "$H/state/k1-slice.meta"
+  cat > "$KB/step-nm" <<'SH'
+#!/usr/bin/env bash
+printf 'ready\n' > "$KF/step-reading"
+while [ ! -e "$KF/step-go" ]; do "$REAL_SLEEP" 0.02; done
+printf 'state: unknown\n'
+SH
+  chmod +x "$KB/step-nm"
+  export FM_AUTOLAUNCH_STEPS_NM_BIN="$KB/step-nm"
+  k1_pass 550
+  k1_wait_file "$KF/step-reading" || fail 'the leased step must hold the real primary lock'
+  assert_equals "$((K1_T0 + 570))" "$(k1_units_max_start 1 120)" 'the concrete bounded step starts at t570'
+  k1_pass 605
+  k1_pass 660
+  for task in k1-due k1-late k1-alive; do
+    assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'a busy recording pass must deliver the due handoff within 680 seconds of launch'
+    assert_equals 1 "$(k1_units_max_count 600 "$task")" 'busy reconciliation cannot duplicate a launch'
+  done
+  assert_equals 0 "$(k1_units_max_count 900)" 'a busy pass cannot start fresh diagnosis work'
+  python3 - "$H/state/autolaunch-controller" <<'PYCASE' || fail 'a surviving main must preserve its identity and occupied slot on the busy pass'
+import fcntl,json,sys
+from pathlib import Path
+root=Path(sys.argv[1]); row=json.loads((root/'ctl-b-launch-k1-alive.json').read_text())
+identity=json.loads((root/(row['attempt']+'.identity')).read_text())
+assert Path(f"/proc/{identity['pid']}/stat").read_text().rsplit(') ',1)[1].split()[19]==identity['start']
+with (root.parent/'autolaunch-slots'/"ctl-b-launch-k1-alive.lock").open('a') as lock:
+    try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except BlockingIOError: pass
+    else: raise AssertionError('surviving action released its slot')
+PYCASE
+  python3 - "$K1/agent/claude" "$H/state/k1-late.meta" <<'PYCASE'
+from pathlib import Path
+import subprocess,sys
+p=subprocess.Popen([sys.argv[1],'100000'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+start=Path(f'/proc/{p.pid}/stat').read_text().rsplit(') ',1)[1].split()[19]
+Path(sys.argv[2]).write_text(f'agent_root_pid={p.pid}\nagent_root_start={start}\nboot_id='+Path('/proc/sys/kernel/random/boot_id').read_text())
+PYCASE
+  k1_pass 675
+  assert_equals 1 "$(k1_count "$LOG" k1-late 'resolved launched-late')" 'the busy pass must close a late start without a new ownership record'
+  python3 - "$H/state/autolaunch-controller/ctl-b-launch-k1-late.json" <<'PYCASE' || fail 'closing a late key must retain its live action accounting'
+import json,sys
+from pathlib import Path
+row=json.loads(Path(sys.argv[1]).read_text()); assert row['closed'] and row['phase']=='running',row
+PYCASE
+  printf '%s\n' $((K1_T0 + 685)) > "$KF/clock"
+  : > "$KF/step-go"
+  controller_wait_action_receipt ctl-a-step || fail 'the leased step must finish at t685'
+  : > "$KF/unkillable-match"
+  k1_pass 715
+  assert_equals 1 "$(k1_count "$LOG" k1-alive failed:timeout)" 'a surviving main that later exits must reconcile its timeout'
+  assert_equals 1 "$(k1_count "$LOG" k1-late failed:timeout)" 'a resolved late key must still reconcile its gone main timeout'
+  assert_equals 1 "$(k1_owned k1-alive | grep -c .)" 'the later exit cannot create a second ownership record'
+  assert_equals 1 "$(k1_units_max_count 600 k1-alive)" 'the later exit cannot retry a timed-out launch'
+  flock -n "$H/state/autolaunch-slots/ctl-b-launch-k1-alive.lock" true || fail 'the gone main must release its existing slot'
+  unset FM_AUTOLAUNCH_STEPS_NM_BIN
+  k1_teardown
+  pass 'busy bounded steps retain the t20 launch handoff bound, late closure, and surviving identity'
+}
+
+test_controller_busy_pass_reconciles_receipt_siblings() {
+  k1_setup busy-receipts mate
+  k1_ready k1-diag
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  cat > "$KB/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\tcodex %s\n' "$(cat "$KF/clock")" "$*" >> "$KF/diag.log"
+while [ ! -e "$KF/diag-go" ]; do "$REAL_SLEEP" 0.02; done
+SH
+  k1_pass 0
+  controller_wait_action_receipt ctl-b-launch-k1-diag || fail 'the first failed launch must finish'
+  k1_pass 55; k1_pass 165
+  controller_wait_action_receipt ctl-b-launch-k1-diag || fail 'the first retry must finish'
+  k1_pass 220; k1_pass 385
+  controller_wait_action_receipt ctl-b-launch-k1-diag || fail 'the second retry must finish'
+  k1_pass 440
+  k1_wait_file "$KF/diag.log" || fail 'the pre-existing diagnosis must start'
+  k1_ready k1-diag k1-receipt k1-retry k1-slice
+  printf '3\n' > "$KF/free"
+  cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+[ "$1" != k1-retry ] || { echo 'error: unexpected fixture fault' >&2; exit 1; }
+echo 'spawned'
+SH
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  k1_pass 550
+  controller_wait_action_receipt ctl-b-launch-k1-receipt || fail 'the success receipt must be ready'
+  controller_wait_action_receipt ctl-b-launch-k1-retry || fail 'the failure receipt must be ready'
+  controller_wait_action_receipt ctl-a-step || fail 'the step receipt must be ready'
+  k1_pass_lock_holder
+  printf '%s\n' $((K1_T0 + 570)) > "$H/state/.autolaunch.lock/at"
+  : > "$KF/diag-go"
+  controller_wait_action_receipt ctl-b-launch-k1-diag || fail 'the diagnosis receipt must be ready'
+  k1_pass 605; k1_pass 715
+  python3 - "$H/state/autolaunch-controller" <<'PYCASE' || fail 'all existing seat transitions must reconcile under the busy-pass journal guard'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+def row(key): return json.loads((root/(key+'.json')).read_text())
+assert row('ctl-b-launch-k1-receipt')['phase']=='complete'
+assert row('ctl-a-step')['phase']=='complete'
+retry=row('ctl-b-launch-k1-retry'); assert retry['phase']=='queued' and retry['rung']==1,retry
+diag=row('ctl-b-launch-k1-diag'); assert diag['phase']=='diagnose-queued' and diag['diag_rung']==4,diag
+PYCASE
+  assert_equals 1 "$(k1_units_max_count 600 k1-retry)" 'a promoted retry cannot dispatch while planning is busy'
+  assert_equals 1 "$(k1_units_max_count 120)" 'a completed step cannot redispatch on a busy pass'
+  assert_equals 1 "$(k1_units_max_count 900)" 'diagnosis completion cannot bypass fresh seat admission'
+  k1_pass 880
+  python3 - "$H/state/autolaunch-controller/ctl-b-launch-k1-diag.json" <<'PYCASE' || fail 'a busy pass must expire the diagnosis queue within 315 seconds'
+import json,sys
+from pathlib import Path
+row=json.loads(Path(sys.argv[1]).read_text()); assert row['phase']=='exhausted',row
+PYCASE
+  assert_equals 1 "$(k1_count "$H/state/autolaunch-diag/ctl-b-launch-k1-diag-summary.md" 'diagnosis=skipped-capacity')" 'queue expiry records one skipped diagnosis without starting a new seat'
+  kill "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null || true
+  K1_HOLDER=
+  rm -rf "$H/state/.autolaunch.lock"
+  k1_pass 935
+  assert_equals 2 "$(k1_units_max_count 120)" 'the next successful pass immediately resumes leased progression'
+  k1_teardown
+  pass 'busy passes reconcile success, step, retry and diagnosis receipts while gating new seats'
+}
+
+test_controller_lock_recovery_uses_actual_acquisition() {
+  local mode
+  for mode in error term kill; do
+    k1_setup "recovery-$mode" mate
+    k1_pass_lock_holder
+    k1_pass 55; k1_pass 110; k1_pass 165
+    assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'the persistent live holder must open one incident'
+    kill "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null || true
+    K1_HOLDER=
+    rm -rf "$H/state/.autolaunch.lock"
+    if [ "$mode" = error ]; then
+      printf '#!/usr/bin/env bash\nexit 1\n' > "$KB/tasks-axi"
+      chmod +x "$KB/tasks-axi"
+      k1_pass 220
+      rm "$KB/tasks-axi"
+      assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-error)" 'the acquired pass must report its actual discovery failure'
+    else
+      k1_pass 220 "$mode"
+      assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'recovery must preserve the interrupted-pass verdict'
+    fi
+    assert_equals 1 "$(k1_count "$H/state/autolaunch.status" resolved ctl-e-pass-lock-)" 'the first acquired and released pass closes the incident despite its planning result'
+    python3 - "$H/state/autolaunch-controller/pass.json" <<'PYCASE' || fail 'lock recovery must clear holder observations but preserve overrun'
+import json,sys
+from pathlib import Path
+p=json.loads(Path(sys.argv[1]).read_text()); assert 'holder' not in p and p['overrun']==1,p
+PYCASE
+    k1_pass_lock_holder
+    printf '%s\n' $((K1_T0 + 275)) > "$H/state/.autolaunch.lock/at"
+    k1_pass 330; k1_pass 385; k1_pass 440
+    assert_equals 2 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a later genuine holder opens one fresh generation'
+    k1_teardown
+  done
+  pass 'actual lock acquisition closes incidents across planning error, TERM and KILL and permits recurrence'
+}
+
 controller_inventory_failure_pass() {
   local at=$1 rc=0
   printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
@@ -155,8 +398,12 @@ PYCASE
       assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'a discovery failure cannot suppress a due launch timeout handoff by 680 seconds'
       assert_equals 1 "$(k1_units_max_count 600 "$task")" 'timeout reconciliation cannot duplicate a launch'
     done
+    assert_equals 0 "$(k1_units_max_count 900)" 'failed discovery cannot dispatch a fresh diagnosis'
+    printf 'ctl-a-step\n' > "$KF/hang-match"
+    k1_pass 715
+    assert_equals 2 "$(k1_units_max_count 120)" 'the next successful pass recreates and dispatches the completed leased step immediately'
     controller_wait_action_receipt ctl-b-launch-k1-due || fail 'the first diagnosis must publish its receipt'
-    controller_inventory_failure_pass 715
+    controller_inventory_failure_pass 770
     python3 - "$H/state/autolaunch-controller/ctl-b-launch-k1-due.json" <<'PYCASE' || fail 'failed discovery must reconcile diagnosis completion'
 import json, sys
 from pathlib import Path
@@ -167,11 +414,8 @@ PYCASE
     agent=$!
     start=$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$agent/stat")
     printf 'agent_root_pid=%s\nagent_root_start=%s\nboot_id=%s\n' "$agent" "$start" "$(cat /proc/sys/kernel/random/boot_id)" >> "$H/state/k1-late.meta"
-    controller_inventory_failure_pass 770
+    controller_inventory_failure_pass 825
     assert_equals 1 "$(k1_count "$LOG" k1-late 'resolved launched-late')" 'late agent identity closes existing ownership even when discovery fails'
-    printf 'ctl-a-step\n' > "$KF/hang-match"
-    k1_pass 825
-    assert_equals 2 "$(k1_units_max_count 120)" 'the next successful pass recreates and dispatches the completed leased step immediately'
     controller_inventory_failure_pass 990
     python3 - "$H/state/autolaunch-controller/ctl-a-step.json" <<'PYCASE' || fail 'failed discovery must reconcile a step timeout'
 import json, sys
@@ -879,6 +1123,11 @@ SH
   k1_pass $((started - K1_T0 + 125))
   assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a step holder beyond its deadline still reaches its responder by 165 seconds'
   k1_alive "$holder" || fail 'deadline escalation may not steal or kill the lock holder'
+  python3 - "$H/state/autolaunch-controller/ctl-a-step.json" <<'PYCASE' || fail 'a busy pass must reconcile the expired step action'
+import json,sys
+from pathlib import Path
+row=json.loads(Path(sys.argv[1]).read_text()); assert row['phase']=='retry-wait',row
+PYCASE
   unset FM_AUTOLAUNCH_STEPS_NM_BIN
   k1_teardown
   pass 'bounded step holds stay normal and expired holders still escalate'
@@ -2681,7 +2930,11 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_discovery_failures_reconcile_existing_actions \
+k1_run test_controller_runtime_quota_falls_through_profiles \
+  test_controller_busy_step_preserves_launch_deadline \
+  test_controller_busy_pass_reconciles_receipt_siblings \
+  test_controller_lock_recovery_uses_actual_acquisition \
+  test_controller_discovery_failures_reconcile_existing_actions \
   test_controller_vanished_holders_never_accumulate \
   test_controller_interrupted_launch_rechecks_preparation \
   test_controller_saved_action_refreshes_launch_argv \

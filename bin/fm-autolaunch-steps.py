@@ -1484,10 +1484,12 @@ class Controller:
             row["handoff"] = dict(payload=payload, request=request, receipt=False)
             row["owned_at"] = self.now()
             row["evidence"] = evidence
-        row["phase"] = "diagnose-queued" if diagnosis else "owned"
         if diagnosis:
+            row["phase"] = "diagnose-queued"
             row.setdefault("queued_at", self.now())
             row.setdefault("diag_rung", 3)
+        elif row["phase"] != "running":
+            row["phase"] = "owned"
         self.save(row)  # Intent and identity precede either delivery route.
 
     def append_status(self, status, state, key, text):
@@ -1571,24 +1573,30 @@ class Controller:
                     return
                 if r.returncode:
                     return
-        row.update(closed=True, phase="diagnosing" if row["phase"] == "diagnosing" else "complete")
+        row.update(closed=True, phase=row["phase"] if row["phase"] in ("running", "diagnosing") else "complete")
         self.save(row)
         self.event(row, "resolved", f"resolved {reason}")
+
+    def launch_timeout(self, row, reason, diagnosis):
+        if "handoff" not in row:
+            r = subprocess.run(["bash", self.scheduler, "--controller-spawn-lock", row["task"]],
+                               text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+            reason += f" spawn_lock_holder={r.stdout.strip() or '-'}"
+        if self.agent_live(row["task"]):
+            self.event(row, "launched", "launched")
+            if "handoff" in row:
+                self.close(row, "launched-late")
+            else:
+                row["phase"] = "complete"
+                self.save(row)
+            return
+        self.own(row, reason, diagnosis=diagnosis)
 
     def failed(self, row, reason):
         self.event(row, f"failure-{row['rung']}", reason)
         row.setdefault("failed_at", self.now())
         if row["kind"] in ("launch", "relaunch", "recovery") and reason == "failed:timeout":
-            # Exactly one non-blocking use of the existing spawn-lock primitive.
-            r = subprocess.run(["bash", self.scheduler, "--controller-spawn-lock", row["task"]],
-                               text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
-            holder = r.stdout.strip()
-            if self.agent_live(row["task"]):
-                row["phase"] = "complete"
-                self.event(row, "launched", "launched")
-                self.save(row)
-                return
-            self.own(row, f"failed:timeout spawn_lock_holder={holder or '-'}", diagnosis=True)
+            self.launch_timeout(row, reason, diagnosis=True)
         elif row["rung"] >= 2:
             self.own(row, reason, diagnosis=True)
         else:
@@ -1601,7 +1609,7 @@ class Controller:
         overrun = int(self.load(self.passfile).get("overrun", 0))
         for row in self.rows(nonseat):
             row["overrun"] = max(row.get("overrun", 0), overrun)
-            if row.get("closed") and row["phase"] != "diagnosing":
+            if row.get("closed") and row["phase"] not in ("running", "diagnosing"):
                 continue
             if row["phase"] == "retry-wait" and self.now() >= row["due"]:
                 row.update(phase="queued", rung=row["rung"] + 1)
@@ -1609,27 +1617,33 @@ class Controller:
             if not row.get("closed") and row.get("handoff") and row["kind"] in ("launch", "relaunch", "recovery") and self.agent_live(row["task"]):
                 self.event(row, "launched", "launched")
                 self.close(row, "launched-late")
-                if row["phase"] != "diagnosing":
+                if row["phase"] not in ("running", "diagnosing"):
                     continue
             if row["phase"] not in ("running", "diagnosing"):
                 continue
             diagnosis = row["phase"] == "diagnosing"
-            attempt = self.load(self.root / row["attempt"])
             identity = self.load(self.root / f"{row['attempt']}.identity", row.get("identity", {}))
             result = self.load(self.root / f"{row['attempt']}.result")
+            attempt = self.load(self.root / row["attempt"])
+            if "model" in attempt:
+                row["model"] = attempt["model"]
             alive = self.live(identity)
             expired = self.now() >= attempt["deadline"] + 5
             if not result and not expired:
                 continue
-            if diagnosis:
+            if diagnosis and alive:
+                if expired:
+                    self.summary(row, "diagnosis=failed:timeout main-still-alive=1")
+                continue  # Keep the occupied seat; never overlap diagnosis.
+            if row.get("closed"):
                 if alive:
-                    if expired:
-                        self.summary(row, "diagnosis=failed:timeout main-still-alive=1")
-                    continue  # Keep the occupied seat; never overlap diagnosis.
-                if row.get("closed"):
-                    row["phase"] = "complete"
-                    self.save(row)
                     continue
+                row["phase"] = "complete"
+                self.save(row)
+                if not diagnosis and not result:
+                    self.event(row, f"failure-{row['rung']}", "failed:timeout")
+                continue
+            if diagnosis:
                 outcome = "ok" if result and result["rc"] == 0 else ("failed:timeout" if not result else f"failed:exit-{result['rc']}")
                 self.summary(row, f"diagnosis={outcome} rung={row['diag_rung']}")
                 if row["diag_rung"] == 3:
@@ -1646,7 +1660,11 @@ class Controller:
             elif not result and alive:
                 # R9: deadline expiry is itself actionable even when KILL cannot
                 # remove the identity. The action keeps its slot and is not retried.
-                self.own(row, f"failed:timeout main-still-alive=1 pid={identity.get('pid')}")
+                reason = f"failed:timeout main-still-alive=1 pid={identity.get('pid')}"
+                if row["kind"] in ("launch", "relaunch", "recovery"):
+                    self.launch_timeout(row, reason, diagnosis=False)
+                else:
+                    self.own(row, reason)
             elif result and (result["rc"] == 75 or result.get("wait")):
                 condition = result.get("wait") or "deferred"
                 row.update(phase="wait", wait=condition)
@@ -1662,11 +1680,11 @@ class Controller:
         self.save(row)
         self.event(row, "exhausted", f"exhausted {reason}")
 
-    def preparation(self):
+    def preparation(self, all_candidates=False):
         # Reuse the exact preparation, quota, backend and profile gates through
         # the existing read-only public interface; never reconstruct them here.
         r = subprocess.run(["bash", self.scheduler, "--dry-run"], text=True,
-                           env=dict(os.environ, FM_CONTROLLER_PREPARED="1"),
+                           env=dict(os.environ, FM_CONTROLLER_PREPARED="all" if all_candidates else "1"),
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
         if r.returncode:
             raise ValueError(f"controller preparation failed: {r.stderr.strip()}")
@@ -1786,8 +1804,13 @@ class Controller:
             return False
         return parent == str(identity["pid"]) and bool(self.snapshot.get(int(pid)))
 
-    def effects(self, rc):
+    def effects(self, rc, acquired=False):
         p = self.load(self.passfile)
+        if acquired:
+            for row in self.rows(True):
+                if row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
+                    self.close(row, "pass lock acquired")
+            p.pop("holder", None)
         if rc in (124, 137):
             p.update(cuts=p.get("cuts", 0) + 1, overrun=1)
             p.setdefault("cut_at", self.now())
@@ -1819,12 +1842,7 @@ class Controller:
                     row = self.create(f"ctl-e-pass-lock-{home}", "", "notice")
                     row["overrun"] = 1
                     self.own(row, f"persistent pass lock holder={pid} start={start} held_s={held}")
-        elif rc == 0:
-            for row in self.rows(True):
-                if row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
-                    self.close(row, "pass lock acquired")
-            p.pop("holder", None)
-        else:
+        elif rc != 0:
             p["overrun"] = 1
             row = self.create("ctl-e-pass-error", "", "notice")
             self.own(row, f"planning failed exit={rc}")
@@ -1849,6 +1867,7 @@ class Controller:
             atomic(self.passfile, p)
 
     def seat_effects(self, rc):
+        self.reconcile()
         if rc in (124, 137):
             for row in self.rows(False):
                 if row.get("handoff") and not row["handoff"]["receipt"] and not row.get("overrun"):
@@ -1861,7 +1880,7 @@ class Controller:
         for row in self.rows(False):
             if row["phase"] == "queued" and rc == 0:
                 self.start(row)
-        self.diagnoses()
+        self.diagnoses(rc == 0)
 
     def start(self, row, diagnosis=False):
         # A wait may redispatch the same rung; it is still a new attempt with
@@ -1903,7 +1922,7 @@ class Controller:
                 self.save(row)
         self.emit(row, f"attempted deadline={attempt['deadline']} unit={unit} main_pid={row.get('identity', {}).get('pid', 0)} overrun={row.get('overrun', 0)}")
 
-    def diagnoses(self):
+    def diagnoses(self, dispatch):
         rows = self.rows()
         active = any(r["phase"] == "diagnosing" for r in rows)
         history = self.load(self.root / "diagnosis-history.json", [])
@@ -1913,6 +1932,8 @@ class Controller:
                 continue
             if self.now() - row["queued_at"] >= 240:
                 self.exhaust(row, "skipped-capacity")
+                continue
+            if not dispatch:
                 continue
             if active or len(history) >= 6:
                 self.event(row, f"queued-{row['diag_rung']}", "diagnose-queued")
@@ -1967,32 +1988,38 @@ class Controller:
             atomic(self.diag / f"{token}.identity", dict(agent_root_pid=identity['pid'],
                    agent_root_start=identity['start'], boot_id=self.boot))
         try:
+            commands = [(attempt["argv"], None)]
             if attempt["kind"] == "launch":
                 task = self.load(self.path(attempt["key"]))["task"]
-                command = next((argv for candidate, lane, _, outcome, argv in self.preparation()
-                                if candidate == task and lane != "-" and outcome == "launched" and argv), None)
-                if command is None:
+                commands = [(argv, model) for candidate, lane, model, outcome, argv in self.preparation(all_candidates=True)
+                            if candidate == task and lane != "-" and outcome == "launched" and argv]
+                if not commands:
                     atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="preparation"))
                     return 75
-                attempt["argv"] = command
-                atomic(self.root / token, attempt)
             output = self.diag / f"{token}.md" if attempt["kind"] == "diagnosis" else self.root / f"{token}.out"
-            with output.open("w") as out, open(os.devnull) as stdin:
-                r = subprocess.run(attempt["argv"], stdin=stdin, stdout=out, stderr=subprocess.STDOUT,
-                                   close_fds=True)
-            wait = ""
-            if attempt["kind"] in ("launch", "relaunch", "recovery") and r.returncode == 1:
-                classified = subprocess.run(["bash", self.scheduler, "--controller-spawn-result",
-                                             str(r.returncode), str(output)], text=True,
-                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
-                wait = classified.stdout.strip() if classified.returncode == 0 else ""
+            for command, model in commands:
+                attempt["argv"] = command
+                if model is not None:
+                    attempt["model"] = model
+                atomic(self.root / token, attempt)
+                with output.open("w") as out, open(os.devnull) as stdin:
+                    r = subprocess.run(command, stdin=stdin, stdout=out, stderr=subprocess.STDOUT,
+                                       close_fds=True)
+                wait = ""
+                if attempt["kind"] in ("launch", "relaunch", "recovery") and r.returncode == 1:
+                    classified = subprocess.run(["bash", self.scheduler, "--controller-spawn-result",
+                                                 str(r.returncode), str(output)], text=True,
+                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+                    wait = classified.stdout.strip() if classified.returncode == 0 else ""
+                if attempt["kind"] != "launch" or wait != "quota":
+                    break
             atomic(self.root / f"{token}.result", dict(rc=r.returncode, at=self.now(), wait=wait))
             return r.returncode
         finally:
             os.close(lock)
 
 
-def controller_main(command, scheduler, argument=None):
+def controller_main(command, scheduler, argument=None, acquired=False):
     c = Controller(scheduler)
     if command == "controller-action":
         return c.action(argument)
@@ -2004,7 +2031,7 @@ def controller_main(command, scheduler, argument=None):
         if command == "controller-plan":
             c.plan()
         elif command == "controller-effects":
-            c.effects(int(argument))
+            c.effects(int(argument), acquired)
         else:
             raise ValueError("unknown controller command")
     return 0
@@ -2015,6 +2042,10 @@ def main():
         print(__doc__)
         return 0
     command = sys.argv[1]
+    if command == "controller-effects" and len(sys.argv) == 5:
+        if sys.argv[4] not in ("0", "1"):
+            raise ValueError("invalid pass acquisition evidence")
+        return controller_main(command, sys.argv[2], sys.argv[3], sys.argv[4] == "1")
     if command.startswith("controller-") and len(sys.argv) in (3, 4):
         return controller_main(command, sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else None)
     arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3,
