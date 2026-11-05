@@ -12,7 +12,7 @@ A completed scout must leave a self-contained report before its scratch worktree
 A report may recommend implementation but does not authorize it.
 Before treating the investigation or any visual review as complete, load `captain-hold-lifecycle`; teardown enforces that shared completion gate.
 After that completion gate passes, record the report through the guarded completion command documented in [`bin/fm-tasks-axi.sh`](../../../bin/fm-tasks-axi.sh) before ordinary teardown.
-This accepts a standalone scout row; a scout phase on a ship or slice owner row records its deliverable without accepting the parent outcome, which requires its green walk.
+This accepts a standalone scout row (kind scout); a scout phase on any other row, such as a ship, task or build row, or on a scout row whose SLICE line says role=owner, records its deliverable without accepting that row's outcome.
 The [retention contract](../../../bin/fm-backlog-transition-lib.sh) owns parent-state preservation and cleanup replay.
 For a safe worker awaiting external proof, use the preserved-task exit and resumption sequence in `ship-landing` instead of destructive cleanup.
 A recommendation, a technical ambiguity, a scope disposition, or a repeated-theme correction is decided, recorded, and reported, and does not become a captain call.

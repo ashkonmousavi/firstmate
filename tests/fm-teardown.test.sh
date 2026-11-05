@@ -6184,12 +6184,19 @@ test_open_pr_keep_open_with_a_dependent_holds_and_names_it() {
 
 test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
   local case_dir kind accepted body expected out
-  for kind in ship owner owner-bold; do
+  for kind in ship task legacy owner owner-bold; do
     for accepted in no yes; do
       case_dir=$(make_case "scout-phase-$kind-$accepted")
       write_meta "$case_dir" no-mistakes scout
       prepare_scout_teardown "$case_dir"
-      if [ "$kind" = ship ]; then seed_backlog_in_flight "$case_dir" ship;
+      if [ "$kind" = ship ] || [ "$kind" = task ]; then seed_backlog_in_flight "$case_dir" "$kind";
+      elif [ "$kind" = legacy ]; then
+        # The q-server BUILD row a prep scout closed on 2026-11-05: no kind, two
+        # blocked-by edges, a report link, no SLICE line.
+        printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' \
+          '- [ ] task-x1 - j09-intent-review build (laptop prep) data/task-x1/report.md blocked-by: x-j09-intent-review-test blocked-by: x-refresh-1213' \
+          '' '## Done' > "$case_dir/data/backlog.md"
+        tasks-axi start task-x1 --file "$case_dir/data/backlog.md" >/dev/null
       else
         seed_backlog_in_flight "$case_dir" scout
         body='SLICE: main/example role=owner'
@@ -6227,7 +6234,7 @@ test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
       fi
     done
   done
-  pass "scout phase cleanup retains ship/owner rows and dependent edges, and preserves settled rows"
+  pass "scout phase cleanup retains ship, task, legacy build and owner rows and dependent edges, and preserves settled rows"
 }
 
 test_scout_with_a_dependent_refuses() {
