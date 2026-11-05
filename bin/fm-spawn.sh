@@ -818,6 +818,7 @@ fm_spawn_config_admit || exit 1
 EXTERNAL_REVIEW=0
 EXTERNAL_BACKUP_REMOTE=
 EXTERNAL_BACKUP_PREFIX=
+# shellcheck disable=SC2034 # Read by the admission library's secondmate home check.
 SUB_HOME_MARKER=".fm-secondmate-home"
 if [ -e "$STATE" ] || [ -L "$STATE" ]; then
   fm_backlog_directory_present "$STATE" "state directory" || {
@@ -2757,14 +2758,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   MODE=$(fm_meta_get "$RELAUNCH_META" mode)
   YOLO=$(fm_meta_get "$RELAUNCH_META" yolo)
   UPSTREAM_CONSENT=$(fm_meta_get "$RELAUNCH_META" upstream_consent)
-  if [ "$KIND" = ship ]; then
-    BRANCH=$(fm_meta_get "$RELAUNCH_META" branch)
-    [ -n "$BRANCH" ] || BRANCH="fm/$ID"
-    if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
-      echo "error: task $ID has an invalid recorded ship branch '$BRANCH'" >&2
-      exit 1
-    fi
-  fi
+  fm_spawn_ship_branch_admit "$RELAUNCH_META" || exit 1
   RELAUNCH_WT=$(fm_meta_get "$RELAUNCH_META" worktree)
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
     released_relaunch_preflight || exit 1
@@ -3780,15 +3774,6 @@ claude_add_dirs_flag() {  # <kind> <state-dir> <data-dir> <code-root> <task-id>
   printf '%s' "$out"
 }
 
-resolved_existing_dir() {
-  local path=$1
-  [ -d "$path" ] || {
-    echo "error: firstmate home does not exist or is not a directory: $path" >&2
-    return 1
-  }
-  cd "$path" && pwd -P
-}
-
 resolve_project_dir_arg() {
   local path=$1
   case "$path" in
@@ -3797,117 +3782,11 @@ resolve_project_dir_arg() {
   esac
 }
 
-path_is_ancestor_of() {
-  local ancestor=$1 path=$2
-  [ -n "$ancestor" ] || return 1
-  [ -n "$path" ] || return 1
-  [ "$ancestor" != "$path" ] || return 1
-  case "$path" in
-  "$ancestor"/*) return 0 ;;
-  esac
-  return 1
-}
-
-validate_firstmate_home_for_spawn() {
-  local id=$1 home=$2 abs_home abs_active_home abs_root marker_id
-  abs_home=$(resolved_existing_dir "$home") || return 1
-  abs_active_home=$(resolved_existing_dir "$FM_HOME")
-  abs_root=$(resolved_existing_dir "$FM_ROOT")
-  if [ "$abs_home" = "/" ]; then
-    echo "error: secondmate home cannot be the filesystem root: $home" >&2
-    return 1
-  fi
-  if [ "$abs_home" = "$abs_active_home" ]; then
-    echo "error: secondmate home cannot be the active firstmate home: $home" >&2
-    return 1
-  fi
-  if [ "$abs_home" = "$abs_root" ]; then
-    echo "error: secondmate home cannot be the firstmate repo: $home" >&2
-    return 1
-  fi
-  if path_is_ancestor_of "$abs_active_home" "$abs_home"; then
-    echo "error: secondmate home cannot be inside the active firstmate home: $home" >&2
-    return 1
-  fi
-  if path_is_ancestor_of "$abs_root" "$abs_home"; then
-    echo "error: secondmate home cannot be inside the firstmate repo: $home" >&2
-    return 1
-  fi
-  if path_is_ancestor_of "$abs_home" "$abs_active_home"; then
-    echo "error: secondmate home cannot be an ancestor of the active firstmate home: $home" >&2
-    return 1
-  fi
-  if path_is_ancestor_of "$abs_home" "$abs_root"; then
-    echo "error: secondmate home cannot be an ancestor of the firstmate repo: $home" >&2
-    return 1
-  fi
-  validate_firstmate_operational_dirs "$abs_home" "$abs_active_home" "$abs_root" || return 1
-  if [ ! -f "$abs_home/$SUB_HOME_MARKER" ]; then
-    echo "error: firstmate home $home is not a seeded secondmate home" >&2
-    return 1
-  fi
-  marker_id=$(cat "$abs_home/$SUB_HOME_MARKER" 2>/dev/null || true)
-  if [ "$marker_id" != "$id" ]; then
-    echo "error: firstmate home $home is marked for secondmate ${marker_id:-unknown}, expected $id" >&2
-    return 1
-  fi
-  if [ ! -f "$abs_home/AGENTS.md" ]; then
-    echo "error: $home is not a firstmate home (missing AGENTS.md)" >&2
-    return 1
-  fi
-  if [ ! -d "$abs_home/bin" ]; then
-    echo "error: $home is not a firstmate home (missing bin/)" >&2
-    return 1
-  fi
-  printf '%s\n' "$abs_home"
-}
-
-validate_firstmate_operational_dirs() {
-  local abs_home=$1 abs_active_home=$2 abs_root=$3 name dir abs_dir
-  for name in data state config projects; do
-    dir="$abs_home/$name"
-    if [ -L "$dir" ] && [ ! -e "$dir" ]; then
-      echo "error: secondmate $name directory must resolve inside the secondmate home: $dir" >&2
-      return 1
-    fi
-    if [ -d "$dir" ]; then
-      abs_dir=$(cd "$dir" && pwd -P)
-    elif [ -e "$dir" ]; then
-      echo "error: secondmate $name path is not a directory: $dir" >&2
-      return 1
-    else
-      abs_dir="$abs_home/$name"
-    fi
-    if ! path_is_ancestor_of "$abs_home" "$abs_dir"; then
-      echo "error: secondmate $name directory must resolve inside the secondmate home: $dir" >&2
-      return 1
-    fi
-    if [ "$abs_dir" = "$abs_active_home" ] || path_is_ancestor_of "$abs_active_home" "$abs_dir"; then
-      echo "error: secondmate $name directory cannot be inside the active firstmate home: $dir" >&2
-      return 1
-    fi
-    if [ "$abs_dir" = "$abs_root" ] || path_is_ancestor_of "$abs_root" "$abs_dir"; then
-      echo "error: secondmate $name directory cannot be inside the firstmate repo: $dir" >&2
-      return 1
-    fi
-  done
-}
-
 
 if [ "$KIND" = secondmate ]; then
-  [ -n "$FIRSTMATE_HOME" ] || {
-    echo "error: no firstmate home supplied or registered for $ID" >&2
-    exit 1
-  }
-  PROJ_ABS=$(validate_firstmate_home_for_spawn "$ID" "$FIRSTMATE_HOME")
+  fm_spawn_secondmate_home_admit "$ID" "$FIRSTMATE_HOME" || exit 1
   fm_worktree_require_exclusive_record "$STATE" "$PROJ_ABS" "$STATE/$ID.meta" || exit 1
-  if [ -e "$DATA/secondmates.md" ] || [ -L "$DATA/secondmates.md" ]; then
-    if ! secondmate_registry_validate_bindings "$DATA/secondmates.md" resolve_path "$ID" "$FIRSTMATE_HOME"; then
-      echo "error: $SECONDMATE_REGISTRY_ERROR" >&2
-      exit 1
-    fi
-    SECONDMATE_PROJECTS=$SECONDMATE_REGISTRY_MATCH_PROJECTS
-  fi
+  fm_spawn_secondmate_registry_admit "$ID" "$FIRSTMATE_HOME" || exit 1
   WT="$PROJ_ABS"
   # Local-HEAD sync: before launch, fast-forward this secondmate's worktree to the
   # PRIMARY checkout's current fleet-branch commit (fm-ff-lib.sh fleet_branch),
@@ -4642,10 +4521,7 @@ if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   fm_lock_acquire_wait "$SPAWN_META_LOCK"
   SPAWN_META_LOCK_HELD=1
 fi
-if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
-  echo "error: task $ID has a pending authoritative backlog close at $STATE/$ID.backlog-close; finish or repair that close before dispatching a new worker" >&2
-  exit 1
-fi
+fm_spawn_backlog_close_admit || exit 1
 
 # Reserve every retained legacy copy before any allocator can reset it.
 if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then

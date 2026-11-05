@@ -106,12 +106,21 @@ For a secondmate, relaunch first honors the [owner-park contract](configuration.
    Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
    An explicit `--harness` also passes the [explicit-harness quota gate](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) here; that contract owns home-level admission policy and per-launch overrides.
    A Codex replacement, a secondmate's included, resolves its [account folder and model](configuration.md#codex-account-folders-configcodex-accounts) in the recorded worktree here, so no usable folder refuses before the old agent stops.
-   Then the replacement's deterministic launch admission runs through the functions `bin/fm-spawn.sh` itself uses (`bin/fm-spawn-admission-lib.sh` and the watcher-continuity admission): backend, launch environment, launch configuration such as permission and approval modes, adapter and executable checks including the Kimi turn-end hook configuration, the backlog row, one capacity read, and for a ship or scout the instructions with the pending progress note appended to a scratch copy, including the Herdr lifecycle guard.
-   Any refusal here leaves the old agent running and the task unchanged; runtime failures after the stop are not part of this check.
-2. **Safe checkpoint.**
+2. **Safe checkpoint and launch admission.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.
    A secondmate's own crewmates run in their own endpoints and outlive its relaunch; the relaunched secondmate reconciles them from its home's durable records at startup.
+   Then the replacement's deterministic launch admission runs through the functions `bin/fm-spawn.sh` itself uses (`bin/fm-spawn-admission-lib.sh` and the watcher-continuity admission), in this order:
+   - watcher continuity, the backend, the launch environment, and launch configuration such as permission and approval modes;
+   - a ship task's recorded branch name;
+   - adapter and executable checks, including the Kimi turn-end hook configuration;
+   - for a secondmate, its home's shape and its registry binding;
+   - the per-task launch files, each through its owner's check mode: Claude workspace trust (in the store of the selected [worker account](configuration.md#worker-account-pin-configclaude-account-configpi-account)), the Claude operational-inbox path, the Devin config and the Polytoken config mirror;
+   - the backlog row, one capacity read, and a pending authoritative backlog close;
+   - for a ship or scout, the instructions, then the instructions with the pending progress note appended to a scratch copy, including the Herdr lifecycle guard.
+   A refusal caused only by the pending note names the real instructions file and says the note caused it.
+   Any refusal here leaves the old agent running and the task unchanged.
+   Runtime failures after the stop are not part of this check; a secondmate's home synchronization and configuration inheritance run after it, at launch.
 3. **Record the note.**
    A ship or scout relaunch requires `--note`, because the replacement inherits the local copy but none of the conversation; the note is appended to the instructions it reads.
    A secondmate relaunch does not require one and never rewrites its standing charter.

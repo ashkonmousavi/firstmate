@@ -166,11 +166,14 @@ fm_spawn_brief_admit() { # <brief>
 # Read-only checks of the per-task launch files a retained relaunch writes
 # after the stop. Each owner's check mode runs the same validation as the
 # write spawn performs: Devin hook config, polytoken config mirror, the Claude
-# launch-brief operational inbox and Claude workspace trust.
+# launch-brief operational inbox and Claude workspace trust. Trust reads the
+# store the replacement launches under: a selected worker account
+# (WORKER_ACCOUNT, root in WORKER_ACCOUNT_ROOT, empty for `ordinary`) replaces
+# the ambient CLAUDE_CONFIG_DIR exactly as spawn's account selection does.
 fm_spawn_launch_files_admit() { # <state-real> <worktree> <project-or-mate-home>
   # shellcheck disable=SC2034 # record_directory is the owner's printf -v output.
   local state_real=$1 wt=$2 proj=$3 opstate record_directory
-  local -a trust_args
+  local -a trust_args trust_env=()
   [ "$RAW_LAUNCH" = 0 ] || return 0
   case "$HARNESS" in
   devin)
@@ -188,10 +191,146 @@ fm_spawn_launch_files_admit() { # <state-real> <worktree> <project-or-mate-home>
       echo "error: task $ID's operational-inbox path cannot carry a launch doorbell" >&2
       return 1
     }
-    "$FM_ROOT/bin/fm-claude-trust.sh" --check "${trust_args[@]}" >/dev/null || return 1
+    if [ -n "${WORKER_ACCOUNT:-}" ]; then
+      trust_env=(env -u CLAUDE_CONFIG_DIR)
+      [ -z "${WORKER_ACCOUNT_ROOT:-}" ] || trust_env+=("CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT")
+    fi
+    "${trust_env[@]+"${trust_env[@]}"}" "$FM_ROOT/bin/fm-claude-trust.sh" --check "${trust_args[@]}" >/dev/null || return 1
     ;;
   esac
   return 0
+}
+
+# A ship task's recorded branch must be a valid branch name. Sets BRANCH.
+fm_spawn_ship_branch_admit() { # <task-record>
+  [ "$KIND" = ship ] || return 0
+  BRANCH=$(fm_meta_get "$1" branch)
+  [ -n "$BRANCH" ] || BRANCH="fm/$ID"
+  git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 && return 0
+  echo "error: task $ID has an invalid recorded ship branch '$BRANCH'" >&2
+  return 1
+}
+
+fm_spawn_existing_dir() {
+  local path=$1
+  [ -d "$path" ] || {
+    echo "error: firstmate home does not exist or is not a directory: $path" >&2
+    return 1
+  }
+  cd "$path" && pwd -P
+}
+
+validate_firstmate_home_for_spawn() {
+  local id=$1 home=$2 abs_home abs_active_home abs_root marker_id
+  abs_home=$(fm_spawn_existing_dir "$home") || return 1
+  abs_active_home=$(fm_spawn_existing_dir "$FM_HOME")
+  abs_root=$(fm_spawn_existing_dir "$FM_ROOT")
+  if [ "$abs_home" = "/" ]; then
+    echo "error: secondmate home cannot be the filesystem root: $home" >&2
+    return 1
+  fi
+  if [ "$abs_home" = "$abs_active_home" ]; then
+    echo "error: secondmate home cannot be the active firstmate home: $home" >&2
+    return 1
+  fi
+  if [ "$abs_home" = "$abs_root" ]; then
+    echo "error: secondmate home cannot be the firstmate repo: $home" >&2
+    return 1
+  fi
+  if path_is_ancestor_of "$abs_active_home" "$abs_home"; then
+    echo "error: secondmate home cannot be inside the active firstmate home: $home" >&2
+    return 1
+  fi
+  if path_is_ancestor_of "$abs_root" "$abs_home"; then
+    echo "error: secondmate home cannot be inside the firstmate repo: $home" >&2
+    return 1
+  fi
+  if path_is_ancestor_of "$abs_home" "$abs_active_home"; then
+    echo "error: secondmate home cannot be an ancestor of the active firstmate home: $home" >&2
+    return 1
+  fi
+  if path_is_ancestor_of "$abs_home" "$abs_root"; then
+    echo "error: secondmate home cannot be an ancestor of the firstmate repo: $home" >&2
+    return 1
+  fi
+  validate_firstmate_operational_dirs "$abs_home" "$abs_active_home" "$abs_root" || return 1
+  if [ ! -f "$abs_home/$SUB_HOME_MARKER" ]; then
+    echo "error: firstmate home $home is not a seeded secondmate home" >&2
+    return 1
+  fi
+  marker_id=$(cat "$abs_home/$SUB_HOME_MARKER" 2>/dev/null || true)
+  if [ "$marker_id" != "$id" ]; then
+    echo "error: firstmate home $home is marked for secondmate ${marker_id:-unknown}, expected $id" >&2
+    return 1
+  fi
+  if [ ! -f "$abs_home/AGENTS.md" ]; then
+    echo "error: $home is not a firstmate home (missing AGENTS.md)" >&2
+    return 1
+  fi
+  if [ ! -d "$abs_home/bin" ]; then
+    echo "error: $home is not a firstmate home (missing bin/)" >&2
+    return 1
+  fi
+  printf '%s\n' "$abs_home"
+}
+
+validate_firstmate_operational_dirs() {
+  local abs_home=$1 abs_active_home=$2 abs_root=$3 name dir abs_dir
+  for name in data state config projects; do
+    dir="$abs_home/$name"
+    if [ -L "$dir" ] && [ ! -e "$dir" ]; then
+      echo "error: secondmate $name directory must resolve inside the secondmate home: $dir" >&2
+      return 1
+    fi
+    if [ -d "$dir" ]; then
+      abs_dir=$(cd "$dir" && pwd -P)
+    elif [ -e "$dir" ]; then
+      echo "error: secondmate $name path is not a directory: $dir" >&2
+      return 1
+    else
+      abs_dir="$abs_home/$name"
+    fi
+    if ! path_is_ancestor_of "$abs_home" "$abs_dir"; then
+      echo "error: secondmate $name directory must resolve inside the secondmate home: $dir" >&2
+      return 1
+    fi
+    if [ "$abs_dir" = "$abs_active_home" ] || path_is_ancestor_of "$abs_active_home" "$abs_dir"; then
+      echo "error: secondmate $name directory cannot be inside the active firstmate home: $dir" >&2
+      return 1
+    fi
+    if [ "$abs_dir" = "$abs_root" ] || path_is_ancestor_of "$abs_root" "$abs_dir"; then
+      echo "error: secondmate $name directory cannot be inside the firstmate repo: $dir" >&2
+      return 1
+    fi
+  done
+}
+
+# A secondmate's home must be a seeded secondmate home for this id, outside
+# the active home and the Firstmate repo. Sets PROJ_ABS.
+fm_spawn_secondmate_home_admit() { # <id> <home>
+  [ -n "$2" ] || {
+    echo "error: no firstmate home supplied or registered for $1" >&2
+    return 1
+  }
+  # shellcheck disable=SC2034 # Spawn and the relaunch preflight use the resolved home.
+  PROJ_ABS=$(validate_firstmate_home_for_spawn "$1" "$2") || return 1
+}
+
+# A registered secondmate must be bound to this home. Sets SECONDMATE_PROJECTS.
+fm_spawn_secondmate_registry_admit() { # <id> <home>
+  [ -e "$DATA/secondmates.md" ] || [ -L "$DATA/secondmates.md" ] || return 0
+  if ! secondmate_registry_validate_bindings "$DATA/secondmates.md" resolve_path "$1" "$2"; then
+    echo "error: $SECONDMATE_REGISTRY_ERROR" >&2
+    return 1
+  fi
+  # shellcheck disable=SC2034 # Spawn records the registered projects.
+  SECONDMATE_PROJECTS=$SECONDMATE_REGISTRY_MATCH_PROJECTS
+}
+
+fm_spawn_backlog_close_admit() {
+  [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ] || return 0
+  echo "error: task $ID has a pending authoritative backlog close at $STATE/$ID.backlog-close; finish or repair that close before dispatching a new worker" >&2
+  return 1
 }
 
 fm_spawn_backlog_admit() {

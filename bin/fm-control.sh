@@ -338,6 +338,7 @@ QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
 TARGET_CODEX_ROOT=
+TARGET_WORKER_ACCOUNT=
 RECOVER_ONLY=0
 STEP_ACTION=
 IF_IDLE=0
@@ -1404,6 +1405,7 @@ resolve_relaunch_profile() {
       "$account_model" "$TARGET_HARNESS" "" "$account_mate" "" "$account_cwd") || return 1
   fi
   TARGET_CODEX_ROOT=
+  TARGET_WORKER_ACCOUNT=$account_selection
   if [ "$TARGET_HARNESS" = codex ] && [ -n "$account_selection" ]; then
     TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
     account_model=${account_selection##*$'\t'}
@@ -1590,8 +1592,12 @@ relaunch_admission_preflight() {
   local CODEX_APPROVAL_PRESENT CODEX_APPROVAL_MODE CODEX_APPROVAL_FLAG
   local CODEX_PERM_PRESENT CODEX_PERMISSION_MODE LAVISH_AXI_HOST_CONFIG_PRESENT LAVISH_AXI_HOST
   local KEEP_AI_TRAILERS HERDR_LIFECYCLE_BRIEF_GUARD HERDR_LIFECYCLE_COMMAND
-  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE scratch='' brief=$RELAUNCH_BRIEF status=0 state_real
+  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE BRANCH PROJ_ABS SECONDMATE_PROJECTS
+  local WORKER_ACCOUNT=$TARGET_WORKER_ACCOUNT WORKER_ACCOUNT_ROOT
+  local scratch brief err status=0 state_real proj home
   MODE=$(fm_meta_get "$META" mode)
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
   # shellcheck source=bin/fm-tasks-axi-lib.sh
   . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
   # shellcheck source=bin/fm-backlog-transition-lib.sh
@@ -1610,28 +1616,43 @@ relaunch_admission_preflight() {
   . "$SCRIPT_DIR/fm-dod-lib.sh"
   # shellcheck source=bin/fm-operational-input.sh
   . "$SCRIPT_DIR/fm-operational-input.sh"
+  # shellcheck source=bin/fm-ff-lib.sh
+  . "$SCRIPT_DIR/fm-ff-lib.sh"
   "$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE" || return $?
   fm_backend_validate_spawn "$BACKEND" || return $?
   fm_spawn_launch_env_admit || return $?
   fm_spawn_config_admit || return $?
+  fm_spawn_ship_branch_admit "$META" || return $?
   fm_spawn_adapter_admit || return $?
+  proj=$(fm_meta_get "$META" project)
+  if [ "$KIND" = secondmate ]; then
+    home=$(fm_meta_get "$META" home)
+    fm_spawn_secondmate_home_admit "$ID" "${home:-$WT}" || return $?
+    fm_spawn_secondmate_registry_admit "$ID" "${home:-$WT}" || return $?
+    proj=$PROJ_ABS
+  fi
   state_real=$(cd "$STATE" && pwd -P) || return 1
-  fm_spawn_launch_files_admit "$state_real" "$WT" "$(fm_meta_get "$META" project)" || return $?
+  fm_spawn_launch_files_admit "$state_real" "$WT" "$proj" || return $?
   fm_spawn_backlog_admit || return $?
   fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
-  if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
-    echo "error: task $ID has a pending authoritative backlog close; finish or repair it before relaunch" >&2
-    return 1
+  fm_spawn_backlog_close_admit || return $?
+  [ -n "$RELAUNCH_BRIEF" ] || return 0
+  fm_spawn_brief_admit "$RELAUNCH_BRIEF" || return $?
+  [ -n "$NOTE" ] || return 0
+  scratch=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || return 1
+  brief="$scratch/brief.md"
+  if cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
+    fm_relaunch_note_append "$brief" "$STATE/$ID.inbox" "$scratch/note"; then
+    fm_spawn_brief_admit "$brief" 2>"$scratch/err" || status=$?
+    if [ "$status" != 0 ]; then
+      err=$(cat "$scratch/err")
+      [ -z "$err" ] || printf '%s\n' "${err//"$brief"/"$RELAUNCH_BRIEF"}" >&2
+      echo "error: task $ID's pending progress note caused this refusal: $RELAUNCH_BRIEF is admitted alone but not with the note appended; revise the note and re-run" >&2
+    fi
+  else
+    status=1
   fi
-  [ -n "$brief" ] || return 0
-  if [ -n "$NOTE" ]; then
-    scratch=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || return 1
-    brief="$scratch/brief.md"
-    { cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
-      fm_relaunch_note_append "$brief" "$STATE/$ID.inbox" "$scratch/note"; } || status=1
-  fi
-  [ "$status" != 0 ] || fm_spawn_brief_admit "$brief" || status=$?
-  [ -z "$scratch" ] || rm -rf -- "$scratch"
+  rm -rf -- "$scratch"
   return "$status"
 }
 

@@ -297,7 +297,7 @@ run_lifecycle_fixture() {
   fm_run_timed 60 env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
     -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
-    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
+    HOME="$dir/user-home" CLAUDE_CONFIG_DIR="${FM_TEST_AMBIENT_CLAUDE_CONFIG_DIR:-}" \
     FM_SPAWN_NO_GUARD="${FM_SPAWN_NO_GUARD-1}" GROK_HOME="$dir/grokhome" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
@@ -4696,86 +4696,19 @@ REX
   done
 }
 
-run_admission_only() {
-  local dir=$1; shift
-  # shellcheck disable=SC2016
-  run_lifecycle_fixture "$dir" bash -c '
-    set -eu
-    SCRIPT_DIR=$1/bin
-    FM_ROOT=${FM_ROOT_OVERRIDE:-$1}
-    XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share
-    ID=ap2 KIND=ship RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
-    STATE=${FM_ADMISSION_TEST_STATE:-$FM_HOME/state} DATA=$FM_HOME/data CONFIG=$FM_HOME/config
-    HARNESS=$2 MODEL=$3 EFFORT=default BACKEND=tmux RAW_LAUNCH=0 ARG3= LAUNCH=
-    for library in fm-config-inherit-lib fm-wake-lib fm-lease-lib fm-backend fm-control-lib fm-backlog-transition-lib fm-tasks-axi-lib fm-project-capacity-lib fm-capacity-lib fm-polytoken-lib fm-cursor-lib fm-timeout-lib fm-exclude-tools-lib fm-omp-profile-lib fm-spawn-admission-lib; do
-      . "$SCRIPT_DIR/$library.sh"
-    done
-    fm_backend_validate_spawn "$BACKEND" || exit $?
-    fm_spawn_launch_env_admit || exit $?
-    fm_spawn_adapter_admit || exit $?
-    fm_spawn_backlog_admit || exit $?
-    fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" "${4:-0}"
-  ' _ "$ROOT" "$@"
-}
-
-test_admission_only_has_no_side_effects() {
-  local dir before out rc scenario harness model expected diagnostic
-  for scenario in admitted existing-sample backlog capacity overlay hook-path credential model executable; do
-    dir=$(new_case "admission-only-$scenario" ap2)
-    add_ship_task "$dir" ap2 claude
-    seed_backlog "$dir" ap2 in_flight
-    harness=claude model=default expected=0 diagnostic=
-    case "$scenario" in
-      existing-sample)
-        printf 'prior sample\n' > "$dir/home/state/machine-admission.log"
-        printf 'prior rotation\n' > "$dir/home/state/machine-admission.log.1"
-        ;;
-      backlog)
-        tasks-axi hold ap2 --kind external --reason 'keep running' --file "$dir/home/data/backlog.md" >/dev/null
-        expected=1 diagnostic='not dispatchable in state in_flight' ;;
-      capacity) printf '0 0\n' > "$dir/home/config/lane-capacity"; expected=75 diagnostic='deferred:' ;;
-      overlay)
-        harness=omp expected=1 diagnostic='omp worker posture overlay missing'
-        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/omp"
-        mkdir -p "$dir/root"
-        ;;
-      hook-path|model)
-        harness=kiro expected=1 diagnostic='kiro hook scripts would live'
-        printf '#!/usr/bin/env bash\nprintf '\''{"models":[{"model_id":"auto"}]}\\n'\''\n' > "$dir/fakebin/kiro-cli"
-        if [ "$scenario" = model ]; then
-          model=unlisted diagnostic="kiro model 'unlisted' is not listed"
-        else
-          mkdir -p "$dir/home/state space"
-        fi
-        ;;
-      credential)
-        harness=muse expected=1 diagnostic='muse has no worker-reachable credential'
-        printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/muse"
-        ;;
-      executable) harness=devin expected=1 diagnostic='devin executable not found on PATH' ;;
-    esac
-    chmod +x "$dir/fakebin/"*
-    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")
-    case "$scenario" in
-      hook-path)
-        out=$(FM_ADMISSION_TEST_STATE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-      overlay)
-        out=$(FM_ROOT_OVERRIDE="$dir/root" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-      executable)
-        out=$(PATH=/usr/bin:/bin run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-      *) out=$(FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-    esac
-    expect_code "$expected" "$rc" "$scenario admission: $out"
-    [ -z "$diagnostic" ] || assert_contains "$out" "$diagnostic" "$scenario: wrong admission refusal"
-    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
-    pass "admission-only $scenario leaves state and task files byte-identical"
-  done
-  dir=$(new_case sampled-admission ap2)
-  add_ship_task "$dir" ap2 claude
-  out=$(run_admission_only "$dir" claude default 1); rc=$?
-  expect_code 0 "$rc" "sampled admission failed: $out"
-  assert_present "$dir/home/state/machine-admission.log" 'ordinary admission stopped recording resource samples'
-  pass 'ordinary admission still records resource samples'
+# make_secondmate_record <case-dir> <id> <harness>: turns the case's task into
+# a secondmate whose seeded home is the case worktree.
+make_secondmate_record() {
+  local dir=$1 id=$2 harness=$3
+  mkdir -p "$dir/wt/state" "$dir/wt/data" "$dir/wt/bin"
+  printf '%s\n' "$id" > "$dir/wt/.fm-secondmate-home"
+  printf '# agents\n' > "$dir/wt/AGENTS.md"
+  printf '# charter\n' > "$dir/wt/data/charter.md"
+  {
+    printf 'window=fmses:fm-%s\nendpoint_task_id=%s\n' "$id" "$id"
+    printf 'worktree=%s\nproject=%s\nhome=%s\n' "$dir/wt" "$dir/wt" "$dir/wt"
+    printf 'harness=%s\nkind=secondmate\nmode=secondmate\nyolo=off\nmodel=default\neffort=default\n' "$harness"
+  } > "$dir/home/state/$id.meta"
 }
 
 make_admission_fixture_root() {
@@ -4792,7 +4725,7 @@ test_configuration_admission_preserves_running_agent() {
   local -a args
   control_path=$CONTROL
   real_perl=$(command -v perl)
-  for scenario in claude-permission codex-approval codex-permission lavish-host keep-ai-trailers watcher kimi-missing kimi-malformed claude-trust devin-config polytoken-config operational-path; do
+  for scenario in claude-permission codex-approval codex-permission lavish-host keep-ai-trailers watcher kimi-missing kimi-malformed claude-trust devin-config polytoken-config operational-path ship-branch backlog-close secondmate-home secondmate-registry; do
     CONTROL=$control_path
     dir=$(new_case "configuration-admission-$scenario" cp1)
     add_ship_task "$dir" cp1 claude
@@ -4865,6 +4798,23 @@ POLYTOKEN
         mkdir -p "$dir/home/operational'inbox"
         ln -s "$dir/home/operational'inbox" "$dir/home/state/operational-inbox"
         expected='operational-inbox path cannot carry a launch doorbell' ;;
+      ship-branch)
+        printf 'branch=fm/bad..branch\n' >> "$dir/home/state/cp1.meta"
+        expected="task cp1 has an invalid recorded ship branch 'fm/bad..branch'" ;;
+      backlog-close)
+        printf 'id=cp1\n' > "$dir/home/state/cp1.backlog-close"
+        expected="task cp1 has a pending authoritative backlog close at $dir/home/state/cp1.backlog-close" ;;
+      secondmate-home)
+        make_secondmate_record "$dir" cp1 claude
+        mkdir -p "$dir/elsewhere"
+        ln -s "$dir/elsewhere" "$dir/wt/config"
+        expected="secondmate config directory must resolve inside the secondmate home" ;;
+      secondmate-registry)
+        make_secondmate_record "$dir" cp1 claude
+        mkdir -p "$dir/other-home"
+        printf -- '- cp1 - Registered elsewhere (home: %s; scope: test; projects: ; added 2026-11-04)\n' \
+          "$dir/other-home" > "$dir/home/data/secondmates.md"
+        expected='error: ' ;;
       kimi-missing|kimi-malformed)
         harness=kimi
         printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/kimi"
@@ -4912,6 +4862,9 @@ test_pending_note_admission_preserves_running_agent() {
       fi
       expect_code 1 "$rc" "$kind $option: lifecycle note should refuse admission: $out"
       assert_contains "$out" 'lacks the Herdr isolation contract' 'pending note did not reach the spawn validator'
+      assert_contains "$out" "$dir/home/data/note1/brief.md names the Herdr lifecycle command" 'refusal must name the real brief'
+      assert_contains "$out" 'pending progress note' 'refusal must say the pending note caused it'
+      assert_not_contains "$out" 'fm-relaunch-brief.' 'refusal named the deleted scratch copy'
       assert_equals claude "$(cat "$dir/fake/command")" "$kind $option: pending note refusal stopped the old agent"
       assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$kind $option: pending note refusal changed task state"
       pass "$kind $option: pending note validation preserves agent and task"
@@ -5037,8 +4990,67 @@ test_recovery_refuses_a_shared_copy() {
 }
 
 # Admission refusals must happen before the existing agent or task is touched.
+# The pre-stop trust check reads the Claude store the replacement will launch
+# under: the pinned root, the ordinary store for an `ordinary` pin, or the
+# ambient store when nothing is pinned (fm-claude-trust.sh store resolution).
+test_claude_trust_check_uses_the_selected_account_store() {
+  local dir out rc before scenario id=ta1 proj_real ambient=
+  for scenario in pinned-declined ambient-malformed secondmate-ordinary; do
+    dir=$(new_case "trust-account-$scenario" "$id")
+    add_ship_task "$dir" "$id" claude
+    make_claude_auth_stub "$dir"
+    mkdir -p "$dir/user-home" "$dir/work"
+    : > "$dir/work/.credentials.json"
+    printf '%s\n' "$dir/work" > "$dir/home/config/claude-account"
+    ambient=
+    case "$scenario" in
+      pinned-declined)
+        proj_real=$(cd "$dir/proj" && pwd -P)
+        jq -n --arg p "$proj_real" '{projects:{($p):{hasClaudeMdExternalIncludesApproved:false,hasClaudeMdExternalIncludesWarningShown:true}}}' \
+          > "$dir/work/.claude.json"
+        ;;
+      ambient-malformed)
+        printf '{\n' > "$dir/user-home/.claude.json"
+        ;;
+      secondmate-ordinary)
+        make_secondmate_record "$dir" "$id" claude
+        mkdir -p "$dir/home/config/secondmate-accounts/$id" "$dir/user-home/.claude" "$dir/ambient"
+        printf 'ordinary\n' > "$dir/home/config/secondmate-accounts/$id/claude-account"
+        : > "$dir/user-home/.claude/.credentials.json"
+        printf '{\n' > "$dir/ambient/.claude.json"
+        ambient="$dir/ambient"
+        ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/user-home" "$dir/work")
+    if [ "$scenario" = secondmate-ordinary ]; then
+      out=$(FM_TEST_AMBIENT_CLAUDE_CONFIG_DIR="$ambient" run_control "$dir" "$id" relaunch); rc=$?
+    else
+      out=$(run_control "$dir" "$id" relaunch --note "account store $scenario"); rc=$?
+    fi
+    case "$scenario" in
+      pinned-declined)
+        expect_code 1 "$rc" "the pinned store's declined imports must refuse: $out"
+        assert_contains "$out" 'already declined external CLAUDE.md imports' 'refusal must come from the pinned store'
+        assert_equals claude "$(cat "$dir/fake/command")" 'pinned-store refusal stopped the old agent'
+        assert_equals '' "$(cat "$dir/fake/literal")" 'pinned-store refusal sent lifecycle input'
+        assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/user-home" "$dir/work")" \
+          'pinned-store refusal changed task or store state'
+        ;;
+      ambient-malformed)
+        expect_code 0 "$rc" "an ambient store the pinned replacement never reads must not refuse: $out"
+        assert_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR='$dir/work'" 'replacement must launch under the pinned root'
+        ;;
+      secondmate-ordinary)
+        expect_code 0 "$rc" "an ordinary-pinned secondmate must not read control's ambient root: $out"
+        assert_contains "$(cat "$dir/fake/literal")" 'unset CLAUDE_CONFIG_DIR' 'replacement must launch on the ordinary store'
+        ;;
+    esac
+    pass "pre-stop Claude trust check reads the replacement's store: $scenario"
+  done
+}
+
 test_relaunch_admission_refusal_preserves_running_agent() {
-  local dir out rc why meta brief backlog
+  local dir out rc why meta brief backlog before
   for why in backlog capacity; do
     dir=$(new_case "preflight-$why" pf1)
     add_ship_task "$dir" pf1 claude
@@ -5052,7 +5064,9 @@ test_relaunch_admission_refusal_preserves_running_agent() {
     fi
     meta=$(cat "$dir/home/state/pf1.meta")
     brief=$(cat "$dir/home/data/pf1/brief.md")
-    out=$(run_control "$dir" pf1 relaunch --note "must not be recorded"); rc=$?
+    mkdir -p "$dir/user-home"
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    out=$(FM_ADMISSION_LOG_MAX_BYTES=1 run_control "$dir" pf1 relaunch --note "must not be recorded"); rc=$?
     if [ "$why" = backlog ]; then
       expect_code 1 "$rc" "held in-flight backlog must refuse"
       assert_contains "$out" 'not dispatchable in state in_flight' 'exact live refusal must be preserved'
@@ -5065,16 +5079,18 @@ test_relaunch_admission_refusal_preserves_running_agent() {
     assert_equals "$brief" "$(cat "$dir/home/data/pf1/brief.md")" "$why: instructions changed"
     assert_equals '' "$(cat "$dir/fake/literal")" "$why: commands sent to old agent"
     assert_absent "$dir/home/state/pf1.control-relaunch" "$why: refusal left a journal"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" \
+      "$why: real control preflight changed the home, a resource sample, the worktree or the endpoint"
   done
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
 test_adapter_admission_preserves_running_agent
-test_admission_only_has_no_side_effects
 test_relaunch_admission_refusal_preserves_running_agent
 test_configuration_admission_preserves_running_agent
 test_pending_note_admission_preserves_running_agent
 test_secondmate_codex_relaunch_refuses_unusable_folders_before_stop
+test_claude_trust_check_uses_the_selected_account_store
 test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
