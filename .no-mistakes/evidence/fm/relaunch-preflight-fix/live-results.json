@@ -1,0 +1,247 @@
+[
+  {
+    "name": "held in-flight backlog preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "9462db27575f8f171616485801421ba9f47ef10015785eb5ecc71b1c9a9df0e6",
+    "snapshot_after": "9462db27575f8f171616485801421ba9f47ef10015785eb5ecc71b1c9a9df0e6",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "capacity rc75 preserves real Claude",
+    "pass": true,
+    "returncode": 75,
+    "expected_returncode": 75,
+    "snapshot_before": "b7c7f4f0579f07e33a44b3645a03f047dcda0f7966d829392cd9078077e2ce41",
+    "snapshot_after": "b7c7f4f0579f07e33a44b3645a03f047dcda0f7966d829392cd9078077e2ce41",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "invalid claude-permission-mode preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "f6b0e4d68dd2dcde6141a6459249598198e53ac64cdb8deae46d85760a1bbdac",
+    "snapshot_after": "f6b0e4d68dd2dcde6141a6459249598198e53ac64cdb8deae46d85760a1bbdac",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "invalid codex-approval-mode preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "0a440346dd1129e8955b24e5c2ffa76192bf1f1027250487ae2678c6a0b28a60",
+    "snapshot_after": "0a440346dd1129e8955b24e5c2ffa76192bf1f1027250487ae2678c6a0b28a60",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "invalid codex-permission-mode preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "e6cb75d5d5aaa6a39d75fd4ba6b672d2ea11549dd0c16397c7b3ebb645db4d17",
+    "snapshot_after": "e6cb75d5d5aaa6a39d75fd4ba6b672d2ea11549dd0c16397c7b3ebb645db4d17",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "invalid lavish-axi-host preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "750153c6ca54282b55c04c528194edb6056c1f1779237d063827410db778a8a2",
+    "snapshot_after": "750153c6ca54282b55c04c528194edb6056c1f1779237d063827410db778a8a2",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "project-lock preserves real Claude",
+    "pass": true,
+    "returncode": 75,
+    "expected_returncode": 75,
+    "snapshot_before": "10c8d18f47abef0c319acd5c031a7a804b977c24b2824b3fd1d5a32a868c8f59",
+    "snapshot_after": "10c8d18f47abef0c319acd5c031a7a804b977c24b2824b3fd1d5a32a868c8f59",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "plain-steal preserves real Claude",
+    "pass": true,
+    "returncode": 75,
+    "expected_returncode": 75,
+    "snapshot_before": "b69e1d1a7819febe64fef7f12f946baddead3248a0fc606fee77f7106d11938d",
+    "snapshot_after": "b69e1d1a7819febe64fef7f12f946baddead3248a0fc606fee77f7106d11938d",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "nested-steal preserves real Claude",
+    "pass": true,
+    "returncode": 75,
+    "expected_returncode": 75,
+    "snapshot_before": "ed7311399c5a21d7e1224f1c62280daa5a7676f2f3ee4d8552aca10a8cc6364b",
+    "snapshot_after": "ed7311399c5a21d7e1224f1c62280daa5a7676f2f3ee4d8552aca10a8cc6364b",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "live-reaper preserves real Claude",
+    "pass": true,
+    "returncode": 75,
+    "expected_returncode": 75,
+    "snapshot_before": "a138c6e7e9037ad9f372122c932da54500a20894219fca0182cf689580664162",
+    "snapshot_after": "a138c6e7e9037ad9f372122c932da54500a20894219fca0182cf689580664162",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "ship --note effective note preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+    "snapshot_after": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "ship --note-file effective note preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+    "snapshot_after": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "scout --note effective note preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "scout --note-file effective note preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "unverified replacement adapter preserves real Claude",
+    "pass": true,
+    "returncode": 1,
+    "expected_returncode": 1,
+    "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+    "agent_before": "alive",
+    "agent_after": "alive",
+    "process_before": [
+      "85253 85253 85253 claude"
+    ],
+    "process_after": [
+      "85253 85253 85253 claude"
+    ]
+  },
+  {
+    "name": "ordinary fresh spawn records and clears warning episode",
+    "pass": true,
+    "real_guard": true
+  }
+]

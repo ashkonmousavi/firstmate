@@ -1,0 +1,409 @@
+$ tmux -L fm-lab display-message -p -t primary:fm-live1 #{socket_path}
+/tmp/fml.aBUOlC/tmux-1000/fm-lab
+
+exit=0
+REAL HARNESS INITIAL SCREEN
+{"type":"system","subtype":"init","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.te
+st-validation/.lab-hbplo1xa/worker","session_id":"704f653e-93a6-4f49-90fa-349a71c3a817","tools":[],"mcp_servers":[],"mod
+el":"claude-haiku-5-5","permissionMode":"default","slash_commands":["deep-research","design","design-sync","dataviz","up
+date-config","verify","debug","code-review","simplify","batch","fewer-permission-prompts","doctor","loop","schedule","cl
+aude-api","workflow-authoring","run","run-skill-generator","plugin-authoring","advisor","agents","auto-mode-setup","auto
+compact","clear","color","compact","config","output-style","context","effort","fast","focus","heapdump","init","mcp","im
+port","model","__remote-workflow","workflow-launch-exec","reload-plugins","reload-skills","rename","ultrareview","securi
+ty-review","usage-credits","extra-usage","usage","insights","recap","skill-doctor","goal","design-consent","design-revok
+e","list-agents","team-onboarding"],"terminal_slash_commands":["doctor","color","focus","reload-plugins"],"apiKeySource"
+:"none","claude_code_version":"2.1.318","output_style":"default","agents":["claude","Explore","general-purpose","Plan","
+statusline-setup","web-fetch"],"skills":["deep-research","design","design-sync","dataviz","update-config","verify","debu
+g","code-review","simplify","batch","fewer-permission-prompts","doctor","loop","schedule","claude-api","workflow-authori
+ng","run","run-skill-generator","plugin-authoring"],"plugins":[{"name":"cc-plugin-agents-md","path":"builtin","source":"
+cc-plugin-agents-md@builtin"},{"name":"cc-plugin-telemetry","path":"builtin","source":"cc-plugin-telemetry@builtin"},{"n
+ame":"cc-plugin-privacy","path":"builtin","source":"cc-plugin-privacy@builtin"},{"name":"cc-plugin-plugin-authoring","pa
+th":"builtin","source":"cc-plugin-plugin-authoring@builtin"}],"capabilities":["interrupt_receipt_v1","interrupt_cancel_q
+ueued_v1","interrupt_send_now_v1","interrupt_requeue_taken_v1","msg_lifecycle_v1","request_marker_lists_v1","ask_user_qu
+estion_unanswered_v1","lifecycle_wakeup_source_v1","sdk_mcp_tools_list_changed","sdk_mcp_manifests","mcp_read_resource_v
+1","mcp_tool_ui_meta_v1","ui_surface_v1","mcp_call_result_not_for_model_v1"],"analytics_disabled":false,"product_feedbac
+k_disabled":false,"uuid":"a6f3b579-bd67-4274-905f-2103eddd34cd","memory_paths":{"auto":"~/.claude/projects/-h
+ome-tegris--no-mistakes-worktrees-049a88734b0e-01M6MAKSCCRTYFWJ088627EQYQ--test-validation--lab-hbplo1xa-project/memory/
+"},"original_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbp
+lo1xa/worker","additional_directories":[],"messaging_socket_path":"/tmp/cc-socks/85253.sock","fast_mode_state":"off","fa
+st_mode_disabled_reason":"sdk_opt_in_required","per_turn_effort_active":true,"ultrathink_available":false,"ultrathink_ty
+ped_raises":false,"view_mode":"default"}
+{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_011Cgj6fRDvdfXpKTnngdept","type":"message","role":"a
+ssistant","content":[{"type":"text","text":"LAB_READY"}],"container":null,"stop_reason":null,"stop_sequence":null,"stop_
+details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":3400,"cache_read_input_tokens":649,"cache_creation
+":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":3400},"output_tokens":8,"service_tier":"standard","inferenc
+e_geo":"global","speed":"standard"},"input_transformations":[],"diagnostics":null,"context_management":null},"parent_too
+l_use_id":null,"session_id":"704f653e-93a6-4f49-90fa-349a71c3a817","uuid":"9d061c61-b089-4b8c-8c53-0abb615e931a","timest
+amp":"2026-11-05T03:49:07.720Z","request_id":"req_011Cgj6fQx4CHGvbSHVjcQ1r"}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1794232800,"rateLimitType":"seven_day","over
+ageStatus":"rejected","overageDisabledReason":"org_level_disabled","isUsingOverage":false,"unifiedWindows":{"seven_day":
+{"utilization":0.55,"resetsAt":1794232800,"status":"allowed"}}},"uuid":"8251aff4-791b-449f-8e1b-66b0736efd28","session_i
+d":"704f653e-93a6-4f49-90fa-349a71c3a817"}
+{"duration_api_ms":1247,"stop_reason":"end_turn","session_id":"704f653e-93a6-4f49-90fa-349a71c3a817","total_cost_usd":0.
+0006906900000000001,"usage":{"input_tokens":2,"cache_creation_input_tokens":3400,"cache_read_input_tokens":649,"output_t
+okens":8,"output_tokens_details":{"thinking_tokens":0},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0
+},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":3400,"ephemeral_5m_input_tokens":0},"inference
+_geo":"global","iterations":[{"input_tokens":2,"output_tokens":8,"cache_read_input_tokens":649,"cache_creation_input_tok
+ens":3400,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":3400},"type":"message"}],"speed":"
+standard","fallback_credit":null},"modelUsage":{"claude-haiku-5-5":{"inputTokens":2,"outputTokens":8,"cacheReadInputToke
+ns":649,"cacheCreationInputTokens":3400,"webSearchRequests":0,"costUSD":0.0006906900000000001,"contextWindow":1000000,"m
+axOutputTokens":128000,"thinkingTokens":0,"cacheCreationEphemeral5mInputTokens":0,"cacheCreationEphemeral1hInputTokens":
+3400,"canonicalModel":"claude-haiku-5-5","provider":"firstParty","costBasis":"list"}},"permission_denials":[],"terminal_
+reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required","subagent_stats":{"spawned
+":0,"requested":{"background":0,"foreground":0,"unset":0},"started_in_background":0,"max_depth":0,"spawned_by_subagents"
+:0,"completed":0,"failed":0,"killed":{"parent":0,"user":0,"system":0},"refused":{"depth_limit":0,"concurrency_limit":0,"
+budget":0},"by_type":{}},"safety_stops":0,"is_error":false,"num_turns":1,"subtype":"success","api_error_status":null,"re
+sult":"LAB_READY","ttft_ms":1283,"type":"result","duration_ms":1294,"uuid":"bccb0a8e-ffb5-4409-8960-0ec3d019a890","ttft_
+stream_ms":1283,"time_to_request_ms":46,"first_content_frame_ms":1283,"queued_turn_count":0,"result_index":0,"model_usag
+e_since_last_result":{"claude-haiku-5-5":{"inputTokens":2,"outputTokens":8,"cacheReadInputTokens":649,"cacheCreationInpu
+tTokens":3400,"webSearchRequests":0,"costUSD":0.0006906900000000001,"contextWindow":1000000,"maxOutputTokens":128000,"th
+inkingTokens":0,"cacheCreationEphemeral5mInputTokens":0,"cacheCreationEphemeral1hInputTokens":3400,"canonicalModel":"cla
+ude-haiku-5-5","provider":"firstParty","costBasis":"list"}},"credential_expires_at":"2026-12-03T04:21:07.157Z"}
+
+
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: this home's backlog item live1 is not dispatchable in state in_flight yes no; refusing before creating its endpoint or local copy
+
+exit=1
+{
+  "name": "held in-flight backlog preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "9462db27575f8f171616485801421ba9f47ef10015785eb5ecc71b1c9a9df0e6",
+  "snapshot_after": "9462db27575f8f171616485801421ba9f47ef10015785eb5ecc71b1c9a9df0e6",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=8725412 pressure_full_avg60=5.74 floor_kb=0 reserve_kb=0 pressure_limit=100; task live1 stays queued
+
+exit=75
+{
+  "name": "capacity rc75 preserves real Claude",
+  "pass": true,
+  "returncode": 75,
+  "expected_returncode": 75,
+  "snapshot_before": "b7c7f4f0579f07e33a44b3645a03f047dcda0f7966d829392cd9078077e2ce41",
+  "snapshot_after": "b7c7f4f0579f07e33a44b3645a03f047dcda0f7966d829392cd9078077e2ce41",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: config/claude-permission-mode holds 'invalid'; accepted values are: bypass (--dangerously-skip-permissions, the default when the file is absent), auto (--permission-mode auto)
+
+exit=1
+{
+  "name": "invalid claude-permission-mode preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "f6b0e4d68dd2dcde6141a6459249598198e53ac64cdb8deae46d85760a1bbdac",
+  "snapshot_after": "f6b0e4d68dd2dcde6141a6459249598198e53ac64cdb8deae46d85760a1bbdac",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: config/codex-approval-mode holds 'invalid'; accepted values are: bypass (the default), approve-for-me
+
+exit=1
+{
+  "name": "invalid codex-approval-mode preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "0a440346dd1129e8955b24e5c2ffa76192bf1f1027250487ae2678c6a0b28a60",
+  "snapshot_after": "0a440346dd1129e8955b24e5c2ffa76192bf1f1027250487ae2678c6a0b28a60",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: config/codex-permission-mode must contain bypass or restricted
+
+exit=1
+{
+  "name": "invalid codex-permission-mode preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "e6cb75d5d5aaa6a39d75fd4ba6b672d2ea11549dd0c16397c7b3ebb645db4d17",
+  "snapshot_after": "e6cb75d5d5aaa6a39d75fd4ba6b672d2ea11549dd0c16397c7b3ebb645db4d17",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: config/lavish-axi-host must contain one non-empty address without whitespace
+
+exit=1
+{
+  "name": "invalid lavish-axi-host preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "750153c6ca54282b55c04c528194edb6056c1f1779237d063827410db778a8a2",
+  "snapshot_after": "750153c6ca54282b55c04c528194edb6056c1f1779237d063827410db778a8a2",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be recorded
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: another Treehouse slot allocation or return is in progress for ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project; refusing to race it
+
+exit=75
+{
+  "name": "project-lock preserves real Claude",
+  "pass": true,
+  "returncode": 75,
+  "expected_returncode": 75,
+  "snapshot_before": "10c8d18f47abef0c319acd5c031a7a804b977c24b2824b3fd1d5a32a868c8f59",
+  "snapshot_after": "10c8d18f47abef0c319acd5c031a7a804b977c24b2824b3fd1d5a32a868c8f59",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be recorded
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: another Treehouse slot allocation or return is in progress for ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project; refusing to race it
+
+exit=75
+{
+  "name": "plain-steal preserves real Claude",
+  "pass": true,
+  "returncode": 75,
+  "expected_returncode": 75,
+  "snapshot_before": "b69e1d1a7819febe64fef7f12f946baddead3248a0fc606fee77f7106d11938d",
+  "snapshot_after": "b69e1d1a7819febe64fef7f12f946baddead3248a0fc606fee77f7106d11938d",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be recorded
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: another Treehouse slot allocation or return is in progress for ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project; refusing to race it
+
+exit=75
+{
+  "name": "nested-steal preserves real Claude",
+  "pass": true,
+  "returncode": 75,
+  "expected_returncode": 75,
+  "snapshot_before": "ed7311399c5a21d7e1224f1c62280daa5a7676f2f3ee4d8552aca10a8cc6364b",
+  "snapshot_after": "ed7311399c5a21d7e1224f1c62280daa5a7676f2f3ee4d8552aca10a8cc6364b",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note must not be recorded
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: another Treehouse slot allocation or return is in progress for ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project; refusing to race it
+
+exit=75
+{
+  "name": "live-reaper preserves real Claude",
+  "pass": true,
+  "returncode": 75,
+  "expected_returncode": 75,
+  "snapshot_before": "a138c6e7e9037ad9f372122c932da54500a20894219fca0182cf689580664162",
+  "snapshot_after": "a138c6e7e9037ad9f372122c932da54500a20894219fca0182cf689580664162",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note Do not run bin/fm-herdr-lab.sh; continue the source fix
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md names the Herdr lifecycle command `bin/fm-herdr-lab.sh` but lacks the Herdr isolation contract; regenerate it with bin/fm-brief.sh --herdr-lab
+error: task live1's pending progress note caused this refusal: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md is admitted alone but not with the note appended; revise the note and re-run
+
+exit=1
+{
+  "name": "ship --note effective note preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+  "snapshot_after": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note-file ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/pending-note
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md names the Herdr lifecycle command `bin/fm-herdr-lab.sh` but lacks the Herdr isolation contract; regenerate it with bin/fm-brief.sh --herdr-lab
+error: task live1's pending progress note caused this refusal: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md is admitted alone but not with the note appended; revise the note and re-run
+
+exit=1
+{
+  "name": "ship --note-file effective note preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+  "snapshot_after": "2578049d45a0a62f34f04cee8477cbf58644a82873c405bb340de6ef63728a63",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note Do not run bin/fm-herdr-lab.sh; continue the source fix
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md names the Herdr lifecycle command `bin/fm-herdr-lab.sh` but lacks the Herdr isolation contract; regenerate it with bin/fm-brief.sh --herdr-lab
+error: task live1's pending progress note caused this refusal: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md is admitted alone but not with the note appended; revise the note and re-run
+
+exit=1
+{
+  "name": "scout --note effective note preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --note-file ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/pending-note
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md names the Herdr lifecycle command `bin/fm-herdr-lab.sh` but lacks the Herdr isolation contract; regenerate it with bin/fm-brief.sh --herdr-lab
+error: task live1's pending progress note caused this refusal: ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home/data/live1/brief.md is admitted alone but not with the note appended; revise the note and re-run
+
+exit=1
+{
+  "name": "scout --note-file effective note preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-control.sh live1 relaunch --harness invalid-fixture --note must not be written
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: 'invalid-fixture' is not a verified harness; fm-control refuses to relaunch onto an adapter with no verified control or launch mechanics
+
+exit=1
+{
+  "name": "unverified replacement adapter preserves real Claude",
+  "pass": true,
+  "returncode": 1,
+  "expected_returncode": 1,
+  "snapshot_before": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "snapshot_after": "73413db849d4f44f2995dea7dadf2c60c23bd4ae3baa856e83c8a02aa989548a",
+  "agent_before": "alive",
+  "agent_after": "alive",
+  "process_before": [
+    "85253 85253 85253 claude"
+  ],
+  "process_after": [
+    "85253 85253 85253 claude"
+  ]
+}
+$ bin/fm-spawn.sh fresh ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project --mode local-only --yolo off --harness invalid-fixture
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: unknown harness 'invalid-fixture'; pass a raw launch command to use an unverified adapter
+
+exit=1
+$ bin/fm-spawn.sh fresh ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/project --mode local-only --yolo off --harness invalid-fixture
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+error: unknown harness 'invalid-fixture'; pass a raw launch command to use an unverified adapter
+
+exit=1
+PASS ordinary fresh spawn records and clears warning episode through real fm-spawn and fm-guard
+LIVE SCENARIOS COMPLETE
+$ tmux -L fm-lab kill-server
+
+exit=0
+$ bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-hbplo1xa/home
+
+exit=0
+Disposable lab removed.
+Post-teardown process check: all recorded lab Claude PIDs are absent.

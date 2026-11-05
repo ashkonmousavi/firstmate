@@ -1,0 +1,68 @@
+$ tmux -L fm-lab display-message -p -t primary:fm-live1 #{socket_path}
+/tmp/fml.2f0Foe/tmux-1000/fm-lab
+
+exit=0
+REAL HARNESS INITIAL SCREEN
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Pane is dead (status 1, Wed Nov  4 20:41:44 2026)
+
+$ ps -t pts/29 -o pid=,pgid=,tpgid=,comm=
+error: TTY could not be found
+
+Usage:
+ ps [options]
+
+ Try 'ps --help <simple|list|output|threads|misc|all>'
+  or 'ps --help <s|l|o|t|m|a>'
+ for additional help text.
+
+For more details see ps(1).
+
+exit=1
+DRIVER ERROR: RuntimeError("command failed: ['ps', '-t', 'pts/29', '-o', 'pid=,pgid=,tpgid=,comm=']: error: TTY could not be found\n\nUsage:\n ps [options]\n\n Try 'ps --help <simple|list|output|threads|misc|all>'\n  or 'ps --help <s|l|o|t|m|a>'\n for additional help text.\n\nFor more details see ps(1).\n")
+$ tmux -L fm-lab kill-server
+
+exit=0
+$ bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-mdapjamm/home
+
+exit=0
+Disposable lab removed.

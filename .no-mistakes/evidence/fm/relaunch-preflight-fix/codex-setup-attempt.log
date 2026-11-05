@@ -1,0 +1,17 @@
+$ tmux -L fm-lab display-message -p -t primary:fm-live1 #{socket_path}
+/tmp/fml.X11aLd/tmux-1000/fm-lab
+
+exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:fm-live1 -S -80
+no server running on /tmp/fml.X11aLd/tmux-1000/fm-lab
+
+exit=1
+DRIVER ERROR: RuntimeError("command failed: ['tmux', '-L', 'fm-lab', 'capture-pane', '-p', '-t', 'primary:fm-live1', '-S', '-80']: no server running on /tmp/fml.X11aLd/tmux-1000/fm-lab\n")
+$ tmux -L fm-lab kill-server
+no server running on /tmp/fml.X11aLd/tmux-1000/fm-lab
+
+exit=1
+$ bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6MAKSCCRTYFWJ088627EQYQ/.test-validation/.lab-_8h4xdyb/home
+
+exit=0
+Disposable lab removed.
