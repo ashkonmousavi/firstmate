@@ -74,6 +74,70 @@ def check(label, message, commands=(), expected=2, rows=None, active=False, path
     return elapsed
 
 
+# Claude can append harness text to the same user row as a tool result.
+reminder = {"type": "text", "text": "<system-reminder>Read current capacity.</system-reminder>"}
+for extra_text in (reminder, {"type": "text", "text": "Hook feedback: continue working."}):
+    capacity = tool(activity_read, ident="activity")
+    capacity[1]["message"]["content"].append(extra_text)
+    check("capacity result with harness text counts: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *capacity], capacity_read=False, expected=0)
+    later = tool("printf OK", ident="later")
+    later[1]["message"]["content"].append(extra_text)
+    check("later harness result preserves completed capacity: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *tool(activity_read), *later],
+          capacity_read=False, expected=0)
+    failed = tool(activity_read, ident="failed", error=True)
+    failed[1]["message"]["content"].append(extra_text)
+    check("failed capacity with harness text does not count: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *failed], capacity_read=False)
+for human in (user, {"type": "user", "message": {"content": [
+        {"type": "text", "text": "Report current state again."}]}}):
+    check("human text resets completed capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, *tool(activity_read), human], capacity_read=False)
+    call, result = tool(activity_read)
+    check("human text resets pending capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, call, human, result], capacity_read=False)
+# Claude Code 2.1.318 writes Stop hook feedback as an isMeta string user row in
+# the same turn (MAIN 593af4e3 row 889). This guard's own refusal must not wipe
+# an earlier read; any other feedback (a watcher rewake) or a human row resets.
+own_refusal = ("Stop hook feedback:\n[command hook 2]: State claim needs a same-turn read (deploy): "
+               "The site is deployed.\nRead activity.sh successfully in this turn.\n")
+rewake = "Stop hook feedback:\n[command hook 2]: TURN WOULD END BLIND - SUPERVISION IS OFF\n"
+for label, feedback, expected in (
+        ("own refusal feedback keeps capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content": own_refusal}}, 0),
+        ("own reply-shape feedback keeps capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+          "Stop hook feedback:\n[command hook 2]: Reply shape: too long. This check blocks only once.\n"}}, 0),
+        ("rewake feedback resets capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content": rewake}}, 2),
+        ("own refusal combined with rewake resets capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+          own_refusal + rewake.removeprefix("Stop hook feedback:\n")}}, 2),
+        ("human row quoting refusal text resets capacity read",
+         {"type": "user", "message": {"role": "user", "content": own_refusal}}, 2)):
+    check(label, "There are 7 free lanes.", rows=[user, *tool(activity_read), feedback],
+          capacity_read=False, expected=expected)
+# Current Claude headers name the full tracked Stop command (row 7192).
+stop_command = next(h["command"] for group in json.loads((root / ".claude/settings.json").read_text())["hooks"]["Stop"]
+                    for h in group["hooks"] if "fm-turnend-guard.sh" in h.get("command", ""))
+check("own refusal under tracked hook header keeps capacity read", "There are 7 free lanes.",
+      rows=[user, *tool(activity_read), {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+            f"Stop hook feedback:\n[{stop_command}]: State claim needs a same-turn read (deploy): The site is deployed.\n"}}],
+      capacity_read=False, expected=0, hook=True)
+# A Bash result reports only the last pipeline/chain stage, so a piped or
+# chained read cannot prove activity.sh succeeded. The refusal must say so,
+# or the agent repeats the same refused read (MAIN 593af4e3, 2026-11-04).
+saved = lab / "activity-saved.txt"
+for command in (f"{activity_read} | awk '/lanes/' | sort | uniq -c",
+                f"{activity_read} > {saved}; echo rc=$?"):
+    check("piped or chained capacity read names standalone form: " + command,
+          "There are 7 free lanes.", [command], capacity_read=False,
+          expected_hint="as its own Bash command")
+check("standalone capacity read redirected to a file counts", "There are 7 free lanes.",
+      [f"{activity_read} > {saved}"], capacity_read=False, expected=0)
+
+
 check("planted queue claim without read blocks and names claim", "PR https://github.com/example/repo/pull/9 is in the queue.",
       named_claim="PR https://github.com/example/repo/pull/9 is in the queue.")
 check("matching PR read passes", "PR https://github.com/example/repo/pull/9 is merged.",

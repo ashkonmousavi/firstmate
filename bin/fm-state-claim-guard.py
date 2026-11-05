@@ -11,7 +11,8 @@ Other hooks' continuations and changed claims still require a read.
 Unreadable, malformed or turn-boundary-free transcripts fail open except
 capacity claims, which require a successful current-turn activity read.
 Only the last 2 MiB are read, and a real user message must establish the
-current turn inside that window (tool results do not).
+current turn inside that window. Rows holding tool results, even with harness
+reminder text, do not; this guard's own Stop feedback keeps the turn's reads.
 The Stop payload owns final text because transcript writes may lag Stop.
 
 POLICY owns the claim-to-read and optional whole-reply rule tables.
@@ -246,6 +247,14 @@ def claims(text):
                     break
 
 
+CAPACITY_GUIDANCE = ("Run activity.sh successfully in this turn as its own Bash command; "
+                     "printing its source is not a read. A pipe, chain or subshell (|, ;, &&, ||, &, "
+                     "parentheses) hides its exit status, so that run does not count: redirect only "
+                     "stdout (> file, without 2>&1) and filter in a later command; the tool result "
+                     "already reports its exit status, so do not append echo $?. "
+                     "check-wake prose is not a read.")
+
+
 def read_commands(command, deadline, cwd=None):
     """Recognize executable reads, not quoted examples or write subcommands."""
     if len(command) > 16384 or "<<" in command:
@@ -347,14 +356,8 @@ def current_reads(path, deadline, cwd=None):
         if not isinstance(message, dict):
             continue
         content = message.get("content", [])
-        if row.get("type") == "user":
-            if isinstance(content, str) or (isinstance(content, list) and any(
-                isinstance(b, dict) and b.get("type") == "text" for b in content
-            )):
-                pending, completed, boundary = {}, [], True
-        if not isinstance(content, list):
-            continue
-        for block in content:
+        blocks = content if isinstance(content, list) else []
+        for block in blocks:
             if not isinstance(block, dict):
                 continue
             if row.get("type") == "assistant" and block.get("type") == "tool_use" and block.get("name") == "Bash":
@@ -368,6 +371,22 @@ def current_reads(path, deadline, cwd=None):
                 if command:
                     completed.extend(item for item in read_commands(command, deadline, cwd)
                                      if item[0] != 'capacity' or not block.get('is_error', False))
+        # Tool results can share a user row with harness reminder text.
+        # Match those results above; only a text-only user row starts a turn.
+        # Claude writes Stop hook feedback as an isMeta row in the same turn;
+        # this guard's own refusal keeps earlier reads, other feedback resets.
+        if row.get("type") == "user" and row.get("isMeta") is True and isinstance(content, str) and content.startswith(
+                "Stop hook feedback:\n") and all(re.match(
+                r"\[.*?\]: (?:State claim needs a same-turn |Reply shape: )", entry)
+                for entry in re.split(r"\n(?=\[)", content.strip())[1:]) and "\n[" in content:
+            boundary = True
+            continue
+        if row.get("type") == "user" and not any(
+            isinstance(b, dict) and b.get("type") == "tool_result" for b in blocks
+        ) and (isinstance(content, str) or any(
+            isinstance(b, dict) and b.get("type") == "text" for b in blocks
+        )):
+            pending, completed, boundary = {}, [], True
     return completed if boundary else None
 
 
@@ -416,7 +435,7 @@ def main():
         reads = None
     if reads is None or time.monotonic() > deadline:
         if capacity_claim:
-            print('State claim needs a same-turn activity.sh read (capacity); check-wake prose is not a read.', file=sys.stderr)
+            print('State claim needs a same-turn activity.sh read (capacity).\n' + CAPACITY_GUIDANCE, file=sys.stderr)
             return 2
         return 0
     for family, sentence, pr_ids in unsupported:
@@ -438,7 +457,7 @@ def main():
             if not capacity_claim:
                 marker.parent.mkdir(parents=True, exist_ok=True)
                 marker.write_text(message_hash)
-            guidance = ("Read activity.sh successfully in this turn; check-wake prose is not a read."
+            guidance = (CAPACITY_GUIDANCE
                         if capacity_claim else
                         "Read that state now, correct the claim, or qualify it with 'last read at'. "
                         "This claim check blocks only once.")
