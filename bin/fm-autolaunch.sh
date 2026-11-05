@@ -292,6 +292,31 @@ fi
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-secondmate-registry-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+# shellcheck source=bin/fm-project-capacity-lib.sh
+. "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+
+controller_project_admission() {
+  local declaration project_lock
+  CONTROLLER_PROJECT_ERROR=
+  declaration=$(fm_project_capacity_config_dir "$FM_HOME" "$CONFIG") || {
+    CONTROLLER_PROJECT_ERROR='project capacity home unavailable'; return 1;
+  }
+  fm_project_capacity_lookup "$declaration" "$P_PROJECT" || {
+    CONTROLLER_PROJECT_ERROR=$FM_PROJECT_CAPACITY_ERROR; return 1;
+  }
+  [ -n "$FM_PROJECT_CAPACITY" ] || return 0
+  project_lock=$(fm_treehouse_project_lock_path "$FM_HOME/projects/$P_PROJECT") || {
+    CONTROLLER_PROJECT_ERROR='project capacity identity unavailable'; return 1;
+  }
+  fm_project_capacity_occupants "$project_lock" "$FM_HOME/projects/$P_PROJECT" "$STATE" "$1" || {
+    CONTROLLER_PROJECT_ERROR=$FM_PROJECT_CAPACITY_ERROR; return 1;
+  }
+  [ "$FM_PROJECT_CAPACITY_OCCUPANTS" -ge "$FM_PROJECT_CAPACITY" ] || return 0
+  CONTROLLER_PROJECT_ERROR="project $P_PROJECT capacity $FM_PROJECT_CAPACITY held by $FM_PROJECT_CAPACITY_OCCUPANTS workers"
+  return 1
+}
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
@@ -1073,6 +1098,15 @@ for id in $ids; do
   if ! check_item "$id"; then
     record "$slot" "$id" - "refused:$CHECK_ERR"
     continue
+  fi
+  if [ "$ACTION" = dry ] && { [ "${FM_CONTROLLER_PREPARED:-}" = 1 ] || [ "${FM_CONTROLLER_PREPARED:-}" = all ]; }; then
+    case ":${FM_CONTROLLER_PREPARED_SKIP:-}:" in
+      *":$id:"*) record "$slot" "$id" - 'refused:controller action pending or settled'; continue ;;
+    esac
+    if ! controller_project_admission "$id"; then
+      record "$slot" "$id" - "refused:$CONTROLLER_PROJECT_ERROR"
+      continue
+    fi
   fi
   if ! dispatch_candidates "$P_KIND"; then
     record "$slot" "$id" - "refused:$DISPATCH_ERR"

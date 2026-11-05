@@ -76,6 +76,163 @@ field() {  # <record-line> <n>
 }
 
 # Builder-owned regressions for independently identified controller defects.
+test_controller_agent_identity_refreshes_after_spawn_probe() {
+  k1_setup current-agent-probe mate
+  cat > "$KF/scheduler" <<'SH'
+#!/usr/bin/env bash
+bash "$AL_REAL" "$@" || exit $?
+if [ "$1" = --controller-spawn-lock ]; then
+  python3 - "$FM_HOME/state/$2.meta" "$KF" <<'PYCASE'
+import json,os,subprocess,sys
+from pathlib import Path
+p=subprocess.Popen(['sleep','100000'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+start=Path(f'/proc/{p.pid}/stat').read_text().rsplit(') ',1)[1].split()[19]
+Path(sys.argv[1]).write_text(f'agent_root_pid={p.pid}\nagent_root_start={start}\nboot_id='+Path('/proc/sys/kernel/random/boot_id').read_text())
+Path(sys.argv[2],'probe-agent.pid').write_text(str(p.pid))
+PYCASE
+fi
+SH
+  AL_REAL="$AL" FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 - "$ROOT/bin/fm-autolaunch-steps.py" "$KF/scheduler" "$H" <<'PYCASE' || fail 'an agent published by the real spawn-lock callback must be launched without ownership'
+import json,runpy,sys
+from pathlib import Path
+c=runpy.run_path(sys.argv[1])['Controller'](sys.argv[2]);c.process_snapshot()
+r=c.create('ctl-b-launch-k1-probe','k1-probe','launch',['true'])
+c.launch_timeout(r,'failed:timeout',False)
+r=json.loads(c.path(r['key']).read_text())
+assert r['phase']=='complete' and 'handoff' not in r,r
+assert 'launched' in Path(sys.argv[3],'state/autolaunch.log').read_text()
+PYCASE
+  k1_teardown
+  pass 'timeout reconciliation rereads current agent identity after its one real spawn-lock probe'
+}
+
+test_controller_late_agent_identity_is_current() {
+  k1_setup current-agent-closure mate
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 - "$ROOT/bin/fm-autolaunch-steps.py" "$AL" "$H/state" <<'PYCASE' || fail 'late closure requires current matching PID/start/boot evidence'
+import json,runpy,subprocess,sys
+from pathlib import Path
+c=runpy.run_path(sys.argv[1])['Controller'](sys.argv[2]);state=Path(sys.argv[3])
+for mode in ('appeared','dead','start-mismatch','boot-mismatch'):
+    r=c.create('ctl-b-launch-'+mode,mode,'launch',['true']);c.own(r,'failed:timeout',False)
+    c.process_snapshot()
+    p=subprocess.Popen(['sleep','100000'])
+    try:
+        start=c.identity(p.pid)
+        (state/(mode+'.meta')).write_text(f'agent_root_pid={p.pid}\nagent_root_start={start}\nboot_id={c.boot}\n')
+        if mode!='appeared': c.process_snapshot()
+        if mode=='dead': p.terminate();p.wait()
+        if mode=='start-mismatch': (state/(mode+'.meta')).write_text(f'agent_root_pid={p.pid}\nagent_root_start=1\nboot_id={c.boot}\n')
+        if mode=='boot-mismatch': (state/(mode+'.meta')).write_text(f'agent_root_pid={p.pid}\nagent_root_start={start}\nboot_id=wrong\n')
+        c.launch_timeout(r,'failed:timeout',False)
+        saved=json.loads(c.path(r['key']).read_text())
+        assert bool(saved.get('closed'))==(mode=='appeared'),(mode,saved)
+        if mode=='appeared': assert saved['close_handoff']['receipt'],saved
+    finally:
+        if p.poll() is None: p.terminate();p.wait()
+PYCASE
+  k1_teardown
+  pass 'late-agent closure accepts newly live identities and rejects dead or mismatched cached evidence'
+}
+
+controller_ordered_spawn_fixture() {
+  cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$KF/spawn.log"
+if [ "$1" = k1-first ] && [ -e "$KF/project-full" ]; then echo 'deferred: project full'; exit 75; fi
+free=$(cat "$KF/free")
+[ "$free" -gt 0 ] || { echo 'deferred: machine full'; exit 75; }
+printf '%s\n' "$1" >> "$KF/launched"
+echo $((free - 1)) > "$KF/free"
+SH
+  chmod +x "$KB/spawn"
+}
+
+test_controller_project_refusal_preserves_lane_order() {
+  k1_setup project-order mate
+  k1_ready k1-first k1-second
+  mkdir "$H/projects/other"
+  git init -q "$H/projects/proj"
+  git init -q "$H/projects/other"
+  prep k1-second other
+  printf 'proj 1\n' > "$H/config/project-capacity"
+  printf 'kind=ship\nproject=%s/projects/proj\n' "$H" > "$H/state/holder.meta"
+  : > "$KF/project-full"
+  controller_ordered_spawn_fixture
+  k1_pass 0; k1_pass 55
+  assert_equals k1-second "$(cat "$KF/launched")" 'project-full first item yields the only free machine lane to the eligible second item'
+  assert_equals 0 "$(cat "$KF/free")" 'one machine lane permits one launch'
+  rm "$H/state/holder.meta" "$KF/project-full"
+  printf '1\n' > "$KF/free"
+  k1_pass 110; k1_pass 165
+  assert_equals $'k1-second\nk1-first' "$(cat "$KF/launched")" 'clearing temporary project capacity restores the first item without replaying completed work'
+  k1_teardown
+  pass 'project-capacity refusal yields to later ready work and is reconsidered after capacity clears'
+}
+
+test_controller_saved_lane_rechecks_project_capacity() {
+  local token rc=0
+  k1_setup saved-project-admission mate
+  k1_ready k1-first k1-second
+  mkdir "$H/projects/other"
+  git init -q "$H/projects/proj"
+  git init -q "$H/projects/other"
+  prep k1-second other
+  printf 'proj 1\nother 1\n' > "$H/config/project-capacity"
+  printf 'kind=ship\nproject=%s/projects/proj\n' "$H" > "$H/state/holder.meta"
+  controller_save_pending_launch
+  controller_ordered_spawn_fixture
+  k1_pass 0
+  token=$(cat "$KF/pending-action")
+  printf 'kind=ship\nproject=%s/projects/other\n' "$H" > "$H/state/other-holder.meta"
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" || rc=$?
+  expect_code 75 "$rc" 'a saved second task cannot bypass a newly full project'
+  assert_absent "$KF/launched" 'saved commands refresh project admission before invoking spawn'
+  rm "$H/state/other-holder.meta"
+  prep k1-second other base_branch=refreshed
+  k1_pass 55
+  token=$(cat "$KF/pending-action")
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" || fail 'cleared project capacity permits the saved eligible task'
+  assert_equals k1-second "$(cat "$KF/launched")" 'the matching saved task launches once after capacity clears'
+  assert_contains "$(cat "$KF/spawn.log")" '--base-branch refreshed' 'the admitted second task receives current argv'
+  k1_teardown
+  pass 'saved lane actions refresh project capacity and argv before spending the machine lane'
+}
+
+test_controller_blocked_rows_do_not_reserve_lanes() {
+  local phase row
+  for phase in retry-wait exhausted owned running complete; do
+    k1_setup "lane-$phase" mate
+    k1_ready k1-first k1-second
+    controller_save_pending_launch
+    k1_pass 0
+    row="$H/state/autolaunch-controller/ctl-b-launch-k1-first.json"
+    python3 - "$row" "$phase" "$K1_T0" <<'PYCASE'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1]);r=json.loads(p.read_text());r.update(phase=sys.argv[2],due=int(sys.argv[3])+10000)
+if sys.argv[2]=='owned': r['handoff']=dict(payload='owned',request='1'*32,receipt=True)
+p.write_text(json.dumps(r))
+PYCASE
+    k1_write_stubs
+    controller_ordered_spawn_fixture
+    k1_pass 55; k1_pass 110
+    assert_equals k1-second "$(cat "$KF/launched")" "$phase first item cannot consume a hypothetical lane"
+    assert_equals 0 "$(cat "$KF/free")" 'eligible work respects the existing machine lane limit'
+    k1_teardown
+  done
+  k1_setup lane-priority mate
+  k1_ready k1-first k1-second
+  controller_ordered_spawn_fixture
+  k1_pass 0; k1_pass 55
+  assert_equals k1-first "$(cat "$KF/launched")" 'the original first item keeps priority when both are eligible'
+  k1_teardown
+  pass 'backoff, terminal, active and completed rows yield lanes while eligible queue priority is retained'
+}
+
 controller_save_pending_launch() {
   cat > "$KB/systemd-run" <<'SH'
 #!/usr/bin/env bash
@@ -3794,7 +3951,12 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_all_outcomes_wait_for_attempt_settlement \
+k1_run test_controller_agent_identity_refreshes_after_spawn_probe \
+  test_controller_late_agent_identity_is_current \
+  test_controller_project_refusal_preserves_lane_order \
+  test_controller_saved_lane_rechecks_project_capacity \
+  test_controller_blocked_rows_do_not_reserve_lanes \
+  test_controller_all_outcomes_wait_for_attempt_settlement \
   test_controller_published_results_keep_r9_supervision \
   test_controller_rung2_owns_before_wrapper_release \
   test_controller_timeout_stops_inflight_profile_fallback \

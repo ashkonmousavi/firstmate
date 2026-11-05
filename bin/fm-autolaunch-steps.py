@@ -1409,8 +1409,9 @@ class Controller:
 
     def agent_live(self, task):
         m = kv(STATE / f"{task}.meta")
-        return self.live(dict(pid=m.get("agent_root_pid"), start=m.get("agent_root_start"),
-                              boot_id=m.get("boot_id")))
+        return bool(m.get("agent_root_pid") and m.get("agent_root_start")
+                    and m.get("boot_id") == self.boot
+                    and self.identity(m["agent_root_pid"]) == m["agent_root_start"])
 
     @staticmethod
     def task_key_identity(task, key):
@@ -1719,11 +1720,17 @@ class Controller:
         self.save(row)
         self.event(row, "exhausted", f"exhausted {reason}")
 
-    def preparation(self, all_candidates=False):
+    def preparation(self, all_candidates=False, token=None):
         # Reuse the exact preparation, quota, backend and profile gates through
         # the existing read-only public interface; never reconstruct them here.
+        skipped = [row["task"] for row in self.rows(False)
+                   if row["kind"] in ("launch", "relaunch", "recovery")
+                   and not (token and row.get("attempt") == token)
+                   and (row["phase"] not in ("queued", "wait") or "handoff" in row
+                        or not self.execution_settled(row))]
         r = subprocess.run(["bash", self.scheduler, "--dry-run"], text=True,
-                           env=dict(os.environ, FM_CONTROLLER_PREPARED="all" if all_candidates else "1"),
+                           env=dict(os.environ, FM_CONTROLLER_PREPARED="all" if all_candidates else "1",
+                                    FM_CONTROLLER_PREPARED_SKIP=":".join(skipped)),
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
         if r.returncode:
             raise ValueError(f"controller preparation failed: {r.stderr.strip()}")
@@ -2061,7 +2068,7 @@ class Controller:
             commands = [(attempt["argv"], None)]
             if attempt["kind"] == "launch":
                 task = self.load(self.path(attempt["key"]))["task"]
-                commands = [(argv, model) for candidate, lane, model, outcome, argv in self.preparation(all_candidates=True)
+                commands = [(argv, model) for candidate, lane, model, outcome, argv in self.preparation(all_candidates=True, token=token)
                             if candidate == task and lane != "-" and outcome == "launched" and argv]
                 if not commands:
                     atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="preparation"))
