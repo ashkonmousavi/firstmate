@@ -1846,11 +1846,6 @@ test_codex_rank_only() {
   pass 'rank-only admits exhausted Codex accounts in configured preference order while preserving pins and authentication'
 }
 
-# The control suite uses the same fixture-import convention.
-if [ "${FM_TEST_FIXTURE_IMPORT:-}" = worker-account ]; then
-  return 0
-fi
-
 test_codex_preference_horizon
 test_codex_preferred_repair_refusal
 test_codex_launch_preference
