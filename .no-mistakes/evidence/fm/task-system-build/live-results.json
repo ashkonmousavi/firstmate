@@ -1,121 +1,211 @@
 [
   {
-    "name": "enforce-missing",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-missing.log",
-    "reason": ""
+    "id": "enforce-missing",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "missing-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/enforce-missing.log",
+    "passed": true
   },
   {
-    "name": "enforce-valid",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-valid.log",
-    "reason": ""
+    "id": "enforce-malformed",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "policy-unavailable",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/enforce-malformed.log",
+    "passed": true
   },
   {
-    "name": "observe-missing",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/observe-missing.log",
-    "reason": ""
+    "id": "enforce-validator-missing",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "not readable",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/enforce-validator-missing.log",
+    "passed": true
   },
   {
-    "name": "enforce-unknown-slice",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-unknown-slice.log",
-    "reason": ""
+    "id": "observe-missing",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "missing-slice",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/observe-missing.log",
+    "passed": true
   },
   {
-    "name": "enforce-conflicting-prep",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-conflicting-prep.log",
-    "reason": ""
+    "id": "unlisted-installed",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/unlisted-installed.log",
+    "passed": true
   },
   {
-    "name": "enforce-missing-task-line",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-missing-task-line.log",
-    "reason": ""
+    "id": "valid",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/valid-first.log",
+    "passed": true
   },
   {
-    "name": "enforce-revision-mismatch",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-revision-mismatch.log",
-    "reason": ""
+    "id": "enforce-missing",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "missing-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/enforce-missing.log",
+    "passed": true
   },
   {
-    "name": "enforce-malformed-policy",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-malformed-policy.log",
-    "reason": ""
+    "id": "valid",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/valid.log",
+    "passed": true
   },
   {
-    "name": "unconfigured-home",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unconfigured-home.log",
-    "reason": ""
+    "id": "fresh-followup",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "missing-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/fresh-followup.log",
+    "passed": true
   },
   {
-    "name": "unlisted-project",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-project.log",
-    "reason": ""
+    "id": "unlisted-no-validator",
+    "exit": 1,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/unlisted-no-validator.setup.log",
+    "passed": false,
+    "setup_attempt": true
   },
   {
-    "name": "scout-bypass",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/scout-bypass.log",
-    "reason": ""
+    "id": "observe-no-validator",
+    "exit": 1,
+    "expected_success": true,
+    "notice_or_reason": "not readable",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/observe-no-validator.setup.log",
+    "passed": false,
+    "setup_attempt": true
   },
   {
-    "name": "listed-missing-validator",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/listed-missing-validator.log",
-    "reason": ""
+    "id": "no-policy",
+    "exit": 1,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/no-policy.setup.log",
+    "passed": false,
+    "setup_attempt": true
   },
   {
-    "name": "observe-missing-validator",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/observe-missing-validator.log",
-    "reason": ""
+    "id": "scout",
+    "exit": 1,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/scout.setup.log",
+    "passed": false,
+    "setup_attempt": true
   },
   {
-    "name": "unlisted-missing-observe",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-observe.log",
-    "reason": ""
+    "id": "unlisted-no-validator",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/unlisted-no-validator.log",
+    "passed": true
   },
   {
-    "name": "unlisted-missing-enforce",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-enforce.log",
-    "reason": ""
+    "id": "observe-no-validator",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "not readable",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/observe-no-validator.log",
+    "passed": true
   },
   {
-    "name": "unlisted-missing-invalid",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-invalid.log",
-    "reason": ""
+    "id": "no-policy",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/no-policy.log",
+    "passed": true
   },
   {
-    "name": "unlisted-no-result",
-    "result": "pass",
-    "live": true,
-    "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-no-result.log",
-    "reason": ""
+    "id": "scout",
+    "exit": 0,
+    "expected_success": true,
+    "notice_or_reason": "",
+    "meta_exists": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/scout.log",
+    "passed": true
+  },
+  {
+    "id": "supervisor",
+    "exit": 0,
+    "meta_exists": true,
+    "passed": true,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/supervisor.log"
+  },
+  {
+    "id": "missing-task-line",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "missing-slice (task:missing-task-line)",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/missing-task-line.log",
+    "passed": true
+  },
+  {
+    "id": "missing-prep-line",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "missing-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/missing-prep-line.log",
+    "passed": true
+  },
+  {
+    "id": "conflicting-prep",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "conflicting-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/conflicting-prep.log",
+    "passed": true
+  },
+  {
+    "id": "unknown-slice",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "dangling-slice",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/unknown-slice.log",
+    "passed": true
+  },
+  {
+    "id": "validator-no-result",
+    "exit": 1,
+    "expected_success": false,
+    "notice_or_reason": "could not check",
+    "meta_exists": false,
+    "log": "~/.no-mistakes/evidence/01M6NY9S7GT8ZQD7TVD95RD89G/validator-no-result.log",
+    "passed": true
   }
 ]

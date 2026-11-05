@@ -1,0 +1,8 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/deployment/bin/fm-spawn.sh supervisor ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/supervisor-home --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: secondmate supervisor sync skipped before launch: primary default-branch commit cannot be resolved
+fm-config-inherit: warning: skipped crew-harness for ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/supervisor-home/config: destination does not allow inherited item (not gitignored or guard failed)
+spawned supervisor harness=codex kind=secondmate mode=secondmate yolo=off window=primary:fm-supervisor worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/supervisor-home
+
+EXIT_STATUS=0

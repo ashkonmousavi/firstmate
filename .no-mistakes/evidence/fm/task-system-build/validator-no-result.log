@@ -1,0 +1,6 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/bin/fm-spawn.sh validator-no-result ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home/config/slicing.json, mode enforce) could not check validator-no-result: 
+
+EXIT_STATUS=1

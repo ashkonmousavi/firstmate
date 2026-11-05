@@ -1,0 +1,14 @@
+window=primary:fm-unlisted-installed
+endpoint_task_id=unlisted-installed
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/other-eeb002/1/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/other
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=direct-PR
+yolo=off
+branch=fm/unlisted-installed
+tasktmp=/tmp/fm-unlisted-installed
+model=default
+effort=default
+spawn_gen=s1793886140.99737.21762

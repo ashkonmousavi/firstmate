@@ -4,5 +4,6 @@ ok - fm-spawn: an observe home reports a missing SLICE line and launches
 ok - fm-spawn: no policy and scouts bypass; a missing validator refuses in enforce and is reported in observe
 ok - fm-spawn: unlisted projects launch in every mode when validation yields no result
 ok - fm-spawn: listed projects and unreadable project lists retain their no-result mode behavior
-ok - fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, and only reports in observe
+ok - fm-spawn: a relaunch in an enforce home does not consult the slice gate (relaunch exit 0)
+ok - fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, only reports in observe, and lets a project the enforce policy does not list launch
 # all fm-spawn-slice-gate tests passed

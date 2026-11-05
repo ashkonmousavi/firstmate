@@ -1,0 +1,5 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/bin/fm-spawn.sh enforce-validator-missing ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home/config/slicing.json, mode enforce) could not check enforce-validator-missing: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/absent.py is not readable
+
+EXIT_STATUS=1

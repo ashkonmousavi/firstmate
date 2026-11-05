@@ -1,0 +1,4 @@
+worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj
+HEAD baa7c02588e74d16fe296904f829962f7cdf1f9f
+branch refs/heads/main
+

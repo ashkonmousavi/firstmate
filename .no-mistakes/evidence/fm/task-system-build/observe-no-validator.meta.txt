@@ -1,0 +1,14 @@
+window=primary:fm-observe-no-validator
+endpoint_task_id=observe-no-validator
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/3/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=direct-PR
+yolo=off
+branch=fm/observe-no-validator
+tasktmp=/tmp/fm-observe-no-validator
+model=default
+effort=default
+spawn_gen=s1793886370.2442.13764

@@ -1,0 +1,13 @@
+{
+  "before": {
+    "branches": "refs/heads/main\n",
+    "worktrees": "worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\nbranch refs/heads/main\n\nworktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/1/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\ndetached\n\nworktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/2/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\ndetached\n\n",
+    "backlog": "# Backlog\n\n## In flight\n- [ ] valid - Live slice admission (repo: proj) (since 2026-11-05)\n  SLICE: ops/demo | demo outcome\n## Queued\n- [ ] enforce-missing - Live missing metadata (repo: proj) (since 2026-11-05)\n  Missing slice metadata deliberately\n- [ ] observe-missing - Live observe metadata (repo: proj) (since 2026-11-05)\n  Missing slice metadata deliberately\n## Done\n"
+  },
+  "after": {
+    "branches": "refs/heads/main\n",
+    "worktrees": "worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\nbranch refs/heads/main\n\nworktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/1/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\ndetached\n\nworktree ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/2/proj\nHEAD baa7c02588e74d16fe296904f829962f7cdf1f9f\ndetached\n\n",
+    "backlog": "# Backlog\n\n## In flight\n- [ ] valid - Live slice admission (repo: proj) (since 2026-11-05)\n  SLICE: ops/demo | demo outcome\n## Queued\n- [ ] enforce-missing - Live missing metadata (repo: proj) (since 2026-11-05)\n  Missing slice metadata deliberately\n- [ ] observe-missing - Live observe metadata (repo: proj) (since 2026-11-05)\n  Missing slice metadata deliberately\n## Done\n"
+  },
+  "unchanged": true
+}

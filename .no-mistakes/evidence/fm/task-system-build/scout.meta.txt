@@ -1,0 +1,11 @@
+window=primary:fm-scout
+endpoint_task_id=scout
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/5/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-scout
+model=default
+effort=default
+spawn_gen=s1793886458.22377.11910

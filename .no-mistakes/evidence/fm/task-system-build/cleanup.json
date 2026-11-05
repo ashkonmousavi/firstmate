@@ -1,0 +1,17 @@
+{
+  "private_tmux_kill_exit": 0,
+  "lab_owned_codex_helpers_stopped": [
+    37343,
+    39385,
+    55175,
+    55179,
+    55190,
+    63249,
+    63250
+  ],
+  "remaining_live_owned_processes": [],
+  "socket_teardown_exit": 0,
+  "private_socket_directory_removed": true,
+  "disposable_workspace_removed": true,
+  "fixture_cleanup_note": "Treehouse read-only hook directories were made writable inside the disposable fixture before removal."
+}

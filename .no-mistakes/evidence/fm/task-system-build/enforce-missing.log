@@ -1,25 +1,6 @@
-fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
-error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-missing-fb: fail: missing-slice (task:enforce-missing-fb); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-missing-fb/brief.md); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/bin/fm-spawn.sh enforce-missing ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home/config/slicing.json) refuses enforce-missing: fail: missing-slice (task:enforce-missing); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/home/data/enforce-missing/brief.md); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
 
-OBSERVABLE STATE
-{"exit_status": 1, "task_record": false, "task_id": "enforce-missing-fb"}
-task:
-  id: enforce-missing-fb
-  title: enforce-missing
-  state: queued
-  blocked: no
-  blocked_by: none
-  held: no
-  hold_reason: "-"
-  hold_kind: "-"
-  hold_until: "-"
-  kind: ship
-  repo: proj
-  priority: "-"
-  created: 2026-11-05
-  closed: "-"
-  deps: none
-  links: none
-  body: Disposable task.
-
-WORKER TERMINAL
+EXIT_STATUS=1

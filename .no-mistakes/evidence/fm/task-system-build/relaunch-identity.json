@@ -1,0 +1,37 @@
+{
+  "before": {
+    "window": "primary:fm-valid",
+    "endpoint_task_id": "valid",
+    "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/2/proj",
+    "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj",
+    "harness": "codex",
+    "approval_mode": "bypass",
+    "kind": "ship",
+    "mode": "direct-PR",
+    "yolo": "off",
+    "branch": "fm/valid",
+    "tasktmp": "/tmp/fm-valid",
+    "model": "default",
+    "effort": "default",
+    "spawn_gen": "s1793886185.94660.14385"
+  },
+  "after": {
+    "window": "primary:fm-valid",
+    "endpoint_task_id": "valid",
+    "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/pool/.treehouse/proj-e7baae/2/proj",
+    "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6NY9S7GT8ZQD7TVD95RD89G/.test-tmp/live/proj",
+    "harness": "codex",
+    "approval_mode": "bypass",
+    "kind": "ship",
+    "mode": "direct-PR",
+    "yolo": "off",
+    "branch": "fm/valid",
+    "tasktmp": "/tmp/fm-valid",
+    "model": "default",
+    "effort": "default",
+    "spawn_gen": "s1793886252.38655.32521"
+  },
+  "validator_invocations": 0,
+  "same_worktree": true,
+  "same_endpoint": true
+}
