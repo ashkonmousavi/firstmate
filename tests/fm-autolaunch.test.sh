@@ -3147,6 +3147,146 @@ if [ -n "${FM_AUTOLAUNCH_EGM1R3_ONLY:-}" ]; then
 fi
 # === END tester-owned EGM1-R3 (definitions; the full run calls egm1r3_run egm1r3 last) ===
 
+# === BEGIN tester-owned: lc-core-scheduler EGM1-R4 sibling unavailable-home oracles =
+# EGM point 1 (instruction 009) "unavailable-home disposition", the sibling
+# enumeration exits R3 left open: the joining home's own state directory is
+# missing, or the root home cannot be resolved because a recorded local parent
+# is gone. Either way the join stays NO_PICK, every home that can still be
+# discovered safely (through a readable registry) stays listed, and each
+# unavailable home keeps its identity with a typed unavailable record.
+# Expected results come from the cut line (EGM dispositions row 1: "a home that
+# cannot run has no failure disposition"), the cut-1 advisor answer ("Missing
+# whole-home input still causes NO_PICK; a failed kick cannot justify dropping
+# that home") and the round-1 seam homes:[{home, status, reason}], never from
+# the code under test. Reuses the round-1 fixtures (egm1_setup, egm1_pub,
+# egm1_entry, egm1_join, egm1_doc, egm1_complete, egm1_unavailable) without
+# editing them. Reason enums, owner and retry values, and the status of a
+# readable home beside an unavailable one are the builder's; a readable home
+# listed as unavailable must still carry its typed record. The builder runs
+# these and never edits this region.
+# Run alone: FM_AUTOLAUNCH_EGM1R4_ONLY='<case>...' (or egm1r4 for all).
+EGM1R4_TESTS=(test_egm1r4_missing_own_state_keeps_registered_sibling
+  test_egm1r4_unresolvable_parent_keeps_parent_and_children
+  test_egm1r4_readable_parent_chain_is_complete)
+
+egm1r4_count() {  # <home>: how many homes[] records name that home
+  printf '%s\n' "$EGM1_OUT" | jq --arg h "$1" '[.homes[] | select(.home == $h)] | length'
+}
+
+egm1r4_status() {  # <home>: that home's homes[] statuses, comma-joined
+  printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$1" '[.homes[] | select(.home == $h) | .status] | join(",")'
+}
+
+egm1r4_typed() {  # <label> <home>: a reasons[] record names <home> with a reason, an owner and a retry condition
+  printf '%s\n' "$EGM1_OUT" | jq -e --arg h "$2" 'any(.reasons[]; .home == $h
+    and (.owner | type == "string" and . != "") and (.retry | type == "string" and . != "")
+    and (.reason | type == "string" and . != ""))' >/dev/null ||
+    fail "$1: no typed reasons[] record names $2 with a reason, an owner and a retry condition (reasons: $(printf '%s\n' "$EGM1_OUT" | jq -c .reasons | head -c 300))"
+}
+
+egm1r4_no_pick() {  # <label>: the captured join is a NO_PICK document
+  egm1_doc "$1"
+  assert_equals NO_PICK "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" "$1: join status"
+  [ "$EGM1_RC" != 0 ] && [ "$EGM1_RC" != 2 ] || fail "$1: NO_PICK must exit nonzero and not 2 (usage), got $EGM1_RC"
+}
+
+egm1r4_unavailable() {  # <label> <home>: listed once as unavailable, with a reason and a typed record
+  egm1_unavailable "$1" "$2"
+  egm1r4_typed "$1" "$2"
+}
+
+egm1r4_kept() {  # <label> <home>: a safely discoverable home is listed exactly once, never dropped
+  assert_equals 1 "$(egm1r4_count "$2")" "$1: $2 is still listed exactly once"
+  case "$(egm1r4_status "$2")" in
+    available) ;;
+    unavailable) egm1r4_typed "$1" "$2" ;;
+    *) fail "$1: $2 has status '$(egm1r4_status "$2")', not available or unavailable" ;;
+  esac
+}
+
+egm1r4_chain_setup() {  # <case>: egm1_setup plus a local parent record B -> R and a child G registered in B
+  egm1_setup "$1"
+  mkdir -p "$E/g/state" "$E/g/data" "$E/g/config"
+  G=$(cd -P -- "$E/g" && pwd -P)
+  fm_test_tasks_toml "$G/.tasks.toml"
+  printf '## In flight\n## Queued\n## Done\n' > "$G/data/backlog.md"
+  printf -- '- egm1-g - EGM1-R4 fixture child (home: %s; scope: egm1 fixture; projects: proj; added 2026-11-05)\n' "$G" > "$B/data/secondmates.md"
+  printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$R" > "$B/.fm-secondmate-parent"
+  export FM_HOME="$B"
+  # Fixture integrity: from B the existing owners resolve the root R and see B, R and G.
+  local root homes
+  root=$(bash -c '. "$1/bin/fm-wake-lib.sh"; fm_firstmate_root_home "$2"' _ "$ROOT" "$B") ||
+    fail 'EGM1-R4 fixture: fm_firstmate_root_home refused the parent record in B'
+  assert_equals "$R" "$root" 'EGM1-R4 fixture: the root resolved from B is R'
+  homes=$(bash -c '. "$1/bin/fm-wake-lib.sh"; . "$1/bin/fm-secondmate-registry-lib.sh"
+    fm_local_firstmate_state_dirs "$2/state" && printf "%s\n" "${FM_LOCAL_FIRSTMATE_STATES[@]}"' _ "$ROOT" "$B") ||
+    fail 'EGM1-R4 fixture: fm_local_firstmate_state_dirs refused the chain fixture'
+  assert_equals "$B/state"$'\n'"$R/state"$'\n'"$G/state" "$homes" 'EGM1-R4 fixture: the registered-home set from B is B, R, G'
+}
+
+# (a) The joining root home R lost its state directory; its registry, which
+# registers B, is still readable.
+test_egm1r4_missing_own_state_keeps_registered_sibling() {
+  egm1_setup r4-own-state
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[$(egm1_entry "$B" b-task)]"
+  egm1_complete 'EGM1-R4 own-state baseline: both homes readable'
+  mv "$R/state" "$E/root-state-gone"
+  egm1_join
+  mv "$E/root-state-gone" "$R/state"
+  egm1r4_no_pick 'EGM1-R4 own-state: R/state removed'
+  egm1r4_kept 'EGM1-R4 own-state: R/state removed, B registered in the readable R/data/secondmates.md' "$B"
+  egm1r4_unavailable 'EGM1-R4 own-state: R/state removed' "$R"
+  pass 'EGM1-R4 test_egm1r4_missing_own_state_keeps_registered_sibling: a home without state is NO_PICK and typed unavailable, and its registered sibling stays a member'
+}
+
+# (b) Joining from B, whose recorded local parent R is gone, so the root
+# cannot be resolved; B's own registry, which registers G, is still readable.
+test_egm1r4_unresolvable_parent_keeps_parent_and_children() {
+  egm1r4_chain_setup r4-parent
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[]"
+  egm1_pub "$G" "[$(egm1_entry "$G" g-task)]"
+  egm1_complete 'EGM1-R4 parent baseline: R, B and G readable'
+  mv "$R" "$E/root-gone"
+  egm1_join
+  mv "$E/root-gone" "$R"
+  egm1r4_no_pick 'EGM1-R4 parent: recorded parent R removed'
+  egm1r4_unavailable 'EGM1-R4 parent: recorded parent R removed, its identity comes from B/.fm-secondmate-parent' "$R"
+  egm1r4_kept 'EGM1-R4 parent: recorded parent R removed, the joining home' "$B"
+  egm1r4_kept 'EGM1-R4 parent: recorded parent R removed, G registered in the readable B/data/secondmates.md' "$G"
+  pass 'EGM1-R4 test_egm1r4_unresolvable_parent_keeps_parent_and_children: an unresolvable recorded parent is NO_PICK and typed unavailable, and the readable children stay members'
+}
+
+# (c) Control: the same chain, everything readable and valid-empty.
+test_egm1r4_readable_parent_chain_is_complete() {
+  egm1r4_chain_setup r4-control
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[]"
+  egm1_pub "$G" "[]"
+  egm1_complete 'EGM1-R4 control: R, B and G valid-empty'
+  assert_equals available "$(egm1r4_status "$R")" 'EGM1-R4 control: R is listed once as available'
+  assert_equals available "$(egm1r4_status "$B")" 'EGM1-R4 control: B is listed once as available'
+  assert_equals available "$(egm1r4_status "$G")" 'EGM1-R4 control: G is listed once as available'
+  assert_equals 3 "$(printf '%s\n' "$EGM1_OUT" | jq '.homes | length')" 'EGM1-R4 control: exactly the three homes are listed'
+  pass 'EGM1-R4 test_egm1r4_readable_parent_chain_is_complete: a readable valid-empty parent chain is COMPLETE with every home listed'
+}
+
+egm1r4_run() {  # <case>... (egm1r4 = all)
+  local name
+  [ "$*" != egm1r4 ] || set -- "${EGM1R4_TESTS[@]}"
+  for name in "$@"; do
+    [ "$(type -t "$name")" = function ] || fail "unknown EGM1-R4 case $name"
+    "$name"
+  done
+}
+if [ -n "${FM_AUTOLAUNCH_EGM1R4_ONLY:-}" ]; then
+  read -r -a EGM1R4_ONLY <<<"$FM_AUTOLAUNCH_EGM1R4_ONLY"
+  egm1r4_run "${EGM1R4_ONLY[@]}"
+  exit 0
+fi
+# === END tester-owned EGM1-R4 (definitions; the full run calls egm1r4_run egm1r4 last) ===
+
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
 # fleet-ops:lc-core-scheduler". The builder runs these and never edits this
@@ -4848,3 +4988,7 @@ egm1r2_run egm1r2
 # Tester-owned (lc-core-scheduler EGM1-R3 unavailable-home oracles, defined
 # after the EGM1-R2 block): they run last so every earlier case keeps its coverage.
 egm1r3_run egm1r3
+
+# Tester-owned (lc-core-scheduler EGM1-R4 sibling unavailable-home oracles, defined
+# after the EGM1-R3 block): they run last so every earlier case keeps its coverage.
+egm1r4_run egm1r4
