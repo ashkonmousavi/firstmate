@@ -62,16 +62,16 @@
 #   base_branch= in state/<id>.meta, which a relaunch reuses and later review and
 #   cleanup read; it is refused on secondmates and relaunches, and without it
 #   nothing changes.
-#   A fresh ship spawn first reads the project's forge and refuses, naming each
-#   URL, when an open pull request already carries the task (its head is the
-#   task's branch, or its body names the task on a SLICE or Task line); a forge
-#   it cannot read refuses as UNKNOWN. --continue-pr <N> attaches to open pull
-#   request N on the task's branch instead, starting the copy at its head and
-#   recording continue_pr=; --no-forge-check <reason> skips the read and
-#   records forge_check_skipped=. Both are refused on relaunches, scouts,
-#   secondmates and batches; --continue-pr is also refused in local-only mode
-#   (docs/configuration.md "Duplicate-builder
-#   admission"; bin/fm-open-pr-lookup.py owns the read).
+#   Duplicate-builder admission and its limits are documented in
+#   docs/configuration.md "Duplicate-builder admission";
+#   bin/fm-open-pr-lookup.py owns the forge read and matching rules.
+#   --continue-pr <N> takes a pull request number and records its URL
+#   as continue_pr= when the forge is readable, otherwise the supplied number.
+#   --no-forge-check <reason> skips the read and records forge_check_skipped=;
+#   its reason must be nonblank, printable and confined to one line.
+#   The flags are mutually exclusive and both are refused on relaunches,
+#   scouts, secondmates and batches; --continue-pr is also refused in
+#   local-only mode.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -1089,9 +1089,7 @@ done
   echo "error: --$want_value requires a value" >&2
   exit 1
 }
-# --continue-pr and --no-forge-check answer the duplicate-builder check of one
-# fresh ship spawn (fm_spawn_duplicate_admit), so each is refused anywhere that
-# check does not run and the two are exclusive.
+# Validate the one-task override contract documented in this script's header.
 if [ "$DUPLICATE_FLAG_SET" -eq 1 ]; then
   if [ -n "$SPAWN_CONTINUE_PR" ] && [ -n "$SPAWN_NO_FORGE_CHECK" ]; then
     echo "error: --continue-pr and --no-forge-check are exclusive: attach to the open pull request, or skip the check with a reason" >&2
