@@ -336,11 +336,11 @@ test_controller_status_timeouts_preserve_progress() {
   assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'uncertain status delivery does not abort effects'
   assert_equals 1 "$(k1_units_max_count 60 k1-other)" 'an unrelated ring still starts after a status timeout'
   row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-c-ask-*.json)
-  python3 - "$row" <<'PYCASE' || fail 'a timed-out opener must retain its pending receipt'
+  python3 - "$row" <<'PYCASE' || fail 'optional ledger contention must not retain an accepted opener as pending'
 import json
 from pathlib import Path
 import sys
-assert not json.loads(Path(sys.argv[1]).read_text())['handoff']['receipt']
+assert json.loads(Path(sys.argv[1]).read_text())['handoff']['receipt']
 PYCASE
   k1_pass 275
   assert_equals 1 "$(k1_owned k1-status | grep -c .)" 'an appended opener is reconciled without another append'
@@ -490,11 +490,18 @@ test_controller_technical_notes_are_not_reserved() {
 }
 
 test_controller_late_launch_keeps_diagnosis_occupied() {
-  local action_pid child_pid command
+  local action_pid child_pid
   k1_setup diagnosis-late-close mate
-  printf -v command '%q 100000' "$K1/agent/claude"
-  tmux -f /dev/null new-session -d -s sess -n fm-k1-late "$command" || fail 'late agent fixture must start'
-  printf 'window=sess:fm-k1-late\nbackend=tmux\nharness=claude\n' > "$H/state/k1-late.meta"
+  python3 - "$K1/agent/claude" "$H/state/k1-late.meta" <<'PYCASE' || fail 'late agent fixture must publish its recorded identity'
+from pathlib import Path
+import subprocess
+import sys
+proc = subprocess.Popen([sys.argv[1], '100000'], stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+start = Path(f'/proc/{proc.pid}/stat').read_text().rsplit(') ', 1)[1].split()[19]
+boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+Path(sys.argv[2]).write_text(f'agent_root_pid={proc.pid}\nagent_root_start={start}\nboot_id={boot}\n')
+PYCASE
   mkdir -p "$H/state/autolaunch-controller" "$H/state/autolaunch-diag"
   python3 - "$H" "$K1_T0" <<'PYCASE'
 import json
@@ -544,6 +551,111 @@ test_controller_remote_inbox_uses_existing_due_owner() {
   assert_equals 1 "$(k1_units_max_count 300)" 'the existing remote grace suppresses an unnecessary action'
   k1_teardown
   pass 'remote inbox units exist only for an owed remote tick and reuse its owner'
+}
+
+test_controller_step_deadline_qualifies_pass_lock() {
+  local started holder
+  k1_setup bounded-step-lock mate
+  k1_ready k1-slice
+  printf '0\n' > "$KF/free"
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  printf 'mode=no-mistakes\n' > "$H/state/k1-slice.meta"
+  cat > "$KB/step-nm" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' ready > "$KF/step-reading"
+exec "$REAL_SLEEP" 100000
+SH
+  chmod +x "$KB/step-nm"
+  export FM_AUTOLAUNCH_STEPS_NM_BIN="$KB/step-nm"
+  k1_pass 0
+  k1_wait_file "$KF/step-reading" || fail 'the bounded step must reach its real primary-lock hold'
+  started=$(k1_units_max_start 1 120)
+  holder=$(cat "$H/state/.autolaunch.lock/pid")
+  k1_pass $((started - K1_T0 + 1))
+  k1_pass $((started - K1_T0 + 31))
+  k1_pass $((started - K1_T0 + 61))
+  assert_equals 0 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'events at bounded step ages 1, 31 and 61 seconds are a normal hold'
+  k1_alive "$holder" || fail 'a normal step lock holder must remain alive'
+  k1_pass $((started - K1_T0 + 125))
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a step holder beyond its deadline still reaches its responder by 165 seconds'
+  k1_alive "$holder" || fail 'deadline escalation may not steal or kill the lock holder'
+  unset FM_AUTOLAUNCH_STEPS_NM_BIN
+  k1_teardown
+  pass 'bounded step holds stay normal and expired holders still escalate'
+}
+
+test_controller_ledger_contention_preserves_ten_key_deadlines() {
+  local n
+  k1_setup ledger-ten mate
+  export REAL_DATE
+  REAL_DATE=$(command -v date)
+  cat > "$KB/date" <<'SH'
+#!/usr/bin/env bash
+if [ "$*" = +%s ]; then
+  python3 - "$KF" <<'PYCASE'
+from pathlib import Path
+import sys
+import time
+root = Path(sys.argv[1])
+print(int((root/'clock').read_text()) + int(time.monotonic() - float((root/'wall-origin').read_text())))
+PYCASE
+else
+  exec "$REAL_DATE" "$@"
+fi
+SH
+  chmod +x "$KB/date"
+  : > "$H/config/fleet-ledger"
+  mkdir "$H/state/.fleet-ledger.lock"
+  printf '%s\n' "$$" > "$H/state/.fleet-ledger.lock/pid"
+  for n in 0 1 2 3 4 5 6 7 8 9; do
+    printf 'needs-decision [key=retry] [at=%s]: choose interval\n' "$K1_T0" > "$H/state/k1-ledger-$n.status"
+  done
+  python3 -c 'import time; print(time.monotonic())' > "$KF/wall-origin"
+  k1_pass 220
+  python3 - "$H" "$K1_T0" k1-ledger 255 0 <<'PYCASE' || fail 'all ten ownership records must be durably accepted by 255 seconds despite ledger contention'
+import json
+from pathlib import Path
+import re
+import sys
+home, origin, prefix, bound, overrun = sys.argv[1:]
+home = Path(home)
+for n in range(10):
+    lines = (home/f'state/{prefix}-{n}.status').read_text().splitlines()
+    owned = [line for line in lines if line.startswith('blocked ') and ' owned ' in line]
+    assert len(owned) == 1, (n, owned)
+    assert int(re.search(r'\[at=(\d+)\]', owned[0])[1]) - int(origin) <= int(bound), owned
+    assert f'overrun={overrun}' in owned[0], owned
+    row = next(json.loads(p.read_text()) for p in (home/'state/autolaunch-controller').glob('ctl-c-ask-*.json')
+               if json.loads(p.read_text())['task'] == f'{prefix}-{n}')
+    assert row['handoff']['receipt'], row
+PYCASE
+  for n in 0 1 2 3 4 5 6 7 8 9; do
+    printf 'resolved [key=retry] [at=%s]: answered\n' $((K1_T0 + 275)) >> "$H/state/k1-ledger-$n.status"
+    printf 'needs-decision [key=retry] [at=%s]: choose interval\n' $((K1_T0 + 55)) > "$H/state/k1-ledger-late-$n.status"
+  done
+  python3 -c 'import time; print(time.monotonic())' > "$KF/wall-origin"
+  k1_pass 275 term
+  python3 -c 'import time; print(time.monotonic())' > "$KF/wall-origin"
+  k1_pass 330
+  python3 - "$H" "$K1_T0" <<'PYCASE' || fail 'ledger closure work must not delay the interrupted batch or change its late verdict'
+from pathlib import Path
+import re
+import sys
+home, origin = Path(sys.argv[1]), int(sys.argv[2]) + 55
+for n in range(10):
+    lines = (home/f'state/k1-ledger-late-{n}.status').read_text().splitlines()
+    owned = [line for line in lines if line.startswith('blocked ') and ' owned ' in line]
+    assert len(owned) == 1 and 'overrun=1' in owned[0], (n, owned)
+    assert int(re.search(r'\[at=(\d+)\]', owned[0])[1]) - origin <= 310, owned
+    closed = [line for line in (home/f'state/k1-ledger-{n}.status').read_text().splitlines()
+              if line.startswith('resolved ') and '[key=ctl-c-ask-' in line]
+    assert len(closed) == 1, (n, closed)
+PYCASE
+  assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'sibling closures do not consume another planning deadline'
+  rm -r "$H/state/.fleet-ledger.lock"
+  k1_wait_file "$H/state/fleet-ledger.jsonl" || fail 'the optional bounded ledger hook must still run after acceptance'
+  k1_teardown
+  pass 'ten-key ownership and closure deadlines are independent of the optional ledger hook'
 }
 
 test_controller_journal_contention_keeps_delivery_live() {
@@ -649,6 +761,8 @@ SH
 #                            reads for every time it uses (record stamps,
 #                            deadlines, lock `at`, key ages).
 #   FM_AUTOLAUNCH_SEND_BIN   replaces bin/fm-send.sh for responder hand-offs.
+#                            Every send carries FM_SEND_REQUEST_ID (32
+#                            lowercase hex), fm-send's one-way retry identity.
 #   FM_AUTOLAUNCH_SPAWN_BIN, FM_AUTOLAUNCH_CAPACITY_BIN  (existing).
 #   PATH stubs               systemd-run, systemctl, timeout, codex, claude:
 #                            the pass resolves them from PATH. The fake
@@ -661,6 +775,10 @@ SH
 #                            process; k1_tick plays systemd at each pass time:
 #                            TERM to the main pid only at RuntimeMaxSec and
 #                            KILL TimeoutStopSec later (KillMode=process).
+#   Agent identity           a started agent is recorded as agent_root_pid,
+#                            agent_root_start (/proc/<pid>/stat field 22) and
+#                            boot_id lines in state/<task>.meta (the K2a
+#                            identity fields).
 # Run one case alone: FM_AUTOLAUNCH_TEST_ONLY='<test name>...' (or k1 for all).
 K1_T0=1800000000
 REAL_TIMEOUT=$(command -v timeout)
@@ -703,14 +821,12 @@ id=$1
 printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
 mode=$(cat "$KF/spawn-mode")
 start_agent() {
-  printf -v command '%q 100000' "$K1/agent/claude"
-  if tmux has-session -t sess 2>/dev/null; then
-    tmux new-window -d -t sess -n "fm-$id" "$command" || exit 1
-  else
-    tmux -f /dev/null new-session -d -s sess -n "fm-$id" "$command" || exit 1
-  fi
-  printf 'window=sess:fm-%s\nbackend=tmux\nharness=claude\n' "$id" >> "$FM_HOME/state/$id.meta"
-  tmux display-message -p -t "sess:fm-$id" '#{pane_pid}' > "$KF/agent-$id.pid"
+  "$K1/agent/claude" 100000 </dev/null >/dev/null 2>&1 &
+  apid=$!
+  astart=$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$apid/stat")
+  printf 'agent_root_pid=%s\nagent_root_start=%s\nboot_id=%s\n' "$apid" "$astart" \
+    "$(cat /proc/sys/kernel/random/boot_id)" >> "$FM_HOME/state/$id.meta"
+  printf '%s\n' "$apid" > "$KF/agent-$id.pid"
 }
 case "$mode" in
   ok) printf 'spawned %s\n' "$id"; exit 0 ;;
@@ -1006,12 +1122,26 @@ k1_pass_lock_holder() {  # a live holder of state/.autolaunch.lock from T0
   printf '%s\n' "$K1_HOLDER" > "$H/state/.autolaunch.lock/pid"
   printf '%s\n' "$K1_T0" > "$H/state/.autolaunch.lock/at"
 }
+k1_reap_env() {  # <K1 prefix>: kill every process whose environment holds K1=<prefix>...
+  # Fixture helpers run the host sleep, whose argv does not name the case root,
+  # so fm_test_reap_root_processes cannot see them; k1_setup exports K1 to them.
+  local p pid e env
+  for p in /proc/[0-9]*; do
+    pid=${p#/proc/}
+    [ "$pid" != "$$" ] && [ "$pid" != "$BASHPID" ] || continue
+    mapfile -d '' -t env < "$p/environ" 2>/dev/null || continue
+    for e in "${env[@]}"; do
+      case $e in "K1=$1"*) kill -KILL "$pid" 2>/dev/null; break ;; esac
+    done
+  done
+  return 0
+}
 k1_teardown() {
   local rec
   for rec in "$KF"/units/*; do [ -f "$rec" ] && kill -KILL "$(k1_unit_field "$rec" pid)" 2>/dev/null; done
   [ -z "${K1_HOLDER:-}" ] || kill -KILL "$K1_HOLDER" 2>/dev/null
   K1_HOLDER=
-  tmux kill-server 2>/dev/null || true
+  k1_reap_env "$K1"
   fm_test_reap_root_processes "$K1"
 }
 k1_need_unit() {  # <message> <fixed string>...: fail unless a matching unit started
@@ -1051,6 +1181,7 @@ k1_teardown_all() {
   local rec
   for rec in "$TMP_ROOT"/k1-*/fake/units/*; do [ -f "$rec" ] && kill -KILL "$(k1_unit_field "$rec" pid)" 2>/dev/null; done
   [ -z "${K1_HOLDER:-}" ] || kill -KILL "$K1_HOLDER" 2>/dev/null
+  k1_reap_env "$TMP_ROOT/k1-"
   return 0
 }
 
@@ -1492,7 +1623,7 @@ k1_run() {  # <test name>... (k1 = all)
     printf 'skip: K1 fixtures require Linux process identity\n'
     return 0
   fi
-  for tool in timeout flock setsid tmux; do
+  for tool in timeout flock setsid; do
     if ! command -v "$tool" >/dev/null 2>&1; then
       printf 'skip: K1 fixtures require %s\n' "$tool"
       return 0
@@ -2268,7 +2399,9 @@ k1_run test_controller_decision_pair_is_injective \
   test_controller_backend_context_reaches_units \
   test_controller_technical_notes_are_not_reserved \
   test_controller_late_launch_keeps_diagnosis_occupied \
-  test_controller_remote_inbox_uses_existing_due_owner
+  test_controller_remote_inbox_uses_existing_due_owner \
+  test_controller_step_deadline_qualifies_pass_lock \
+  test_controller_ledger_contention_preserves_ten_key_deadlines
 
 # Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
 # run last so every earlier case keeps its coverage while they are red.

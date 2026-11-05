@@ -1408,12 +1408,9 @@ class Controller:
                     and self.snapshot.get(int(identity["pid"])) == str(identity["start"]))
 
     def agent_live(self, task):
-        try:
-            result = subprocess.run(["bash", self.scheduler, "--step-agent", task],
-                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
-        except subprocess.TimeoutExpired:
-            return False
-        return result.returncode == 0 and result.stdout.strip() == "alive"
+        m = kv(STATE / f"{task}.meta")
+        return self.live(dict(pid=m.get("agent_root_pid"), start=m.get("agent_root_start"),
+                              boot_id=m.get("boot_id")))
 
     @staticmethod
     def task_key_identity(task, key):
@@ -1493,6 +1490,26 @@ class Controller:
             row.setdefault("diag_rung", 3)
         self.save(row)  # Intent and identity precede either delivery route.
 
+    def append_status(self, status, state, key, text):
+        try:
+            result = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), state,
+                                     "--key", key], input=text, text=True,
+                                    env=dict(os.environ, FM_CONFIG_OVERRIDE=str(self.root)),
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+        except subprocess.TimeoutExpired:
+            return False
+        if result.returncode:
+            return False
+        if (CONFIG / "fleet-ledger").exists():
+            try:
+                subprocess.Popen(["timeout", "-k", "5", "10", str(BIN / "fm-fleet-ledger.sh"),
+                                  "appended", str(CONFIG), str(status)], stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 start_new_session=True, close_fds=True)
+            except OSError as error:
+                print(f"fm-autolaunch: optional fleet ledger hook unavailable: {error}", file=sys.stderr)
+        return True
+
     def deliver(self, row):
         h = row.get("handoff")
         if not h or h["receipt"]:
@@ -1506,13 +1523,7 @@ class Controller:
                          for line in read(status).splitlines())
             if not exists:
                 text = h["payload"] + f" overrun={row.get('overrun', 0)}"
-                try:
-                    result = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "blocked",
-                                             "--key", row["key"]], input=text, text=True,
-                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-                except subprocess.TimeoutExpired:
-                    return
-                if result.returncode:
+                if not self.append_status(status, "blocked", row["key"], text):
                     return
         else:
             env = dict(os.environ, FM_SEND_REQUEST_ID=h["request"])
@@ -1544,13 +1555,7 @@ class Controller:
                 generation = f"generation={row.get('generation', 1)}"
                 if not any(line.startswith("resolved ") and marker in line and generation in line
                            for line in read(status).splitlines()):
-                    try:
-                        r = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "resolved",
-                                            "--key", row["key"]], input=f"{row['key']} {reason} {generation}", text=True,
-                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-                    except subprocess.TimeoutExpired:
-                        return
-                    if r.returncode:
+                    if not self.append_status(status, "resolved", row["key"], f"{row['key']} {reason} {generation}"):
                         return
             else:
                 row.setdefault("close_handoff", dict(payload=f"{row['key']} resolved {reason}",
@@ -1761,6 +1766,21 @@ class Controller:
                 row["phase"] = "queued"
                 self.save(row)
 
+    def step_holds_within_deadline(self, pid):
+        row = self.load(self.path("ctl-a-step"))
+        if row.get("kind") != "step" or row.get("phase") != "running":
+            return False
+        token = row["attempt"]
+        attempt = self.load(self.root / token)
+        identity = self.load(self.root / f"{token}.identity", row.get("identity", {}))
+        if attempt["kind"] != "step" or self.now() >= attempt["deadline"] or not self.live(identity):
+            return False
+        try:
+            parent = Path(f"/proc/{int(pid)}/stat").read_text().rsplit(") ", 1)[1].split()[1]
+        except (OSError, ValueError, IndexError):
+            return False
+        return parent == str(identity["pid"]) and bool(self.snapshot.get(int(pid)))
+
     def effects(self, rc):
         p = self.load(self.passfile)
         if rc in (124, 137):
@@ -1772,6 +1792,7 @@ class Controller:
                 row["overrun"] = 1
                 self.own(row, "repeated interrupted planning passes")
         elif rc == 73:
+            self.process_snapshot()
             pid = read(STATE / ".autolaunch.lock" / "pid").strip()
             start = self.identity(pid)
             at = read(STATE / ".autolaunch.lock" / "at").strip()
@@ -1784,7 +1805,7 @@ class Controller:
             self.emit(dict(key="pass"), f"overrun holder={pid} held_s={held}")
             # Qualify elapsed time as well as count. Event bursts are not
             # independent 55-second timer observations.
-            if observations >= 3 and max(held, self.now() - first) >= 60:
+            if observations >= 3 and max(held, self.now() - first) >= 60 and not self.step_holds_within_deadline(pid):
                 home = hashlib.sha256(str(HOME.resolve()).encode()).hexdigest()[:12]
                 row = self.create(f"ctl-e-pass-lock-{home}", "", "notice")
                 row["overrun"] = 1
