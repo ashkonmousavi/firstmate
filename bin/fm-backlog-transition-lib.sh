@@ -557,8 +557,13 @@ fm_backlog_pr_note_label() {  # <url>
 }
 
 # A scout may be only one phase of a larger backlog outcome. The row, not
-# the worker, owns that distinction. Return 0 for a phase, 1 for an ordinary
-# scout row, and 2 for an unreadable row; callers must not close on a read error.
+# the worker, owns that distinction: a scout's completion closes its row only
+# when the row's kind is scout, so a prep scout sharing an id with a ship, task
+# or other build row records its report as a phase and leaves that row open. A
+# kind-scout row is a phase too when its first unfenced SLICE line says
+# role=owner. Return 0 for a phase, 1 for an ordinary scout row, and 2 for an
+# unreadable row (including one whose kind cannot be read); callers must not
+# close on a read error.
 fm_backlog_scout_phase() {  # <data-dir> <id> [worker-kind; otherwise read this task's meta]
   local out status kind=${3:-} state meta
   if [ "$#" -lt 3 ]; then
@@ -581,8 +586,8 @@ fm_backlog_scout_phase() {  # <data-dir> <id> [worker-kind; otherwise read this 
   printf '%s\n' "$out" | LC_ALL=C perl -MJSON::PP -e '
     local $/; my $row = <STDIN>;
     my ($kind) = $row =~ /^  kind: (.*)$/m;
-    exit 2 unless defined $kind;
-    exit 0 if $kind eq "ship";
+    exit 2 unless defined $kind && $kind =~ /\S/;
+    exit 0 if $kind ne "scout";
     my ($body) = $row =~ /^  body: (.*)$/m;
     exit 2 unless defined $body;
     if ($body =~ /\A"/) {

@@ -156,6 +156,16 @@ add_item() {  # <case-dir> <id> [kind]
   tasks-axi add "$2" "item for $2" --kind "${3:-ship}" --file "$(backlog_of "$1")" >/dev/null
 }
 
+# The q-server BUILD row a prep scout closed on 2026-11-05 (x-j09-intent-review-build):
+# no kind annotation (tasks-axi reads it as kind task), two blocked-by edges, a
+# report link, and no SLICE line.
+add_legacy_build_row() {  # <case-dir> <id>
+  local backlog row
+  backlog=$(backlog_of "$1")
+  row="- [ ] $2 - j09-intent-review build (laptop prep) data/$2/report.md blocked-by: x-j09-intent-review-test blocked-by: x-refresh-1213"
+  awk -v row="$row" '{ print } /^## Queued$/ { print row }' "$backlog" > "$backlog.new" && mv "$backlog.new" "$backlog"
+}
+
 start_item() {  # <case-dir> <id>
   tasks-axi start "$2" --file "$(backlog_of "$1")" >/dev/null
 }
@@ -1655,13 +1665,14 @@ test_completion_closes_a_local_only_ship_before_reporting_success() {
 
 test_scout_phase_retention_replays_without_worker_metadata() {
   local case_dir home id state mode out kind expected
-  for kind in ship owner; do
+  for kind in ship owner task legacy; do
     for state in queued in_flight "done" answered; do
       for mode in close retain; do
         id="phase-replay-$kind-$state-$mode"
         case_dir=$(make_home "$id")
         home=$(home_of "$case_dir")
-        if [ "$kind" = ship ]; then add_item "$case_dir" "$id" ship;
+        if [ "$kind" = ship ] || [ "$kind" = task ]; then add_item "$case_dir" "$id" "$kind";
+        elif [ "$kind" = legacy ]; then add_legacy_build_row "$case_dir" "$id";
         else
           add_item "$case_dir" "$id" scout
           tasks-axi update "$id" --body '**SLICE**: main/example role=owner' --file "$(backlog_of "$case_dir")" >/dev/null
@@ -1709,7 +1720,7 @@ test_scout_phase_retention_replays_without_worker_metadata() {
       done
     done
   done
-  pass "phase replay queues unfinished parents without relaunching prep and preserves settled answers"
+  pass "phase replay queues unfinished ship, owner, task and legacy build rows without relaunching prep and preserves settled answers"
 }
 
 test_scout_phase_declaration_grammar() {
@@ -1751,14 +1762,17 @@ test_scout_phase_declaration_grammar() {
 
 test_scout_phase_done_preserves_the_parent_row() {
   local case_dir id kind state verb out home shown
-  for kind in ship owner owner-bold scout fenced first-scout; do
+  local deps
+  for kind in ship owner owner-bold task legacy scout fenced first-scout; do
     for state in queued in_flight "done"; do
       for verb in "done" close library; do
         id="phase-$kind-$state-$verb"
         case_dir=$(make_home "$id")
         home=$(home_of "$case_dir")
-        if [ "$kind" = ship ]; then add_item "$case_dir" "$id" ship;
+        if [ "$kind" = ship ] || [ "$kind" = task ]; then add_item "$case_dir" "$id" "$kind";
+        elif [ "$kind" = legacy ]; then add_legacy_build_row "$case_dir" "$id";
         else add_item "$case_dir" "$id" scout; fi
+        deps=$(tasks-axi show "$id" --file "$(backlog_of "$case_dir")" | sed -n 's/^  deps: *//p')
         case "$kind" in
           owner) shown='SLICE: main/example role=owner' ;;
           owner-bold) shown='**SLICE**: main/example role=owner' ;;
@@ -1789,12 +1803,46 @@ test_scout_phase_done_preserves_the_parent_row() {
           [ "$(row_state "$case_dir" "$id")" = "$state" ] \
             || fail "$verb closed $kind $state row on scout-phase completion: $shown"
           assert_contains "$shown" 'scout phase finished' "phase note missing"
+          [ "$(printf '%s\n' "$shown" | sed -n 's/^  deps: *//p')" = "$deps" ] \
+            || fail "$verb changed the $kind row's blocked-by edges: $shown"
         fi
         assert_contains "$shown" "data/$id/report.md" "report link missing"
       done
     done
   done
-  pass "done, close and library completion retain ship and owner rows in their existing state; scout rows close"
+  pass "done, close and library completion retain ship, owner, task and legacy build rows in their existing state with their edges; scout rows close"
+}
+
+test_scout_phase_unreadable_kind_never_closes() {
+  local case_dir home id out rc real verb
+  id='phase-unreadable-kind'
+  case_dir=$(make_home "$id")
+  home=$(home_of "$case_dir")
+  add_legacy_build_row "$case_dir" "$id"
+  write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-$id"
+  mkdir -p "$home/data/$id" "$case_dir/kindless"
+  printf 'prep findings\n' > "$home/data/$id/report.md"
+  real=$(command -v tasks-axi)
+  # A tasks-axi whose show output carries no kind line: the row cannot be classified.
+  cat > "$case_dir/kindless/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = show ]; then "$real" "\$@" | grep -v '^  kind:'; exit "\${PIPESTATUS[0]}"; fi
+exec "$real" "\$@"
+SH
+  chmod +x "$case_dir/kindless/tasks-axi"
+  rc=0
+  out=$(PATH="$case_dir/kindless:$PATH" FM_HOME="$home" bash -c '
+    . "$1/bin/fm-tasks-axi-lib.sh"
+    . "$1/bin/fm-backlog-transition-lib.sh"
+    fm_backlog_scout_phase "$2/data" "$3" scout
+  ' _ "$ROOT" "$home" "$id" 2>&1) || rc=$?
+  [ "$rc" -eq 2 ] || fail "a row whose kind cannot be read classified as $rc, not unreadable: $out"
+  for verb in "done" close; do
+    out=$(PATH="$case_dir/kindless:$PATH" FM_HOME="$home" bash "$ROOT/bin/fm-tasks-axi.sh" "$verb" "$id" --report "data/$id/report.md" 2>&1) \
+      && fail "$verb completed a row whose kind cannot be read: $out"
+    [ "$(row_state "$case_dir" "$id")" = queued ] || fail "$verb closed a row whose kind cannot be read"
+  done
+  pass "a scout completion never closes a row whose kind cannot be read"
 }
 
 test_scout_phase_json_completion() {
@@ -3391,6 +3439,7 @@ test_completion_closes_a_local_only_ship_before_reporting_success
 test_scout_phase_retention_replays_without_worker_metadata
 test_scout_phase_declaration_grammar
 test_scout_phase_done_preserves_the_parent_row
+test_scout_phase_unreadable_kind_never_closes
 test_scout_phase_json_completion
 test_completion_closes_a_scout_with_its_report
 test_completion_refuses_a_legacy_record_without_an_incarnation
