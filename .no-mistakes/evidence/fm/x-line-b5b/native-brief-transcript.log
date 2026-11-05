@@ -1,0 +1,78 @@
+b5b-stamped-no-mistakes: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-stamped-direct-pr: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-stamped-local-only: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-stamped-scout: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-missing-no-mistakes: exit=0; Slice=None; stderr="note: no SLICE line in b5b-missing-no-mistakes's task body\n"
+b5b-missing-direct-pr: exit=0; Slice=None; stderr="note: no SLICE line in b5b-missing-direct-pr's task body\n"
+b5b-missing-local-only: exit=0; Slice=None; stderr="note: no SLICE line in b5b-missing-local-only's task body\n"
+b5b-missing-scout: exit=0; Slice=None; stderr="note: no SLICE line in b5b-missing-scout's task body\n"
+b5b-fenced-only-no-mistakes: exit=0; Slice=None; stderr="note: no SLICE line in b5b-fenced-only-no-mistakes's task body\n"
+b5b-fenced-only-direct-pr: exit=0; Slice=None; stderr="note: no SLICE line in b5b-fenced-only-direct-pr's task body\n"
+b5b-fenced-only-local-only: exit=0; Slice=None; stderr="note: no SLICE line in b5b-fenced-only-local-only's task body\n"
+b5b-fenced-only-scout: exit=0; Slice=None; stderr="note: no SLICE line in b5b-fenced-only-scout's task body\n"
+b5b-unclosed-no-mistakes: exit=0; Slice=None; stderr="note: no SLICE line in b5b-unclosed-no-mistakes's task body\n"
+b5b-unclosed-direct-pr: exit=0; Slice=None; stderr="note: no SLICE line in b5b-unclosed-direct-pr's task body\n"
+b5b-unclosed-local-only: exit=0; Slice=None; stderr="note: no SLICE line in b5b-unclosed-local-only's task body\n"
+b5b-unclosed-scout: exit=0; Slice=None; stderr="note: no SLICE line in b5b-unclosed-scout's task body\n"
+b5b-wrong-marker-no-mistakes: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-wrong-marker-direct-pr: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-wrong-marker-local-only: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-wrong-marker-scout: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-suffix-not-close-no-mistakes: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-suffix-not-close-direct-pr: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-suffix-not-close-local-only: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-suffix-not-close-scout: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-short-not-close-no-mistakes: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-short-not-close-direct-pr: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-short-not-close-local-only: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-short-not-close-scout: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-1-no-mistakes: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-1-direct-pr: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-1-local-only: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-1-scout: exit=0; Slice='SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-2-no-mistakes: exit=0; Slice='# SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-2-direct-pr: exit=0; Slice='# SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-2-local-only: exit=0; Slice='# SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-2-scout: exit=0; Slice='# SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-3-no-mistakes: exit=0; Slice='## SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-3-direct-pr: exit=0; Slice='## SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-3-local-only: exit=0; Slice='## SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-3-scout: exit=0; Slice='## SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-4-no-mistakes: exit=0; Slice='### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-4-direct-pr: exit=0; Slice='### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-4-local-only: exit=0; Slice='### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-4-scout: exit=0; Slice='### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-5-no-mistakes: exit=0; Slice='#### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-5-direct-pr: exit=0; Slice='#### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-5-local-only: exit=0; Slice='#### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-5-scout: exit=0; Slice='#### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-6-no-mistakes: exit=0; Slice='##### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-6-direct-pr: exit=0; Slice='##### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-6-local-only: exit=0; Slice='##### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-6-scout: exit=0; Slice='##### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-7-no-mistakes: exit=0; Slice='###### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-7-direct-pr: exit=0; Slice='###### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-7-local-only: exit=0; Slice='###### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-7-scout: exit=0; Slice='###### SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-8-no-mistakes: exit=0; Slice='- SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-8-direct-pr: exit=0; Slice='- SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-8-local-only: exit=0; Slice='- SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-8-scout: exit=0; Slice='- SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-9-no-mistakes: exit=0; Slice='* SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-9-direct-pr: exit=0; Slice='* SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-9-local-only: exit=0; Slice='* SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-9-scout: exit=0; Slice='* SLICE: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-10-no-mistakes: exit=0; Slice='**SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-10-direct-pr: exit=0; Slice='**SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-10-local-only: exit=0; Slice='**SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-10-scout: exit=0; Slice='**SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-11-no-mistakes: exit=0; Slice='# - **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-11-direct-pr: exit=0; Slice='# - **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-11-local-only: exit=0; Slice='# - **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-11-scout: exit=0; Slice='# - **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-12-no-mistakes: exit=0; Slice='###### * **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-12-direct-pr: exit=0; Slice='###### * **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-12-local-only: exit=0; Slice='###### * **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+b5b-form-12-scout: exit=0; Slice='###### * **SLICE**: main/main-model | First chat | role=owner'; stderr=''
+Baseline: stamped native task produces no Slice section; target produces the expected Slice section.
+Completed 76 live native-backlog brief generations.
