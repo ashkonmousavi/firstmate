@@ -3051,6 +3051,102 @@ if [ -n "${FM_AUTOLAUNCH_EGM1R2_ONLY:-}" ]; then
 fi
 # === END tester-owned EGM1-R2 (definitions; the full run calls egm1r2_run egm1r2 last) ===
 
+# === BEGIN tester-owned: lc-core-scheduler EGM1-R3 unavailable-home oracles =
+# EGM point 1 (instruction 009) "unavailable-home disposition" at the home
+# enumeration boundary: a registered local home that cannot be enumerated
+# (directory removed, or unreadable by permissions) keeps the other homes'
+# membership and gets its own typed unavailable record, the same disposition
+# a home with an unreadable publication already gets (round-1 G1).
+# Expected results come from the cut line (EGM dispositions row 1: "a home that
+# cannot run has no failure disposition"; "a negative control that drops an
+# unreadable home and still returns success") and the cut-1 advisor answer
+# ("Missing whole-home input still causes NO_PICK; a failed kick cannot
+# justify dropping that home"), never from the code under test.
+# Reuses the round-1 seam and fixtures (egm1_setup, egm1_pub, egm1_join,
+# egm1_doc, egm1_unavailable) without editing them. Reason enums are the
+# builder's; these cases pin only the states, identities and the presence of
+# reason, owner and retry. The builder runs these and never edits this region.
+# Run alone: FM_AUTOLAUNCH_EGM1R3_ONLY='<case>...' (or egm1r3 for all).
+EGM1R3_TESTS=(test_egm1r3_removed_home_keeps_membership_and_typed_record
+  test_egm1r3_unreadable_home_keeps_membership_and_typed_record
+  test_egm1r3_readable_valid_empty_homes_are_complete)
+
+egm1r3_status() {  # <home>: that home's homes[] statuses, comma-joined (one record gives one word)
+  printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$1" '[.homes[] | select(.home == $h) | .status] | join(",")'
+}
+
+egm1r3_no_pick_disposition() {  # <label>: assertions on the captured join after B was broken
+  egm1_doc "$1"
+  assert_equals NO_PICK "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" "$1: join status"
+  [ "$EGM1_RC" != 0 ] && [ "$EGM1_RC" != 2 ] || fail "$1: NO_PICK must exit nonzero and not 2 (usage), got $EGM1_RC"
+  # The unavailable home keeps its registered identity and a typed record.
+  egm1_unavailable "$1" "$B"
+  printf '%s\n' "$EGM1_OUT" | jq -e --arg h "$B" 'any(.reasons[]; .home == $h
+    and (.owner | type == "string" and . != "") and (.retry | type == "string" and . != "")
+    and (.reason | type == "string" and . != ""))' >/dev/null ||
+    fail "$1: no typed reasons[] record names $B with a reason, an owner and a retry condition (reasons: $(printf '%s\n' "$EGM1_OUT" | jq -c .reasons | head -c 300))"
+  # The readable home stays a member: the failure does not erase known membership.
+  assert_equals available "$(egm1r3_status "$R")" "$1: the readable home $R is still listed once as available"
+}
+
+# A registered local home whose directory is gone.
+test_egm1r3_removed_home_keeps_membership_and_typed_record() {
+  egm1_setup r3-removed
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1-R3 removed baseline: both homes readable'
+  mv "$B" "$E/b-gone"
+  egm1_join
+  mv "$E/b-gone" "$B"
+  egm1r3_no_pick_disposition 'EGM1-R3 removed: B directory removed'
+  pass 'EGM1-R3 test_egm1r3_removed_home_keeps_membership_and_typed_record: a removed registered home is NO_PICK, typed unavailable, and R stays a member'
+}
+
+# A registered local home whose directory cannot be read or entered.
+test_egm1r3_unreadable_home_keeps_membership_and_typed_record() {
+  egm1_setup r3-unreadable
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1-R3 unreadable baseline: both homes readable'
+  chmod 000 "$B"
+  if [ -r "$B" ] || [ -x "$B" ]; then
+    chmod 755 "$B"
+    printf 'skip: EGM1-R3 unreadable-home case needs a non-root user (mode 000 stays accessible)\n'
+    return 0
+  fi
+  egm1_join
+  chmod 755 "$B"
+  egm1r3_no_pick_disposition 'EGM1-R3 unreadable: B directory mode 000'
+  pass 'EGM1-R3 test_egm1r3_unreadable_home_keeps_membership_and_typed_record: an unreadable registered home is NO_PICK, typed unavailable, and R stays a member'
+}
+
+# Control: both homes readable and valid-empty.
+test_egm1r3_readable_valid_empty_homes_are_complete() {
+  egm1_setup r3-control
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1-R3 control: both homes valid-empty'
+  assert_equals available "$(egm1r3_status "$R")" 'EGM1-R3 control: R is listed once as available'
+  assert_equals available "$(egm1r3_status "$B")" 'EGM1-R3 control: B is listed once as available'
+  assert_equals 2 "$(printf '%s\n' "$EGM1_OUT" | jq '.homes | length')" 'EGM1-R3 control: exactly the two registered homes are listed'
+  pass 'EGM1-R3 test_egm1r3_readable_valid_empty_homes_are_complete: two readable valid-empty homes are COMPLETE with both listed'
+}
+
+egm1r3_run() {  # <case>... (egm1r3 = all)
+  local name
+  [ "$*" != egm1r3 ] || set -- "${EGM1R3_TESTS[@]}"
+  for name in "$@"; do
+    [ "$(type -t "$name")" = function ] || fail "unknown EGM1-R3 case $name"
+    "$name"
+  done
+}
+if [ -n "${FM_AUTOLAUNCH_EGM1R3_ONLY:-}" ]; then
+  read -r -a EGM1R3_ONLY <<<"$FM_AUTOLAUNCH_EGM1R3_ONLY"
+  egm1r3_run "${EGM1R3_ONLY[@]}"
+  exit 0
+fi
+# === END tester-owned EGM1-R3 (definitions; the full run calls egm1r3_run egm1r3 last) ===
+
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
 # fleet-ops:lc-core-scheduler". The builder runs these and never edits this
@@ -4748,3 +4844,7 @@ egm1_run egm1
 # Tester-owned (lc-core-scheduler EGM1-R2 join validation oracles, defined
 # after the EGM1 block): they run last so every earlier case keeps its coverage.
 egm1r2_run egm1r2
+
+# Tester-owned (lc-core-scheduler EGM1-R3 unavailable-home oracles, defined
+# after the EGM1-R2 block): they run last so every earlier case keeps its coverage.
+egm1r3_run egm1r3
