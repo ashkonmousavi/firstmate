@@ -13,6 +13,8 @@
 #   fm-autolaunch.sh --backfill [--apply]
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
+#   fm-autolaunch.sh --explain        prepared entries and current wait reasons
+#   fm-autolaunch.sh --controller-mode inspect activation without dispatch
 #   fm-autolaunch.sh --help
 #
 # Timer proposals capture the caller's PATH and resolved FM_HOME for both
@@ -25,7 +27,19 @@
 # The pass never rides the watcher's check sweep, whose 30 s bound a spawn does
 # not fit; only the companion throttle check bin/fm-autolaunch-check.sh does.
 #
-# ONE PASS.
+# CONTROLLER. CUT1 selects the bounded controller with config/autolaunch-sole
+# or an existing state/autolaunch-controller journal. A verified user manager
+# is required; a missing manager never falls back with durable controller work.
+# Without activation evidence the legacy path preserves leased slice progress.
+# The explicit fake-clock seam selects the controller in isolated tests only.
+# --controller-mode prints the selected path without dispatching or journaling.
+# Controller planning holds .autolaunch.lock under PATH-resolved GNU timeout
+# -k 5 20. Busy or killed plans still run non-seat delivery reconciliation;
+# action units run separately, with non-inherited per-key slot descriptors.
+# bin/fm-autolaunch-steps.py Controller owns journal, deadlines and ladder.
+# This cut does not change the timer recipe or install/enable any service.
+#
+# LEGACY PASS (before controller activation).
 #   1. Single instance: state/.autolaunch.lock (fm_lock_try_acquire). A busy
 #      lock exits 0 with one stderr notice and no record; a holder stuck for
 #      ten minutes is exactly what the throttle check turns red.
@@ -136,6 +150,8 @@
 # or its log cannot be read or written; 2 usage.
 # Test seams, honored only with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN,
 # FM_AUTOLAUNCH_SPAWN_BIN replace fm-capacity.sh and fm-spawn.sh.
+# FM_AUTOLAUNCH_NOW_FILE selects a dynamic controller clock and
+# FM_AUTOLAUNCH_SEND_BIN replaces responder sends (both test-only).
 set -u
 export LC_ALL=C
 
@@ -147,7 +163,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--controller-mode|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
@@ -158,6 +174,15 @@ TIMER_STEPS=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
+  --run-action) ACTION=controller-action; STEP_TARGET=${2:-} ;;
+  --controller-plan) ACTION=controller-plan ;;
+  --controller-mode) ACTION=controller-mode ;;
+  --controller-decisions) ACTION=controller-decisions ;;
+  --controller-spawn-lock) ACTION=controller-spawn-lock; STEP_TARGET=${2:-} ;;
+  --controller-inbox-due) ACTION=controller-inbox-due; STEP_TARGET=${2:-} ;;
+  --controller-spawn-result) ACTION=controller-spawn-result; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --controller-ring) ACTION=controller-ring; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --explain) ACTION=explain ;;
   --dry-run) ACTION=dry ;;
   --steps-only) ACTION=steps ;;
   --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-}; STEP_ACTION_ID=${5:-} ;;
@@ -175,6 +200,10 @@ if [ "$ACTION" = timer ] && [ "${2:-}" = --steps-only ] && [ "$#" -eq 2 ]; then
   TIMER_STEPS=1
 elif [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
+elif { [ "$ACTION" = controller-ring ] || [ "$ACTION" = controller-spawn-result ]; } && [ "$#" -eq 3 ]; then
+  :
+elif { [ "$ACTION" = controller-action ] || [ "$ACTION" = controller-spawn-lock ] || [ "$ACTION" = controller-inbox-due ]; } && [ "$#" -eq 2 ]; then
+  :
 elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
   :
 elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
@@ -266,12 +295,13 @@ flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
 TMPD=
 LOCK_HELD=0
+PASS_LOCK_OWNER=
 STEP_ACCEPT_LOCK=
 # shellcheck disable=SC2329 # Invoked through the EXIT trap below.
 cleanup() {
   [ -z "$STEP_ACCEPT_LOCK" ] || fm_lock_release "$STEP_ACCEPT_LOCK"
   [ -z "$TMPD" ] || rm -rf -- "$TMPD"
-  [ "$LOCK_HELD" = 0 ] || fm_lock_release "$LOCK"
+  [ "$LOCK_HELD" = 0 ] || pass_lock_release
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
@@ -668,8 +698,160 @@ step_family() {
 }
 
 spawn_quota_refused() {
-  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"
+  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "${2:-$TMPD/spawn.out}"
 }
+
+# The generic lock library intentionally removes only its known files.
+# K1 owns the additional at file, including its cleanup on dead-holder reclaim.
+# Never remove that file from a live or freshly publishing owner.
+pass_lock_try() {
+  local steal="$LOCK.steal" steal_owner primary_owner pid
+  if [ -f "$LOCK/at" ] && ! fm_lock_holder_alive "$LOCK" "$(cat "$LOCK/pid" 2>/dev/null || true)"; then
+    if fm_lock_try_acquire_steal_mutex "$steal"; then
+      steal_owner=${FM_LOCK_OWNER_DIR:-}
+      primary_owner=''
+      if [ -L "$LOCK" ]; then
+        primary_owner=$(fm_lock_link_owner "$LOCK" 2>/dev/null || true)
+      fi
+      pid=$(cat "$LOCK/pid" 2>/dev/null || true)
+      if fm_lock_points_to_owner "$steal" "$steal_owner" \
+        && fm_lock_recheck_stale_owner "$LOCK" "$primary_owner" "$pid"; then
+        rm -f -- "$LOCK/at"
+      fi
+      fm_lock_release "$steal"
+    fi
+  fi
+  fm_lock_try_acquire "$LOCK" || return 1
+  PASS_LOCK_OWNER=${FM_LOCK_OWNER_DIR:-}
+}
+
+pass_lock_release() {
+  if [ -n "$PASS_LOCK_OWNER" ] && fm_lock_points_to_owner "$LOCK" "$PASS_LOCK_OWNER"; then
+    rm -f -- "$LOCK/at"
+  fi
+  fm_lock_release "$LOCK"
+  PASS_LOCK_OWNER=''
+}
+
+# Private K1 callbacks share the existing admission and inbox primitives.
+controller_now() {
+  if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "${FM_AUTOLAUNCH_NOW_FILE:-}" ]; then
+    local now
+    now=$(cat "$FM_AUTOLAUNCH_NOW_FILE") || return 1
+    case "$now" in ''|*[!0-9]*) echo 'invalid controller clock' >&2; return 1 ;; esac
+    printf '%s\n' "$now"
+  else
+    date +%s
+  fi
+}
+
+controller_enabled() {
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then
+    # Explicit fixture seam: existing synchronous fixtures stay independent of
+    # whether the test host happens to run a user manager.
+    if [ -n "${FM_AUTOLAUNCH_NOW_FILE:-}" ]; then
+      controller_now >/dev/null || return 2
+      return 0
+    fi
+  fi
+  # CUT1 is dormant until the existing rollout marker is present. A journal
+  # is continuity evidence: removing the marker must not replay live work via
+  # the synchronous path. Later carrier/canary integration owns early entry.
+  if [ ! -f "$CONFIG/autolaunch-sole" ] && [ ! -d "$STATE/autolaunch-controller" ]; then
+    return 1
+  fi
+  local manager=''
+  manager=$(fm_run_timed 3 systemctl --user show -p Version --value 2>/dev/null) || manager=''
+  if [[ "$manager" =~ ^[0-9]{3}([.[:alnum:]+~:_-]+)?([[:space:]]\(.*\))?$ ]]; then
+    return 0
+  fi
+  echo 'fm-autolaunch: user service manager unavailable; controller obligations preserved' >&2
+  return 2
+}
+
+case "$ACTION" in
+  controller-mode)
+    mode_rc=0
+    controller_enabled || mode_rc=$?
+    case "$mode_rc" in 0) echo controller ;; 1) echo legacy ;; *) exit 1 ;; esac
+    exit 0
+    ;;
+  controller-decisions)
+    # The existing fold owns the status grammar, terminal behavior, reserved
+    # namespaces and close semantics. The controller only supplies age policy.
+    # shellcheck source=bin/fm-classify-lib.sh
+    . "$SCRIPT_DIR/fm-classify-lib.sh"
+    for status in "$STATE"/*.status; do
+      [ -f "$status" ] && [ ! -L "$status" ] || continue
+      task=${status##*/}; task=${task%.status}
+      while IFS= read -r decision || [ -n "$decision" ]; do
+        [ -n "$decision" ] || continue
+        reserved=0
+        for prefix in ${FM_CLASSIFY_RESERVED_KEY_PREFIXES:-$FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT} remote-reply-continuity- captain-hold- ctl-; do
+          case "$decision" in "$prefix"*) reserved=1; break ;; esac
+        done
+        [ "$reserved" = 0 ] || continue
+        printf '%s\t%s\n' "$task" "$decision"
+      done < <(status_open_decisions_incremental "$status" '' timed)
+    done
+    exit 0
+    ;;
+  controller-spawn-result)
+    if spawn_quota_refused "$STEP_TARGET" "$STEP_EXCLUDE"; then
+      printf 'quota\n'
+    fi
+    exit 0
+    ;;
+  controller-action)
+    exec python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-action "$SCRIPT_DIR/fm-autolaunch.sh" "$STEP_TARGET"
+    ;;
+  controller-plan)
+    plan_owner=$(cat "$LOCK/pid" 2>/dev/null || true)
+    [ -n "${FM_CONTROLLER_PLAN_OWNER:-}" ] && [ "$plan_owner" = "$FM_CONTROLLER_PLAN_OWNER" ] \
+      && fm_lock_holder_alive "$LOCK" "$plan_owner" || exit 73
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-plan "$SCRIPT_DIR/fm-autolaunch.sh"
+    exit $?
+    ;;
+  controller-spawn-lock)
+    fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+    if fm_lock_try_acquire "$STATE/.spawn-$STEP_TARGET.lock"; then
+      fm_lock_release "$STATE/.spawn-$STEP_TARGET.lock"
+    else
+      printf '%s\n' "${FM_LOCK_HELD_PID:-}"
+    fi
+    exit 0
+    ;;
+  controller-inbox-due|controller-ring)
+    fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+    # shellcheck source=bin/fm-task-inbox-lib.sh
+    . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+    if [ "$ACTION" = controller-inbox-due ]; then
+      fm_task_inbox_due_action "$STATE" "$STEP_TARGET"
+      exit $?
+    fi
+    meta="$STATE/$STEP_TARGET.meta"
+    window=$(sed -n 's/^window=//p' "$meta" | head -1)
+    backend=$(sed -n 's/^backend=//p' "$meta" | head -1)
+    harness=$(sed -n 's/^harness=//p' "$meta" | head -1)
+    ring_rc=0
+    fm_task_inbox_ring "${backend:-tmux}" "$window" "$STEP_EXCLUDE" "fm-$STEP_TARGET" "$harness" || ring_rc=$?
+    fm_task_inbox_record_ring "$STATE" "$STEP_TARGET" "$STEP_EXCLUDE" || exit 1
+    exit "$ring_rc"
+    ;;
+  explain)
+    ids=$(ready_ids) || exit 1
+    for id in $ids; do
+      if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
+        printf '%s pass-lock-held\n' "$id"
+      elif check_item "$id"; then
+        printf '%s prepared\n' "$id"
+      else
+        printf '%s %s\n' "$id" "$CHECK_ERR"
+      fi
+    done
+    exit 0
+    ;;
+esac
 
 if [ "$ACTION" = step-family ]; then
   step_family "$STEP_TARGET" "$STEP_EXCLUDE"
@@ -758,7 +940,7 @@ if [ "$ACTION" = steps ]; then
     python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" dry
     exit $?
   fi
-  if ! fm_lock_try_acquire "$LOCK"; then
+  if ! pass_lock_try; then
     echo "fm-autolaunch: another pass holds $LOCK; nothing done" >&2
     exit 0
   fi
@@ -800,7 +982,31 @@ fi
 
 [ -d "$STATE" ] || { echo "fm-autolaunch: state directory $STATE is unavailable" >&2; exit 1; }
 if [ "$ACTION" = run ]; then
-  if ! fm_lock_try_acquire "$LOCK"; then
+  controller_rc=0
+  controller_enabled || controller_rc=$?
+  [ "$controller_rc" != 2 ] || exit 1
+  if [ "$controller_rc" = 0 ]; then
+    plan_rc=0
+    if pass_lock_try; then
+      LOCK_HELD=1
+      controller_now > "$LOCK/at" || exit 1
+      # Only the planning child is timed. Its parent releases the shared
+      # directory lock even when TERM/KILL ends that child.
+      plan_timeout=$(type -P gnutimeout || type -P timeout) || exit 1
+      FM_CONTROLLER_PLAN_OWNER="$BASHPID" "$plan_timeout" -k 5 20 bash "$SCRIPT_DIR/fm-autolaunch.sh" --controller-plan || plan_rc=$?
+      pass_lock_release
+      LOCK_HELD=0
+    else
+      echo "fm-autolaunch: another pass holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}; seat claims wait" >&2
+      plan_rc=73
+    fi
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-effects "$SCRIPT_DIR/fm-autolaunch.sh" "$plan_rc"
+    exit $?
+  fi
+fi
+
+if [ "$ACTION" = run ]; then
+  if ! pass_lock_try; then
     echo "fm-autolaunch: another pass holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}; nothing done" >&2
     exit 0
   fi

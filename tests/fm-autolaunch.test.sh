@@ -75,6 +75,186 @@ field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
 }
 
+# Builder-owned regressions for independently identified controller defects.
+test_controller_deferred_attempt_has_fresh_receipts() {
+  k1_setup deferred-generation mate
+  k1_ready k1-deferred
+  printf 'hung\n' > "$KF/spawn-mode"
+  cp "$KB/spawn" "$KB/spawn-original"
+  cat > "$KB/spawn" <<'STUB'
+#!/usr/bin/env bash
+if [ ! -e "$KF/deferred-once" ]; then
+  : > "$KF/deferred-once"
+  printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+  echo 'deferred: capacity condition'; exit 75
+fi
+exec "$KB/spawn-original" "$@"
+STUB
+  k1_pass 0; k1_pass 55; k1_pass 110
+  assert_equals 2 "$(k1_units_max_count 600 k1-deferred)" 'a stale deferred receipt never authorizes a third launch over a live second attempt'
+  k1_passes 165 880
+  assert_equals 2 "$(k1_units_max_count 600 k1-deferred)" 'a deferred then timed-out launch is never duplicated'
+  assert_equals 1 "$(k1_owned k1-deferred | grep -c .)" 'the fresh hung attempt reaches its timeout responder'
+  k1_teardown
+  pass 'deferred redispatch uses fresh attempt receipts and still times out once'
+}
+
+test_controller_equal_decision_keys_remain_task_scoped() {
+  local task
+  k1_setup task-key-scope mate
+  for task in k1-equal-a k1-equal-b; do
+    printf 'kind=ship\nharness=claude\nbackend=tmux\n' > "$H/state/$task.meta"
+    printf 'needs-decision [key=api-shape] [at=%s]: choose a technical retry interval\n' "$K1_T0" > "$H/state/$task.status"
+  done
+  k1_pass 220
+  for task in k1-equal-a k1-equal-b; do
+    assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'each task owns its aged decision even when another task uses the same key'
+  done
+  for task in k1-equal-a k1-equal-b; do
+    printf 'resolved [key=api-shape] [at=%s]: answered\n' $((K1_T0 + 275)) >> "$H/state/$task.status"
+  done
+  k1_pass 275
+  for task in k1-equal-a k1-equal-b; do
+    assert_equals 1 "$(k1_count "$H/state/$task.status" resolved ctl-c-ask-)" 'answering a source decision closes only its controller notice'
+  done
+  printf 'needs-decision [key=api-shape] [at=%s]: choose a technical retry interval\n' $((K1_T0 + 330)) >> "$H/state/k1-equal-a.status"
+  k1_pass 550
+  assert_equals 2 "$(k1_owned k1-equal-a | grep -c .)" 'reopening the source decision receives a new notice generation'
+  assert_equals 1 "$(k1_owned k1-equal-b | grep -c .)" 'an answered sibling task receives no new notice'
+  assert_absent "$KF/diag.log" 'known unanswered decisions never launch diagnosis'
+  k1_teardown
+  pass 'equal decision keys on different tasks each receive their own handoff'
+}
+
+test_controller_lock_incident_reopens_after_recovery() {
+  k1_setup lock-recurrence mate
+  k1_pass_lock_holder
+  k1_pass 55; k1_pass 110; k1_pass 165
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'first persistent holder has one incident'
+  kill -KILL "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null; K1_HOLDER=
+  k1_pass 220
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" resolved ctl-e-pass-lock-)" 'recovery closes the first incident'
+  k1_pass_lock_holder
+  printf '%s\n' $((K1_T0 + 220)) > "$H/state/.autolaunch.lock/at"
+  k1_pass 275; k1_pass 330; k1_pass 385
+  assert_equals 2 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a new persistent holder opens a fresh delivery generation'
+  k1_pass 440
+  assert_equals 2 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a second incident is still delivered only once'
+  k1_teardown
+  pass 'a recovered pass-lock incident can recur with one fresh handoff'
+}
+
+test_controller_diagnosis_charge_survives_dispatch_crash() {
+  local t
+  k1_setup diagnosis-budget-crash mate
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  k1_ready k1-budget
+  cp "$KB/systemd-run" "$KB/systemd-run-original"
+  cat > "$KB/systemd-run" <<'STUB'
+#!/usr/bin/env bash
+"$KB/systemd-run-original" "$@" || exit $?
+case "$*" in
+  *RuntimeMaxSec=900*)
+    if [ ! -e "$KF/diagnosis-dispatch-crash" ]; then
+      : > "$KF/diagnosis-dispatch-crash"
+      kill -KILL "$PPID"
+    fi
+    ;;
+esac
+STUB
+  for t in 0 55 110 165 220 275 330 385 440 495 550; do
+    k1_pass "$t"
+    [ ! -e "$KF/diagnosis-dispatch-crash" ] || break
+  done
+  assert_present "$KF/diagnosis-dispatch-crash" 'the fixture actually crashes immediately after diagnosis service dispatch'
+  assert_equals 1 "$(k1_units_max_count 900 k1-budget)" 'exactly one diagnosis reached service dispatch at the crash'
+  python3 - "$H/state/autolaunch-controller/diagnosis-history.json" <<'PY' || fail 'a dispatched diagnosis lost its hourly-cap charge across the crash'
+import json
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+charges = json.loads(p.read_text()) if p.exists() else []
+assert len(charges) == 1, f'one dispatched diagnosis must retain one durable hourly charge after crash; got {charges}'
+PY
+  k1_teardown
+  pass 'diagnosis dispatch reserves its hourly charge durably before service creation'
+}
+
+test_controller_quota_refusal_is_a_wait() {
+  k1_setup quota-wait mate
+  k1_ready k1-quota
+  printf 'quota\n' > "$KF/spawn-mode"
+  cat > "$KB/spawn" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+if [ "$(cat "$KF/spawn-mode")" = quota ]; then
+  echo 'error: fm-spawn refuses explicit harness codex: provider runway exhausted_now' >&2
+  exit 1
+fi
+echo "spawned $1"
+STUB
+  k1_passes 0 550
+  assert_equals 0 "$(k1_owned k1-quota | grep -c .)" 'a typed quota wait never enters the failure ladder'
+  assert_absent "$KF/diag.log" 'quota waits never spend diagnosis calls'
+  printf 'ok\n' > "$KF/spawn-mode"
+  k1_pass 605; k1_pass 660
+  [ -n "$(k1_lines "$LOG" k1-quota launched)" ] || fail 'clearing the quota condition resumes the waiting launch'
+  k1_teardown
+  pass 'typed quota refusal waits without escalation and resumes after admission clears'
+}
+
+test_controller_decision_pair_is_injective() {
+  local task key
+  k1_setup decision-pair-injective mate
+  for task in build-api build; do
+    case "$task" in build-api) key=shape ;; *) key=api-shape ;; esac
+    printf 'kind=ship\nharness=claude\nbackend=tmux\n' > "$H/state/$task.meta"
+    printf 'needs-decision [key=%s] [at=%s]: choose a technical retry interval\n' "$key" "$K1_T0" > "$H/state/$task.status"
+  done
+  k1_pass 220
+  for task in build-api build; do
+    assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'the exact build-api/shape and build/api-shape pair each receives one responder handoff'
+  done
+  assert_present "$H/state/autolaunch-controller/ctl-c-ask-9.build-api-shape.json" 'decision identity preserves task length and original key'
+  assert_present "$H/state/autolaunch-controller/ctl-c-ask-5.build-api-shape.json" 'the colliding textual pair has a different persisted identity'
+  k1_pass 275
+  for task in build-api build; do
+    assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'a distinct structured pair still deduplicates its own handoff'
+  done
+  k1_teardown
+  pass 'decision identity is injective for the exact separator-collision pair'
+}
+
+test_controller_inbox_pair_preserves_task_and_message() {
+  k1_setup inbox-pair-identity mate
+  k1_inbox_due build-api
+  k1_inbox_due build
+  k1_pass 0
+  python3 - "$H/state/autolaunch-controller" <<'PYCASE' || fail 'inbox obligations must use the shared reversible task/message identity'
+import json
+from pathlib import Path
+import sys
+rows = [json.loads(p.read_text()) for p in Path(sys.argv[1]).glob('ctl-*.json')]
+rows = [r for r in rows if r['kind'] == 'ring']
+assert len(rows) == 2, rows
+pairs = set()
+for row in rows:
+    encoded = row['key'].removeprefix('ctl-c-ring-')
+    size, rest = encoded.split('.', 1)
+    assert size.isdigit(), f'inbox task/key pair has no length prefix: {row["key"]}'
+    n = int(size)
+    task, sep, key = rest[:n], rest[n:n+1], rest[n+1:]
+    assert sep == '-' and task == row['task'], row
+    assert key == Path(row['argv'][-1]).name, row
+    pairs.add((task, key))
+assert {t for t, _ in pairs} == {'build-api', 'build'}
+PYCASE
+  assert_equals 1 "$(k1_units_max_count 60 ctl-c-ring- 9.build-api-)" 'first inbox has one action unit'
+  assert_equals 2 "$(k1_units_max_count 60 ctl-c-ring-)" 'each task/message obligation starts independently'
+  k1_teardown
+  pass 'inbox task/message identities are reversible and use the shared pair encoding'
+}
+
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
 # fleet-ops:lc-core-scheduler". The builder runs these and never edits this
@@ -1659,10 +1839,60 @@ assert_contains "$out" "Environment=\"FM_HOME=$H\"" 'timer proposal pins FM_HOME
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'
 pass 'the check arms through fm-check-register and the timer is only a printed proposal'
 
+# Builder-owned coverage for the staged activation boundary. These cases use
+# the production selector and a manager protocol stub, with no action dispatch.
+test_controller_activation_preserves_legacy_until_rollout() {
+  local manager_bin="$FAKE/controller-manager" out rc
+  mkdir -p "$manager_bin"
+  cat > "$manager_bin/systemctl" <<'SH'
+#!/usr/bin/env bash
+case "${FM_K1_FAKE_MANAGER:-ok}" in
+  absent) exit 1 ;;
+  malformed) echo success ;;
+  *) echo '262' ;;
+esac
+SH
+  chmod +x "$manager_bin/systemctl"
+  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
+  assert_equals legacy "$out" 'available manager alone never activates partial K1'
+  assert_absent "$H/state/autolaunch-controller" 'selection inspection creates no activation evidence'
+  : > "$H/config/autolaunch-sole"
+  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
+  assert_equals controller "$out" 'rollout marker selects the controller with a verified manager'
+  rc=0
+  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'activated home never falls back when manager is unavailable'
+  rm "$H/config/autolaunch-sole"
+  mkdir -p "$H/state/autolaunch-controller"
+  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
+  assert_equals controller "$out" 'durable controller work retains custody after marker removal'
+  rc=0
+  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'outstanding controller work never falls back without a manager'
+  rc=0
+  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=malformed PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'manager protocol must have a meaningful version response'
+  rmdir "$H/state/autolaunch-controller"
+  printf 'invalid\n' > "$FAKE/controller-clock"
+  rc=0
+  FM_AUTOLAUNCH_NOW_FILE="$FAKE/controller-clock" PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'malformed declared test clock never selects legacy execution'
+  pass 'controller activation preserves legacy until rollout and protects outstanding work'
+}
+test_controller_activation_preserves_legacy_until_rollout
+
 # The step-pass matrix uses this same executable seam and hermetic task store.
 [ "${1:-}" != --launch-only ] || exit 0
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
+
+test_controller_decision_pair_is_injective
+test_controller_inbox_pair_preserves_task_and_message
+test_controller_quota_refusal_is_a_wait
+test_controller_deferred_attempt_has_fresh_receipts
+test_controller_equal_decision_keys_remain_task_scoped
+test_controller_lock_incident_reopens_after_recovery
+test_controller_diagnosis_charge_survives_dispatch_crash
 
 # Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
 # run last so every earlier case keeps its coverage while they are red.

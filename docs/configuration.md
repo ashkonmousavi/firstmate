@@ -898,6 +898,14 @@ On the other homes the commands are documented here only, and run there once the
 Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
+The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
+`--controller-mode` inspects that selection without starting work.
+Installing this cut alone keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
+Diagnosis defaults are read-only Codex `gpt-6.1-sol` followed by Claude `claude-opus-5-5`, after ownership has already reached the technical responder.
+A home may replace either command prefix with a nonempty JSON argv array named `rung3` or `rung4` in `config/controller-diagnosis`; the controller appends its diagnosis prompt and retains the 900-second bound.
+For example, `{"rung3":["codex","exec","-s","read-only","-m","gpt-6.1-sol","-c","model_reasoning_effort=high"]}` replaces only rung 3.
+The command must retain read-only permissions; configuration never authorizes a diagnosis to modify project or lifecycle state.
+
 Nothing enables a schedule automatically.
 To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
 Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line, recording it in the machine inventory first; the [launcher header](../bin/fm-autolaunch.sh) owns the captured environment and optional slice-only scope.
