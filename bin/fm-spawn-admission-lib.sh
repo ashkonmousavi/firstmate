@@ -173,8 +173,9 @@ fm_spawn_brief_admit() { # <brief>
 # 2 UNKNOWN, including a malformed policy); this function refuses on any
 # nonzero gate result and prints the reasons. A home with no policy file is
 # an explicit unconfigured bypass. The validator path is FM_SLICE_VALIDATOR,
-# else the installed skills-master copy; when it cannot run, an observe
-# policy launches with a notice and any other policy refuses.
+# else the installed skills-master copy; when it yields no result, an unlisted
+# project bypasses, observe launches with a notice, and other modes refuse
+# listed projects or an unreadable projects list.
 fm_spawn_slice_admit() { # <brief>
   local brief=$1 policy="$FM_HOME/config/slicing.json" validator mode out rc summary=
   [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ] || return 0
@@ -199,7 +200,17 @@ except Exception:
     out="validator $validator is not readable"
   fi
   if [ -z "$summary" ]; then
-    # No slice result: the validator is missing or did not run.
+    if python3 -c '
+import json, sys
+try:
+    projects = json.load(open(sys.argv[1]))["projects"]
+    if not isinstance(projects, list) or not all(isinstance(p, str) for p in projects):
+        sys.exit(2)
+    sys.exit(0 if sys.argv[2] not in projects else 1)
+except Exception:
+    sys.exit(2)' "$policy" "$(basename "$PROJ_ABS")" 2>/dev/null; then
+      return 0
+    fi
     if [ "$mode" = observe ]; then
       echo "notice: slice admission ($policy, observe) could not check $ID: $(printf '%s' "$out" | tail -1); launching" >&2
       return 0

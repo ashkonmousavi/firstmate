@@ -2055,7 +2055,8 @@ Before any worktree, task record or backlog move exists, `bin/fm-spawn.sh` runs 
 In `observe` mode a missing, invalid, unknown or conflicting `SLICE:` line prints a `notice:` naming the validator's reasons, and the ship launches.
 In `enforce` mode any nonzero gate result refuses the spawn with those reasons, including a malformed policy.
 A home without the file, scouts, secondmates and `--relaunch` recovery are not checked.
-The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master copy at `~/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py`; when it cannot run, an `observe` policy launches with a notice and any other policy refuses.
+The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master copy at `~/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py`.
+When it yields no result, the admission library reads the policy's `projects` array: an unlisted project bypasses in every mode, while a listed project or an unreadable projects list launches with a notice in `observe` and refuses in any other mode.
 `fm_spawn_slice_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns this admission step.
 
 ## Crew dispatch profiles (config/crew-dispatch.json)

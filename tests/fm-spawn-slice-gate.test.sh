@@ -33,14 +33,14 @@ PY
 # make_case <name> <id> <mode|none> [<slice-line>]: a home with a slicing policy
 # (none: no policy file), a project with a pooled worktree, and a filled brief.
 make_case() {
-  local name=$1 id=$2 mode=$3 line=${4-}
+  local name=$1 id=$2 mode=$3 line=${4-} project=${5:-proj}
   CASE_DIR="$TMP_ROOT/$name"
   HOME_DIR="$CASE_DIR/home"
-  PROJECT_DIR="$CASE_DIR/proj"
+  PROJECT_DIR="$CASE_DIR/$project"
   POOL_DIR="$CASE_DIR/pool"
   FAKEBIN_DIR=$(make_spawn_fakebin "$CASE_DIR/fake")
   fm_test_spawn_home "$HOME_DIR" codex
-  printf -- '- proj [direct-PR] - fixture (added 2026-01-01)\n' > "$HOME_DIR/data/projects.md"
+  printf -- '- %s [direct-PR] - fixture (added 2026-01-01)\n' "$project" > "$HOME_DIR/data/projects.md"
   git init --quiet -b main "$PROJECT_DIR"
   printf 'base\n' > "$PROJECT_DIR/README.md"
   git -C "$PROJECT_DIR" add README.md
@@ -127,6 +127,46 @@ test_unconfigured_scout_and_missing_validator() {
   pass "fm-spawn: no policy and scouts bypass; a missing validator refuses in enforce and is reported in observe"
 }
 
+test_unlisted_projects_bypass_without_a_validator_result() {
+  local mode failure id out status validator
+  for failure in missing no-result; do
+    for mode in enforce observe invalid; do
+      id="slice-unlisted-$failure-$mode"
+      make_case "unlisted-$failure-$mode" "$id" "$mode" '' other
+      validator="$CASE_DIR/validator.py"
+      if [ "$failure" = no-result ]; then
+        printf 'raise SystemExit(2)\n' > "$validator"
+      fi
+      out=$(VALIDATOR="$validator" run_spawn "$id"); status=$?
+      expect_code 0 "$status" "an unlisted project must bypass $mode admission with $failure validator"$'\n'"$out"
+      [ -s "$HOME_DIR/state/$id.meta" ] || fail "the unlisted project's spawn did not publish its record"
+    done
+  done
+  pass "fm-spawn: unlisted projects launch in every mode when validation yields no result"
+}
+
+test_no_result_preserves_listed_and_unreadable_policy_refusals() {
+  local projects mode id out status n=0
+  for projects in '["proj"]' null '"other"' '[null]'; do
+    n=$((n + 1))
+    for mode in enforce observe; do
+      id=slice-no-result
+      make_case "no-result-$n-$mode" "$id" "$mode"
+      printf '{"mode":"%s","projects":%s}\n' "$mode" "$projects" > "$HOME_DIR/config/slicing.json"
+      printf 'raise SystemExit(2)\n' > "$CASE_DIR/validator.py"
+      out=$(VALIDATOR="$CASE_DIR/validator.py" run_spawn "$id"); status=$?
+      if [ "$mode" = observe ]; then
+        expect_code 0 "$status" "observe must launch when validation yields no result"$'\n'"$out"
+      else
+        [ "$status" -ne 0 ] || fail "a listed project or unreadable projects list bypassed enforce admission"$'\n'"$out"
+        [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a refused spawn published a record"
+      fi
+      assert_contains "$out" 'could not check' "a validator with no result did not report the failed check"
+    done
+  done
+  pass "fm-spawn: listed projects and unreadable project lists retain their no-result mode behavior"
+}
+
 # The installed vertical-slicing validator, when present: the same refusal and
 # the malformed-policy refusal its contract defines (FM_TEST_SLICE_VALIDATOR
 # overrides the path; an absent validator is reported, never a silent pass).
@@ -163,6 +203,8 @@ test_enforce_refuses_a_ship_without_a_slice_line
 test_enforce_admits_a_ship_with_a_slice_line_and_reads_its_prep
 test_observe_reports_and_launches
 test_unconfigured_scout_and_missing_validator
+test_unlisted_projects_bypass_without_a_validator_result
+test_no_result_preserves_listed_and_unreadable_policy_refusals
 test_installed_validator
 
 echo "# all fm-spawn-slice-gate tests passed"
