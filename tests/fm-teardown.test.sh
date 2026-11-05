@@ -6182,6 +6182,54 @@ test_open_pr_keep_open_with_a_dependent_holds_and_names_it() {
   pass "--keep-open holds an open pull request and names the items that still list it"
 }
 
+test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
+  local case_dir kind accepted body expected out
+  for kind in ship owner owner-bold; do
+    for accepted in no yes; do
+      case_dir=$(make_case "scout-phase-$kind-$accepted")
+      write_meta "$case_dir" no-mistakes scout
+      prepare_scout_teardown "$case_dir"
+      if [ "$kind" = ship ]; then seed_backlog_in_flight "$case_dir" ship;
+      else
+        seed_backlog_in_flight "$case_dir" scout
+        body='SLICE: main/example role=owner'
+        [ "$kind" != owner-bold ] || body='**SLICE**: main/example role=owner'
+        tasks-axi update task-x1 --body "$body" --file "$case_dir/data/backlog.md" >/dev/null
+      fi
+      tasks-axi update task-x1 --repo phase --file "$case_dir/data/backlog.md" >/dev/null
+      mkdir -p "$case_dir/projects/phase" "$case_dir/data/task-x1"
+      printf 'completed scout brief\n' > "$case_dir/data/task-x1/brief.md"
+      printf 'prep evidence\n' > "$case_dir/data/task-x1/prep.md"
+      printf 'project=phase\nkind=scout\n' > "$case_dir/data/task-x1/autolaunch-prep"
+      expected=queued
+      if [ "$accepted" = yes ]; then
+        expected='done'
+        tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+      fi
+      [ "$accepted" != no ] || add_blocked_by_child "$case_dir" child-one 'still needs the owner'
+      teardown_capture "$case_dir"
+      expect_code 0 "$TEARDOWN_CAPTURE_RC" "scout phase cleanup must succeed: $(cat "$case_dir/stderr")"
+      [ "$(backlog_row_state "$case_dir")" = "$expected" ] || fail "scout phase cleanup changed the expected $expected state"
+      assert_grep "Backlog: task-x1 scout phase report and note recorded in $case_dir/data/backlog.md; parent completion state preserved." \
+        "$case_dir/stdout" "phase cleanup did not report its deliverable and preserved parent completion state"
+      assert_no_grep 'stays open' "$case_dir/stdout" "phase cleanup claimed the parent stays open"
+      assert_no_grep 'parent outcome is not accepted' "$case_dir/stdout" "phase cleanup claimed the parent is unaccepted"
+      assert_absent "$case_dir/state/task-x1.meta" "phase worker metadata survives cleanup"
+      assert_absent "$case_dir/state/task-x1.backlog-close" "phase retain left a pending marker"
+      assert_grep 'data/task-x1/report.md' "$case_dir/data/backlog.md" "phase report missing"
+      assert_grep 'scout phase finished' "$case_dir/data/backlog.md" "phase note missing"
+      out=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-autolaunch.sh" --list-prepared) || fail "could not inspect cleanup launch eligibility"
+      [ -z "$out" ] || fail "cleanup left the completed phase launchable: $out"
+      assert_grep 'prep evidence' "$case_dir/data/task-x1/prep.md" "cleanup lost prep evidence"
+      if [ "$accepted" = no ]; then
+        tasks-axi show child-one --file "$case_dir/data/backlog.md" | grep -F 'blocked_by: task-x1' >/dev/null \
+          || fail "phase cleanup changed the child's dependency"
+      fi
+    done
+  done
+  pass "scout phase cleanup retains ship/owner rows and dependent edges, and preserves settled rows"
+}
+
 test_scout_with_a_dependent_refuses() {
   local case_dir
   case_dir=$(make_case scout-blocked-by)
@@ -7192,6 +7240,7 @@ test_blocked_by_dependent_refuses_and_names_it
 test_blocked_by_names_every_dependent
 test_keep_open_with_a_dependent_cleans_and_leaves_it_blocked
 test_open_pr_keep_open_with_a_dependent_holds_and_names_it
+test_scout_phase_cleanup_retains_its_owner_and_dependencies
 test_scout_with_a_dependent_refuses
 test_escaped_title_retains_all_blockers
 test_malformed_dependency_rows_refuse_cleanup
