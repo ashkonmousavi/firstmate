@@ -70,6 +70,7 @@ The stop seam sends SIGKILL to this engine, leaving the durable receipt.
 
 import datetime as dt
 import base64
+import binascii
 import csv
 from fnmatch import fnmatchcase
 import hashlib
@@ -398,10 +399,13 @@ class Slice:
         # value across gh-axi's normal TOON presentation of object results.
         payload = json.dumps(dict(query=query, variables=dict(owner=owner, repo=repo, number=int(number))))
         result = invoke([tool("PR", "gh-axi"), "api", "POST", "/graphql", "--input", "-",
-                         "--jq", ".data.repository.pullRequest | @base64"], input=payload)
+                         "--jq", ".data.repository.pullRequest | @base64", "--full"], input=payload)
         if result.returncode:
             return {}
-        value = json.loads(base64.b64decode(result.stdout.strip().strip('"'), validate=True))
+        try:
+            value = json.loads(base64.b64decode(result.stdout.strip().strip('"'), validate=True))
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            return {}
         if not isinstance(value, dict):
             return {}
         checks = []
