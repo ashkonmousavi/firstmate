@@ -49,9 +49,10 @@ FORGEJO_PAGES = 20
 SCP_ORIGIN = re.compile(r'^(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+):(?!//)(.+)$')
 URL_ORIGIN = re.compile(r'^(https?|ssh|git|git\+ssh|ssh\+git)://(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+)(?::\d+)?/(.+)$')
 FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
-DECOR = re.compile(r'^\s*(?:#{1,6}\s+)?(?:[-*+]\s+)?(?:\*\*|__)?')
-SLICE_LINE = re.compile(r'SLICE(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|]+)')
-TASK_LINE = re.compile(r'(?i)task(?:[- ]id)?(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|,;]+)')
+DECOR = re.compile(r'^\s*(?:#{1,6}\s+)?(?:[-*+]\s+)?')
+STRONG = re.compile(r'^(\*\*|__)(.*?)\1')
+SLICE_LINE = re.compile(r'SLICE:\s*(.*)')
+TASK_LINE = re.compile(r'(?i)task(?:[- ]id)?:\s*(.*)')
 
 
 class Unknown(Exception):
@@ -103,11 +104,12 @@ def names_task(body, task_id):
         if fence and (fence[1][0] != '`' or '`' not in fence[2]):
             fenced = fence[1]
             continue
-        line = DECOR.sub('', raw)
-        for pattern in (SLICE_LINE, TASK_LINE):
+        line = STRONG.sub(r'\2', DECOR.sub('', raw))
+        for pattern, separator in ((SLICE_LINE, r'[\s`|]'), (TASK_LINE, r'[\s`|,;]')):
             match = pattern.match(line)
             if match:
-                value = match.group(1).rstrip('.,;:')
+                value = STRONG.sub(r'\2', match.group(1)).lstrip('`')
+                value = re.split(separator, value, maxsplit=1)[0].rstrip('.,;:')
                 value = value.rsplit('/', 1)[-1].rsplit(':', 1)[-1]
                 if value == task_id:
                     return True
@@ -136,29 +138,29 @@ def records(value, cmd, fields):
         raise Unknown(f'{cmd} did not print a list of pull requests')
     for item in value:
         for field, kind in fields:
-            if not isinstance(item.get(field), kind):
-                raise Unknown(f'{cmd} printed a pull request without {field}')
+            if field not in item or not isinstance(item[field], kind):
+                raise Unknown(f'{cmd} printed a pull request without valid {field}')
     return value
 
 
 def github(host, path, branch, task_id, timeout):
-    env = dict(os.environ)
+    env = dict(os.environ, GH_HOST=host)
     repo = path if host == 'github.com' else f'{host}/{path}'
-    if host != 'github.com':
-        env['GH_HOST'] = host
     fields = 'number,url,headRefName,headRefOid,body,state'
     found = []
     for extra in (['--head', branch], ['--search', f'"{task_id}" in:body']):
         cmd = ['gh', 'pr', 'list', '-R', repo, '--state', 'open', *extra, '--json', fields, '-L', str(LIST_LIMIT)]
         items = records(run(cmd, timeout, env), 'gh pr list',
-                        [('number', int), ('url', str), ('headRefName', str)])
+                        [('number', int), ('url', str), ('headRefName', str),
+                         ('state', str), ('body', (str, type(None))),
+                         ('headRefOid', (str, type(None)))])
         if len(items) >= LIST_LIMIT:
             raise Unknown(f'gh pr list reached its limit of {LIST_LIMIT}; the list may be incomplete')
         for item in items:
-            if str(item.get('state', 'OPEN')).upper() != 'OPEN':
+            if item['state'].upper() != 'OPEN':
                 continue
             found.append((item['number'], item['url'], item['headRefName'],
-                          item.get('headRefOid') or '', item.get('body') or ''))
+                          item['headRefOid'] or '', item['body'] or ''))
     return found
 
 
@@ -169,14 +171,16 @@ def gitlab(host, path, branch, task_id, timeout):
     for extra in (['--source-branch', branch], ['--search', task_id]):
         cmd = ['glab', 'mr', 'list', '-R', repo, *extra, '-F', 'json', '-P', str(LIST_LIMIT)]
         items = records(run(cmd, timeout, env), 'glab mr list',
-                        [('iid', int), ('web_url', str), ('source_branch', str)])
+                        [('iid', int), ('web_url', str), ('source_branch', str),
+                         ('state', str), ('description', (str, type(None))),
+                         ('sha', (str, type(None)))])
         if len(items) >= LIST_LIMIT:
             raise Unknown(f'glab mr list reached its limit of {LIST_LIMIT}; the list may be incomplete')
         for item in items:
-            if str(item.get('state', 'opened')) != 'opened':
+            if item['state'] != 'opened':
                 continue
             found.append((item['iid'], item['web_url'], item['source_branch'],
-                          item.get('sha') or '', item.get('description') or ''))
+                          item['sha'] or '', item['description'] or ''))
     return found
 
 
@@ -203,21 +207,18 @@ def forgejo(host, path, branch, task_id, timeout):
     for page in range(1, FORGEJO_PAGES + 1):
         cmd = ['tea', 'api', '--login', login, '--repo', path,
                f'/repos/{{owner}}/{{repo}}/pulls?state=open&limit={FORGEJO_PAGE}&page={page}']
-        items = run(cmd, timeout)
-        if not isinstance(items, list):
-            raise Unknown('tea api did not print a list of pull requests')
+        items = records(run(cmd, timeout), 'tea api',
+                        [('number', int), ('html_url', str), ('head', dict),
+                         ('state', str), ('body', (str, type(None)))])
         for item in items:
-            head = item.get('head') if isinstance(item, dict) else None
-            if not isinstance(item, dict) or not isinstance(item.get('number'), int) \
-                    or not isinstance(item.get('html_url'), str) or not isinstance(head, dict) \
-                    or not isinstance(head.get('ref'), str):
-                raise Unknown('tea api printed a pull request without number, html_url or head.ref')
-            if item.get('state', 'open') != 'open':
+            head = item['head']
+            records([head], 'tea api head', [('ref', str), ('sha', (str, type(None)))])
+            if item['state'] != 'open':
                 continue
-            found.append((item['number'], item['html_url'], head['ref'], head.get('sha') or '', item.get('body') or ''))
-        if len(items) < FORGEJO_PAGE:
+            found.append((item['number'], item['html_url'], head['ref'], head['sha'] or '', item['body'] or ''))
+        if not items:
             return found
-    raise Unknown(f'more than {FORGEJO_PAGE * FORGEJO_PAGES} open pull requests; the list may be incomplete')
+    raise Unknown(f'tea api reached its page limit of {FORGEJO_PAGES}; the list may be incomplete')
 
 
 def main(argv):

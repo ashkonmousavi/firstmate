@@ -306,10 +306,10 @@ test_remote_origins_never_skip_as_local() {
     printf '%s' "$out" | python3 -c 'import json, sys; assert json.load(sys.stdin)["state"] == "unknown"' \
       || fail "an unrecognized remote origin did not emit UNKNOWN: $origin"
   done
-  for origin in '' /repo.git repo.git ../repo.git ./repo:copy.git file:repo.git file:///repo.git; do
+  for origin in '' /repo.git /srv/x.git repo.git ../repo.git ../../remotes/x.git ./repo:copy.git file:repo.git file:///repo.git file:///x; do
     out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin "$origin"); status=$?
     expect_code 0 "$status" "a missing or local origin failed: $origin"$'\n'"$out"
-    printf '%s' "$out" | python3 -c 'import json, sys; assert json.load(sys.stdin)["state"] == "skip"' \
+    printf '%s' "$out" | python3 -c 'import json, sys; v = json.load(sys.stdin); assert v["state"] == "skip" and v["notice"] == ""' \
       || fail "a missing or local origin did not skip: $origin"
   done
   pr_json 9 "fm/$id" > "$FORGE_DIR/head.json"
@@ -394,8 +394,12 @@ SH
 printf '%s\n' "$*" >> "$FM_TEST_FORGE/tea.log"
 case "$1 $2" in
 'login list') echo '[{"name": "home", "url": "https://forgejo.example.org"}]' ;;
-'api --login') echo '[{"number": 3, "html_url": "https://forgejo.example.org/o/r/pulls/3", "head": {"ref": "fm/t1", "sha": "def"}, "body": "", "state": "open"},
-  {"number": 4, "html_url": "https://forgejo.example.org/o/r/pulls/4", "head": {"ref": "y"}, "body": "blocked by t1", "state": "open"}]' ;;
+'api --login')
+  case "$*" in
+    *'page=1') echo '[{"number": 3, "html_url": "https://forgejo.example.org/o/r/pulls/3", "head": {"ref": "fm/t1", "sha": "def"}, "body": "", "state": "open"},
+      {"number": 4, "html_url": "https://forgejo.example.org/o/r/pulls/4", "head": {"ref": "y", "sha": null}, "body": "blocked by t1", "state": "open"}]' ;;
+    *) echo '[]' ;;
+  esac ;;
 esac
 SH
   cat > "$dir/bin/gh" <<'SH'
@@ -430,6 +434,183 @@ SH
   pass "fm-open-pr-lookup: GitHub, GitHub Enterprise, GitLab and Forgejo are read; an unknown host and a missing tool are unknown; a local origin skips"
 }
 
+test_forge_reader_contracts() {
+  if ! python3 - "$TMP_ROOT/reader-contracts" "$ROOT/bin/fm-open-pr-lookup.py" <<'PY'
+import copy
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from urllib.parse import parse_qs, urlsplit
+
+directory, program = Path(sys.argv[1]), sys.argv[2]
+fakebin = directory / 'bin'
+fakebin.mkdir(parents=True)
+stub = fakebin / 'forge-cli'
+stub.write_text('''#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+args = sys.argv[1:]
+tool = Path(sys.argv[0]).name
+with open(os.environ['FM_TEST_READER_LOG'], 'a') as log:
+    log.write(json.dumps(dict(tool=tool, args=args, host=os.environ.get('GH_HOST'))) + '\\n')
+if tool == 'tea' and args[:2] == ['login', 'list']:
+    print('[{"name":"fixture","url":"https://forgejo.example.org"}]')
+    sys.exit(0)
+data = json.loads(Path(os.environ['FM_TEST_READER_RESPONSE']).read_text())
+if 'hosts' in data:
+    data = data['hosts'].get(os.environ.get('GH_HOST'), {})
+if tool == 'tea':
+    page = parse_qs(urlsplit(args[-1]).query)['page'][0]
+    result = data.get('pages', {}).get(page, data.get('repeat', []))
+else:
+    result = data.get('body' if '--search' in args else 'branch', [])
+print(json.dumps(result))
+''')
+stub.chmod(0o755)
+for tool in ('gh', 'glab', 'tea'):
+    (fakebin / tool).symlink_to(stub.name)
+hosts_file = directory / 'github-hosts'
+hosts_file.write_text('ghe.example.com\n')
+response_file = directory / 'response.json'
+log_file = directory / 'calls.jsonl'
+
+fixtures = {
+    'github': dict(number=1, url='https://github.com/o/r/pull/1', headRefName='fm/t1',
+                   headRefOid='abc', body='Task: t1', state='OPEN'),
+    'gitlab': dict(iid=1, web_url='https://gitlab.com/o/r/-/merge_requests/1',
+                   source_branch='fm/t1', sha='abc', description='Task: t1', state='opened'),
+    'forgejo': dict(number=1, html_url='https://forgejo.example.org/o/r/pulls/1',
+                    head=dict(ref='fm/t1', sha='abc'), body='Task: t1', state='open'),
+}
+origins = dict(github='https://github.com/o/r.git', gitlab='https://gitlab.com/o/r.git',
+               forgejo='https://forgejo.example.org/o/r.git')
+
+def lookup(provider, response, code=0, origin=None, inherited_host='ghe.example.com'):
+    response_file.write_text(json.dumps(response))
+    log_file.write_text('')
+    env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ['PATH'],
+               GH_HOST=inherited_host, FM_TEST_READER_RESPONSE=str(response_file),
+               FM_TEST_READER_LOG=str(log_file))
+    result = subprocess.run([sys.executable, program, '--branch', 'fm/t1', '--task-id', 't1',
+                             '--timeout', '5', '--forge', 'forgejo' if provider == 'forgejo' else 'none',
+                             '--origin', origin or origins[provider], '--github-hosts', str(hosts_file)],
+                            env=env, text=True, capture_output=True)
+    assert result.returncode == code, (provider, response, result.returncode, result.stdout, result.stderr)
+    answer = json.loads(result.stdout)
+    assert answer['state'] == ('unknown' if code == 3 else 'ok'), answer
+    return answer, [json.loads(line) for line in log_file.read_text().splitlines()]
+
+public_branch = dict(fixtures['github'], number=91)
+public_body = dict(fixtures['github'], number=92, headRefName='other')
+enterprise_branch = dict(fixtures['github'], number=93)
+enterprise_body = dict(fixtures['github'], number=94, headRefName='other')
+for host, inherited, branch_row, body_row, expected in (
+    ('github.com', 'ghe.example.com', public_branch, public_body, [91, 92]),
+    ('ghe.example.com', 'github.com', enterprise_branch, enterprise_body, [93, 94]),
+):
+    response = {'hosts': {host: dict(branch=[branch_row], body=[body_row])}}
+    answer, calls = lookup('github', response, origin=f'https://{host}/o/r.git', inherited_host=inherited)
+    assert [pr['number'] for pr in answer['prs']] == expected, answer
+    assert len(calls) == 2 and all(call['host'] == host for call in calls), calls
+print('ok - GitHub branch and body reads bind the origin host despite inherited GH_HOST')
+
+unrelated = dict(fixtures['forgejo'], head=dict(ref='other', sha='abc'), body='')
+response = {'pages': {'1': [dict(unrelated, number=n) for n in range(1, 21)],
+                       '2': [dict(fixtures['forgejo'], number=21)], '3': []}}
+answer, calls = lookup('forgejo', response)
+assert [pr['number'] for pr in answer['prs']] == [21], answer
+pages = [int(parse_qs(urlsplit(call['args'][-1]).query)['page'][0])
+         for call in calls if call['args'][0] == 'api']
+assert pages == [1, 2, 3], pages
+answer, calls = lookup('forgejo', {'repeat': [unrelated]}, code=3)
+assert len([call for call in calls if call['args'][0] == 'api']) == 20, calls
+assert 'page limit' in answer['error'], answer
+answer, calls = lookup('forgejo', {'pages': {'1': []}})
+assert answer['prs'] == [] and len(calls) == 2, (answer, calls)
+print('ok - Forgejo continues after clamped pages, finishes on an empty page, and bounds incomplete reads as UNKNOWN')
+
+declarations = [
+    ('**Task: home/t1**', True),
+    ('__SLICE: home/t1__', True),
+    ('Task: **home/t1**', True),
+    ('SLICE: __home/t1__', True),
+    ('**Task:** home/t1', True),
+    ('__Task-ID__: home:t1', True),
+    ('## - **Task id:** **`home/t1`**', True),
+    ('__SLICE: **home/t1**__', True),
+    ('Task: __home/t1__.', True),
+    ('**Task**: `home/t1`', True),
+    ('Task: `home/t1`.', True),
+    ('Task: **`home/t1`.**', True),
+    ('Task: **home/t1,**', True),
+    ('Task-ID: __home:t1;__', True),
+    ('SLICE: **home/t1 | description**', True),
+    ('Task: home/t1,description', True),
+    ('SLICE: home/t1,description', False),
+    ('Task: **other**', False),
+    ('Task: __home/t1**', False),
+    ('__Task__: home/t1__', False),
+    ('Task: `__home/t1__`', False),
+    ('**Task: home/t1', False),
+    ('```\n**Task: home/t1**\n```', False),
+    ('Prose **Task: home/t1**', False),
+]
+body_rows = [dict(fixtures['github'], number=n, headRefName='other', body=body)
+             for n, (body, _) in enumerate(declarations, 1)]
+answer, _ = lookup('github', {'body': body_rows})
+expected = [n for n, (_, matches) in enumerate(declarations, 1) if matches]
+assert [pr['number'] for pr in answer['prs']] == expected, answer
+assert all(pr['why'] == ['body'] for pr in answer['prs']), answer
+print('ok - matching strong decoration on declarations, labels and values names tasks without stripping literal or mismatched markers')
+
+def response_for(provider, row, channel):
+    return {'pages': {'1': [row]}} if provider == 'forgejo' else {channel: [row]}
+
+for provider, fixture in fixtures.items():
+    body_field = 'description' if provider == 'gitlab' else 'body'
+    sha_field = 'headRefOid' if provider == 'github' else 'sha'
+    for channel in ('branch', 'body') if provider != 'forgejo' else ('page',):
+        for field in ('state', body_field, sha_field):
+            invalid_values = ['missing', False, 0, [], {}] + ([None] if field == 'state' else [])
+            for value in invalid_values:
+                row = copy.deepcopy(fixture)
+                if channel == 'body':
+                    row['headRefName' if provider == 'github' else 'source_branch'] = 'other'
+                target = row['head'] if provider == 'forgejo' and field == 'sha' else row
+                if value == 'missing':
+                    del target[field]
+                else:
+                    target[field] = value
+                lookup(provider, response_for(provider, row, channel), code=3)
+    for value in (None, ''):
+        row = copy.deepcopy(fixture)
+        row[body_field] = value
+        (row['head'] if provider == 'forgejo' else row)[sha_field] = value
+        answer, _ = lookup(provider, response_for(provider, row, 'branch'))
+        assert [(pr['number'], pr['head'], pr['why']) for pr in answer['prs']] == [(1, '', ['branch'])], answer
+    row = copy.deepcopy(fixture)
+    if provider == 'forgejo':
+        row['head']['ref'] = 'other'
+    else:
+        row['headRefName' if provider == 'github' else 'source_branch'] = 'other'
+    answer, _ = lookup(provider, response_for(provider, row, 'body'))
+    assert [(pr['number'], pr['head'], pr['why']) for pr in answer['prs']] == [(1, 'abc', ['body'])], answer
+    row['state'] = 'CLOSED' if provider == 'github' else 'closed'
+    answer, _ = lookup(provider, response_for(provider, row, 'body'))
+    assert answer['prs'] == [], answer
+    (row['head'] if provider == 'forgejo' else row)[sha_field] = []
+    lookup(provider, response_for(provider, row, 'body'), code=3)
+print('ok - all providers reject missing or malformed match fields before filtering and accept explicit null or string bodies and SHAs')
+PY
+  then
+    fail "forge reader contracts failed (R5-R8, explicit host, pagination, decoration and response-type requirements)"
+  fi
+}
+
+test_forge_reader_contracts
 test_every_registry_forge_kind
 test_remote_origins_never_skip_as_local
 test_body_fences_follow_commonmark_delimiters
