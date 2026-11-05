@@ -1755,7 +1755,7 @@ EOF
   write_brief "$home" forge-typo-a1 no-mistakes
   out=$(run_spawn "$home" "$fakebin" forge-typo-a1 "$proj" claude --mode no-mistakes --yolo on 2>&1)
   status=$?
-  [ "$status" -ne 0 ] || fail "a spawn launched on a registry entry whose forge token does not resolve"
+  expect_code 1 "$status" "a spawn with an unreadable registry forge did not refuse with exit 1"
   assert_contains "$out" 'unknown forge "gerit"' \
     "the parser's refusal never reached the operator running the spawn"
   assert_contains "$out" "does not resolve to a delivery posture" \

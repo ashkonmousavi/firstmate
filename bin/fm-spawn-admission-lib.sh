@@ -229,6 +229,109 @@ except Exception:
   return 0
 }
 
+# Duplicate-builder admission for a fresh ship spawn. bin/fm-open-pr-lookup.py
+# owns which forge is read and what counts as an open pull request carrying
+# this task (its head is the task's branch, or its body names the task on a
+# SLICE or Task line anywhere in its body, including code examples).
+# An open one refuses the spawn, naming each URL, unless
+# --continue-pr names exactly that pull request on the task's branch; then the
+# fresh copy starts at its head (SPAWN_CONTINUE_PR_*, freshen_spawn_worktree_base).
+# A forge that cannot be read refuses as UNKNOWN unless --continue-pr or
+# --no-forge-check <reason> was given. Relaunches, scouts, secondmates and
+# local-only tasks never consult it. Every refusal exits 1, never the deferral
+# exit, so a batch reports it as a failure rather than retrying it.
+# Test seam, honored only with FM_TEST_SEAM=1: FM_OPEN_PR_LOOKUP replaces the
+# lookup program (same arguments and JSON); tests/lib.sh points it at an offline
+# stub so suites never reach a forge. Without FM_TEST_SEAM=1 it is ignored, so
+# --no-forge-check stays the only way to skip the read.
+SPAWN_CONTINUE_PR_URL=
+SPAWN_CONTINUE_PR_HEAD=
+# shellcheck disable=SC2034 # SPAWN_CONTINUE_PR_* feed spawn's copy freshening and task record.
+fm_spawn_duplicate_admit() {
+  local forge origin out rc state lines line number url branch head why others='' lookup
+  [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ] || return 0
+  [ "$MODE" != local-only ] || return 0
+  if [ -n "${SPAWN_NO_FORGE_CHECK:-}" ]; then
+    echo "notice: duplicate-builder check skipped for $ID by --no-forge-check: $SPAWN_NO_FORGE_CHECK" >&2
+    return 0
+  fi
+  forge=$("$FM_ROOT/bin/fm-project-mode.sh" --forge "$(basename "$PROJ_ABS")") || {
+    echo "error: $ID cannot launch: the registry entry for $(basename "$PROJ_ABS") does not resolve to a delivery posture (see the refusal above); correct data/projects.md and spawn again" >&2
+    return 1
+  }
+  # The configured URL names the forge; url.<base>.insteadOf may point fetches at a mirror.
+  origin=$(git -C "$PROJ_ABS" config --get remote.origin.url 2>/dev/null) || origin=
+  lookup=$FM_ROOT/bin/fm-open-pr-lookup.py
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then lookup=${FM_OPEN_PR_LOOKUP:-$lookup}; fi
+  out=$("$lookup" --forge "${forge:-none}" --origin "$origin" \
+    --branch "$BRANCH" --task-id "$ID" --timeout "${FM_SPAWN_FORGE_TIMEOUT:-30}" \
+    --github-hosts "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/github-hosts" 2>&1)
+  rc=$?
+  lines=$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    v = json.loads(sys.stdin.read())
+except Exception:
+    print("state\tunknown\tthe pull request lookup printed no answer"); sys.exit(0)
+if v.get("state") == "ok":
+    print("state\tok\t")
+    for p in v.get("prs", []):
+        # read splits on tabs and collapses empty fields, so an unknown head prints as "-".
+        print("pr\t%s\t%s\t%s\t%s\t%s" % (p["number"], p["url"], p["branch"], p.get("head") or "-", ",".join(p["why"])))
+elif v.get("state") == "skip":
+    print("state\tskip\t" + (v.get("notice") or ""))
+else:
+    print("state\tunknown\t" + ((v.get("provider") or "forge") + ": " + (v.get("error") or "unreadable")))' 2>/dev/null)
+  state=$(printf '%s\n' "$lines" | awk -F'\t' '$1 == "state" { print $2; exit }')
+  [ "$rc" -eq 0 ] || [ "$state" = unknown ] || state=unknown
+  case $state in
+  skip)
+    line=$(printf '%s\n' "$lines" | awk -F'\t' '$1 == "state" { print $3; exit }')
+    [ -z "$line" ] || echo "notice: duplicate-builder check skipped for $ID: $line" >&2
+    [ -z "${SPAWN_CONTINUE_PR:-}" ] || {
+      echo "error: spawn refused: --continue-pr $SPAWN_CONTINUE_PR needs a forge pull request, and $(basename "$PROJ_ABS") has none to read" >&2
+      return 1
+    }
+    return 0
+    ;;
+  ok) ;;
+  *)
+    line=$(printf '%s\n' "$lines" | awk -F'\t' '$1 == "state" { print $3; exit }')
+    [ -n "$line" ] || line=$(printf '%s' "$out" | tail -1)
+    if [ -n "${SPAWN_CONTINUE_PR:-}" ]; then
+      echo "notice: duplicate-builder check for $ID is UNKNOWN ($line); attaching to pull request $SPAWN_CONTINUE_PR's branch $BRANCH as --continue-pr asks" >&2
+      return 0
+    fi
+    echo "error: spawn refused: duplicate-builder check for $ID is UNKNOWN: $line; a fresh builder is never launched blind - retry when the forge answers, attach with --continue-pr <N>, or pass --no-forge-check <reason>" >&2
+    return 1
+    ;;
+  esac
+  while IFS=$'\t' read -r line number url branch head why; do
+    [ "$line" = pr ] || continue
+    if [ -n "${SPAWN_CONTINUE_PR:-}" ] && [ "$number" = "$SPAWN_CONTINUE_PR" ] && [ "$branch" = "$BRANCH" ]; then
+      SPAWN_CONTINUE_PR_URL=$url
+      [ "$head" = - ] || SPAWN_CONTINUE_PR_HEAD=$head
+      continue
+    fi
+    if [ -n "${SPAWN_CONTINUE_PR:-}" ] && [ "$number" = "$SPAWN_CONTINUE_PR" ]; then
+      echo "error: spawn refused: pull request $url is on branch $branch, not this task's branch $BRANCH; --continue-pr attaches only to a pull request on $BRANCH" >&2
+      return 1
+    fi
+    others="$others $url (branch $branch; $why)"
+  done <<EOF
+$lines
+EOF
+  if [ -n "$others" ]; then
+    echo "error: spawn refused: $ID already has an open pull request:$others - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>" >&2
+    return 1
+  fi
+  if [ -n "${SPAWN_CONTINUE_PR:-}" ] && [ -z "$SPAWN_CONTINUE_PR_URL" ]; then
+    echo "error: spawn refused: --continue-pr $SPAWN_CONTINUE_PR is not an open pull request on $BRANCH for $ID" >&2
+    return 1
+  fi
+  return 0
+}
+
 # Read-only checks of the per-task launch files a retained relaunch writes
 # after the stop. Each owner's check mode runs the same validation as the
 # write spawn performs: Devin hook config, polytoken config mirror, the Claude
