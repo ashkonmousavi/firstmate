@@ -548,7 +548,7 @@ deferred_pending() {
 # check_item <id>: 0 when launchable; else CHECK_ERR holds the refusal.
 check_item() {
   local id=$1
-  CHECK_ERR= P_HAS_PREP=0
+  CHECK_ERR='' P_HAS_PREP=0
   item_show "$id" || { CHECK_ERR="not prepared: backlog show failed"; return 1; }
   [ "$ITEM_HELD" != yes ] || { CHECK_ERR=held; return 1; }
   prep_read "$id" || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
