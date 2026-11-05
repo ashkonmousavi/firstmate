@@ -5178,58 +5178,78 @@ test_delivery_admission_preserves_running_agent() {
   done
 }
 
-# Project-wide Treehouse conditions that already hold when relaunch starts:
-# another spawn or cleanup holding the project lock, or reclaiming a stale one
-# through its steal mutex (both retryable), two other
-# records claiming one retained pool slot of the same project, and another
-# record claiming the relaunched task's own worktree.
+# Project-wide Treehouse conditions that already hold when relaunch starts.
+# Every project-lock state is built by the lock library itself; the busy ones
+# are the states fm_lock_try_acquire refuses (docs/agent-control.md step 2), so
+# relaunch must defer with 75 before the stop, while reclaimable dead states
+# stay admitted. Two other records claiming one retained pool slot, or another
+# record claiming the relaunched task's own worktree, refuse too.
 test_project_admission_preserves_running_agent() {
   local dir scenario out rc before after holder i
-  for scenario in project-lock steal-lock retained-slot own-worktree; do
+  for scenario in project-lock steal-lock live-reaper legacy-reaper plain-steal nested-steal \
+    dead-steal dead-reaper retained-slot own-worktree; do
     dir=$(new_case "project-admission-$scenario" pa1)
     add_ship_task "$dir" pa1 claude
-    mkdir -p "$dir/user-home"
+    mkdir -p "$dir/user-home" "$dir/pool"
     holder=
     case "$scenario" in
-      project-lock)
+      *-lock|*-reaper|*-steal)
         cat > "$dir/hold" <<'SH'
 #!/usr/bin/env bash
 . "$1/bin/fm-wake-lib.sh"
-lock=$(fm_treehouse_project_lock_path "$2/proj") || exit 1
-fm_lock_acquire_wait "$lock" || exit 1
-: > "$2/holder.ready"
-while [ ! -f "$2/holder.release" ]; do sleep 0.05; done
-fm_lock_release "$lock"
+case_dir=$2
+lock=$(fm_treehouse_project_lock_path "$case_dir/proj") || exit 1
+dead_create() { bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_try_create "$2"' _ "$ROOT_DIR" "$1"; }
+ROOT_DIR=$1
+ready() {
+  : > "$case_dir/holder.ready"
+  while [ ! -f "$case_dir/holder.release" ]; do sleep 0.05; done
+}
+case $3 in
+  project-lock) fm_lock_acquire_wait "$lock" || exit 1; ready; fm_lock_release "$lock"; exit 0 ;;
+esac
+dead_create "$lock" || exit 1
+case $3 in
+  steal-lock) fm_lock_try_create "$lock.steal" || exit 1; ready; fm_lock_release "$lock.steal" ;;
+  nested-steal) fm_lock_try_create "$lock.steal.steal" || exit 1; ready; fm_lock_release "$lock.steal.steal" ;;
+  plain-steal)
+    mkdir "$lock.steal" || exit 1
+    bash -c 'printf "%s\n" "$$"' > "$lock.steal/pid"
+    ready ;;
+  live-reaper)
+    dead_create "$lock.steal" || exit 1
+    sleep 3
+    rm() {
+      if [ "${!#}" = "$lock.steal" ]; then
+        : > "$case_dir/holder.ready"
+        while [ ! -f "$case_dir/holder.release" ]; do sleep 0.05; done
+      fi
+      command rm "$@"
+    }
+    fm_lock_reap_dead_link "$lock.steal" ;;
+  legacy-reaper|dead-reaper)
+    dead_create "$lock.steal" || exit 1
+    owner=$(fm_lock_link_owner "$lock.steal") || exit 1
+    if [ "$3" = legacy-reaper ]; then
+      reaper=${BASHPID:-$$}
+    else
+      reaper=$(bash -c 'printf "%s\n" "$$"')
+    fi
+    mv -- "$owner" "$owner.reaped.$reaper" || exit 1
+    sleep 3
+    ready ;;
+  dead-steal) dead_create "$lock.steal" || exit 1; ready ;;
+esac
 SH
-        FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" >/dev/null 2>&1 &
+        FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" "$scenario" >/dev/null 2>&1 &
         holder=$!
         for ((i = 0; i < 200; i++)); do
           [ ! -f "$dir/holder.ready" ] || break
           sleep 0.05
         done
-        [ -f "$dir/holder.ready" ] || fail 'the project lock holder did not acquire the lock'
-        ;;
-      steal-lock)
-        cat > "$dir/hold" <<'SH'
-#!/usr/bin/env bash
-. "$1/bin/fm-wake-lib.sh"
-lock=$(fm_treehouse_project_lock_path "$2/proj") || exit 1
-bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_try_create "$2"' _ "$1" "$lock" || exit 1
-fm_lock_try_create "$lock.steal" || exit 1
-: > "$2/holder.ready"
-while [ ! -f "$2/holder.release" ]; do sleep 0.05; done
-fm_lock_release "$lock.steal"
-SH
-        FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" >/dev/null 2>&1 &
-        holder=$!
-        for ((i = 0; i < 200; i++)); do
-          [ ! -f "$dir/holder.ready" ] || break
-          sleep 0.05
-        done
-        [ -f "$dir/holder.ready" ] || fail 'the steal mutex holder did not acquire the mutex'
+        [ -f "$dir/holder.ready" ] || fail "$scenario: the lock fixture was not ready"
         ;;
       retained-slot)
-        mkdir -p "$dir/pool"
         printf '{}\n' > "$dir/pool/treehouse-state.json"
         git -C "$dir/proj" worktree add --quiet -b retained-slot "$dir/pool/2/proj"
         printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/pool/2/proj" "$dir/proj" > "$dir/home/state/pb1.meta"
@@ -5239,27 +5259,31 @@ SH
         printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/wt" "$dir/proj" > "$dir/home/state/pz1.meta"
         ;;
     esac
-    mkdir -p "$dir/pool"
     before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
     out=$(run_control "$dir" pa1 relaunch --note 'continue the task'); rc=$?
     after=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
     if [ -n "$holder" ]; then
       : > "$dir/holder.release"
-      wait "$holder" || fail 'the project lock holder failed'
+      wait "$holder" || fail "$scenario: the lock fixture failed"
       rm -f "$dir/holder.ready" "$dir/holder.release"
     fi
     case "$scenario" in
-      project-lock|steal-lock)
-        expect_code 75 "$rc" "$scenario: a busy project lock must defer the relaunch: $out"
-        assert_contains "$out" "another Treehouse slot allocation or return is in progress for $dir/proj" "$scenario: wrong project-lock refusal" ;;
+      dead-steal|dead-reaper)
+        expect_code 0 "$rc" "$scenario: a reclaimable project lock must stay admitted: $out"
+        pass "project admission admits $scenario and the replacement reclaims the lock"
+        continue
+        ;;
       retained-slot)
         expect_code 1 "$rc" "a contested retained slot must refuse the relaunch: $out"
         assert_contains "$out" "is also task pc1's recorded worktree" 'wrong retained-slot refusal' ;;
       own-worktree)
         expect_code 1 "$rc" "a shared own worktree must refuse the relaunch: $out"
         assert_contains "$out" "recorded worktree $dir/wt is also task pz1's recorded worktree" 'wrong own-worktree refusal' ;;
+      *)
+        expect_code 75 "$rc" "$scenario: a busy project lock must defer the relaunch: $out"
+        assert_contains "$out" "another Treehouse slot allocation or return is in progress for $dir/proj" "$scenario: wrong project-lock refusal" ;;
     esac
-    assert_equals "$before" "$after" "$scenario: pre-stop refusal changed the home, project, worktree or pool"
+    assert_equals "$before" "$after" "$scenario: pre-stop refusal changed the home (including its locks), project, worktree or pool"
     assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
     assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
     pass "project admission refuses $scenario before stopping the running agent"
@@ -5345,6 +5369,55 @@ SH
   done
 }
 
+# A ship task on firstmate's own repository publishes only under this home's
+# maintainer scope or the task's recorded upstream consent for the publication
+# target (docs/configuration.md "Firstmate role"). The code root here shares the
+# project's history and the project's origin names github.com/acme/firstmate, so
+# the role gate itself decides; a refusal must come before the stop.
+test_publication_admission_preserves_running_agent() {
+  local dir scenario out rc before after meta brief
+  local denial='this home runs as firstmate user/operator and holds no publication authority for github.com/acme/firstmate'
+  for scenario in user-role consent-mismatch maintainer consent-match; do
+    dir=$(new_case "publication-admission-$scenario" pu1)
+    add_ship_task "$dir" pu1 claude
+    mkdir -p "$dir/user-home"
+    meta="$dir/home/state/pu1.meta" brief="$dir/home/data/pu1/brief.md"
+    printf -- '- proj [no-mistakes] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+    make_admission_fixture_root "$dir"
+    ln -s "$ROOT/.agents" "$dir/root/.agents"
+    git -C "$dir/root" init -q
+    git -C "$dir/root" fetch -q "$dir/proj" HEAD
+    git -C "$dir/root" update-ref refs/heads/main FETCH_HEAD
+    git -C "$dir/root" symbolic-ref HEAD refs/heads/main
+    git -C "$dir/proj" remote set-url origin https://github.com/acme/firstmate.git
+    case "$scenario" in
+      consent-mismatch|consent-match)
+        local consent=github.com/acme/other
+        [ "$scenario" = consent-mismatch ] || consent=github.com/acme/firstmate
+        printf 'upstream_consent=%s\n' "$consent" >> "$meta"
+        printf 'Delivery contract: mode=no-mistakes upstream-consent=%s\n' "$consent" >> "$brief"
+        ;;
+      maintainer) printf 'maintainer github.com/acme/firstmate\n' > "$dir/home/config/firstmate-role" ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    out=$(FM_ROOT_OVERRIDE="$dir/root" CONTROL="$dir/root/bin/fm-control.sh" run_control "$dir" pu1 relaunch --note 'continue the task'); rc=$?
+    after=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    case "$scenario" in
+      maintainer|consent-match)
+        expect_code 0 "$rc" "$scenario: granted publication authority must stay admitted: $out"
+        pass "publication admission admits $scenario"
+        continue
+        ;;
+    esac
+    expect_code 1 "$rc" "$scenario: missing publication authority must refuse the relaunch: $out"
+    assert_contains "$out" "spawn refused for pu1: $denial" "$scenario: wrong publication refusal"
+    assert_equals "$before" "$after" "$scenario: pre-stop refusal changed the home, project, worktree or endpoint"
+    assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
+    pass "publication admission refuses $scenario before stopping the running agent"
+  done
+}
+
 test_relaunch_admission_refusal_preserves_running_agent() {
   local dir out rc why meta brief backlog before
   for why in backlog capacity; do
@@ -5391,6 +5464,7 @@ test_registry_pr_policy_change_refuses_before_stop
 test_delivery_admission_preserves_running_agent
 test_project_admission_preserves_running_agent
 test_retained_copy_admission_preserves_running_agent
+test_publication_admission_preserves_running_agent
 test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
