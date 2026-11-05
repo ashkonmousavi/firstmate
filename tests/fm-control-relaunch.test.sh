@@ -5179,12 +5179,13 @@ test_delivery_admission_preserves_running_agent() {
 }
 
 # Project-wide Treehouse conditions that already hold when relaunch starts:
-# another spawn or cleanup holding the project lock (retryable), two other
+# another spawn or cleanup holding the project lock, or reclaiming a stale one
+# through its steal mutex (both retryable), two other
 # records claiming one retained pool slot of the same project, and another
 # record claiming the relaunched task's own worktree.
 test_project_admission_preserves_running_agent() {
   local dir scenario out rc before after holder i
-  for scenario in project-lock retained-slot own-worktree; do
+  for scenario in project-lock steal-lock retained-slot own-worktree; do
     dir=$(new_case "project-admission-$scenario" pa1)
     add_ship_task "$dir" pa1 claude
     mkdir -p "$dir/user-home"
@@ -5208,6 +5209,25 @@ SH
         done
         [ -f "$dir/holder.ready" ] || fail 'the project lock holder did not acquire the lock'
         ;;
+      steal-lock)
+        cat > "$dir/hold" <<'SH'
+#!/usr/bin/env bash
+. "$1/bin/fm-wake-lib.sh"
+lock=$(fm_treehouse_project_lock_path "$2/proj") || exit 1
+bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_try_create "$2"' _ "$1" "$lock" || exit 1
+fm_lock_try_create "$lock.steal" || exit 1
+: > "$2/holder.ready"
+while [ ! -f "$2/holder.release" ]; do sleep 0.05; done
+fm_lock_release "$lock.steal"
+SH
+        FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" >/dev/null 2>&1 &
+        holder=$!
+        for ((i = 0; i < 200; i++)); do
+          [ ! -f "$dir/holder.ready" ] || break
+          sleep 0.05
+        done
+        [ -f "$dir/holder.ready" ] || fail 'the steal mutex holder did not acquire the mutex'
+        ;;
       retained-slot)
         mkdir -p "$dir/pool"
         printf '{}\n' > "$dir/pool/treehouse-state.json"
@@ -5229,9 +5249,9 @@ SH
       rm -f "$dir/holder.ready" "$dir/holder.release"
     fi
     case "$scenario" in
-      project-lock)
-        expect_code 75 "$rc" "a held project lock must defer the relaunch: $out"
-        assert_contains "$out" "another Treehouse slot allocation or return is in progress for $dir/proj" 'wrong project-lock refusal' ;;
+      project-lock|steal-lock)
+        expect_code 75 "$rc" "$scenario: a busy project lock must defer the relaunch: $out"
+        assert_contains "$out" "another Treehouse slot allocation or return is in progress for $dir/proj" "$scenario: wrong project-lock refusal" ;;
       retained-slot)
         expect_code 1 "$rc" "a contested retained slot must refuse the relaunch: $out"
         assert_contains "$out" "is also task pc1's recorded worktree" 'wrong retained-slot refusal' ;;
@@ -5243,6 +5263,85 @@ SH
     assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
     assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
     pass "project admission refuses $scenario before stopping the running agent"
+  done
+}
+
+# A retained pool copy recorded by another task must be protectable before the
+# stop: Treehouse status readable, exactly one entry for the copy, and either an
+# existing durable lease or a Treehouse that can grant one. Admitted copies are
+# leased only by spawn, after the stop.
+test_retained_copy_admission_preserves_running_agent() {
+  local dir scenario out rc before after slot expected
+  for scenario in status-unreadable status-malformed entry-missing entry-duplicate lease-version lease-options durable-lease legacy-lease; do
+    dir=$(new_case "retained-copy-$scenario" pa1)
+    add_ship_task "$dir" pa1 claude
+    mkdir -p "$dir/user-home" "$dir/pool" "$dir/th"
+    printf '{}\n' > "$dir/pool/treehouse-state.json"
+    git -C "$dir/proj" worktree add --quiet -b retained-copy "$dir/pool/2/proj"
+    slot=$(cd "$dir/pool/2/proj" && pwd -P)
+    printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/pool/2/proj" "$dir/proj" > "$dir/home/state/pb1.meta"
+    printf 'v3.1.8\n' > "$dir/th/version"
+    printf '%s\n' '--lease --lease-holder --json' > "$dir/th/get-help"
+    jq -n --arg path "$slot" '[{path:$path,status:"available",lease_id:"",leased_at:null}]' > "$dir/th/status"
+    cat > "$dir/fakebin/treehouse" <<SH
+#!/usr/bin/env bash
+TH="$dir/th"
+SH
+    cat >> "$dir/fakebin/treehouse" <<'SH'
+case "$*" in
+  --version) cat "$TH/version"; exit 0 ;;
+  'get --help') cat "$TH/get-help"; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
+if [ "${1:-}" = --root ]; then shift 2; fi
+case "${1:-}" in
+  status) [ ! -e "$TH/status-fails" ] || exit 1; cat "$TH/status"; exit 0 ;;
+  lease)
+    printf '%s agent=%s\n' "$*" "$(cat "$FM_FAKE_DIR/command")" >> "$TH/log"
+    jq -n --arg path "$(jq -r '.[0].path' "$TH/status")" '{path:$path,lease_id:"held-lease"}'
+    exit 0 ;;
+esac
+exit 1
+SH
+    chmod +x "$dir/fakebin/treehouse"
+    expected="REFUSED: cannot durably protect retained copy $dir/pool/2/proj ($dir/home/state/pb1.meta); no new copy was acquired"
+    case "$scenario" in
+      status-unreadable) : > "$dir/th/status-fails" ;;
+      status-malformed) printf 'not json\n' > "$dir/th/status" ;;
+      entry-missing) printf '[]\n' > "$dir/th/status" ;;
+      entry-duplicate)
+        jq -n --arg path "$slot" '[{path:$path,status:"available"},{path:$path,status:"available"}]' > "$dir/th/status" ;;
+      lease-version) printf 'v3.1.7\n' > "$dir/th/version" ;;
+      lease-options) printf '%s\n' '--lease-holder --json' > "$dir/th/get-help" ;;
+      durable-lease)
+        printf 'v3.1.7\n' > "$dir/th/version"
+        jq -n --arg path "$slot" '[{path:$path,status:"leased",lease_id:"kept-lease",leased_at:"2026-11-04T00:00:00Z"}]' > "$dir/th/status" ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
+    out=$(run_control "$dir" pa1 relaunch --note 'continue the task'); rc=$?
+    case "$scenario" in
+      durable-lease)
+        expect_code 0 "$rc" "an existing durable lease must stay admitted: $out"
+        assert_absent "$dir/th/log" 'an existing durable lease was replaced'
+        ;;
+      legacy-lease)
+        expect_code 0 "$rc" "a legacy copy on a lease-capable Treehouse must stay admitted: $out"
+        assert_equals "lease 2 --lease-holder pb1 --json agent=zsh" "$(cat "$dir/th/log")" 'the legacy copy must be leased once, only after the stop'
+        ;;
+      *)
+        after=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
+        expect_code 1 "$rc" "$scenario: an unprotectable retained copy must refuse the relaunch: $out"
+        assert_contains "$out" "$expected" "$scenario: wrong retained-copy refusal"
+        case "$scenario" in lease-version|lease-options)
+          assert_contains "$out" 'REFUSED: Treehouse v3.1.8 with durable leases is required' "$scenario: wrong capability refusal" ;;
+        esac
+        assert_absent "$dir/th/log" "$scenario: a lease was taken"
+        assert_equals "$before" "$after" "$scenario: pre-stop refusal changed the home, project, worktree or pool"
+        assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
+        assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
+        ;;
+    esac
+    pass "retained-copy admission handles $scenario before stopping the running agent"
   done
 }
 
@@ -5291,6 +5390,7 @@ test_claude_trust_check_uses_the_selected_account_store
 test_registry_pr_policy_change_refuses_before_stop
 test_delivery_admission_preserves_running_agent
 test_project_admission_preserves_running_agent
+test_retained_copy_admission_preserves_running_agent
 test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs

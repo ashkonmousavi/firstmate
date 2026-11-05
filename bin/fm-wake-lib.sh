@@ -838,13 +838,15 @@ fm_lock_recheck_stale_owner() {
   fi
   actual_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
   [ "$actual_pid" = "$expected_pid" ] || return 1
-  if fm_lock_holder_alive "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  return 0
+  ! fm_lock_holder_busy "$lockdir" "$actual_pid"
+}
+
+# True when <lockdir>'s steal mutex has a busy holder, so no acquirer can
+# reclaim <lockdir> now; read-only.
+fm_lock_steal_busy() { # <lockdir>
+  local steal="$1.steal"
+  [ -e "$steal" ] || [ -L "$steal" ] || return 1
+  fm_lock_holder_busy "$steal" "$(cat "$steal/pid" 2>/dev/null || true)"
 }
 
 FM_RECOVERY_MARKER_TOKEN=

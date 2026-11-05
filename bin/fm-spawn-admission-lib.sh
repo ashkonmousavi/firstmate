@@ -525,14 +525,18 @@ fm_spawn_project_lock_busy() { # <project-dir>
   return 75
 }
 
-# Read-only: refuses when another live spawn or cleanup holds the project lock.
+# Read-only: refuses when another live spawn or cleanup holds the project lock
+# or is reclaiming it through its steal mutex.
 fm_spawn_project_lock_admit() { # <project-dir>
-  local holder
+  local lock holder
   fm_spawn_project_lock_applies || return 0
   fm_spawn_project_lock_resolve "$1" || return 1
-  [ -e "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] || [ -L "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] || return 0
-  holder=$(cat "$SPAWN_TREEHOUSE_PROJECT_LOCK/pid" 2>/dev/null || true)
-  fm_lock_holder_busy "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$holder" || return 0
+  lock=$SPAWN_TREEHOUSE_PROJECT_LOCK
+  if [ -e "$lock" ] || [ -L "$lock" ]; then
+    holder=$(cat "$lock/pid" 2>/dev/null || true)
+    fm_lock_holder_busy "$lock" "$holder" && { fm_spawn_project_lock_busy "$1"; return; }
+  fi
+  fm_lock_steal_busy "$lock" || return 0
   fm_spawn_project_lock_busy "$1"
 }
 

@@ -88,8 +88,9 @@ fm_worktree_require_recorded_branch() { # <meta> <worktree>
 # Upgrade a process reservation to Treehouse's state-only durable lease. Unlike
 # interactive get, it survives shell exit without detaching/resetting the copy.
 # Existing durable leases are already protective and are never replaced.
-fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
-  local project=$1 worktree=$2 id=$3 slot pool root entry status leased lease
+# The check mode runs every refusal up to the lease without taking it.
+fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id> [check]
+  local project=$1 worktree=$2 id=$3 mode=${4:-} slot pool root entry status leased lease
   FM_TREEHOUSE_NEW_LEASE_ID=
   fm_treehouse_pool_slot "$project" "$worktree" || return 0
   slot=$(CDPATH='' cd -- "$worktree" && pwd -P) || return 1
@@ -107,6 +108,7 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
     echo "REFUSED: Treehouse v$FM_TREEHOUSE_VERSION with durable leases is required" >&2
     return 1
   }
+  [ "$mode" != check ] || return 0
   lease=$(cd "$project" && treehouse --root "$root" lease "$(basename "$(dirname "$slot")")" --lease-holder "$id" --json) || return 1
   [ "$(printf '%s\n' "$lease" | jq -er '.path')" = "$slot" ] || return 1
   # shellcheck disable=SC2034 # The allocating caller owns conditional rollback.
@@ -137,8 +139,7 @@ fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
       path=$(fm_meta_get "$meta" worktree)
       fm_treehouse_pool_slot "$project" "$path" || continue
       fm_worktree_require_exclusive_record "$state" "$path" "$meta" || return 1
-      [ "$mode" != check ] || continue
-      fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" || {
+      fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" "$mode" || {
         echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
         return 1
       }
