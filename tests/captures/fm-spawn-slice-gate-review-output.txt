@@ -1,0 +1,15 @@
+2026-11-05T13:34:33Z
+Linux
+Bash 5.2.21(1)-release
+Python 3.12.3
+4bc38227281edcc94b185d94c426a2663536f2f7e0382bab463b71817a072af9  /mnt/c/Users/Tegri/.codex/skills/vertical-slicing/scripts/slicing.py
+FM_TEST_SLICE_VALIDATOR=/mnt/c/Users/Tegri/.codex/skills/vertical-slicing/scripts/slicing.py bash tests/fm-spawn-slice-gate.test.sh
+ok - fm-spawn: an enforce home refuses a fresh ship with no SLICE line before any record exists
+ok - fm-spawn: an enforce home launches a ship whose brief and prep declare its slice
+ok - fm-spawn: an observe home reports a missing SLICE line and launches
+ok - fm-spawn: no policy and scouts bypass; a missing validator refuses in enforce and is reported in observe
+ok - fm-spawn: unlisted projects launch in every mode when validation yields no result
+ok - fm-spawn: listed projects and unreadable project lists retain their no-result mode behavior
+ok - fm-spawn: a relaunch in an enforce home does not consult the slice gate (relaunch exit 0)
+ok - fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, only reports in observe, and lets a project the enforce policy does not list launch
+# all fm-spawn-slice-gate tests passed
