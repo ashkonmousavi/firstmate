@@ -744,6 +744,15 @@ CONTROL_LOCK_HELD=1
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never tear
 # down a worktree (see bin/fm-gate-refuse-lib.sh).
 fm_refuse_if_gate_agent
+# A plan lead remains recoverable in its same copy until deploy AND installed
+# checks prove its merged head. --force does not waive unfinished stage proof.
+if [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/plan-leads.json" ] \
+  || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/plan-leads.json" ]; then
+  "$SCRIPT_DIR/fm-stage-transition.sh" can-close "$ID" || {
+    echo "error: teardown refused: plan lead stage proof is incomplete" >&2
+    exit 1
+  }
+fi
 FM_LOCK_LOG_PREFIX=teardown
 
 fm_backlog_record_present "$META" "task record" "$STATE" || {

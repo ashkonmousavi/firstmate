@@ -8,7 +8,11 @@
 #                                         [--effort <level>] [--if-recoverable]
 #                                         [--step-action <owner>:<action-id>]
 #                                         [--quota-override <reason>]
+#                                         [--if-stopped]
 #                                         (--note <text> | --note-file <path>)
+#
+# --if-stopped refuses unless the plan-stage eligibility adapter confirms an
+# unheld, undeclared-wait task with no live agent, under the lifecycle lock.
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
 # DATA plane: conversational text for the agent to read, always routing-marked
@@ -334,6 +338,7 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+IF_STOPPED=0
 QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
@@ -374,6 +379,7 @@ for control_arg in "$@"; do
     --if-idle) IF_IDLE=1 ;;
     --landed-work) LANDED_WORK=1 ;;
     --expect-spawn-gen) control_want_value=expect_gen ;;
+    --if-stopped) IF_STOPPED=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -407,7 +413,7 @@ fi
 
 if [ "$VERB" != relaunch ]; then
   [ -z "$STEP_ACTION" ] || die "--step-action applies to relaunch only"
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
+  [ "$IF_STOPPED" = 0 ] && [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
     || die "--harness, --model, --effort, --note, --quota-override, and --if-recoverable apply to 'relaunch' only"
 fi
 [ -z "$STEP_ACTION" ] || [ "$RECOVER_ONLY" = 1 ] || die "--step-action requires --if-recoverable"
@@ -1684,6 +1690,14 @@ do_relaunch() {
     *) die "task $ID's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on $BACKEND); refusing to relaunch" ;;
   esac
   require_state_verified_backend relaunch
+  if [ "$IF_STOPPED" = 1 ]; then
+    state=$("$SCRIPT_DIR/fm-stage-transition.sh" _eligible "$ID") \
+      || die "task $ID stopped-only relaunch eligibility is unknown"
+    if [ "$state" != eligible ]; then
+      echo "deferred: task $ID stopped-only relaunch refused: $state"
+      return 3
+    fi
+  fi
   fm_control_backend_relaunch_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, where a thread keeps its conversation and a new turn or provider change continues the same agent, so no fresh replacement can be launched into its endpoint; 'interrupt' ends its turn, and a fresh task needs a teardown and a new dispatch"
   if [ "$(agent_state)" = alive ]; then

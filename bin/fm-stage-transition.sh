@@ -1,0 +1,447 @@
+#!/usr/bin/env bash
+# Reconcile ended plan leads through PR, deploy and installed-check stages.
+# Usage: fm-stage-transition.sh arm | check | can-close <task-id>
+# One authenticated watcher check per home; no daemon and no waiting worker.
+# fm-pr-check.sh arms it when config/plan-leads.json exists. The plan owner
+# supplies {"schema":1,"tasks":{"task-id":{"deploy_check":"check-id",
+# "installed_check":"check-id","deploy_workflow":"deploy.yml"}}}.
+# deploy_check or deploy_workflow supplies deployment proof (not both).
+# Optional queue_check reads a non-GitHub queue's registered head-bound drop
+# verdict (red with a native event identity); native GitHub drops are also read.
+# Tasks are explicit local ship leads; unlisted tasks retain existing behavior.
+# Optional per-task relaunch_cap defaults to 3 attempts/hour/head/event class.
+# due (epoch), next_step (text), task and estimate (seconds) are carried in
+# state/.stage-transitions.json for the plan owner's wait-line renderer.
+#
+# A registered deploy/installed check is run from its authenticated snapshot
+# with FM_STAGE_TASK and FM_STAGE_HEAD and must print a JSON object:
+# {"head":"<exact PR/merged sha>","status":"green|red|pending|unknown",
+#  "event":"<stable result/attempt identity>","reason":"<explanation>"}.
+# A check's exit=0 alone is NOT green. Missing configuration, missing checks,
+# wrong heads, skipped runs and unreadable dependencies remain UNKNOWN.
+# GitHub reads use gh-axi's documented API path and base64 scalar transport;
+# other forges remain UNKNOWN. No forge mutation or manual deploy is issued.
+#
+# Transitions use task+event+head; event includes its native attempt identity.
+# A reservation is atomically saved before relaunch. A crash after reservation
+# leaves outcome=reserved (UNKNOWN), requiring operator reconciliation rather
+# than risking a duplicate launch. Failed launches are recorded and surfaced,
+# never silently retried. Duplicate observations increment duplicate_count.
+# Ledger completion licenses teardown; only teardown closes the backlog row.
+# _eligible and _receipt are internal shell-library adapters, also used by the
+# control plane for its under-lock stopped-only precondition.
+set -eu
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}}"
+STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+export FM_HOME
+
+case "${1:-}" in
+  _run)
+    # shellcheck source=bin/fm-timeout-lib.sh
+    . "$SCRIPT_DIR/fm-timeout-lib.sh"
+    shift
+    seconds=$1
+    shift
+    fm_exec_timed "$seconds" 1 "$@"
+    ;;
+  _eligible)
+    # shellcheck source=bin/fm-backend.sh
+    . "$SCRIPT_DIR/fm-backend.sh"
+    # shellcheck source=bin/fm-classify-lib.sh
+    . "$SCRIPT_DIR/fm-classify-lib.sh"
+    # shellcheck source=bin/fm-tasks-axi-lib.sh
+    . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+    id=${2:-}
+    fm_pr_task_id_valid "$id" || exit 2
+    meta="$STATE/$id.meta"
+    fm_backend_validate_task_endpoint "$meta" "$id" >/dev/null 2>&1 \
+      || { echo unknown; exit; }
+    [ "$(fm_meta_get "$meta" kind)" = ship ] \
+      && [ -z "$(fm_meta_get "$meta" remote_host)" ] \
+      || { echo unknown; exit; }
+    line=$(status_current_line "$STATE/$id.status" ship)
+    if status_is_paused "$line"; then echo paused; exit; fi
+    case "$(status_line_verb "$line")" in
+      needs-decision|blocked) echo held; exit ;;
+    esac
+    fm_backlog_row_probe "${FM_DATA_OVERRIDE:-$FM_HOME/data}" "$id" \
+      || { echo unknown; exit; }
+    case "$FM_BACKLOG_ROW_STATE" in
+      'in_flight no no'|'queued no no') ;;
+      *) echo held; exit ;;
+    esac
+    current=$(FM_CREW_STATE_NO_FORGE=1 "$SCRIPT_DIR/fm-crew-state.sh" "$id")
+    case "$current" in
+      'state: paused '*|'state: parked '*|'state: blocked '*) echo paused; exit ;;
+      'state: working '*) echo live; exit ;;
+    esac
+    case "$(fm_backend_agent_state "$FM_BACKEND_VALIDATED_BACKEND" "$FM_BACKEND_VALIDATED_TARGET")" in
+      dead|missing) echo eligible ;;
+      alive) echo live ;;
+      *) echo unknown ;;
+    esac
+    exit ;;
+  _receipt)
+    # shellcheck source=bin/fm-pr-lib.sh
+    . "$SCRIPT_DIR/fm-pr-lib.sh"
+    # shellcheck source=bin/fm-check-lib.sh
+    . "$SCRIPT_DIR/fm-check-lib.sh"
+    [ "$#" = 4 ] || exit 2
+    fm_custom_check_snapshot_prepare "$STATE" "$2" || exit 1
+    trap fm_custom_check_snapshot_cleanup EXIT
+    FM_STAGE_TASK=$3 FM_STAGE_HEAD=$4 bash "$FM_CUSTOM_CHECK_SNAPSHOT"
+    exit ;;
+esac
+
+exec python3 - "$SCRIPT_DIR" "$STATE" "$@" <<'PY'
+import base64
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+from urllib.parse import quote
+
+scripts, state, *args = sys.argv[1:]
+scripts, state = Path(scripts), Path(state)
+home = Path(os.environ['FM_HOME']).resolve()
+config = Path(os.environ.get('FM_CONFIG_OVERRIDE', home / 'config')) / 'plan-leads.json'
+ledger = state / '.stage-transitions.json'
+ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]*')
+SHA = re.compile(r'(?:[0-9a-f]{40}|[0-9a-f]{64})')
+RED = {'failure', 'error', 'timed_out', 'cancelled', 'action_required', 'startup_failure'}
+
+
+class DependencyError(ValueError):
+    def __init__(self, command, code):
+        super().__init__('dependency refused: ' + Path(command).name)
+        self.code = code
+
+
+def read_json(path):
+    if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
+        raise ValueError('unavailable ordinary file: ' + path.name)
+    return json.loads(path.read_text())
+
+
+def save(value):
+    if ledger.is_symlink() or (ledger.exists() and ledger.stat().st_nlink != 1):
+        raise ValueError('unsafe stage ledger')
+    fd, name = tempfile.mkstemp(prefix='.stage-write-', dir=state)
+    try:
+        with os.fdopen(fd, 'w') as out:
+            json.dump(value, out, sort_keys=True, separators=(',', ':'))
+            out.write('\n')
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(name, ledger)
+        directory = os.open(state, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def run(command, timeout=5):
+    # The existing timeout owner bounds descendants and handles owner death.
+    # A timed-out control call may have published, so keep its reservation.
+    result = subprocess.run([str(scripts / 'fm-stage-transition.sh'), '_run', str(timeout)]
+                            + [str(v) for v in command], stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, text=True)
+    if result.returncode:
+        raise DependencyError(command[0], result.returncode)
+    return result.stdout.strip()
+
+
+def api(endpoint, query=None):
+    command = ['gh-axi', 'api', 'POST' if query else 'GET', endpoint,
+               '--jq', 'tojson | @base64', '--full']
+    if query:
+        command += ['--raw-field', 'query=' + query]
+    return json.loads(base64.b64decode(run(command), validate=True))
+
+
+def metadata(task):
+    path = state / (task + '.meta')
+    if path.is_symlink() or not path.is_file():
+        raise ValueError('task metadata unavailable')
+    values = {}
+    for line in path.read_text().splitlines():
+        key, sep, value = line.partition('=')
+        if sep:
+            values[key] = value
+    if values.get('kind') != 'ship' or values.get('remote_host'):
+        raise ValueError('not a local ship lead')
+    return values
+
+
+def receipt(check, task, head):
+    if not check:
+        return {'status': 'unknown', 'reason': 'no registered check configured'}
+    if not isinstance(check, str) or not ID.fullmatch(check) or check == 'plan-stages':
+        raise ValueError('invalid stage check id')
+    result = json.loads(run([scripts / 'fm-stage-transition.sh', '_receipt', check, task, head]))
+    if result.get('head') != head:
+        raise ValueError('check result does not match merged head: ' + check)
+    if result.get('status') not in {'green', 'red', 'pending', 'unknown'}:
+        raise ValueError('unreadable stage verdict: ' + check)
+    if not isinstance(result.get('event'), str) or not result['event']:
+        raise ValueError('stage check has no event identity: ' + check)
+    return result
+
+
+def deployment(settings, repo, task, head):
+    workflow = settings.get('deploy_workflow')
+    if not workflow:
+        return receipt(settings.get('deploy_check'), task, head)
+    if settings.get('deploy_check'):
+        raise ValueError('choose deploy_workflow or deploy_check')
+    result = api('/repos/' + repo + '/actions/workflows/' + quote(workflow, safe='')
+                 + '/runs?head_sha=' + head + '&per_page=1')
+    runs = result['workflow_runs']
+    if not runs:
+        return {'status': 'unknown', 'reason': 'no deploy run for merged head'}
+    row = runs[0]
+    if row['head_sha'] != head:
+        raise ValueError('deploy run does not match merged head')
+    verdict = 'pending'
+    if row['status'] == 'completed':
+        verdict = 'green' if row['conclusion'] == 'success' else (
+            'red' if row['conclusion'] in RED else 'unknown')
+    return {'status': verdict, 'head': head,
+            'event': str(row['id']) + ':' + str(row['run_attempt']),
+            'reason': 'workflow ' + workflow}
+
+
+def proof(call):
+    try:
+        return call()
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'status': 'unknown', 'reason': str(exc)}
+
+
+def observe(settings, task, meta):
+    url = meta.get('pr', '')
+    match = re.fullmatch(r'https://github.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)', url)
+    if not match:
+        raise ValueError('no supported canonical PR recorded')
+    repo, number = match.groups()
+    row = api('/repos/' + repo + '/pulls/' + number)
+    if row['html_url'] != url or str(row['number']) != number:
+        raise ValueError('PR identity mismatch')
+    head = row['head']['sha']
+    if not SHA.fullmatch(head):
+        raise ValueError('invalid PR head')
+    events = []
+    if row['merged'] is True:
+        merged = row['merge_commit_sha']
+        if not isinstance(merged, str) or not SHA.fullmatch(merged):
+            raise ValueError('merged commit unavailable')
+        events.append(('merged', str(number), merged))
+        deploy = proof(lambda: deployment(settings, repo, task, merged))
+        installed = proof(lambda: receipt(settings.get('installed_check'), task, merged))
+        for kind, result in [('deploy-red', deploy), ('installed-red', installed)]:
+            if result['status'] == 'red':
+                events.append((kind, result['event'], merged))
+        green = deploy['status'] == installed['status'] == 'green'
+        detail = 'deploy=' + deploy['status'].upper() + ' installed=' + installed['status'].upper()
+        detail += '; ' + str(deploy.get('reason', '')) + '; ' + str(installed.get('reason', ''))
+        return events, merged, green, detail
+    if row['state'] != 'open':
+        raise ValueError('PR closed without merge')
+    unknown = []
+    try:
+        checks = api('/repos/' + repo + '/commits/' + head + '/check-runs?filter=latest&per_page=100')
+        for check in checks['check_runs']:
+            if check['head_sha'] != head:
+                raise ValueError('PR check head mismatch')
+            if check['conclusion'] in RED:
+                events.append(('pr-red', str(check['id']) + ':' + str(check['completed_at']), head))
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        unknown.append(str(exc))
+    try:
+        statuses = api('/repos/' + repo + '/commits/' + head + '/status')
+        if statuses['sha'] != head:
+            raise ValueError('commit status head mismatch')
+        for status in statuses['statuses']:
+            if status['state'] in RED:
+                events.append(('pr-red', 'status:' + str(status['id']), head))
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        unknown.append(str(exc))
+    owner, name = repo.split('/')
+    query = ('query { repository(owner:' + json.dumps(owner) + ',name:' + json.dumps(name)
+             + ') { pullRequest(number:' + number + ') { timelineItems(last:100,'
+             'itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes {'
+             ' ... on RemovedFromMergeQueueEvent { id beforeCommit { oid } } } } } } }')
+    try:
+        drops = api('graphql', query)['data']['repository']['pullRequest']['timelineItems']['nodes']
+        for drop in drops:
+            if (drop.get('beforeCommit') or {}).get('oid') == head:
+                events.append(('queue-drop', drop['id'], head))
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        unknown.append(str(exc))
+    if settings.get('queue_check'):
+        drop = proof(lambda: receipt(settings['queue_check'], task, head))
+        if drop['status'] == 'red':
+            events.append(('queue-drop', 'check:' + drop['event'], head))
+        elif drop['status'] == 'unknown':
+            unknown.append('queue check: ' + str(drop.get('reason', 'unknown result')))
+    return events, head, False, 'PR watch; no deploy proof before merge' + (
+        '; UNKNOWN: ' + '; '.join(unknown) if unknown else '')
+
+
+def main():
+    if not args or args[0] not in {'arm', 'check', 'can-close'}:
+        raise ValueError('usage: fm-stage-transition.sh arm | check | can-close <task>')
+    action = args[0]
+    if not config.exists() and not config.is_symlink():
+        return
+    settings = read_json(config)
+    if settings.get('schema') != 1 or not isinstance(settings.get('tasks'), dict):
+        raise ValueError('invalid plan-leads schema')
+    tasks = settings['tasks']
+    for task, item in tasks.items():
+        if not ID.fullmatch(task) or not isinstance(item, dict):
+            raise ValueError('invalid plan lead')
+        cap = item.get('relaunch_cap', 3)
+        if type(cap) is not int or not 1 <= cap <= 20:
+            raise ValueError('invalid relaunch cap for ' + task)
+    if action == 'arm':
+        state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shim = state / 'plan-stages.check.sh'
+        if shim.is_symlink():
+            raise ValueError('unsafe stage check shim')
+        fd, name = tempfile.mkstemp(prefix='.stage-shim-', dir=state)
+        with os.fdopen(fd, 'w') as out:
+            out.write('#!/usr/bin/env bash\nexec env FM_HOME=' + shlex.quote(str(home))
+                      + ' FM_STATE_OVERRIDE=' + shlex.quote(str(state))
+                      + ' FM_CONFIG_OVERRIDE=' + shlex.quote(str(config.parent)) + ' '
+                      + shlex.quote(str(scripts / 'fm-stage-transition.sh')) + ' check\n')
+        os.chmod(name, 0o700)
+        os.replace(name, shim)
+        run([scripts / 'fm-check-register.sh', 'plan-stages'])
+        return
+    if action == 'can-close' and args[1] not in tasks:
+        return
+    data = read_json(ledger) if ledger.exists() else {'schema': 1, 'home': str(home), 'tasks': {}}
+    if data.get('schema') != 1 or data.get('home') != str(home) or not isinstance(data.get('tasks'), dict):
+        raise ValueError('stage ledger schema/home mismatch')
+    if action == 'can-close':
+        task = args[1]
+        if task not in tasks:
+            return
+        current = data['tasks'].get(task, {})
+        meta = metadata(task)
+        if (not current.get('closed') or current.get('pr') != meta.get('pr')
+                or current.get('identity') != [meta.get('worktree'), meta.get('branch')]):
+            raise ValueError(task + ': deploy and installed checks are not both green')
+        _, head, green, _ = observe(tasks[task], task, meta)
+        if head != current.get('head') or not green:
+            raise ValueError(task + ': current deploy/installed evidence is not green for the closed head')
+        return
+    # A POSIX advisory lock dies with its owner, including on interrupted checks.
+    lock = state / '.stage-transitions.lock'
+    if lock.is_symlink():
+        raise ValueError('unsafe stage lock')
+    with lock.open('a') as held:
+        try:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return
+        data = read_json(ledger) if ledger.exists() else data
+        for task, item in tasks.items():
+            now = int(time.time())
+            record = data['tasks'].setdefault(task, {'events': {}, 'launches': [], 'closed': False})
+            old = (record.get('detail'), record.get('next_step'), record.get('closed'))
+            record.update(task=task, due=now + 300, next_step='reconcile stage', estimate=300)
+            try:
+                meta = metadata(task)
+                # Missing/reused task identity must never inherit an old close.
+                identity = [meta.get('worktree'), meta.get('branch')]
+                if record.get('identity', identity) != identity:
+                    raise ValueError('task identity changed; explicit plan reconciliation required')
+                record.update(identity=identity, pr=meta.get('pr'), closed=False)
+                eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], 10)
+                if eligibility != 'eligible':
+                    record.update(detail='deferred: ' + eligibility, next_step='wait for eligible ended worker')
+                else:
+                    events, head, green, detail = observe(item, task, meta)
+                    record.update(head=head, detail=detail, next_step='watch deploy and installed check')
+                    # Batch all triggers observed in one poll into one bounded
+                    # relaunch; later events wait while that worker is alive.
+                    launch = []
+                    for kind, event, event_head in events:
+                        key = task + '|' + kind + ':' + event + '|' + event_head
+                        prior = record['events'].get(key)
+                        if prior:
+                            prior['duplicate_count'] += 1
+                            if prior['outcome'] in {'reserved', 'failed', 'capped'}:
+                                record['detail'] += '; UNKNOWN action ' + prior['outcome'] + ': ' + kind
+                            continue
+                        count = sum(e['time'] > now - 3600 and e['head'] == event_head
+                                    and kind in e['triggers'] for e in record['launches'])
+                        outcome = 'capped' if count >= item.get('relaunch_cap', 3) else 'reserved'
+                        record['events'][key] = dict(trigger=kind, key=key, time=now, head=event_head,
+                                                    outcome=outcome, duplicate_count=0)
+                        if outcome == 'capped':
+                            record['detail'] += '; relaunch cap reached: ' + task + ' ' + kind
+                        else:
+                            launch.append(key)
+                    if launch:
+                        record['launches'] = [e for e in record['launches'] if e['time'] > now - 3600]
+                        record['launches'].append(dict(time=now, head=head,
+                                                       triggers=list({record['events'][k]['trigger'] for k in launch})))
+                        save(data)
+                        note = ('Stage transition: ' + ', '.join(record['events'][k]['trigger'] for k in launch)
+                                + '; head=' + head + '. Continue this same task, branch and copy. '
+                                'Do bounded repair only; never deploy manually or idle-wait holding a seat. '
+                                'The registered plan-stages check owns deploy/installed observation.')
+                        try:
+                            run([scripts / 'fm-control.sh', task, 'relaunch', '--if-stopped', '--note', note],
+                                max(1, int(os.environ.get('FM_STAGE_CONTROL_TIMEOUT', '15'))))
+                            outcome = 'relaunched'
+                            record['detail'] += '; relaunched: ' + task
+                        except DependencyError as exc:
+                            if exc.code == 3:
+                                for key in launch:
+                                    del record['events'][key]
+                                record['launches'].pop()
+                                launch = []
+                                record['detail'] += '; deferred: eligibility changed'
+                            else:
+                                outcome = 'failed'
+                                record['detail'] += '; UNKNOWN relaunch failed: ' + task
+                        except (ValueError, OSError):
+                            outcome = 'failed'
+                            record['detail'] += '; UNKNOWN relaunch failed: ' + task
+                        for key in launch:
+                            record['events'][key]['outcome'] = outcome
+                        # A relaunch is work owed, even if all checks just read
+                        # green. Wait for its bounded return before closure.
+                        green = False
+                    if green:
+                        record.update(closed=True, next_step='teardown after deploy and installed green', due=now)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                record.update(closed=False, detail='UNKNOWN: ' + str(exc), next_step='repair stage evidence')
+            save(data)
+            if (record['detail'], record['next_step'], record['closed']) != old:
+                print(task + ': ' + record['detail'] + '; next=' + record['next_step'])
+
+
+try:
+    main()
+except (ValueError, OSError, KeyError, TypeError, IndexError) as error:
+    print('plan-stages: UNKNOWN: ' + str(error))
+    sys.exit(1)
+PY

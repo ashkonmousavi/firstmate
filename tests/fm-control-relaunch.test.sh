@@ -5455,6 +5455,42 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+test_stopped_only_plan_stage_relaunch() {
+  local dir id out rc phase
+  command -v tasks-axi >/dev/null 2>&1 || {
+    fail "stopped-only guard proof requires tasks-axi"
+  }
+  for phase in live paused held stopped; do
+    id="rl-stage-$phase"
+    dir=$(new_case "stage-$phase" "$id")
+    add_ship_task "$dir" "$id" claude
+    seed_backlog "$dir" "$id" in_flight
+    printf 'done: PR https://github.com/example/project/pull/42 ready\n' > "$dir/home/state/$id.status"
+    if [ "$phase" != live ]; then
+      printf zsh > "$dir/fake/command"
+    fi
+    case "$phase" in
+      paused) printf 'paused: external declared wait\n' > "$dir/home/state/$id.status" ;;
+      held) tasks-axi hold "$id" --reason "external stage hold" --kind external --file "$dir/home/data/backlog.md" >/dev/null ;;
+    esac
+    cp "$dir/home/state/$id.meta" "$dir/before-meta"
+    rc=0
+    out=$(run_control "$dir" "$id" relaunch --if-stopped --note "stage transition") || rc=$?
+    if [ "$phase" = stopped ]; then
+      expect_code 0 "$rc" "eligible ended lead must relaunch: $out"
+      assert_contains "$out" "relaunched $id" "stopped-only relaunch did not complete"
+    else
+      expect_code 3 "$rc" "a $phase task must defer without lifecycle writes: $out"
+      [ ! -s "$dir/fake/literal" ] || fail "$phase task received lifecycle input"
+      cmp -s "$dir/before-meta" "$dir/home/state/$id.meta" || fail "$phase task metadata changed"
+    fi
+  done
+  pass "stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock"
+}
+
+test_stopped_only_plan_stage_relaunch
+[ "${FM_CONTROL_STAGE_ONLY:-0}" != 1 ] || exit 0
+
 test_adapter_admission_preserves_running_agent
 test_relaunch_admission_refusal_preserves_running_agent
 test_configuration_admission_preserves_running_agent

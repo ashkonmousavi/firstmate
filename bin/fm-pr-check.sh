@@ -318,4 +318,10 @@ case "$READY_RC" in
   0|1) ;;
   *) printf 'actionable: PR %s is registered but its ready line did not reach the parent channel (rc=%s)\n' "$URL" "$READY_RC" >&2 ;;
 esac
+# One home-level continuation survives retirement of this task's merge poll.
+# Its explicit plan-lead registry leaves ordinary task delivery unchanged.
+if [ -f "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/plan-leads.json" ]; then
+  "$SCRIPT_DIR/fm-stage-transition.sh" arm \
+    || { echo "error: plan-lead continuation could not be armed" >&2; exit 1; }
+fi
 printf 'armed: state/%s.check.sh\n' "$ID"
