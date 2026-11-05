@@ -1457,22 +1457,29 @@ class Controller:
         if not any(tag in line for line in read(STATE / "autolaunch.log").splitlines()):
             self.emit(row, f"{result} {tag}")
 
+    def execution_settled(self, row):
+        identity = row.get("identity", {})
+        if row.get("attempt"):
+            identity = self.load(self.root / f"{row['attempt']}.identity", identity)
+        if identity:
+            self.process_snapshot()
+            if self.live(identity):
+                return False
+        with (STATE / "autolaunch-slots" / f"{row['key']}.lock").open("a") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return False
+        return True
+
     def create(self, key, task, kind, argv=None):
         old = self.load(self.path(key))
         if old and not (kind == "notice" and old.get("closed")
                         or kind in ("ring", "step", "remote-inbox") and old["phase"] == "complete"
                         and ("handoff" not in old or old.get("closed"))):
             return old
-        if old and kind in ("ring", "step", "remote-inbox"):
-            self.process_snapshot()
-            identity = self.load(self.root / f"{old.get('attempt', '')}.identity", old.get("identity", {}))
-            if self.live(identity):
-                return old
-            with (STATE / "autolaunch-slots" / f"{key}.lock").open("a") as lock:
-                try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    return old
+        if old and kind in ("ring", "step", "remote-inbox") and not self.execution_settled(old):
+            return old
         row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="wait" if kind == "notice" else "queued",
                    rung=0, opened=self.now(), overrun=0,
                    generation=old.get("generation", 0) + 1)
@@ -1499,7 +1506,7 @@ class Controller:
             row["phase"] = "diagnose-queued"
             row.setdefault("queued_at", self.now())
             row.setdefault("diag_rung", 3)
-        elif row["phase"] != "running":
+        elif row["phase"] != "running" and not row.get("attempt"):
             row["phase"] = "owned"
         self.save(row)  # Intent and identity precede either delivery route.
 
@@ -1627,7 +1634,7 @@ class Controller:
             if row["kind"] in ("launch", "relaunch", "recovery") and "handoff" in row and row["phase"] in ("queued", "wait", "retry-wait"):
                 row["phase"] = "running"
                 self.save(row)
-            if row["phase"] == "retry-wait" and self.now() >= row["due"]:
+            if row["phase"] == "retry-wait" and self.now() >= row["due"] and self.execution_settled(row):
                 row.update(phase="queued", rung=row["rung"] + 1)
                 self.save(row)
             if not row.get("closed") and row.get("handoff") and row["kind"] in ("launch", "relaunch", "recovery") and self.agent_live(row["task"]):
@@ -1635,9 +1642,17 @@ class Controller:
                 self.close(row, "launched-late")
                 if row["phase"] not in ("running", "diagnosing"):
                     continue
-            if row["phase"] == "complete" and "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox"):
+            if row["phase"] == "complete" and "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox") and self.execution_settled(row):
                 self.close(row, "completed")
             if row["phase"] not in ("running", "diagnosing"):
+                if row.get("attempt") and "handoff" not in row:
+                    attempt = self.load(self.root / row["attempt"])
+                    if self.now() >= attempt["deadline"] + 5 and not self.execution_settled(row):
+                        reason = "failed:timeout execution-unsettled=1"
+                        if row["kind"] in ("launch", "relaunch", "recovery"):
+                            self.launch_timeout(row, reason, diagnosis=False)
+                        else:
+                            self.own(row, reason)
                 continue
             diagnosis = row["phase"] == "diagnosing"
             identity = self.load(self.root / f"{row['attempt']}.identity", row.get("identity", {}))
@@ -1679,7 +1694,7 @@ class Controller:
                 self.save(row)
                 self.event(row, "launched" if row["kind"] == "launch" else "completed",
                            "launched" if row["kind"] == "launch" else "completed")
-                if "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox"):
+                if "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox") and self.execution_settled(row):
                     self.close(row, "completed")
             elif not result and alive:
                 # R9: deadline expiry is itself actionable even when KILL cannot
@@ -1732,7 +1747,7 @@ class Controller:
         for task, lane, model, outcome, command in self.preparation():
             if command and outcome == "launched" and lane != "-":
                 row = self.create(f"ctl-b-launch-{task}", task, "launch", command)
-                if row["phase"] in ("queued", "wait") and "handoff" not in row:
+                if row["phase"] in ("queued", "wait") and "handoff" not in row and self.execution_settled(row):
                     row.update(phase="queued", argv=command, model=model)
                 self.save(row)
             elif task != "-" and outcome.startswith("refused:"):
@@ -1776,7 +1791,7 @@ class Controller:
             self.reconcile()
         if leases():
             row = self.create("ctl-a-step", "", "step", ["bash", self.scheduler, "--steps-only"])
-            if row["phase"] == "wait" and "handoff" not in row:
+            if row["phase"] == "wait" and self.execution_settled(row):
                 row["phase"] = "queued"
                 self.save(row)
         for row in self.rows(False):
@@ -1798,7 +1813,7 @@ class Controller:
             identity = self.task_key_identity(task, Path(record).name)
             key = f"ctl-c-ring-{identity}"
             row = self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record, verb])
-            if row["phase"] == "wait" and "handoff" not in row:
+            if row["phase"] == "wait" and self.execution_settled(row):
                 row["phase"] = "queued"
                 self.save(row)
         if any(kv(p).get("kind") == "secondmate" and kv(p).get("remote_host")
@@ -1809,7 +1824,7 @@ class Controller:
                 return
             row = self.create("ctl-c-remote-inbox", "", "remote-inbox",
                               ["bash", self.scheduler, "--controller-remote-inbox", "run"])
-            if row["phase"] == "wait" and "handoff" not in row:
+            if row["phase"] == "wait" and self.execution_settled(row):
                 row["phase"] = "queued"
                 self.save(row)
 
@@ -1928,6 +1943,8 @@ class Controller:
                 return
             if row["kind"] in ("launch", "relaunch", "recovery") and "handoff" in row:
                 return
+        if not self.execution_settled(row):
+            return
         # A wait may redispatch the same rung; it is still a new attempt with
         # independent identity/result receipts, never the preceding attempt.
         row["dispatch"] = row.get("dispatch", 0) + 1
@@ -1978,7 +1995,7 @@ class Controller:
             if self.now() - row["queued_at"] >= 240:
                 self.exhaust(row, "skipped-capacity")
                 continue
-            if not dispatch:
+            if not dispatch or not self.execution_settled(row):
                 continue
             if active or len(history) >= 6:
                 self.event(row, f"queued-{row['diag_rung']}", "diagnose-queued")
@@ -2012,12 +2029,20 @@ class Controller:
             self.start(row, diagnosis=True)
             active = True
 
+    def action_current(self, attempt, token):
+        current = self.load(self.path(attempt["key"]))
+        return current.get("attempt") == token and not (attempt["kind"] in ("launch", "relaunch", "recovery") and "handoff" in current)
+
     def action(self, token):
         if not re.fullmatch(r"[A-Za-z0-9._-]+", token):
             raise ValueError("invalid action identity")
         attempt = self.load(self.root / token)
         if not attempt:
             raise ValueError("unknown action identity")
+        if not self.action_current(attempt, token):
+            if not self.load(self.root / f"{token}.result"):
+                atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="owned"))
+            return 75
         lock = os.open(STATE / "autolaunch-slots" / f"{attempt['key']}.lock", os.O_CREAT | os.O_RDWR, 0o600)
         # Python descriptors are non-inheritable; close_fds also protects this
         # boundary if an embedding caller has changed the interpreter defaults.
@@ -2042,7 +2067,13 @@ class Controller:
                     atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="preparation"))
                     return 75
             output = self.diag / f"{token}.md" if attempt["kind"] == "diagnosis" else self.root / f"{token}.out"
-            for command, model in commands:
+            for candidate_number, (command, model) in enumerate(commands):
+                if not self.action_current(attempt, token):
+                    if candidate_number == 0:
+                        if not self.load(self.root / f"{token}.result"):
+                            atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="owned"))
+                        return 75
+                    break
                 attempt["argv"] = command
                 if model is not None:
                     attempt["model"] = model

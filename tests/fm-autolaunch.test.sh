@@ -85,6 +85,254 @@ exit 0
 SH
 }
 
+controller_result_tail_setup() {
+  case "$1" in
+    launch) k1_ready k1-tail ;;
+    step) k1_ready k1-tail; printf '0\n' > "$KF/free"; printf 'act k1-tail\n' > "$H/config/autolaunch-steps" ;;
+    ring) k1_inbox_due k1-tail ;;
+    remote-inbox) printf 'kind=secondmate\nremote_host=fixture.invalid\n' > "$H/state/k1-tail.meta" ;;
+  esac
+  controller_save_pending_launch
+  k1_pass 0
+}
+
+controller_publish_result_tail() {
+  python3 - "$1" "$KF" "$H/state" "$2" "$3" <<'PYCASE' &
+import fcntl,json,os,sys,time
+from pathlib import Path
+p,fake,state=map(Path,sys.argv[1:4]);r=json.loads(p.read_text());root=p.parent
+with (state/'autolaunch-slots'/(r['key']+'.lock')).open('a') as slot:
+    fcntl.flock(slot,fcntl.LOCK_EX)
+    identity=dict(pid=os.getpid(),start=Path('/proc/self/stat').read_text().rsplit(') ',1)[1].split()[19],boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip())
+    (root/(r['attempt']+'.identity')).write_text(json.dumps(identity))
+    result=dict(rc=int(sys.argv[4]),wait=sys.argv[5],at=int((fake/'clock').read_text()))
+    (root/(r['attempt']+'.result')).write_text(json.dumps(result))
+    (fake/'tail-original-result.json').write_text(json.dumps(result))
+    (fake/'result-tail-ready').write_text('ready')
+    while not (fake/'result-tail-release').exists(): time.sleep(.02)
+PYCASE
+  RESULT_TAIL_PID=$!
+  k1_wait_file "$KF/result-tail-ready" || fail 'the result fixture must hold the actual slot with a matching live identity'
+}
+
+controller_result_tail_row() {
+  python3 - "$H/state/autolaunch-controller" "$1" <<'PYCASE'
+import json,sys
+from pathlib import Path
+print(next(p for p in Path(sys.argv[1]).glob('ctl-*.json') if json.loads(p.read_text())['kind']==sys.argv[2]))
+PYCASE
+}
+
+test_controller_all_outcomes_wait_for_attempt_settlement() {
+  local kind outcome row token rc wait_condition held_at resume_at
+  for kind in step ring remote-inbox launch; do
+    for outcome in deferred quota failure; do
+      k1_setup "outcome-tail-$kind-$outcome" mate
+      controller_result_tail_setup "$kind"
+      row=$(controller_result_tail_row "$kind")
+      token=$(cat "$KF/pending-action")
+      rc=75; wait_condition=
+      if [ "$outcome" = quota ]; then rc=1; wait_condition=quota; fi
+      [ "$outcome" != failure ] || rc=1
+      controller_publish_result_tail "$row" "$rc" "$wait_condition"
+      k1_pass 25
+      held_at=50; resume_at=75
+      if [ "$outcome" = failure ]; then held_at=90; resume_at=145; fi
+      k1_pass "$held_at"
+      python3 - "$row" "$token" "$KF/tail-original-result.json" <<'PYCASE' || fail 'deferred, quota and failed receipts must retain their original attempt through restarted discovery and promotion'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1]);r=json.loads(p.read_text())
+assert r['generation']==1 and r['attempt']==sys.argv[2],r
+assert json.loads((p.parent/(sys.argv[2]+'.result')).read_text())==json.loads(Path(sys.argv[3]).read_text()),r
+PYCASE
+      assert_equals 1 "$(grep -c . "$KF/queued-units.log")" 'no replacement unit may run into an occupied outcome-producing wrapper'
+      : > "$KF/result-tail-release"
+      wait "$RESULT_TAIL_PID" || fail 'the matching wrapper must exit and release its slot'
+      k1_pass "$resume_at"
+      python3 - "$row" "$token" <<'PYCASE' || fail 'eligible work must resume within the same generation using a fresh attempt after release'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['generation']==1 and r['attempt']!=sys.argv[2],r
+PYCASE
+      assert_equals 2 "$(grep -c . "$KF/queued-units.log")" 'settlement permits exactly one eligible redispatch'
+      k1_pass $((resume_at + 25))
+      assert_equals 2 "$(grep -c . "$KF/queued-units.log")" 'the replacement is not submitted twice'
+      assert_equals 0 "$(k1_count "$LOG" "${token%-g1*}" failed:timeout)" 'a replacement may not create a false timeout while the old receipt is retained'
+      k1_teardown
+    done
+  done
+  pass 'all deferred, quota and failed outcomes preserve identity/slot settlement before attempt replacement'
+}
+
+test_controller_published_results_keep_r9_supervision() {
+  local kind row token limit
+  for kind in step ring remote-inbox; do
+    k1_setup "published-r9-$kind" mate
+    controller_result_tail_setup "$kind"
+    row=$(controller_result_tail_row "$kind")
+    token=$(cat "$KF/pending-action")
+    limit=$(python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r["deadline"]-r["started"])' "$H/state/autolaunch-controller/$token")
+    controller_publish_result_tail "$row" 75 ''
+    k1_pass 25
+    k1_pass $((limit + 25))
+    python3 - "$row" "$token" <<'PYCASE' || fail 'an early result cannot hide an execution that survives its deadline and grace'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['attempt']==sys.argv[2] and r['handoff']['receipt'],r
+PYCASE
+    assert_equals 1 "$(grep -c . "$KF/queued-units.log")" 'deadline ownership cannot replace the still-held attempt'
+    : > "$KF/result-tail-release"
+    wait "$RESULT_TAIL_PID" || fail 'the surviving result wrapper must release normally'
+    k1_pass $((limit + 80))
+    assert_equals 2 "$(grep -c . "$KF/queued-units.log")" 'ordinary deferred work resumes once after real execution settlement'
+    k1_teardown
+  done
+  pass 'published deferrals retain bounded R9 supervision and resume after identity/slot settlement'
+}
+
+test_controller_rung2_owns_before_wrapper_release() {
+  local mode row token
+  for mode in release expire; do
+    k1_setup "rung2-tail-$mode" mate
+    controller_result_tail_setup ring
+    row=$(controller_result_tail_row ring)
+    token=$(cat "$KF/pending-action")
+    printf '{"rc":1,"at":%s,"wait":""}\n' "$(k1_now)" > "$H/state/autolaunch-controller/$token.result"
+    k1_pass 55; k1_pass 165
+    token=$(cat "$KF/pending-action")
+    printf '{"rc":1,"at":%s,"wait":""}\n' "$(k1_now)" > "$H/state/autolaunch-controller/$token.result"
+    k1_pass 220; k1_pass 385
+    token=$(cat "$KF/pending-action")
+    controller_publish_result_tail "$row" 1 ''
+    k1_pass 410; k1_pass 435
+    python3 - "$row" "$token" "$K1_T0" <<'PYCASE' || fail 'rung-2 ownership must publish within its bound without replacing the occupied attempt'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+assert r['rung']==2 and r['attempt']==sys.argv[2] and r['handoff']['receipt'],r
+assert r['owned_at']-int(sys.argv[3])<=480,r
+PYCASE
+    assert_equals 0 "$(k1_count "$KF/queued-units.log" RuntimeMaxSec=900)" 'diagnosis cannot overwrite an occupied rung-2 attempt'
+    if [ "$mode" = expire ]; then
+      k1_pass 685
+      python3 - "$row" <<'PYCASE' || fail 'diagnosis queue expiry must progress even while the prior execution remains occupied'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['phase']=='exhausted',r
+PYCASE
+      assert_equals 1 "$(k1_count "$H/state/autolaunch-diag/${token%-g1*}-summary.md" skipped-capacity)" 'the occupied queue records one bounded capacity skip'
+    fi
+    : > "$KF/result-tail-release"
+    wait "$RESULT_TAIL_PID" || fail 'the failed-rung wrapper must release its slot'
+    if [ "$mode" = release ]; then k1_pass 460; else k1_pass 740; fi
+    if [ "$mode" = release ]; then
+      assert_equals 1 "$(k1_count "$KF/queued-units.log" RuntimeMaxSec=900)" 'eligible diagnosis starts once after the failed execution settles'
+    else
+      assert_equals 0 "$(k1_count "$KF/queued-units.log" RuntimeMaxSec=900)" 'expired diagnosis remains expired after settlement'
+    fi
+    assert_equals 1 "$(k1_owned k1-tail | grep -c .)" 'queueing and settlement never duplicate rung-2 ownership'
+    k1_teardown
+  done
+  pass 'rung-2 ownership and queue bounds remain independent of execution settlement and diagnosis admission'
+}
+
+test_controller_timeout_stops_inflight_profile_fallback() {
+  local mode token row process_pid rc
+  for mode in timely overdue; do
+    k1_setup "fallback-terminal-$mode" mate
+    k1_ready k1-profile-tail
+    printf '%s\n' '{"shared_quota":true,"default":[{"harness":"codex","model":"gpt-5.5"},{"harness":"claude","model":"opus"}]}' > "$H/config/crew-dispatch.json"
+    controller_save_pending_launch
+    cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$KF/spawn.log"
+case " $* " in
+  *' --harness codex '*)
+    printf 'ready\n' > "$KF/first-profile-ready"
+    while [ ! -e "$KF/first-profile-finish" ]; do "$REAL_SLEEP" 0.02; done
+    echo 'error: fm-spawn refuses explicit harness codex: provider codex runway exhausted_now' >&2
+    exit 1 ;;
+esac
+exit 0
+SH
+    chmod +x "$KB/spawn"
+    k1_pass 0
+    token=$(cat "$KF/pending-action")
+    row="$H/state/autolaunch-controller/ctl-b-launch-k1-profile-tail.json"
+    if [ "$mode" = timely ]; then rc=30; else rc=590; fi
+    printf '%s\n' $((K1_T0 + rc)) > "$KF/clock"
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" > "$KF/profile-action.out" 2>&1 &
+    process_pid=$!
+    k1_wait_file "$KF/first-profile-ready" || fail 'the first eligible candidate must be executing before ownership changes'
+    if [ "$mode" = overdue ]; then
+      k1_pass 625; k1_pass 680
+      python3 - "$row" "$KF/profile-handoff.json" <<'PYCASE' || fail 'the overdue first candidate must have a stable terminal ownership record'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['handoff']['receipt'],r
+Path(sys.argv[2]).write_text(json.dumps(r['handoff']))
+PYCASE
+    fi
+    : > "$KF/first-profile-finish"
+    wait "$process_pid" 2>/dev/null || true
+    if [ "$mode" = timely ]; then
+      assert_equals 2 "$(k1_count "$KF/spawn.log" k1-profile-tail)" 'ordinary pre-timeout fallback reaches the next eligible profile'
+    else
+      assert_equals 1 "$(k1_count "$KF/spawn.log" k1-profile-tail)" 'late quota refusal cannot invoke a second candidate after timeout ownership'
+      k1_pass 735
+      python3 - "$row" "$KF/profile-handoff.json" "$H/state/autolaunch-controller/$token" <<'PYCASE' || fail 'in-flight cancellation preserves ownership and actual executed-model attribution'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); h=json.loads(Path(sys.argv[2]).read_text()); a=json.loads(Path(sys.argv[3]).read_text())
+assert r['handoff']==h and a['model']=='codex:gpt-5.5',r
+assert json.loads(Path(sys.argv[3]+'.result').read_text())['wait']=='quota'
+PYCASE
+    fi
+    k1_teardown
+  done
+  pass 'in-flight fallback rechecks terminal ownership before each candidate while ordinary fallback remains available'
+}
+
+test_controller_saved_terminal_launch_commands_do_not_execute() {
+  local kind row token rc
+  for kind in launch relaunch recovery; do
+    k1_setup "saved-terminal-$kind" mate
+    k1_ready k1-saved-terminal
+    controller_save_pending_launch
+    k1_pass 0
+    token=$(cat "$KF/pending-action")
+    row="$H/state/autolaunch-controller/ctl-b-launch-k1-saved-terminal.json"
+    python3 - "$row" "$H/state/autolaunch-controller/$token" "$kind" <<'PYCASE'
+import json,sys
+from pathlib import Path
+for name in sys.argv[1:3]:
+    p=Path(name); r=json.loads(p.read_text()); r['kind']=sys.argv[3]; p.write_text(json.dumps(r))
+PYCASE
+    k1_pass 625
+    controller_publish_result_tail "$row" 0 ''
+    rc=0
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" > "$KF/saved-terminal.out" 2>&1 || rc=$?
+    expect_code 75 "$rc" 'saved launch-family commands refuse execution after durable timeout ownership'
+    assert_absent "$KF/spawn.log" 'first candidate invocation must honor a terminal same-key obligation'
+    python3 - "$H/state/autolaunch-controller/$token.result" <<'PYCASE' || fail 'refused saved execution must publish its own controlled result receipt'
+import json,sys
+from pathlib import Path
+assert json.loads(Path(sys.argv[1]).read_text())['rc']==75
+PYCASE
+    cp "$H/state/autolaunch-controller/$token.result" "$KF/first-refusal.json"
+    printf '%s\n' $(( $(k1_now) + 1 )) > "$KF/clock"
+    rc=0
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" > "$KF/replayed-terminal.out" 2>&1 || rc=$?
+    expect_code 75 "$rc" 'replayed terminal commands remain controlled refusals'
+    cmp -s "$H/state/autolaunch-controller/$token.result" "$KF/first-refusal.json" || fail 'terminal replay cannot overwrite an existing refusal receipt'
+    : > "$KF/result-tail-release"
+    wait "$RESULT_TAIL_PID" || fail 'the current occupied action must remain intact during stale-command refusal'
+    k1_teardown
+  done
+  pass 'saved launch, relaunch and recovery commands reread terminal ownership before their first invocation'
+}
+
 test_controller_timeout_handoff_rejects_late_results() {
   local kind outcome token row process_pid result_at
   for kind in launch relaunch recovery; do
@@ -3546,7 +3794,12 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_timeout_handoff_rejects_late_results \
+k1_run test_controller_all_outcomes_wait_for_attempt_settlement \
+  test_controller_published_results_keep_r9_supervision \
+  test_controller_rung2_owns_before_wrapper_release \
+  test_controller_timeout_stops_inflight_profile_fallback \
+  test_controller_saved_terminal_launch_commands_do_not_execute \
+  test_controller_timeout_handoff_rejects_late_results \
   test_controller_notice_publication_is_not_executable \
   test_controller_legacy_queued_notices_do_not_block_actions \
   test_controller_success_receipt_waits_for_execution_and_slot \
