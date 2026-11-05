@@ -1463,7 +1463,17 @@ class Controller:
                         or kind in ("ring", "step", "remote-inbox") and old["phase"] == "complete"
                         and ("handoff" not in old or old.get("closed"))):
             return old
-        row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="queued",
+        if old and kind in ("ring", "step", "remote-inbox"):
+            self.process_snapshot()
+            identity = self.load(self.root / f"{old.get('attempt', '')}.identity", old.get("identity", {}))
+            if self.live(identity):
+                return old
+            with (STATE / "autolaunch-slots" / f"{key}.lock").open("a") as lock:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    return old
+        row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="wait" if kind == "notice" else "queued",
                    rung=0, opened=self.now(), overrun=0,
                    generation=old.get("generation", 0) + 1)
         self.save(row)
@@ -1614,6 +1624,9 @@ class Controller:
             row["overrun"] = max(row.get("overrun", 0), overrun)
             if row.get("closed") and row["phase"] not in ("running", "diagnosing"):
                 continue
+            if row["kind"] in ("launch", "relaunch", "recovery") and "handoff" in row and row["phase"] in ("queued", "wait", "retry-wait"):
+                row["phase"] = "running"
+                self.save(row)
             if row["phase"] == "retry-wait" and self.now() >= row["due"]:
                 row.update(phase="queued", rung=row["rung"] + 1)
                 self.save(row)
@@ -1656,6 +1669,10 @@ class Controller:
                     self.save(row)
                 else:
                     self.exhaust(row)
+                continue
+            if row["kind"] in ("launch", "relaunch", "recovery") and "handoff" in row:
+                if not alive:
+                    self.failed(row, "failed:timeout")
                 continue
             if result and result["rc"] == 0:
                 row["phase"] = "complete"
@@ -1715,7 +1732,7 @@ class Controller:
         for task, lane, model, outcome, command in self.preparation():
             if command and outcome == "launched" and lane != "-":
                 row = self.create(f"ctl-b-launch-{task}", task, "launch", command)
-                if row["phase"] in ("queued", "wait"):
+                if row["phase"] in ("queued", "wait") and "handoff" not in row:
                     row.update(phase="queued", argv=command, model=model)
                 self.save(row)
             elif task != "-" and outcome.startswith("refused:"):
@@ -1903,6 +1920,14 @@ class Controller:
                     self.deliver(row)
 
     def start(self, row, diagnosis=False):
+        if not diagnosis:
+            if row["kind"] == "notice":
+                if row["phase"] == "queued":
+                    row["phase"] = "wait"
+                    self.save(row)
+                return
+            if row["kind"] in ("launch", "relaunch", "recovery") and "handoff" in row:
+                return
         # A wait may redispatch the same rung; it is still a new attempt with
         # independent identity/result receipts, never the preceding attempt.
         row["dispatch"] = row.get("dispatch", 0) + 1

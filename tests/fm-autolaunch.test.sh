@@ -80,8 +80,268 @@ controller_save_pending_launch() {
   cat > "$KB/systemd-run" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "${!#}" > "$KF/pending-action"
+printf '%s\n' "$*" >> "$KF/queued-units.log"
 exit 0
 SH
+}
+
+test_controller_timeout_handoff_rejects_late_results() {
+  local kind outcome token row process_pid result_at
+  for kind in launch relaunch recovery; do
+    for outcome in failure deferred quota; do
+      k1_setup "terminal-$kind-$outcome" mate
+      k1_ready k1-terminal
+      controller_save_pending_launch
+      cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$KF/spawn.log"
+printf 'ready\n' > "$KF/spawn-ready"
+while [ ! -e "$KF/spawn-finish" ]; do "$REAL_SLEEP" 0.02; done
+case "$(cat "$KF/late-outcome")" in
+  failure) echo 'unexpected fault'; exit 1 ;;
+  deferred) exit 75 ;;
+  quota) echo 'error: fm-spawn refuses explicit harness codex: provider runway exhausted_now'; exit 1 ;;
+esac
+SH
+      chmod +x "$KB/spawn"
+      printf '%s\n' "$outcome" > "$KF/late-outcome"
+      k1_pass 0
+      token=$(cat "$KF/pending-action")
+      row="$H/state/autolaunch-controller/ctl-b-launch-k1-terminal.json"
+      python3 - "$row" "$H/state/autolaunch-controller/$token" "$kind" <<'PYCASE'
+import json,sys
+from pathlib import Path
+for name in sys.argv[1:3]:
+    p=Path(name); r=json.loads(p.read_text()); r['kind']=sys.argv[3]; p.write_text(json.dumps(r))
+PYCASE
+      printf '%s\n' $((K1_T0 + 590)) > "$KF/clock"
+      FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+        python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" > "$KF/late-action.out" 2>&1 &
+      process_pid=$!
+      k1_wait_file "$KF/spawn-ready" || fail 'the delayed action must reach the actual spawn boundary'
+      k1_pass 625
+      python3 - "$row" "$KF/terminal-handoff.json" <<'PYCASE' || fail 'the surviving launch must first publish timeout ownership'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['phase']=='running' and r['handoff']['receipt'],r
+Path(sys.argv[2]).write_text(json.dumps(r['handoff']))
+PYCASE
+      : > "$KF/spawn-finish"
+      wait "$process_pid" 2>/dev/null || true
+      k1_wait_file "$H/state/autolaunch-controller/$token.result" || fail 'the real action must publish its late failure or deferral'
+      for result_at in 680 1010 1395 2055; do
+        k1_pass "$result_at"
+        python3 - "$row" "$KF/terminal-handoff.json" <<'PYCASE' || fail 'late results and restarted promotion/discovery cannot restore launch retries'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); original=json.loads(Path(sys.argv[2]).read_text())
+assert r['phase'] not in ('queued','wait','retry-wait') and r['rung']==0,r
+assert r['handoff']==original,r
+PYCASE
+        assert_equals 1 "$(k1_count "$KF/queued-units.log" RuntimeMaxSec=600)" 'timeout ownership forbids a second launch/relaunch/recovery unit'
+        assert_equals 1 "$(k1_count "$KF/spawn.log" k1-terminal)" 'a late action result cannot cause another spawn'
+      done
+      python3 - "$K1/agent/claude" "$H/state/k1-terminal.meta" <<'PYCASE'
+import subprocess,sys
+from pathlib import Path
+p=subprocess.Popen([sys.argv[1],'100000'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+start=Path(f'/proc/{p.pid}/stat').read_text().rsplit(') ',1)[1].split()[19]
+with Path(sys.argv[2]).open('a') as f:
+    f.write(f'agent_root_pid={p.pid}\nagent_root_start={start}\nboot_id='+Path('/proc/sys/kernel/random/boot_id').read_text().strip()+'\n')
+PYCASE
+      k1_pass 2110
+      assert_equals 1 "$(k1_count "$H/state/k1-terminal.status" resolved launched-late)" 'terminal timeout handling still recognizes and closes a later live agent'
+      assert_equals 1 "$(k1_owned k1-terminal | grep -c .)" 'late failure/deferral and later closure keep one ownership record'
+      k1_teardown
+    done
+  done
+  pass 'timeout handoffs stay terminal across late failure, deferral and quota results for all launch kinds'
+}
+
+controller_notice_publication_fault() {
+  cat > "$KB/fault-controller.py" <<'PYCASE'
+import os,runpy,signal,sys
+from pathlib import Path
+source=Path(os.environ['ROOT'])/'bin/fm-autolaunch-steps.py'
+module=runpy.run_path(str(source))
+original=module['Controller'].save
+def publish(self,row):
+    original(self,row)
+    if row['kind']=='notice' and 'handoff' not in row:
+        (Path(os.environ['KF'])/'notice-published').write_text(row['key'])
+        os.kill(os.getpid(),signal.SIGKILL)
+module['Controller'].save=publish
+sys.argv=[str(source),*sys.argv[1:]]
+sys.exit(module['main']() or 0)
+PYCASE
+}
+
+test_controller_notice_publication_is_not_executable() {
+  local producer answered key rc
+  for producer in technical busy cut error; do
+    for answered in open answered; do
+      [ "$producer" = technical ] || [ "$answered" = open ] || continue
+      k1_setup "notice-$producer-$answered" mate
+      controller_notice_publication_fault
+      printf '%s\n' $((K1_T0 + 220)) > "$KF/clock"
+      rc=0
+      case "$producer" in
+        technical)
+          printf 'needs-decision [key=api] [at=%s]: choose interval\n' "$K1_T0" > "$H/state/k1-notice.status"
+          FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$KB/fault-controller.py" controller-plan "$AL" > "$KF/fault.out" 2>&1 || rc=$?
+          ;;
+        busy)
+          k1_pass_lock_holder
+          k1_pass 55; k1_pass 110
+          printf '%s\n' $((K1_T0 + 165)) > "$KF/clock"
+          FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$KB/fault-controller.py" controller-effects "$AL" 73 > "$KF/fault.out" 2>&1 || rc=$?
+          kill "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null || true; K1_HOLDER=
+          rm -rf "$H/state/.autolaunch.lock"
+          ;;
+        cut)
+          mkdir -p "$H/state/autolaunch-controller"
+          printf '{"cuts":2,"cut_at":%s}\n' "$K1_T0" > "$H/state/autolaunch-controller/pass.json"
+          FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$KB/fault-controller.py" controller-effects "$AL" 124 > "$KF/fault.out" 2>&1 || rc=$?
+          ;;
+        error)
+          FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" python3 "$KB/fault-controller.py" controller-effects "$AL" 1 > "$KF/fault.out" 2>&1 || rc=$?
+          ;;
+      esac
+      expect_code 137 "$rc" 'fault injection must stop immediately after the first durable notice publication'
+      key=$(cat "$KF/notice-published")
+      python3 - "$H/state/autolaunch-controller/$key.json" <<'PYCASE' || fail 'a notice must be non-executable even at its first durable publication'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['kind']=='notice' and r['phase']!='queued' and 'handoff' not in r,r
+PYCASE
+      if [ "$answered" = answered ]; then
+        printf 'resolved [key=api] [at=%s]: answered\n' $((K1_T0 + 235)) >> "$H/state/k1-notice.status"
+      fi
+      k1_inbox_due k1-unrelated
+      k1_pass 275; k1_pass 330
+      assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'restart after interrupted publication must keep the pass functional'
+      assert_equals 0 "$(k1_count "$KF/systemd-run.log" "$key")" 'a notice never requests an executable transient unit'
+      [ "$(k1_units_max_count 60 k1-unrelated)" -ge 1 ] || fail 'notice recovery cannot suppress unrelated due delivery'
+      if [ "$producer" = technical ] && [ "$answered" = open ]; then
+        assert_equals 1 "$(k1_owned k1-notice | grep -c .)" 'a still-open technical source can finish publishing its real handoff'
+      else
+        python3 - "$H/state/autolaunch-controller/$key.json" <<'PYCASE' || fail 'an unpublished orphan cannot invent ownership or a receipt'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert 'handoff' not in r and r['phase']!='queued',r
+PYCASE
+      fi
+      k1_teardown
+    done
+  done
+  pass 'technical and busy/cut/error notices stay non-executable through interrupted publication and restart'
+}
+
+test_controller_legacy_queued_notices_do_not_block_actions() {
+  k1_setup legacy-notices mate
+  k1_ready k1-slice
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  printf '0\n' > "$KF/free"
+  mkdir -p "$H/state/autolaunch-controller"
+  python3 - "$H/state/autolaunch-controller" "$K1_T0" <<'PYCASE'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+for key in ('ctl-c-ask-legacy','ctl-e-pass-lock-legacy','ctl-e-pass-interrupted','ctl-e-pass-error'):
+    (root/(key+'.json')).write_text(json.dumps(dict(key=key,kind='notice',task='',phase='queued',argv=[],rung=0,generation=1,opened=int(sys.argv[2]),overrun=0)))
+PYCASE
+  k1_inbox_due k1-unrelated
+  k1_pass 0; k1_pass 55
+  assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'legacy queued notices must recover without deadline lookup failures'
+  [ "$(k1_units_max_count 120)" -ge 1 ] || fail 'legacy notices cannot block unrelated leased steps'
+  [ "$(k1_units_max_count 60 k1-unrelated)" -ge 1 ] || fail 'legacy notices cannot block unrelated non-seat delivery'
+  python3 - "$H/state/autolaunch-controller" <<'PYCASE' || fail 'legacy notice repair cannot execute or synthesize ownership'
+import json,sys
+from pathlib import Path
+for p in Path(sys.argv[1]).glob('ctl-*.json'):
+    r=json.loads(p.read_text())
+    if r['kind']=='notice': assert r['phase']!='queued' and 'attempt' not in r and 'handoff' not in r,r
+PYCASE
+  k1_teardown
+  pass 'legacy queued notices recover safely while seat and non-seat actions continue'
+}
+
+test_controller_success_receipt_waits_for_execution_and_slot() {
+  local kind row token holder_pid slot_pid at
+  for kind in step ring remote-inbox; do
+    k1_setup "success-slot-$kind" mate
+    printf '0\n' > "$KF/free"
+    case "$kind" in
+      step) k1_ready k1-tail; printf 'act k1-tail\n' > "$H/config/autolaunch-steps" ;;
+      ring) k1_inbox_due k1-tail ;;
+      remote-inbox) printf 'kind=secondmate\nremote_host=fixture.invalid\n' > "$H/state/k1-tail.meta" ;;
+    esac
+    controller_save_pending_launch
+    k1_pass 0
+    token=$(cat "$KF/pending-action")
+    row=$(python3 - "$H/state/autolaunch-controller" "$kind" <<'PYCASE'
+import json,sys
+from pathlib import Path
+print(next(p for p in Path(sys.argv[1]).glob('ctl-*.json') if json.loads(p.read_text())['kind']==sys.argv[2]))
+PYCASE
+    )
+    python3 - "$row" "$KF" "$H/state" <<'PYCASE' &
+import fcntl,json,os,sys,time
+from pathlib import Path
+p,fake,state=map(Path,sys.argv[1:]);r=json.loads(p.read_text());root=p.parent
+with (state/'autolaunch-slots'/(r['key']+'.lock')).open('a') as slot:
+    fcntl.flock(slot,fcntl.LOCK_EX)
+    identity=dict(pid=os.getpid(),start=Path('/proc/self/stat').read_text().rsplit(') ',1)[1].split()[19],boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip())
+    (root/(r['attempt']+'.identity')).write_text(json.dumps(identity))
+    (root/(r['attempt']+'.result')).write_text(json.dumps(dict(rc=0,at=int((fake/'clock').read_text()),wait='')))
+    (fake/'success-held').write_text('ready')
+    while not (fake/'release-slot').exists(): time.sleep(.02)
+(fake/'slot-released').write_text('ready')
+while not (fake/'exit-main').exists(): time.sleep(.02)
+PYCASE
+    holder_pid=$!
+    k1_wait_file "$KF/success-held" || fail 'a matching live main must publish success while holding the real slot'
+    for at in 55 110; do
+      k1_pass "$at"
+      python3 - "$row" "$token" <<'PYCASE' || fail 'published success cannot replace a generation whose matching main and slot remain live'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['generation']==1 and r['attempt']==sys.argv[2],r
+PYCASE
+      assert_equals 1 "$(grep -c . "$KF/queued-units.log")" 'a held completed action cannot request another unit'
+    done
+    : > "$KF/release-slot"
+    k1_wait_file "$KF/slot-released" || fail 'the holder must release its real flock before the identity-only check'
+    k1_pass 165
+    assert_equals 1 "$(grep -c . "$KF/queued-units.log")" 'a released slot alone cannot replace a still-live matching execution'
+    : > "$KF/exit-main"
+    wait "$holder_pid" || fail 'the matching execution must exit normally'
+    python3 - "$row" "$KF" "$H/state" <<'PYCASE' &
+import fcntl,json,sys,time
+from pathlib import Path
+p,fake,state=map(Path,sys.argv[1:]);r=json.loads(p.read_text())
+with (state/'autolaunch-slots'/(r['key']+'.lock')).open('a') as slot:
+    fcntl.flock(slot,fcntl.LOCK_EX)
+    (fake/'other-slot-held').write_text('ready')
+    while not (fake/'other-slot-release').exists(): time.sleep(.02)
+PYCASE
+    slot_pid=$!
+    k1_wait_file "$KF/other-slot-held" || fail 'a separate real holder must exercise the slot-only boundary'
+    k1_pass 220
+    assert_equals 1 "$(grep -c . "$KF/queued-units.log")" 'a dead main alone cannot replace a generation whose slot is still occupied'
+    : > "$KF/other-slot-release"
+    wait "$slot_pid" || fail 'the real slot holder must release normally'
+    k1_pass 275
+    python3 - "$row" "$token" <<'PYCASE' || fail 'settled execution and slot must permit exactly the next recurring generation'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['generation']==2 and r['attempt']!=sys.argv[2],r
+PYCASE
+    assert_equals 2 "$(grep -c . "$KF/queued-units.log")" 'recurrence resumes once after both identity and slot settle'
+    assert_equals 0 "$(k1_count "$LOG" "${token%-g1*}" failed:timeout)" 'success-tail suspension cannot manufacture an action timeout'
+    k1_teardown
+  done
+  pass 'all recurring kinds wait for the matching main and real slot to settle after a success receipt'
 }
 
 controller_recurring_handoff_case() {
@@ -3286,7 +3546,11 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_step_handoff_survives_successful_recurrence \
+k1_run test_controller_timeout_handoff_rejects_late_results \
+  test_controller_notice_publication_is_not_executable \
+  test_controller_legacy_queued_notices_do_not_block_actions \
+  test_controller_success_receipt_waits_for_execution_and_slot \
+  test_controller_step_handoff_survives_successful_recurrence \
   test_controller_ring_handoff_survives_successful_recurrence \
   test_controller_remote_handoff_survives_successful_recurrence \
   test_controller_busy_steps_reconcile_technical_decisions \
