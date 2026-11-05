@@ -210,6 +210,19 @@ done'''
     return dict(sorted(registered.items(), key=lambda item: str(item[0])))
 
 
+def source_error(source):
+    if not isinstance(source, dict) or source.get("status") not in COMPLETE_READ:
+        return "is unavailable or incomplete"
+    if not isinstance(source.get("revision"), str) or not source["revision"]:
+        return "lacks revision"
+    if source["status"] == "ok":
+        if not isinstance(source.get("evidence_digest"), str) or not DIGEST.fullmatch(source["evidence_digest"]):
+            return "lacks evidence digest"
+    elif not isinstance(source.get("reason"), str) or not source["reason"]:
+        return "lacks not_applicable evidence"
+    return None
+
+
 def publication(home, clock):
     doc = strict_json(regular_bytes(home / "state/autolaunch-steps.candidates"))
     if not isinstance(doc, dict) or doc.get("schema") != "fm-seat-candidates/v1":
@@ -231,16 +244,9 @@ def publication(home, clock):
     if not isinstance(sources, dict):
         raise ValueError("candidate publication lacks sources")
     for name in REQUIRED:
-        source = sources.get(name)
-        if not isinstance(source, dict) or source.get("status") not in COMPLETE_READ:
-            raise ValueError(f"required source {name} is unavailable or incomplete")
-        if not isinstance(source.get("revision"), str) or not source["revision"]:
-            raise ValueError(f"required source {name} lacks revision")
-        if source["status"] == "ok":
-            if not isinstance(source.get("evidence_digest"), str) or not DIGEST.fullmatch(source["evidence_digest"]):
-                raise ValueError(f"required source {name} lacks evidence digest")
-        elif not isinstance(source.get("reason"), str) or not source["reason"]:
-            raise ValueError(f"source {name} lacks not_applicable evidence")
+        error = source_error(sources.get(name))
+        if error:
+            raise ValueError(f"required source {name} {error}")
     if not isinstance(doc.get("entries"), list):
         raise ValueError("candidate publication lacks entries")
     for entry in doc["entries"]:
@@ -276,7 +282,10 @@ def entry_result(home, doc, entry):
             reasons.append(f"stale {name} source revision")
     for name, revision in refs.items():
         source = sources.get(name)
-        if not isinstance(source, dict) or source.get("revision") != revision:
+        error = source_error(source)
+        if error:
+            reasons.append(f"source {name} {error}")
+        elif source["revision"] != revision:
             reasons.append(f"conflicting {name} source revision")
     prep = entry.get("prep")
     if not isinstance(prep, dict) or not isinstance(prep.get("revision"), str) or not prep["revision"]:
@@ -300,8 +309,7 @@ def entry_result(home, doc, entry):
             continue
         authority = fact.get("authority")
         source = sources.get(authority) if isinstance(authority, str) else None
-        if (not isinstance(source, dict) or source.get("status") not in COMPLETE_READ
-                or not isinstance(source.get("revision"), str) or not source["revision"]
+        if (source_error(source)
                 or "source_ref" not in fact or authority not in refs
                 or fact.get("source_ref") != source.get("revision")
                 or refs.get(authority) != source.get("revision")
