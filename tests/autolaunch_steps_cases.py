@@ -316,29 +316,93 @@ rm -f "$FM_HOME/state/$1.meta"
         self.assertEqual(self.effects("spawn "), ["spawn help gpt-5.5"], result.stdout)
         self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "pending")
 
-    def test_prep_fallback_deferred_retry_completes_launch_prep(self):
-        self.prep_queue()
+    def full_once(self):
+        # Fixture of fm-spawn's machine refusal: exit 75, queueing only without --no-defer-queue.
         spawn = self.home / "fake/spawn"
         spawn.write_text(spawn.read_text().replace("set -eu\n", '''set -eu
-if [ -f "$FM_HOME/fake/defer-$1" ]; then
-  rm -f "$FM_HOME/fake/defer-$1"
-  bash "$STEP_ROOT/bin/fm-spawn-deferred.sh" record "$1" -- "$0" "$@"
+if [ -f "$FM_HOME/fake/full-$1" ]; then
+  rm -f "$FM_HOME/fake/full-$1"
+  case " $* " in
+    *" --no-defer-queue "*) ;;
+    *) bash "$STEP_ROOT/bin/fm-spawn-deferred.sh" record "$1" -- "$0" "$@" ;;
+  esac
+  echo "deferred: no free machine lane" >&2
   exit 75
 fi
 ''', 1))
-        self.write("fake/defer-ai", "")
+        self.write("fake/full-ai", "")
+
+    def witnesses(self, task):
+        log = self.home / "state/autolaunch.log"
+        return [line for line in log.read_text().splitlines()
+                if line.endswith(f"launched|relaunched {task} initial-prep:1")] if log.exists() else []
+
+    def test_prep_fallback_capacity_refusal_stays_with_receipt(self):
+        for case in ("help-prepared", "ai-prepared", "lane-returns"):
+            with self.subTest(case=case):
+                self.prep_queue()
+                self.full_once()
+                result = self.run_pass(ordinary=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("spawn "), [], result.stdout)
+                self.assertEqual(list((self.home / "state/spawn-deferred/queue").glob("*"))
+                                 if (self.home / "state/spawn-deferred/queue").exists() else [], [])
+                self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "pending")
+                if case == "help-prepared":
+                    self.write("data/help/brief.md", "Delivery contract: mode=direct-PR\n")
+                    self.write("data/help/prep.md", "Ready to build\n")
+                    self.write("data/help/autolaunch-prep", "project=proj\nkind=ship\nmode=direct-PR\nyolo=off\n")
+                    dispatched = subprocess.run([
+                        "bash", str(ROOT / "bin/fm-autolaunch.sh"), "--step-dispatch", "ai", "", "", "ai:initial-prep:1"
+                    ], env=self.env, capture_output=True, text=True, timeout=40)
+                    self.assertNotEqual(dispatched.returncode, 0, dispatched.stdout + dispatched.stderr)
+                    self.assertIn("prepared-item-exists", dispatched.stderr)
+                    result = self.run_pass(ordinary=True)
+                    self.assertEqual(self.effects("spawn "), ["spawn help gpt-5.5"], result.stdout)
+                    self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "pending")
+                    self.assertEqual(self.witnesses("ai"), [])
+                elif case == "ai-prepared":
+                    self.write("data/ai/prep.md", "Ready to build\n")
+                    result = self.run_pass(ordinary=True)
+                    argv = self.home / "fake/argv"
+                    self.assertFalse(any("--scout" in line for line in (
+                        argv.read_text().splitlines() if argv.exists() else [])), result.stdout)
+                    self.assertEqual(self.witnesses("ai"), [])
+                else:
+                    result = self.run_pass(ordinary=True)
+                    self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)
+                    self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "completed")
+                    self.assertEqual(len(self.witnesses("ai")), 1)
+                    self.run_pass(ordinary=True)
+                    self.assertEqual(len(self.witnesses("ai")), 1)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.tmp.cleanup()
+                self.setUp()
+
+    def test_prep_fallback_filed_without_launch_is_retired_when_prep_arrives(self):
+        self.prep_queue()
+        original = "Delivery contract: mode=direct-PR\nOriginal outcome\n"
+        self.write("data/ai/brief.md", original)
+        self.write("data/ai/autolaunch-prep", "project=proj\nkind=ship\nmode=direct-PR\nyolo=off\n")
+        first = self.run_pass(stop="before:launch-prep", ordinary=True)
+        self.assertNotEqual(first.returncode, 0, first.stdout)
+        log = self.home / "data/ai/slice-steps.log"
+        log.write_text("".join(line + "\n" for line in log.read_text().splitlines()
+                               if json.loads(line).get("effect", {}).get("kind") != "launch-prep"))
+        self.assertNotEqual((self.home / "data/ai/brief.md").read_text(), original)
+        self.write("data/ai/prep.md", "Ready to build\n")
         result = self.run_pass(ordinary=True)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(self.effects("spawn "), [], result.stdout)
-        self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "pending")
-        env = dict(self.env, FM_SPAWN_DEFERRED_CAPACITY_BIN=str(self.home / "fake/capacity"))
-        retry = subprocess.run(["bash", str(ROOT / "bin/fm-spawn-deferred.sh"), "retry"],
-                               env=env, capture_output=True, text=True, timeout=60)
-        self.assertEqual(retry.returncode, 0, retry.stdout + retry.stderr)
-        self.assertIn("started ai", retry.stdout)
-        self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"])
-        self.assertEqual(self.prep_receipts("ai")["initial-prep:1"]["receipt"], "completed")
-        self.assertIn("launched|relaunched ai initial-prep:1", (self.home / "state/autolaunch.log").read_text())
+        self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)
+        self.assertNotIn("--scout", (self.home / "fake/argv").read_text())
+        self.assertEqual((self.home / "data/ai/brief.md").read_text(), original)
+        self.assertEqual(self.prep_receipts("ai")["initial-prep:1:file"].get("superseded_by"), "prep-present")
+
+    def test_prep_fallback_long_task_id_without_tester_task_is_ranked(self):
+        self.prep_queue()
+        long_id = "j01" + "x" * 55
+        backlog = self.home / "data/backlog.md"
+        backlog.write_text(backlog.read_text().replace("- [ ] j01 -", f"- [ ] {long_id} -"))
         result = self.run_pass(ordinary=True)
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)

@@ -27,9 +27,12 @@ and no prepared item; leased passes never replay its receipts. It uses the same
 task id as a scout, preserves the native row and its original brief/launch
 record, and records file-prep/launch-prep receipts before effects. Project and
 kind follow the launcher's autolaunch-prep override before the backlog row.
-The launch witness completes launch-prep, including a deferred-spawn retry.
-When prep arrives before any scout launched, the ordinary pass retires the
-pending receipts and restores the preserved ship brief. Later promotion remains
+One admission (prep_admission) gates every launch-prep dispatch and its spawn:
+the row is queued and unheld and no ready item, itself included, has prep. The
+spawn never enters the deferred-spawn queue (--no-defer-queue); a refused
+launch stays pending for the next pass, and spawn writes the launch witness.
+When prep arrives before any scout launched, including after filing alone, the
+ordinary pass retires those receipts and restores the preserved ship brief. Later promotion remains
 firstmate-owned. Ranking uses config/slicing.json catalog (else
 data/[from-main/]slices/catalog.json) queue_band/queue_order by the SLICE id;
 an item without a rank is reported as unranked and never picked by position.
@@ -318,8 +321,6 @@ def record_launch(task, action, generation):
         return False
     if not launch_recorded(task, key):
         append(STATE / "autolaunch.log", f"{NOW}\t-\t{task}\t-\tlaunched|relaunched {task} {key}")
-    if effect["kind"] == "launch-prep":
-        append(DATA / owner / "slice-steps.log", json.dumps(dict(row, at=NOW, receipt="completed", reason=""), sort_keys=True))
     return True
 
 
@@ -328,35 +329,72 @@ def deferred_queued(task):
 
 
 def prep_pending(owner, body, reconcile=False):
-    pending = [r for r in latest(rows(owner)).values()
-               if r["receipt"] == "pending" and r.get("effect", {}).get("kind") in PREP_ACTIONS]
-    if not pending:
+    prep = [r for r in latest(rows(owner)).values() if r.get("effect", {}).get("kind") in PREP_ACTIONS]
+    pending = [r for r in prep if r["receipt"] == "pending"]
+    launched = any(r["effect"]["kind"] == "launch-prep" and r["receipt"] == "completed" for r in prep)
+    open_rows = pending + [r for r in prep if r["receipt"] == "completed" and r["effect"]["kind"] == "file-prep" and
+                           not r.get("superseded_by") and not launched]
+    if not open_rows:
         return False
-    launched = any(launch_recorded(owner, r["effect"]["id"]) for r in pending)
-    if not launched and (not prep_doc(owner, body) or deferred_queued(owner) or (STATE / f"{owner}.meta").exists()):
+    witnessed = any(launch_recorded(owner, r["effect"]["id"]) for r in pending)
+    if not witnessed and (not prep_doc(owner, body) or deferred_queued(owner) or (STATE / f"{owner}.meta").exists()):
         return True
     if not reconcile:
         return True
     slice_ = Slice(owner)
     shipped = DATA / owner / "prep-ship-brief.md"
-    if not launched and shipped.is_file():
+    if not witnessed and shipped.is_file():
         os.replace(shipped, DATA / owner / "brief.md")
-    for row in pending:
-        slice_.log(dict(row, receipt="completed", reason="", **({} if launched else dict(superseded_by="prep-present"))))
+    for row in pending if witnessed else open_rows:
+        slice_.log(dict(row, receipt="completed", reason="", **({} if witnessed else dict(superseded_by="prep-present"))))
     return False
+
+
+def ready_ids():
+    shown = invoke([BIN / "fm-tasks-axi.sh", "ready"])
+    if shown.returncode:
+        raise ValueError("backlog unreadable")
+    ids, inside = [], False
+    for line in shown.stdout.splitlines():
+        if re.match(r"ready\[\d+\]", line):
+            inside = True
+        elif inside and re.match(r"  [^ ]", line):
+            ids.append(line[2:].split(",", 1)[0])
+        else:
+            inside = False
+    return ids
+
+
+def prep_admission(task, action):
+    if not prep_receipt(task, action):
+        return None
+    shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
+    if shown.returncode:
+        return "task-unreadable"
+    if re.search(r"^  held: yes$", shown.stdout, re.M):
+        return "held"
+    if not re.search(r"^  state: queued$", shown.stdout, re.M):
+        return "prep-owner-not-queued"
+    if prep_doc(task, task_body(shown.stdout)):
+        return "prep-already-present"
+    for other in ready_ids():
+        if other == task or not SLUG.fullmatch(other):
+            continue
+        item = invoke([BIN / "fm-tasks-axi.sh", "show", other, "--full"])
+        if item.returncode:
+            return "ready-item-unreadable"
+        if prep_doc(other, task_body(item.stdout)):
+            return "prepared-item-exists"
+    return ""
 
 
 def launch_admission(task, candidate, action):
     shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
     if shown.returncode:
         return "task-unreadable"
-    prep = prep_receipt(task, action)
-    if prep:
-        if prep_doc(task, task_body(shown.stdout)):
-            return "prep-already-present"
-        if re.search(r"^  held: yes$", shown.stdout, re.M):
-            return "held"
-        return "" if re.search(r"^  state: queued$", shown.stdout, re.M) else "prep-owner-not-queued"
+    prep = prep_admission(task, action)
+    if prep is not None:
+        return prep
     if any(r.get("effect", {}).get("kind") in PREP_ACTIONS and r.get("receipt") == "pending"
            for r in latest(rows(task)).values()):
         return "step-receipt-required"
@@ -432,13 +470,6 @@ class Slice:
         self.body = task_body(shown.stdout)
         self.held = bool(re.search(r"^  held: yes$", shown.stdout, re.M))
         self.home_id = read(HOME / ".fm-secondmate-home").strip() or "main"
-        self.tester = self.body_field("TESTER TASK") or f"{owner}-tester"
-        if ":" in self.tester:
-            tester_home, self.tester = self.tester.split(":", 1)
-            if tester_home != self.home_id:
-                raise ValueError("TESTER TASK belongs to another home; no local fallback permitted")
-        if not SLUG.fullmatch(self.tester):
-            raise ValueError("invalid TESTER TASK")
         proof = next((r for r in reversed(self.current()) if r.get("closure_ready")), {})
         self.project = self.meta.get("project", "") or proof.get("project", "")
         self.repo = Path(self.project).name if self.project else ""
@@ -485,6 +516,17 @@ class Slice:
             if path.exists():
                 self.summary = json.loads(read(path))
                 break
+
+    @property
+    def tester(self):
+        tester = self.body_field("TESTER TASK") or f"{self.owner}-tester"
+        if ":" in tester:
+            tester_home, tester = tester.split(":", 1)
+            if tester_home != self.home_id:
+                raise ValueError("TESTER TASK belongs to another home; no local fallback permitted")
+        if not SLUG.fullmatch(tester):
+            raise ValueError("invalid TESTER TASK")
+        return tester
 
     def read_pr(self):
         """Read exact head/check/merge facts through the installed forge tool.
@@ -1202,7 +1244,6 @@ class Slice:
             if self.meta or agent(target) not in ("dead", "missing"):
                 return False, "prep-incarnation-present"
             r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target, "", "", f"{self.owner}:{effect['id']}"])
-            self.records = rows(self.owner)
             return r.returncode == 0 or self.effect_present(row), r.stderr.strip() or "prep-dispatch-refused"
         if kind in LIFECYCLE_ACTIONS and not self.lifecycle_allowed(effect):
             return False, "destination-not-leased"
@@ -1395,8 +1436,7 @@ class Slice:
                 extra = dict(builder_model=builder.get("model"), tester_model=tester.get("model"),
                              builder_family=model_family(builder), tester_family=model_family(tester))
         if success:
-            if not self.done(row["trigger"]):
-                self.log(dict(row, receipt="completed", reason="", **extra))
+            self.log(dict(row, receipt="completed", reason="", **extra))
         elif reason != row.get("reason"):
             self.log(dict(row, receipt="pending", reason=reason))
         return success
@@ -1610,9 +1650,13 @@ def main():
     if command == "prep-pending" and sys.argv[3:] in ([], ["--reconcile"]) and len(sys.argv) >= 3:
         return 0 if prep_pending(sys.argv[2], sys.stdin.read(), sys.argv[3:] == ["--reconcile"]) else 3
     if command == "prep-context" and len(sys.argv) == 4:
-        row = prep_receipt(*sys.argv[2:])
-        if not row:
+        reason = prep_admission(*sys.argv[2:])
+        if reason is None:
             return 3
+        if reason:
+            print(reason)
+            return 4
+        row = prep_receipt(*sys.argv[2:])
         print(json.dumps(dict(project=row["effect"]["project"], base_branch=row["effect"]["base_branch"])))
         return 0
     arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3,

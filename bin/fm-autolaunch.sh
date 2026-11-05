@@ -66,6 +66,8 @@
 #      unprepared item (or reports nothing-to-prep); unranked items are named,
 #      never picked. A pending initial prep refuses its item until its scout
 #      launches or, before any launch, prep arrives and a run pass retires it.
+#      Its --step-dispatch re-runs the shared prep admission and spawns with
+#      --no-defer-queue, so a capacity refusal stays with the receipt.
 #
 # PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
@@ -738,13 +740,17 @@ if [ "$ACTION" = step-dispatch ]; then
   [ -n "$STEP_ACTION_ID" ] || exit 2
   capacity_read || true
   [ "$CAP_FREE" -gt 0 ] || exit 75
-  if context=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-context "$STEP_TARGET" "$STEP_ACTION_ID"); then
-    P_PROJECT=$(jq -r '.project' <<<"$context")
-    P_BASE_BRANCH=$(jq -r '.base_branch' <<<"$context")
-    P_KIND=scout
-  else
-    check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
-  fi
+  prep_rc=0 STEP_PREP=0
+  context=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-context "$STEP_TARGET" "$STEP_ACTION_ID") || prep_rc=$?
+  case "$prep_rc" in
+    0)
+      P_PROJECT=$(jq -r '.project' <<<"$context")
+      P_BASE_BRANCH=$(jq -r '.base_branch' <<<"$context")
+      P_KIND=scout STEP_PREP=1
+      ;;
+    3) check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; } ;;
+    *) echo "refused:${context:-prep admission failed}" >&2; exit 1 ;;
+  esac
   dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
   if [ -n "$STEP_EXCLUDE" ] && [ -n "$STEP_FAMILY" ] && [ "$STEP_FAMILY" != unknown ]; then
     : > "$TMPD/preferred.tsv"
@@ -765,6 +771,7 @@ if [ "$ACTION" = step-dispatch ]; then
     m=${line%%$'\t'*} e=${line#*$'\t'}
     python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$STEP_TARGET" "$m" "$STEP_ACTION_ID" > "$TMPD/admission.out" || continue
     spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
+    [ "$STEP_PREP" = 0 ] || SPAWN_ARGV+=(--no-defer-queue)
     rc=0
     FM_SPAWN_STEP_ACTION="$STEP_ACTION_ID" "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if spawn_quota_refused "$rc"; then
