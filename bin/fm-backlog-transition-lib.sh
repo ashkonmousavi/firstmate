@@ -559,8 +559,9 @@ fm_backlog_pr_note_label() {  # <url>
 # A scout may be only one phase of a larger backlog outcome. The row, not
 # the worker, owns that distinction: a scout's completion closes its row only
 # when the row's kind is scout, so a prep scout sharing an id with a ship, task
-# or other build row records its report as a phase and leaves that row open. A
-# kind-scout row is a phase too when its first unfenced SLICE line says
+# or other build row records its report as a phase and preserves that row's
+# completion state. A kind-scout row is a phase too when its first unfenced
+# SLICE line says
 # role=owner. Return 0 for a phase, 1 for an ordinary scout row, and 2 for an
 # unreadable row (including one whose kind cannot be read); callers must not
 # close on a read error.
