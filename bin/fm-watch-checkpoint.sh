@@ -195,9 +195,28 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
   exit "$RC"
 fi
 
+CHECK_BACKSTOP=0
+for check in "$STATE"/*.check.sh; do
+  [ -f "$check" ] || continue
+  # shellcheck source=bin/fm-pr-lib.sh
+  . "$SCRIPT_DIR/fm-pr-lib.sh"
+  # shellcheck source=bin/fm-check-lib.sh
+  . "$SCRIPT_DIR/fm-check-lib.sh"
+  id=${check##*/}; id=${id%.check.sh}
+  fm_custom_check_registered "$STATE" "$id" || continue
+  CHECK_BACKSTOP=$(fm_custom_check_timeout_max "$STATE" "$(positive_or "${FM_CHECK_TIMEOUT:-}" 30)")
+  break
+done
 set +e
 # Interrupt the checkpoint's active check group so the watcher's native EXIT cleanup can release its lock; ordinary watcher shutdown still uses TERM.
-run_bounded "$SECONDS_ARG" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+if [ "$CHECK_BACKSTOP" -gt 0 ]; then
+  # An admitted check owns its budget and five seconds to publish afterward.
+  # The watcher closes its quiet boundary and starts no check beyond it.
+  FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
+    run_bounded "$((SECONDS_ARG + CHECK_BACKSTOP + 10))" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+else
+  run_bounded "$SECONDS_ARG" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+fi
 RC=$?
 set -e
 

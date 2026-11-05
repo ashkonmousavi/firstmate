@@ -3353,6 +3353,8 @@ procevent_surface_queued() {
 
 run_check_process() {
   local c=$1
+  local CHECK_TIMEOUT=${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}
+  export FM_CHECK_TIMEOUT=$CHECK_TIMEOUT
   shift
   if [ "${FM_CHECK_FORCE_FALLBACK:-0}" != 1 ] && command -v timeout >/dev/null 2>&1; then
     exec timeout "$CHECK_TIMEOUT" bash "$c" "$@"
@@ -3372,6 +3374,8 @@ FM_ACTIVE_CHECK_PID=
 FM_ACTIVE_CHECK_PGID=
 FM_CHECK_OUTPUT=
 FM_CHECK_RESULT=
+FM_CHECK_BUDGET=
+FM_CHECK_ELAPSED=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
@@ -3421,7 +3425,7 @@ watcher_stop_signals() {
 }
 
 run_check_capture() {
-  local pgid rc=0
+  local pgid rc=0 started=$SECONDS
   fm_check_output_cleanup
   FM_CHECK_RESULT=
   FM_CHECK_EXIT_STATUS=0
@@ -3455,10 +3459,27 @@ run_check_capture() {
     FM_CHECK_EXIT_STATUS=124
     rc=124
   fi
+  FM_CHECK_ELAPSED=$((SECONDS - started))
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
   # Keep what the check printed before the cut, then report the cut itself.
-  [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${CHECK_TIMEOUT}s"
+  [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}s"
+}
+
+# Persist the just-completed check, without changing curated's per-run wakes.
+# budget_seconds and elapsed_seconds are whole seconds; identity authenticates
+# the executed custom snapshot or names the existing specialized poll path.
+check_run_record() {
+  local c=$1 identity=$2 result=failed record tmp
+  record="$STATE/.check-run-$(basename "$c" .check.sh)"
+  case "$FM_CHECK_EXIT_STATUS" in 0) result=ok ;; 124) result=timed-out ;; esac
+  tmp=$(umask 077; mktemp "$record.tmp.XXXXXX") || return 0
+  if ! printf 'check=%s\nidentity=%s\nlast_run=%s\nexit=%s\nresult=%s\nbudget_seconds=%s\nelapsed_seconds=%s\n' \
+      "$c" "$identity" "$(date +%s)" "$FM_CHECK_EXIT_STATUS" "$result" "$FM_CHECK_BUDGET" "$FM_CHECK_ELAPSED" > "$tmp" \
+      || ! mv -f -- "$tmp" "$record"; then
+    rm -f -- "$tmp"
+    triage_log "check run record for $c could not be written"
+  fi
 }
 
 FM_CAPTURE_OUTPUT=
@@ -4224,7 +4245,22 @@ resurface_after_downtime() {
   wake "check: rearm-resurface"
 }
 
+# The extended foreground backstop is enabled only for authenticated checks.
+# Keep its quiet boundary separate from a completed check's publication grace.
+WATCHER_CHECKPOINT_DEADLINE=
+if [ -n "${FM_WATCH_CHECKPOINT_SECONDS:-}" ]; then
+  # shellcheck source=bin/fm-timeout-lib.sh
+  . "$SCRIPT_DIR/fm-timeout-lib.sh"
+  fm_checkpoint_clock || exit 1
+  WATCHER_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + FM_WATCH_CHECKPOINT_SECONDS))
+fi
+checkpoint_deadline_passed() {
+  local FM_CHECKPOINT_DEADLINE=$WATCHER_CHECKPOINT_DEADLINE
+  fm_checkpoint_expired
+}
+
 while :; do
+  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then exit 124; fi
   # Native Codex may tear down the async hook and its watchdog together.
   # fm-codex-stop-park.sh owns this optional identity binding. Self-expiry
   # closes the normal recovery generation and lets the arm/host exit too.
@@ -4473,9 +4509,17 @@ EOF
 $orphan_out
 EOF
     fi
+    check_sweep_deferred=0
     for c in "$STATE"/*.check.sh; do
+      FM_CHECKPOINT_DEADLINE=
       [ -e "$c" ] || continue
+      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then
+        check_sweep_deferred=1
+        break
+      fi
       is_pr_poll=0
+      FM_CHECK_BUDGET=$CHECK_TIMEOUT
+      check_identity=relay-poll
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
           && [ -f "$FM_ROOT/bin/fm-x-poll.sh" ] && [ ! -L "$FM_ROOT/bin/fm-x-poll.sh" ]; then
@@ -4491,6 +4535,7 @@ EOF
           || { rerecord_device_shifted_pr_poll "$id" \
             && fm_pr_poll_snapshot_capture "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh"; }; then
           is_pr_poll=1
+          check_identity=$FM_PR_POLL_SNAPSHOT_URL
           provider=$FM_PR_POLL_SNAPSHOT_PROVIDER
           url=$FM_PR_POLL_SNAPSHOT_URL
           host=$FM_PR_POLL_SNAPSHOT_HOST
@@ -4541,7 +4586,8 @@ EOF
           esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
-          custom_check_started=$(date +%s)
+          FM_CHECK_BUDGET=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
+          check_identity="sha256:$FM_CUSTOM_CHECK_HASH"
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
           # A killed or failing run must not vanish: it wakes naming the check,
@@ -4549,9 +4595,9 @@ EOF
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             # Output printed before the cut stays, followed by the cut itself;
             # a silent cut names the bound that killed it.
-            [ "$out" != "timed out after ${CHECK_TIMEOUT}s" ] || out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+            out="${out%timed out after ${FM_CHECK_BUDGET}s}timed out after ${FM_CHECK_BUDGET}s (measured ${FM_CHECK_ELAPSED}s; ❌ failing tool: $id; FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
-            out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
+            out="exited $FM_CHECK_EXIT_STATUS after ${FM_CHECK_ELAPSED}s${out:+: $out}"
           fi
           fm_custom_check_snapshot_cleanup
         else
@@ -4560,6 +4606,11 @@ EOF
           continue
         fi
       fi
+      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then
+        fm_checkpoint_clock || exit 1
+        FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 5))
+      fi
+      check_run_record "$c" "$check_identity"
       if [ -n "$out" ]; then
         if [ "$(basename "$c")" = contributions.check.sh ]; then
           contribution_check_output=
@@ -4623,7 +4674,15 @@ EOF
           [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
           continue
         fi
-        fm_wake_append check "$c" "$reason" || exit 1
+        if [ -n "$FM_CHECKPOINT_DEADLINE" ]; then
+          fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || exit 1
+          check_publish_rc=0
+          fm_wake_append_locked check "$c" "$reason" || check_publish_rc=$?
+          fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+          [ "$check_publish_rc" -eq 0 ] || exit 1
+        else
+          fm_wake_append check "$c" "$reason" || exit 1
+        fi
         if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
           fm_pr_conflict_episode_open "$STATE" "$id" \
             "$provider" "$host" "$path" "$number" "$conflict_added_at" || exit 1
@@ -4633,12 +4692,13 @@ EOF
       fi
       pr_poll_control_release || exit 1
     done
+    FM_CHECKPOINT_DEADLINE=
     if [ -n "$rejected_checks" ]; then
       reason="check: rejected unauthenticated state checks:$rejected_checks"
       fm_wake_append check unauthenticated-state-checks "$reason" || exit 1
       [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
     fi
-    touch "$STATE/.last-check"
+    [ "$check_sweep_deferred" -eq 1 ] || touch "$STATE/.last-check"
     # One wake carries the first printing check, otherwise a contribution
     # result, so the durable queue holds every actionable check result.
     if [ -n "$contribution_check_output" ]; then

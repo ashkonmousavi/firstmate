@@ -382,6 +382,35 @@ SH
   pass "checkpoint preserves watcher environment for registered custom checks"
 }
 
+test_declared_check_budget_outlives_default_backstop() {
+  local home status
+  home=$(make_home check-budget-backstop)
+  cat > "$home/state/budget.check.sh" <<'SH'
+#!/usr/bin/env bash
+# FM_CHECK_TIMEOUT=24
+sleep 18
+printf 'declared budget survived checkpoint backstop\n'
+SH
+  chmod 0700 "$home/state/budget.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" budget >/dev/null || fail "register checkpoint budget"
+  status=0
+  FM_HOME="$home" FM_POLL=0 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=1 \
+    "$CHECKPOINT" --seconds 5 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "declared budget checkpoint: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'declared budget survived' "outer backstop cut a valid check short"
+  home=$(make_home check-budget-timeout)
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=8\nsleep 12\n' > "$home/state/slow.check.sh"
+  chmod 0700 "$home/state/slow.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register checkpoint timeout"
+  status=0
+  FM_HOME="$home" FM_POLL=0 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=1 \
+    "$CHECKPOINT" --seconds 2 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "timeout publication after quiet deadline"
+  assert_contains "$(cat "$home/out.txt")" 'timed out after 8s (measured ' "checkpoint swallowed a late timeout"
+  assert_contains "$(cat "$home/state/.wake-queue")" 'failing tool: slow' "late timeout was not durably queued"
+  pass "foreground checkpoint covers declared budgets and publishes results after its quiet deadline"
+}
+
 test_existing_singleton_watcher_is_not_success() {
   local home out err status
   home=$(make_home singleton)
@@ -513,6 +542,7 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
+test_declared_check_budget_outlives_default_backstop
 test_checkpoint_honors_cleanup_bound_before_escalating
 test_gnu_timeout_runs_the_host_bound
 test_non_gnu_timeout_uses_gnu_gtimeout

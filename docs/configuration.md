@@ -2700,7 +2700,7 @@ Arm the check once per home with `bin/fm-tool-update-check.sh arm`.
 | `FM_TOOL_UPDATE_BUDGET_SECS` | 20 | Bounds a whole sweep. |
 
 - A sweep that runs out of budget says which tool it did not reach rather than reporting the rest as current.
-- The sweep must finish inside `FM_CHECK_TIMEOUT` (default 30), because the watcher kills a run that outlasts it before the run reports anything; each timed-out run emits the wake described under the `FM_CHECK_TIMEOUT` default below.
+- The sweep must finish inside `FM_CHECK_TIMEOUT` (default 30); the watcher records and reports a killed run as a timeout failure.
 - So a budget larger than that timeout allows is cut down to what fits instead of being refused, and the cut is reported in the report line.
 - A budget that is not a whole number from 1 to 120 is still refused outright.
 
@@ -3660,7 +3660,7 @@ FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, a
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh
-FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
+FM_CHECK_TIMEOUT=30     # default seconds allowed per slow check script; timeout wakes name the check, its budget and measured elapsed seconds; nonzero exits keep their existing per-run wake
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
@@ -3820,6 +3820,8 @@ That shared reset is what makes the release structural rather than a list of sit
 At the first-sight routes the reset is also opt-in per site: under a configured cap the count restarts with the released episode, while with the cap at its default 0 the count survives those routes exactly as the pre-cap watcher's did - the timer dropped and re-armed (or dropped alone), the escalation count standing - so a home that has not set anything keeps today's ladder, including the `demand-deep-inspection` prompt for a stuck pane.
 An operator can re-engage a capped window at once by deleting its `state/.wedge-permanent-<key>` marker, and a window silenced by a failed cap-state write by deleting its `state/.wedge-rollback-failed-<key>` sentinel; both files are safe to delete, and the window then escalates on the ordinary schedule again.
 Turning the cap back off takes effect at once: every cap marker is read only while the cap is configured, so a leftover from an earlier configured run cannot keep a window silent in a home that has turned the cap off.
+
+Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
 
 `fm-teardown.sh` retries only Git's `Unable to create '...index.lock': File exists` return failure up to `FM_TREEHOUSE_RETURN_LOCK_RETRIES` times.
 `FM_TREEHOUSE_RETURN_LOCK_RETRIES` accepts a nonnegative integer, and an unset, blank, or invalid value uses the default of 3.

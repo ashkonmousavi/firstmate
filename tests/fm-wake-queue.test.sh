@@ -3858,6 +3858,73 @@ test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
   pass "watch liveness: an owner-parked mate stays stopped, and unpark restores relaunch"
 }
 
+check_leg() {
+  local dir=$1 tag=$2
+  shift 2
+  env PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$dir/state" FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 "$@" "$WATCH" > "$dir/watch-$tag.out" 2> "$dir/watch-$tag.err" &
+  CHECK_LEG_PID=$!
+}
+
+record_field() {  # <record> <field>
+  sed -n "s/^$2=//p" "$1"
+}
+
+test_custom_check_budgets() {
+  local dir state bad rc fallback record
+  dir=$(make_case check-budget-invalid)
+  state="$dir/state"
+  # shellcheck disable=SC2016 # Malicious budget text must remain literal data.
+  for bad in '' 0 -1 1.5 01 86401 '$(touch FORGED)' '4 extra'; do
+    printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=%s\nexit 0\n' "$bad" > "$state/probe.check.sh"
+    chmod 0700 "$state/probe.check.sh"
+    rc=0
+    FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" probe > "$dir/register.out" 2>&1 || rc=$?
+    [ "$rc" -ne 0 ] || fail "registered malformed budget '$bad'"
+    [ ! -e "$state/probe.check-trust" ] || fail "malformed budget left a trust record"
+  done
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=3\n# FM_CHECK_TIMEOUT=4\n' > "$state/probe.check.sh"
+  ! FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" probe > "$dir/register.out" 2>&1 \
+    || fail "registered duplicate budgets"
+  for fallback in 0 1; do
+    dir=$(make_case "check-budget-$fallback")
+    state="$dir/state"
+    cat > "$state/a-budget.check.sh" <<'SH'
+#!/usr/bin/env bash
+# FM_CHECK_TIMEOUT=4
+sleep 2
+printf 'budget finished with bound=%s\n' "${FM_CHECK_TIMEOUT:-missing}"
+SH
+    printf '#!/usr/bin/env bash\nsleep 6\n' > "$state/b-default.check.sh"
+    printf '#!/usr/bin/env bash\nprintf "fast finished\\n"\n' > "$state/c-fast.check.sh"
+    printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=4\nsleep 8\n' > "$state/d-budget-timeout.check.sh"
+    for bad in a-budget b-default c-fast d-budget-timeout; do
+      chmod 0700 "$state/$bad.check.sh"
+      FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" "$bad" >/dev/null || fail "register $bad"
+    done
+    check_leg "$dir" budget FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$fallback"
+    wait_for_exit "$CHECK_LEG_PID" 140 || fail "budget watcher did not finish"
+    grep -qF 'budget finished with bound=4' "$dir/watch-budget.out" || fail "declared budget was ignored or not exported"
+    record="$state/.check-run-a-budget"
+    [ "$(record_field "$record" result)" = ok ] || fail "declared-budget check timed out early"
+    [ "$(record_field "$record" budget_seconds)" = 4 ] || fail "declared budget missing from record"
+    # Whole-second telemetry allows one second of sampling granularity.
+    [ "$(record_field "$record" elapsed_seconds)" -ge 1 ] || fail "elapsed time was not measured"
+    [ "$(record_field "$state/.check-run-b-default" result)" = timed-out ] || fail "budget leaked to next check"
+    [ "$(record_field "$state/.check-run-c-fast" result)" = ok ] || fail "fast check changed"
+    grep -qF 'fast finished' "$state/.wake-queue" || fail "later fast check was skipped"
+    record="$state/.check-run-d-budget-timeout"
+    [ "$(record_field "$record" result)" = timed-out ] || fail "declared budget was unbounded"
+    [ "$(record_field "$record" budget_seconds)" = 4 ] || fail "timeout used the global bound"
+    [ "$(record_field "$record" elapsed_seconds)" -ge 3 ] || fail "declared budget timed out early"
+    grep -qF 'failing tool: b-default' "$state/.wake-queue" || fail "timeout did not name failing tool"
+    grep -Eq 'timed out after 1s \(measured [1-9][0-9]*s;' "$state/.wake-queue" || fail "timeout omitted measured time"
+  done
+  pass "authenticated per-check budgets refuse malformed input and do not leak across checks"
+}
+
+
+test_custom_check_budgets
 test_branch_grant_requires_lock_acquisition
 test_self_held_lock_reclaims_instead_of_deadlocking
 test_lock_wait_returns_when_its_directory_is_removed
