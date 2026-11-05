@@ -557,6 +557,13 @@ This exemption does not bypass the recorded-PR cleanup gate owned by [`bin/fm-te
 Absent or `tasks-axi` selects the tasks-axi path.
 On the default markdown adapter, tasks-axi and manual edits produce the same `## In flight`, `## Queued`, and `## Done` sections.
 
+### Blocked-by edges
+
+`bin/fm-tasks-axi.sh ready`, the autolaunch candidates it feeds, the session-start digest, and `bin/fm-fleet-snapshot.sh` share one rule for whether a `blocked-by:` edge still blocks: [`bin/fm-blocked-by-lib.sh`](../bin/fm-blocked-by-lib.sh)'s header owns it.
+A blocker done in this home's backlog or done archive clears the edge; an open row blocks; a blocker with no row in either file, or one named in another home as `<home>:<id>`, is unknown, so it blocks and is listed with its evidence rather than cleared.
+A blocker whose only trace is its merged pull request is cleared by recording a mark with [`bin/fm-blocked-by.sh`](../bin/fm-blocked-by.sh) `mark`, which `unmark` reverses; the marks live in the home's `data/blocked-by-marks.tsv`.
+`bin/fm-blocked-by.sh verdicts` prints the verdict for every edge.
+
 ### Using a separate operational home
 
 The tracked `.tasks.toml` paths resolve against the directory tasks-axi runs in, not `FM_HOME`, so a bare `tasks-axi` run from the code root addresses the code root's `data/` whenever the home lives elsewhere.

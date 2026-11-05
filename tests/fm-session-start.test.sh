@@ -2154,6 +2154,39 @@ EOF
   pass "the startup backlog bound cuts only dispatchable queued rows and discloses the remainder exactly"
 }
 
+# The dispatchable-now listing applies the shared blocked-by rule
+# (bin/fm-blocked-by-lib.sh) exactly as bin/fm-tasks-axi.sh ready does: a row
+# tasks-axi lists although its blocker has no row here moves to ready_withheld.
+test_backlog_ready_withholds_unknown_blockers() {
+  local rec root home fakebin out
+  rec=$(new_world backlog-ready-withheld)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_tasks_axi_compact "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  write_long_body_backlog "$home/data/backlog.md"
+  printf -- '- [ ] ready-2 - Ready item 2 blocked-by: archived-only (repo: firstmate) (kind: ship)\n' >> "$home/data/backlog.md.tmp"
+  awk -v row="$(cat "$home/data/backlog.md.tmp")" '{ print } /^## Queued$/ { print row }' "$home/data/backlog.md" > "$home/data/backlog.md.new"
+  mv "$home/data/backlog.md.new" "$home/data/backlog.md"
+  rm -f "$home/data/backlog.md.tmp"
+
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-1,queued,ship,firstmate,Ready item 1" "the ready listing lost an unblocked row"
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "the ready listing kept a row whose blocker has no row in this home"
+  assert_contains "$out" 'ready-2,archived-only,unknown,"no row in this home backlog or archive and no recorded mark"' \
+    "the withheld row is not shown with its blocker and evidence"
+
+  printf '# Done archive\n\n## Archived 2026-11-01\n- [x] archived-only - done long ago\n' > "$home/data/done-archive.md"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "an archived blocker still withholds the row"
+
+  pass "the startup ready listing withholds a row whose blocker is unknown here and keeps it once archived"
+}
+
 test_backlog_compact_manual_backend_skips_indented_bodies() {
   local rec root home fakebin out
   rec=$(new_world backlog-compact-manual)
@@ -3165,6 +3198,7 @@ test_non_pi_session_start_leaves_branch_state_untouched
 test_session_start_seeds_the_outcome_display_tail_while_away
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata
 test_backlog_queued_bound_discloses_its_remainder
+test_backlog_ready_withholds_unknown_blockers
 test_backlog_compact_manual_backend_skips_indented_bodies
 test_backlog_compact_tasks_axi_unavailable_uses_manual_fallback
 test_fleet_digest_empty_fleet

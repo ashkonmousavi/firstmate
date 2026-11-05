@@ -75,6 +75,7 @@ config/usage-warner  optional Claude usage-window thresholds for the opt-in macO
 config/x-mode.env    generated Relay watcher cadence; LOCAL, gitignored; source before arming watcher when present
 data/                personal fleet records; LOCAL, gitignored as a whole
   backlog.md         task queue, dependencies, history
+  blocked-by-marks.tsv  optional append-only marks clearing a blocked-by edge by its merged pull request; written only by bin/fm-blocked-by.sh mark|unmark, read by bin/fm-blocked-by-lib.sh, which owns the format
   captain.md         this home's domain-local captain preferences and working style; LOCAL, gitignored, canonical even if harness memory mirrors it, and updated with inspect-then-update
   captain-shared.md  main-authoritative shared captain preferences propagated read-only to secondmate homes; LOCAL, gitignored, owned by secondmate-provisioning
   learnings.md       fleet-local operational facts and gotchas; LOCAL, gitignored; dated, evidence-backed, curated, and updated with inspect-then-update - rewrite and prune rather than append forever, the same contract as captain.md; created lazily, absent until this home has a learning to store
