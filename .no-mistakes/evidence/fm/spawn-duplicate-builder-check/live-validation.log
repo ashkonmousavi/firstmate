@@ -1,0 +1,341 @@
+=== Real forge refusal, replay and outage ===
+REAL SERVER: {"version": "17.0.1+gitea-1.22.0"}; api page cap=2; loopback-only isolated SQLite instance
+REAL CLIENT: Version: [1m0.16.0[0m	golang: 1.26.6	go-sdk: v1.2.0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 3
+{"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-body --task-id dup-body --timeout 3
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+exit=0
+PASS real pagination: target PRs were created after three unrelated PRs and discovered despite server page cap=2
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/absent-task --task-id absent-task --timeout 3
+{"provider": "forgejo", "prs": [], "state": "ok"}
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-body --task-id dup-body --timeout 3
+{"provider": "forgejo", "prs": [], "state": "ok"}
+exit=0
+PASS real closed PR excluded; no matching PR returns an empty successful result
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-body ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-body already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/5 (branch laptop-change; body) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-body ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 5
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: pull request http://127.0.0.1:35239/labuser/project/pulls/5 is on branch laptop-change, not this task's branch fm/dup-body; --continue-pr attaches only to a pull request on fm/dup-body
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-local ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --mode local-only --continue-pr 999
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+PASS real spawn refusal/replay/body/foreign-branch/local-only attachment boundary
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 3
+{"error": "tea exited 1: Error: request failed: Get \"http://127.0.0.1:35239/api/v1/repos/labuser/project/pulls?state=open&limit=50&page=1\": dial tcp 127.0.0.1:35239: connect: connection refused", "provider": "forgejo", "state": "unknown"}
+exit=3
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: duplicate-builder check for dup-live is UNKNOWN: forgejo: tea exited 1: Error: request failed: Get "http://127.0.0.1:35239/api/v1/repos/labuser/project/pulls?state=open&limit=50&page=1": dial tcp 127.0.0.1:35239: connect: connection refused; a fresh builder is never launched blind - retry when the forge answers, attach with --continue-pr <N>, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+PASS unavailable actual forge refuses as UNKNOWN with no task state
+private tmux cleanup exit=0
+Forgejo server stopped; all children awaited
+
+
+=== Real pagination, attachment, relaunch and manual deferred retry ===
+OBSERVERS: positive controls recorded actual Git fetch and actual tea login list; both wrappers exec the installed real binary
+REAL API pages (requested limit=50; configured cap=2): [[8, 7], [6, 5], [4, 3], [2, 1], []]
+LOOKUP beyond page 1: {"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 4 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: --continue-pr 4 is not an open pull request on fm/dup-live for dup-live
+exit=1
+$ bash bin/fm-spawn.sh local-boundary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+$ bash bin/fm-spawn.sh local-boundary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off --continue-pr=999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+PASS local-only split/equals attachment refusal: verified no Git fetch or tea execution; no task metadata
+SCAFFOLD: note: no SLICE line in dup-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/dup-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 4 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project' to release it.
+notice: dup-live continues pull request http://127.0.0.1:35239/labuser/project/pulls/4: its copy starts at 7465fc83203c4044af28c54b7e8443509c1fdaf4, the head of origin/fm/dup-live
+spawned dup-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-dup-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+exit=0
+PERSISTED attachment: {"HEAD": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "checkout_branch": "(detached as the standard launch brief specifies)", "recorded_branch": "fm/dup-live", "PR_head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "PR_only_file": true, "continue_pr": "http://127.0.0.1:35239/labuser/project/pulls/4"}
+PRIVATE TMUX panes:
+%0 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91
+%1 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+
+WORKER TERMINAL:
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_41541__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project$ treehouse g
+et || printf '\n__FM_TREEHOUSE_GET_EXIT_41541__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.tree
+house/project-c2554c/1/project. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool
+/.treehouse/project-c2554c/1/project'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export GOTMPDIR=/tmp/fm-dup-live/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export FM_TASK_ID=dup-live
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ . '/tmp/fm-dup-live+7dad0447435b6dffa214e7698a691245d6cfbf8e4b99b4a4d9cf44dc1b921510/launch.s17938
+99498.41541.29257.sh'
+codex-cli 0.166.0
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PASS continuation starts the real allocated copy at the real open PR head and records its URL
+$ bash bin/fm-spawn.sh dup-live --relaunch --harness codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 54s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+spawned dup-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-dup-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+exit=0
+PASS relaunch with an open PR reuses its existing checkout without a forge call
+SCAFFOLD: note: no SLICE line in defer-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/defer-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh defer-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 66s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=7382420 pressure_full_avg60=5.3 floor_kb=0 reserve_kb=0 pressure_limit=100; task defer-live stays queued
+exit=75
+PERSISTED deferral: schema=fm-deferred-spawn.v1
+task=defer-live
+order=1
+cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91
+argv_sha256=2b75a10098bfe523f05ea8433a81ce90932b9e50ca33826b9f654bd4aac2cf85
+failures=0
+reported=0
+pending=
+arg=L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZQNkNHVjI4RFQ3OEYyTlpXMzdRUjkxL2Jpbi9mbS1zcGF3bi5zaA==
+arg=ZGVmZXItbGl2ZQ==
+arg=L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZQNkNHVjI4RFQ3OEYyTlpXMzdRUjkxLy50ZXN0LWxpdmUvcHJvamVjdA==
+arg=Y29kZXggLS12ZXJzaW9u
+arg=LS1tb2Rl
+arg=ZGlyZWN0LVBS
+arg=LS15b2xv
+arg=b2Zm
+arg=LS1iYWNrZW5k
+arg=dG11eA==
+
+$ bash bin/fm-spawn.sh defer-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 70s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: defer-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/5 (branch laptop-change; body) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+PASS capacity deferral reads no forge and retry performs a fresh real lookup and hard-refuses the new matching PR
+
+
+=== Ordinary local-only and explicit escape routes ===
+OBSERVERS: positive controls recorded actual Git fetch and actual tea login list; both wrappers exec the installed real binary
+SCAFFOLD: note: no SLICE line in local-ordinary's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh local-ordinary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 168s ago, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project' to release it.
+spawned local-ordinary harness=codex kind=ship mode=local-only yolo=off window=lab:fm-local-ordinary worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project
+exit=0
+PASS ordinary local-only spawn succeeds with no tea call or continuation metadata
+SCAFFOLD: note: no SLICE line in skip-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/skip-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh skip-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --no-forge-check isolated lab explicit bypass codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 179s ago, grace 300s) - full banner already printed this episode.
+notice: duplicate-builder check skipped for skip-live by --no-forge-check: isolated lab explicit bypass
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project' to release it.
+spawned skip-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-skip-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project
+exit=0
+PASS explicit bypass launches and records the printable reason without a forge call
+$ bash bin/fm-spawn.sh invalid-reason ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --no-forge-check   codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 186s ago, grace 300s) - full banner already printed this episode.
+error: --no-forge-check needs a one-line reason; it is recorded in the task record
+exit=1
+SCAFFOLD: note: no SLICE line in unknown-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/unknown-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh unknown-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 187s ago, grace 300s) - full banner already printed this episode.
+notice: duplicate-builder check for unknown-live is UNKNOWN (forgejo: tea is not on PATH); attaching to pull request 999's branch fm/unknown-live as --continue-pr asks
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project' to release it.
+notice: unknown-live continues pull request 999: its copy starts at 7465fc83203c4044af28c54b7e8443509c1fdaf4, the head of origin/fm/unknown-live
+spawned unknown-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-unknown-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project
+exit=0
+PASS explicitly authorized UNKNOWN continuation fetches the real branch and records the requested PR number
+Private tmux stopped; exit=0
+Forgejo stopped and child exit status awaited
+
+
+=== Body matching, real merge, empty list, origins, mutation and timeout ===
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R3 different fence => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R9 bullet => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R9 ordered => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R10 blank-start => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R10 double blank => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body strong Task => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body strong SLICE => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body decorated value => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS real PR body prose only => []
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS real PR body other slice => []
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+
+exit=0
+$ python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lookup-mutant.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+MUTATION KILLED: independent oracle requires existing real branch PR #4; branch-matching mutant returned [] and fails that assertion
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "later-2", "head": "fa3f35ca3ef22d5a43de6112244c0fc01ba0ffd2", "number": 8, "url": "http://127.0.0.1:35239/labuser/project/pulls/8", "why": ["body"]}], "state": "ok"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS actually merged PR #8 is excluded
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS genuinely empty open-PR API list succeeds
+$ python3 bin/fm-open-pr-lookup.py --forge gerrit --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "forge=gerrit publishes no pull request a second builder would push to", "reason": "forge=gerrit", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge external --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "forge=external publishes no pull request a second builder would push to", "reason": "forge=external", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin  --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin ../../remotes/x.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin /srv/x.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin file:///x --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin custom://github.com/o/r.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "origin is an unrecognized remote URL", "provider": "", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://unregistered.example/o/r.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "origin host unregistered.example is neither github.com, a config/github-hosts host, nor a GitLab host", "provider": "", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://github.com/disposable/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "gh exited 1: Post \"https://api.github.com/graphql\": proxyconnect tcp: dial tcp 127.0.0.1:9: connect: connection refused", "provider": "github", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://gitlab.com/disposable/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "glab exited 1:   ate=opened\": proxyconnect tcp: dial tcp 127.0.0.1:9: connect: connection refused.", "provider": "gitlab", "state": "unknown"}
+
+exit=3
+REAL GH/GLAB LIMIT: isolated client config has no service credential; successful GitHub/GitLab reads remain untested. No operator credentials or repository were used.
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "tea did not answer within 2.0 s", "provider": "forgejo", "state": "unknown"}
+
+exit=3
+PASS stalled real tea HTTP transport returns UNKNOWN on timeout
+All disposable server/listener children stopped and awaited

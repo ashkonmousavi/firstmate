@@ -1,0 +1,152 @@
+OBSERVERS: positive controls recorded actual Git fetch and actual tea login list; both wrappers exec the installed real binary
+REAL API pages (requested limit=50; configured cap=2): [[8, 7], [6, 5], [4, 3], [2, 1], []]
+LOOKUP beyond page 1: {"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 4 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: --continue-pr 4 is not an open pull request on fm/dup-live for dup-live
+exit=1
+$ bash bin/fm-spawn.sh local-boundary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+$ bash bin/fm-spawn.sh local-boundary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off --continue-pr=999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+PASS local-only split/equals attachment refusal: verified no Git fetch or tea execution; no task metadata
+SCAFFOLD: note: no SLICE line in dup-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/dup-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 4 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project' to release it.
+notice: dup-live continues pull request http://127.0.0.1:35239/labuser/project/pulls/4: its copy starts at 7465fc83203c4044af28c54b7e8443509c1fdaf4, the head of origin/fm/dup-live
+spawned dup-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-dup-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+exit=0
+PERSISTED attachment: {"HEAD": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "checkout_branch": "(detached as the standard launch brief specifies)", "recorded_branch": "fm/dup-live", "PR_head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "PR_only_file": true, "continue_pr": "http://127.0.0.1:35239/labuser/project/pulls/4"}
+PRIVATE TMUX panes:
+%0 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91
+%1 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+
+WORKER TERMINAL:
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_41541__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project$ treehouse g
+et || printf '\n__FM_TREEHOUSE_GET_EXIT_41541__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.tree
+house/project-c2554c/1/project. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool
+/.treehouse/project-c2554c/1/project'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export GOTMPDIR=/tmp/fm-dup-live/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ export FM_TASK_ID=dup-live
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$ . '/tmp/fm-dup-live+7dad0447435b6dffa214e7698a691245d6cfbf8e4b99b4a4d9cf44dc1b921510/launch.s17938
+99498.41541.29257.sh'
+codex-cli 0.166.0
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/proj
+ect-c2554c/1/project$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PASS continuation starts the real allocated copy at the real open PR head and records its URL
+$ bash bin/fm-spawn.sh dup-live --relaunch --harness codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 54s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+spawned dup-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-dup-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/1/project
+exit=0
+PASS relaunch with an open PR reuses its existing checkout without a forge call
+SCAFFOLD: note: no SLICE line in defer-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/defer-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh defer-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 66s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=7382420 pressure_full_avg60=5.3 floor_kb=0 reserve_kb=0 pressure_limit=100; task defer-live stays queued
+exit=75
+PERSISTED deferral: schema=fm-deferred-spawn.v1
+task=defer-live
+order=1
+cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91
+argv_sha256=2b75a10098bfe523f05ea8433a81ce90932b9e50ca33826b9f654bd4aac2cf85
+failures=0
+reported=0
+pending=
+arg=L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZQNkNHVjI4RFQ3OEYyTlpXMzdRUjkxL2Jpbi9mbS1zcGF3bi5zaA==
+arg=ZGVmZXItbGl2ZQ==
+arg=L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZQNkNHVjI4RFQ3OEYyTlpXMzdRUjkxLy50ZXN0LWxpdmUvcHJvamVjdA==
+arg=Y29kZXggLS12ZXJzaW9u
+arg=LS1tb2Rl
+arg=ZGlyZWN0LVBS
+arg=LS15b2xv
+arg=b2Zm
+arg=LS1iYWNrZW5k
+arg=dG11eA==
+
+$ bash bin/fm-spawn.sh defer-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 70s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: defer-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/5 (branch laptop-change; body) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+PASS capacity deferral reads no forge and retry performs a fresh real lookup and hard-refuses the new matching PR
+SCAFFOLD: note: no SLICE line in local-ordinary's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh local-ordinary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 72s ago, grace 300s) - full banner already printed this episode.
+error: forge mismatch for local-ordinary: project is registered forge=forgejo but ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md records forge=none; keep the filled ## Captain's intent and ## Firstmate spec bodies, remove ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md, re-scaffold it with fm-brief.sh local-ordinary project --mode local-only --forge forgejo, then re-fill those two subsections, so the worker's publication matches the project's forge
+exit=1
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/positive-live.py", line 125, in <module>
+    p,calls=spawn('local-ordinary',mode='local-only')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/positive-live.py", line 64, in spawn
+    assert p.returncode==expect,p.stdout
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 72s ago, grace 300s) - full banner already printed this episode.
+error: forge mismatch for local-ordinary: project is registered forge=forgejo but ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md records forge=none; keep the filled ## Captain's intent and ## Firstmate spec bodies, remove ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md, re-scaffold it with fm-brief.sh local-ordinary project --mode local-only --forge forgejo, then re-fill those two subsections, so the worker's publication matches the project's forge
+
+
+Private tmux stopped; exit=0
+Forgejo stopped and child exit status awaited
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/positive-live.py", line 125, in <module>
+    p,calls=spawn('local-ordinary',mode='local-only')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/positive-live.py", line 64, in spawn
+    assert p.returncode==expect,p.stdout
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 72s ago, grace 300s) - full banner already printed this episode.
+error: forge mismatch for local-ordinary: project is registered forge=forgejo but ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md records forge=none; keep the filled ## Captain's intent and ## Firstmate spec bodies, remove ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md, re-scaffold it with fm-brief.sh local-ordinary project --mode local-only --forge forgejo, then re-fill those two subsections, so the worker's publication matches the project's forge
+

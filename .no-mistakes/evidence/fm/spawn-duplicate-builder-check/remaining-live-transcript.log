@@ -1,0 +1,38 @@
+OBSERVERS: positive controls recorded actual Git fetch and actual tea login list; both wrappers exec the installed real binary
+SCAFFOLD: note: no SLICE line in local-ordinary's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/local-ordinary/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh local-ordinary ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode local-only --yolo off codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 168s ago, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project' to release it.
+spawned local-ordinary harness=codex kind=ship mode=local-only yolo=off window=lab:fm-local-ordinary worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project
+exit=0
+PASS ordinary local-only spawn succeeds with no tea call or continuation metadata
+SCAFFOLD: note: no SLICE line in skip-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/skip-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh skip-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --no-forge-check isolated lab explicit bypass codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 179s ago, grace 300s) - full banner already printed this episode.
+notice: duplicate-builder check skipped for skip-live by --no-forge-check: isolated lab explicit bypass
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project' to release it.
+spawned skip-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-skip-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project
+exit=0
+PASS explicit bypass launches and records the printable reason without a forge call
+$ bash bin/fm-spawn.sh invalid-reason ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --no-forge-check   codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 186s ago, grace 300s) - full banner already printed this episode.
+error: --no-forge-check needs a one-line reason; it is recorded in the task record
+exit=1
+SCAFFOLD: note: no SLICE line in unknown-live's task body
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab/data/unknown-live/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})
+$ bash bin/fm-spawn.sh unknown-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 999 codex --version
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+WARNING: watcher still down (same stale episode; last beat: 187s ago, grace 300s) - full banner already printed this episode.
+notice: duplicate-builder check for unknown-live is UNKNOWN (forgejo: tea is not on PATH); attaching to pull request 999's branch fm/unknown-live as --continue-pr asks
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project' to release it.
+notice: unknown-live continues pull request 999: its copy starts at 7465fc83203c4044af28c54b7e8443509c1fdaf4, the head of origin/fm/unknown-live
+spawned unknown-live harness=codex kind=ship mode=direct-PR yolo=off window=lab:fm-unknown-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project
+exit=0
+PASS explicitly authorized UNKNOWN continuation fetches the real branch and records the requested PR number
+Private tmux stopped; exit=0
+Forgejo stopped and child exit status awaited

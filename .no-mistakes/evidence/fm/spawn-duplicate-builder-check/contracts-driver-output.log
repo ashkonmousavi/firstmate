@@ -1,0 +1,120 @@
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R3 different fence => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R9 bullet => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R9 ordered => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R10 blank-start => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body R10 double blank => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body strong Task => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body strong SLICE => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+
+exit=0
+PASS real PR body decorated value => [5]
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS real PR body prose only => []
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS real PR body other slice => []
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+
+exit=0
+$ python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lookup-mutant.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+MUTATION KILLED: independent oracle requires existing real branch PR #4; branch-matching mutant returned [] and fails that assertion
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [{"branch": "later-2", "head": "fa3f35ca3ef22d5a43de6112244c0fc01ba0ffd2", "number": 8, "url": "http://127.0.0.1:35239/labuser/project/pulls/8", "why": ["body"]}], "state": "ok"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS actually merged PR #8 is excluded
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"provider": "forgejo", "prs": [], "state": "ok"}
+
+exit=0
+PASS genuinely empty open-PR API list succeeds
+$ python3 bin/fm-open-pr-lookup.py --forge gerrit --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "forge=gerrit publishes no pull request a second builder would push to", "reason": "forge=gerrit", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge external --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "forge=external publishes no pull request a second builder would push to", "reason": "forge=external", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin  --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin ../../remotes/x.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin /srv/x.git --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin file:///x --branch fm/t1 --task-id t1 --timeout 2
+{"notice": "", "reason": "no forge origin", "state": "skip"}
+
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin custom://github.com/o/r.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "origin is an unrecognized remote URL", "provider": "", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://unregistered.example/o/r.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "origin host unregistered.example is neither github.com, a config/github-hosts host, nor a GitLab host", "provider": "", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://github.com/disposable/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "gh exited 1: Post \"https://api.github.com/graphql\": proxyconnect tcp: dial tcp 127.0.0.1:9: connect: connection refused", "provider": "github", "state": "unknown"}
+
+exit=3
+$ python3 bin/fm-open-pr-lookup.py --forge none --origin https://gitlab.com/disposable/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "glab exited 1:   ate=opened\": proxyconnect tcp: dial tcp 127.0.0.1:9: connect: connection refused.", "provider": "gitlab", "state": "unknown"}
+
+exit=3
+REAL GH/GLAB LIMIT: isolated client config has no service credential; successful GitHub/GitLab reads remain untested. No operator credentials or repository were used.
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/t1 --task-id t1 --timeout 2
+{"error": "tea did not answer within 2.0 s", "provider": "forgejo", "state": "unknown"}
+
+exit=3
+PASS stalled real tea HTTP transport returns UNKNOWN on timeout
+All disposable server/listener children stopped and awaited

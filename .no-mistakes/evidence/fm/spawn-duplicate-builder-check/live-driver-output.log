@@ -1,0 +1,53 @@
+REAL SERVER: {"version": "17.0.1+gitea-1.22.0"}; api page cap=2; loopback-only isolated SQLite instance
+REAL CLIENT: Version: [1m0.16.0[0m	golang: 1.26.6	go-sdk: v1.2.0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 3
+{"provider": "forgejo", "prs": [{"branch": "fm/dup-live", "head": "7465fc83203c4044af28c54b7e8443509c1fdaf4", "number": 4, "url": "http://127.0.0.1:35239/labuser/project/pulls/4", "why": ["branch"]}], "state": "ok"}
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-body --task-id dup-body --timeout 3
+{"provider": "forgejo", "prs": [{"branch": "laptop-change", "head": "fcd5e959f5705d4d009ade5fe35930f5d0c3cf5b", "number": 5, "url": "http://127.0.0.1:35239/labuser/project/pulls/5", "why": ["body"]}], "state": "ok"}
+exit=0
+PASS real pagination: target PRs were created after three unrelated PRs and discovered despite server page cap=2
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/absent-task --task-id absent-task --timeout 3
+{"provider": "forgejo", "prs": [], "state": "ok"}
+exit=0
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-body --task-id dup-body --timeout 3
+{"provider": "forgejo", "prs": [], "state": "ok"}
+exit=0
+PASS real closed PR excluded; no matching PR returns an empty successful result
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-live already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/4 (branch fm/dup-live; branch) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-body ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: dup-body already has an open pull request: http://127.0.0.1:35239/labuser/project/pulls/5 (branch laptop-change; body) - another builder may be on it; attach with --continue-pr <N>, close it first, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-body ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --continue-pr 5
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: pull request http://127.0.0.1:35239/labuser/project/pulls/5 is on branch laptop-change, not this task's branch fm/dup-body; --continue-pr attaches only to a pull request on fm/dup-body
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+$ bash bin/fm-spawn.sh dup-local ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off --mode local-only --continue-pr 999
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: --continue-pr needs a forge pull request and local-only has none
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+PASS real spawn refusal/replay/body/foreign-branch/local-only attachment boundary
+$ python3 bin/fm-open-pr-lookup.py --forge forgejo --origin http://127.0.0.1:35239/labuser/project.git --branch fm/dup-live --task-id dup-live --timeout 3
+{"error": "tea exited 1: Error: request failed: Get \"http://127.0.0.1:35239/api/v1/repos/labuser/project/pulls?state=open&limit=50&page=1\": dial tcp 127.0.0.1:35239: connect: connection refused", "provider": "forgejo", "state": "unknown"}
+exit=3
+$ bash bin/fm-spawn.sh dup-live ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/project --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/lab
+error: spawn refused: duplicate-builder check for dup-live is UNKNOWN: forgejo: tea exited 1: Error: request failed: Get "http://127.0.0.1:35239/api/v1/repos/labuser/project/pulls?state=open&limit=50&page=1": dial tcp 127.0.0.1:35239: connect: connection refused; a fresh builder is never launched blind - retry when the forge answers, attach with --continue-pr <N>, or pass --no-forge-check <reason>
+exit=1
+POSTCONDITION: no task metadata, task branch, or Treehouse pool was created
+PASS unavailable actual forge refuses as UNKNOWN with no task state
+private tmux cleanup exit=0
+Forgejo server stopped; all children awaited

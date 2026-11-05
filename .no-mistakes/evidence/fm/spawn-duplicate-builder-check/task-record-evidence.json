@@ -1,0 +1,25 @@
+{
+  "bypass": {
+    "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/3/project",
+    "harness": "codex",
+    "kind": "ship",
+    "mode": "direct-PR",
+    "branch": "fm/skip-live",
+    "forge_check_skipped": "isolated lab explicit bypass"
+  },
+  "unknown_continuation": {
+    "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/4/project",
+    "harness": "codex",
+    "kind": "ship",
+    "mode": "direct-PR",
+    "branch": "fm/unknown-live",
+    "continue_pr": "999"
+  },
+  "ordinary_local": {
+    "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6P6CGV28DT78F2NZW37QR91/.test-live/pool/.treehouse/project-c2554c/2/project",
+    "harness": "codex",
+    "kind": "ship",
+    "mode": "local-only",
+    "branch": "fm/local-ordinary"
+  }
+}

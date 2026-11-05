@@ -1,0 +1,19 @@
+ok - GitHub branch and body reads bind the origin host despite inherited GH_HOST
+ok - Forgejo continues after clamped pages, finishes on an empty page, and bounds incomplete reads as UNKNOWN
+ok - matching strong decoration on declarations, labels and values names tasks without stripping literal or mismatched markers
+ok - all providers reject missing or malformed match fields before filtering and accept explicit null or string bodies and SHAs
+ok - fm-open-pr-lookup: GitHub, GitHub Enterprise, GitLab and Forgejo are read; an unknown host and a missing tool are unknown; a local origin skips
+ok - fm-open-pr-lookup: Git remote forms find open PRs, unrecognized remotes are UNKNOWN, and only missing or local origins skip
+ok - fm-spawn: SLICE and Task declarations refuse regardless of fences, with the PR URL and a recorded explicit escape
+ok - fm-open-pr-lookup: task declarations count inside and after all container and fence forms
+ok - fm-spawn: an open pull request on the task's branch refuses with its URL, creates nothing, and refuses the same way twice
+ok - fm-spawn: a pull request whose SLICE or Task line names the task refuses even on another branch
+ok - fm-spawn: prose mentions, other slices, closed and merged pull requests and an empty list do not refuse
+ok - fm-spawn: a failing, garbled, slow or truncated forge refuses as UNKNOWN; --no-forge-check needs and records a reason
+ok - fm-spawn: --continue-pr <N> attaches only to that open pull request and starts the copy at its head
+ok - fm-spawn: --continue-pr refuses closed pull requests and pull requests on another branch
+ok - fm-spawn: local-only --continue-pr refuses before fetching, looking up or recording a pull request
+ok - fm-spawn: scouts and local-only ships skip the forge; gerrit and external skip with a notice; relaunch refuses the flags
+ok - fm-spawn: a relaunch of a task with its own open pull request launches without consulting the duplicate check
+ok - fm-spawn: a deferred launch reads the forge only when it launches, and its retry refuses on an open pull request
+# all fm-spawn-duplicate-builder tests passed
