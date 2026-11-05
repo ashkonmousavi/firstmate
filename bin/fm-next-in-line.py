@@ -200,9 +200,9 @@ done'''
                 registered[home] = "registered home enumeration returned an empty home"
                 continue
             try:
-                member = Path(member).resolve()
+                member = Path(member).resolve(strict=True)
             except (OSError, RuntimeError) as error:
-                member = Path(os.path.abspath(member))
+                member = Path(member).absolute()
                 reason = reason or str(error)
             registered[member] = registered.get(member) or reason
     if result.returncode:
@@ -489,9 +489,14 @@ def main():
         return 2
     mode = sys.argv[1]
     try:
-        home = Path(os.environ.get("FM_HOME", BIN.parent)).resolve(strict=True)
+        home = Path(os.environ.get("FM_HOME", BIN.parent)).absolute()
+        try:
+            home = home.resolve(strict=True)
+        except (OSError, RuntimeError):
+            if mode != "join":
+                raise
         result = join(home) if mode == "join" else publish(home)
-    except (OSError, ValueError, UnicodeError, subprocess.TimeoutExpired) as error:
+    except (OSError, RuntimeError, ValueError, UnicodeError, subprocess.TimeoutExpired) as error:
         if mode != "join":
             print(f"fm-next-in-line: {error}", file=sys.stderr)
             return 75
