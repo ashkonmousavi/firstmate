@@ -1164,7 +1164,7 @@ The [`fm-spawn.sh` header](../bin/fm-spawn.sh) owns the exact base rule, and the
 ## Gate defaults (.no-mistakes.yaml)
 
 The tracked [`.no-mistakes.yaml`](../.no-mistakes.yaml) sets `test.evidence.store_in_repo: true` and skips duplicate local lint with an explicit successful `commands.lint` command.
-Its `review.path_instructions` block owns finding deduplication, the report's conclusion on what named checks would miss, and the scope of later review rounds.
+Its `review.path_instructions` block owns finding deduplication, the report's conclusion on what named checks would miss, the scope of later review rounds, and the informational `RISKS:` policy for governance PR bodies.
 Hosted CI Lint 1, Lint 2, Lint 3, and Lint 4 run `bin/fm-lint.sh`, and the required Behavior portable parallel 1 check retains `tests/fm-pi-primary-types.test.sh`.
 Storing evidence in the repo publishes each run's test artifacts to the orphan `no-mistakes/evidence` branch and links them from the PR body, instead of keeping them on local disk under the no-mistakes home.
 
