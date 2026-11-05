@@ -358,7 +358,7 @@ item_show() {
   ITEM_BODY=$(show_field "$out" body)
 }
 
-# prep_doc <id>: prints the item's prep file (home-relative), or returns 1.
+# prep_doc <id>: prints the item's prep file (home-relative), or returns nonzero.
 # Needs item_show first for the body.
 prep_doc() {
   printf '%s\n' "$ITEM_BODY" | python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-doc "$1"

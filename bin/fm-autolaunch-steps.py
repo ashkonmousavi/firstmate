@@ -4,6 +4,8 @@
 Usage: fm-autolaunch-steps.py run|dry|check
        fm-autolaunch-steps.py wait <owner>
 Internal callbacks: prep [--dry-run] [<ready-owner> ...]
+                    prep-doc <task> (backlog body on stdin)
+                    prep-pending <task> [--reconcile] (backlog body on stdin)
                     prep-context <task> <owner>:<action-id>
                     guard|teardown-guard|record-teardown|accept-owner <task> <owner>:<action-id>
                     launch-admission <task> <candidate-model> <action-or-empty>
@@ -32,9 +34,10 @@ the row is queued and unheld and no ready item, itself included, has prep. The
 spawn never enters the deferred-spawn queue (--no-defer-queue); a refused
 launch stays pending for the next pass, and spawn writes the launch witness.
 When prep arrives before any scout launched, including after filing alone, the
-ordinary pass retires those receipts and restores the preserved ship brief. Later promotion remains
-firstmate-owned. Ranking uses config/slicing.json catalog (else
-data/[from-main/]slices/catalog.json) queue_band/queue_order by the SLICE id;
+ordinary pass retires those receipts and restores the preserved ship brief.
+Later promotion remains firstmate-owned. Ranking uses the lowest
+(queue_band, queue_order) pair by the SLICE id in config/slicing.json catalog
+(else data/slices/catalog.json, then data/from-main/slices/catalog.json);
 an item without a rank is reported as unranked and never picked by position.
 
 Config: absent/off disables leased slice progression; each line is `act <owner> ...` or
