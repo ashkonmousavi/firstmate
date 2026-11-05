@@ -33,6 +33,15 @@ make_case() {
   printf '[]\n' > "$FORGE_DIR/head.json"
   printf '[]\n' > "$FORGE_DIR/search.json"
   : > "$FORGE_DIR/argv.log"
+  : > "$FORGE_DIR/lookup.log"
+  cat > "$FORGE_DIR/lookup" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_TEST_FORGE/lookup.log"
+exec python3 "$FM_TEST_LOOKUP_PROGRAM" "$@"
+SH
+  chmod +x "$FORGE_DIR/lookup"
+  export FM_OPEN_PR_LOOKUP="$FORGE_DIR/lookup"
+  export FM_TEST_LOOKUP_PROGRAM="$ROOT/bin/fm-open-pr-lookup.py"
   cat > "$FAKEBIN_DIR/gh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_TEST_FORGE/argv.log"
@@ -73,7 +82,7 @@ print(json.dumps([{"number": int(n), "url": "https://github.com/o/r/pull/" + n, 
 run_spawn() {  # <id> [args...]
   local id=$1
   shift
-  FM_OPEN_PR_LOOKUP="$ROOT/bin/fm-open-pr-lookup.py" FM_TEST_FORGE="$FORGE_DIR" FM_SPAWN_FORGE_TIMEOUT="${FORGE_TIMEOUT:-10}" \
+  FM_TEST_FORGE="$FORGE_DIR" FM_SPAWN_FORGE_TIMEOUT="${FORGE_TIMEOUT:-10}" \
     fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" "$PROJECT_DIR" --mode direct-PR --yolo off "$@"
 }
 
@@ -141,6 +150,7 @@ test_prose_mentions_and_closed_prs_do_not_refuse() {
   out=$(run_spawn "$id"); status=$?
   expect_code 0 "$status" "G9: an empty pull request list refused the spawn"$'\n'"$out"
   [ -e "$HOME_DIR/state/$id.meta" ] || fail "G9: an empty list did not launch"
+  [ -s "$FORGE_DIR/lookup.log" ] || fail "G9: the lookup invocation observer did not record admission"
   assert_contains "$(cat "$FORGE_DIR/argv.log")" "--head fm/$id" "G9: the empty case never asked the forge, so it proves nothing"
   pass "fm-spawn: prose mentions, fenced examples, other slices, closed and merged pull requests and an empty list do not refuse"
 }
@@ -169,6 +179,7 @@ test_an_unreadable_forge_refuses_as_unknown() {
   expect_code 0 "$status" "G3: --no-forge-check with a reason did not launch"$'\n'"$out"
   assert_contains "$(cat "$HOME_DIR/state/$id.meta")" "forge_check_skipped=forge outage, task confirmed unowned with its owner" "the skip reason was not recorded in the task record"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "--no-forge-check still read the forge"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "--no-forge-check still invoked the lookup"
   out=$(run_spawn "$id" --no-forge-check ' '); status=$?
   expect_code 1 "$status" "--no-forge-check accepted a blank reason"
   assert_contains "$out" "needs a one-line reason" "a blank --no-forge-check reason was not refused for being blank"
@@ -215,6 +226,19 @@ test_kinds_and_forges_that_do_not_consult_the_forge() {
   out=$(FM_TEST_FORGE="$FORGE_DIR" fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" "$PROJECT_DIR" --scout); status=$?
   expect_code 0 "$status" "a scout was refused by the ship duplicate check"$'\n'"$out"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "a scout read the forge"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "a scout invoked the lookup"
+
+  id=dup-secondmate
+  make_case secondmate "$id"
+  out=$(
+    . "$ROOT/bin/fm-spawn-admission-lib.sh"
+    KIND=secondmate RELAUNCH=0 MODE=direct-PR ID=$id BRANCH="fm/$id"
+    FM_ROOT=$ROOT FM_HOME=$HOME_DIR PROJ_ABS=$PROJECT_DIR FM_TEST_FORGE=$FORGE_DIR
+    export FM_TEST_FORGE
+    fm_spawn_duplicate_admit
+  ); status=$?
+  expect_code 0 "$status" "secondmate admission failed"$'\n'"$out"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "a secondmate invoked the lookup"
 
   id=dup-local-only
   make_case local-only "$id"
@@ -222,6 +246,7 @@ test_kinds_and_forges_that_do_not_consult_the_forge() {
   out=$(FM_TEST_FORGE="$FORGE_DIR" fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" "$PROJECT_DIR" --mode local-only --yolo off); status=$?
   expect_code 0 "$status" "a local-only ship was refused although it opens no pull request"$'\n'"$out"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "a local-only ship read the forge"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "a local-only ship invoked the lookup"
 
   for forge in forge=gerrit forge=external; do
     id="dup-${forge#forge=}"
@@ -247,12 +272,12 @@ test_relaunch_with_its_own_open_pr_is_not_refused() {
   expect_code 0 "$status" "the first spawn should launch"$'\n'"$out"
   pr_json 77 "fm/$id" > "$FORGE_DIR/head.json"
   : > "$FORGE_DIR/argv.log"
+  : > "$FORGE_DIR/lookup.log"
   out=$(FM_FAKE_PANE_COMMAND=bash FM_TEST_FORGE="$FORGE_DIR" fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" --relaunch); status=$?
-  case $out in
-  *"already has an open pull request"*) fail "G8: a relaunch of a task with its own open pull request was refused as a duplicate"$'\n'"$out" ;;
-  esac
+  expect_code 0 "$status" "G8: a relaunch of a task with its own open pull request did not launch"$'\n'"$out"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "G8: a relaunch consulted the duplicate-builder check"
-  pass "fm-spawn: a relaunch of a task with its own open pull request never consults the duplicate check (relaunch exit $status)"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "G8: a relaunch invoked the lookup"
+  pass "fm-spawn: a relaunch of a task with its own open pull request launches without consulting the duplicate check"
 }
 
 # lookup <fakebin> [args...]: the lookup CLI alone, for the forges a spawn
@@ -263,6 +288,79 @@ lookup() {
   PATH="$fakebin:$PATH" python3 "$ROOT/bin/fm-open-pr-lookup.py" --branch fm/t1 --task-id t1 --timeout 5 "$@"
 }
 
+test_remote_origins_never_skip_as_local() {
+  local origin out status id=dup-origin
+  make_case origins "$id"
+  pr_json 9 fm/t1 > "$FORGE_DIR/head.json"
+  for origin in https://github.com/o/r.git ssh://git@github.com/o/r.git \
+    git://github.com/o/r.git git+ssh://git@github.com/o/r.git \
+    ssh+git://git@github.com/o/r.git git@github.com:o/r.git; do
+    out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin "$origin"); status=$?
+    expect_code 0 "$status" "a Git-supported remote origin failed: $origin"$'\n'"$out"
+    printf '%s' "$out" | python3 -c 'import json, sys; v = json.load(sys.stdin); assert v["state"] == "ok" and [p["number"] for p in v["prs"]] == [9]' \
+      || fail "a Git-supported remote origin skipped its open pull request: $origin"$'\n'"$out"
+  done
+  for origin in custom://github.com/o/r.git https://github.com ext::helper; do
+    out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin "$origin"); status=$?
+    expect_code 3 "$status" "an unrecognized remote origin was not UNKNOWN: $origin"$'\n'"$out"
+    printf '%s' "$out" | python3 -c 'import json, sys; assert json.load(sys.stdin)["state"] == "unknown"' \
+      || fail "an unrecognized remote origin did not emit UNKNOWN: $origin"
+  done
+  for origin in '' /repo.git repo.git ../repo.git ./repo:copy.git file:repo.git file:///repo.git; do
+    out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin "$origin"); status=$?
+    expect_code 0 "$status" "a missing or local origin failed: $origin"$'\n'"$out"
+    printf '%s' "$out" | python3 -c 'import json, sys; assert json.load(sys.stdin)["state"] == "skip"' \
+      || fail "a missing or local origin did not skip: $origin"
+  done
+  pr_json 9 "fm/$id" > "$FORGE_DIR/head.json"
+  git -C "$PROJECT_DIR" remote set-url origin git+ssh://git@github.com/o/r.git
+  out=$(run_spawn "$id"); status=$?
+  expect_code 1 "$status" "a ship spawned despite an open PR on its git+ssh origin"$'\n'"$out"
+  assert_contains "$out" "https://github.com/o/r/pull/9" "the git+ssh refusal did not name its PR"
+  assert_nothing_created "$id" "git+ssh origin"
+  git -C "$PROJECT_DIR" remote set-url origin custom://github.com/o/r.git
+  out=$(run_spawn "$id"); status=$?
+  expect_code 1 "$status" "a ship spawned with an unrecognized remote origin"$'\n'"$out"
+  assert_contains "$out" "UNKNOWN" "the unrecognized remote refusal did not report UNKNOWN"
+  assert_nothing_created "$id" "unrecognized remote origin"
+  pass "fm-open-pr-lookup: Git remote forms find open PRs, unrecognized remotes are UNKNOWN, and only missing or local origins skip"
+}
+
+test_body_fences_follow_commonmark_delimiters() {
+  local out status
+  make_case fences t1
+  python3 - "$FORGE_DIR/search.json" <<'PY'
+import json, sys
+bodies = [
+    "````markdown\n```\nexample\n````\nSLICE: home/t1",
+    "~~~~markdown\n~~~\nexample\n~~~~\nTask: home:t1",
+    "```\n~~~\nSLICE: home/t1",
+    "~~~~\n~~~\nTask-ID: t1",
+    "```\n``` trailing text\nTask id: t1",
+    "~~~\n~~~~~\n**Task-ID:** `home/t1`",
+    "```invalid`info\nSLICE: home/t1",
+    "```\n    ```\nTask: t1",
+    "~~~info`\nSLICE: home/t1",
+    "   ```markdown\n ```\nSLICE: home/t1",
+    "```\n```\nTask id: home:t1",
+]
+with open(sys.argv[1], 'w') as handle:
+    json.dump([dict(number=n, url=f'https://github.com/o/r/pull/{n}',
+                    headRefName='other', headRefOid='', state='OPEN', body=body)
+               for n, body in enumerate(bodies, 1)], handle)
+PY
+  out=$(FM_TEST_FORGE="$FORGE_DIR" lookup "$FAKEBIN_DIR" --forge none --origin https://github.com/o/r.git); status=$?
+  expect_code 0 "$status" "the fenced-body lookup failed"$'\n'"$out"
+  printf '%s' "$out" | python3 -c 'import json, sys; v = json.load(sys.stdin); assert v["state"] == "ok"; assert [(p["number"], p["why"]) for p in v["prs"]] == [(n, ["body"]) for n in [1, 2, 6, 7, 10, 11]]' \
+    || fail "body declarations were hidden or exposed by a mismatched fence (CommonMark 0.31.2 section 4.5)"$'\n'"$out"
+  pr_json 20 other $'````markdown\n```\nexample\n````\nSLICE: home/t1' > "$FORGE_DIR/search.json"
+  out=$(run_spawn t1); status=$?
+  expect_code 1 "$status" "a ship spawned despite a task declaration after a long fence"$'\n'"$out"
+  assert_contains "$out" "https://github.com/o/r/pull/20" "the fenced-body refusal did not name its PR"
+  assert_nothing_created t1 "body after long fence"
+  pass "fm-open-pr-lookup: SLICE and Task declarations match only outside correctly closed backtick and tilde fences"
+}
+
 test_a_deferred_launch_reads_the_forge_when_it_launches() {
   local id=dup-deferred out status
   make_case deferred "$id"
@@ -271,6 +369,7 @@ test_a_deferred_launch_reads_the_forge_when_it_launches() {
   out=$(FM_TEST_ACTIVITY_LANES=1 run_spawn "$id"); status=$?
   expect_code 75 "$status" "a spawn on a full machine was not deferred"$'\n'"$out"
   [ ! -s "$FORGE_DIR/argv.log" ] || fail "G8: a deferred spawn read the forge before it had a lane"$'\n'"$(cat "$FORGE_DIR/argv.log")"
+  [ ! -s "$FORGE_DIR/lookup.log" ] || fail "G8: a deferred spawn invoked the lookup before it had a lane"
   [ -n "$(ls -A "$HOME_DIR/state/spawn-deferred/queue" 2>/dev/null)" ] || fail "G8: the deferred spawn was not recorded for automatic retry"$'\n'"$out"
   # The retry replays the same arguments once a lane is free; the check runs then.
   out=$(FM_TEST_ACTIVITY_LANES=0 run_spawn "$id"); status=$?
@@ -332,6 +431,8 @@ SH
 }
 
 test_every_registry_forge_kind
+test_remote_origins_never_skip_as_local
+test_body_fences_follow_commonmark_delimiters
 test_an_open_pr_on_the_branch_refuses_and_names_it
 test_a_pr_body_naming_the_task_refuses_on_another_branch
 test_prose_mentions_and_closed_prs_do_not_refuse

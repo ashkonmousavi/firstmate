@@ -47,8 +47,8 @@ LIST_LIMIT = 100
 FORGEJO_PAGE = 50
 FORGEJO_PAGES = 20
 SCP_ORIGIN = re.compile(r'^(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+):(?!//)(.+)$')
-URL_ORIGIN = re.compile(r'^(https?|ssh|git)://(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+)(?::\d+)?/(.+)$')
-FENCE = re.compile(r'^\s*(```|~~~)')
+URL_ORIGIN = re.compile(r'^(https?|ssh|git|git\+ssh|ssh\+git)://(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+)(?::\d+)?/(.+)$')
+FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
 DECOR = re.compile(r'^\s*(?:#{1,6}\s+)?(?:[-*+]\s+)?(?:\*\*|__)?')
 SLICE_LINE = re.compile(r'SLICE(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|]+)')
 TASK_LINE = re.compile(r'(?i)task(?:[- ]id)?(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|,;]+)')
@@ -66,11 +66,15 @@ def emit(obj, code=0):
 def parse_origin(origin):
     """(host, path) of a forge origin, or None for no origin or a local one."""
     origin = origin.strip()
-    if not origin or origin.startswith(('/', 'file:')):
+    if not origin or origin.startswith('file:') or ':' not in origin \
+            or ('/' in origin and origin.index('/') < origin.index(':')):
         return None
-    match = URL_ORIGIN.match(origin) or SCP_ORIGIN.match(origin)
+    if '://' in origin or re.match(r'^[A-Za-z][A-Za-z0-9+.-]*::', origin):
+        match = URL_ORIGIN.fullmatch(origin)
+    else:
+        match = SCP_ORIGIN.fullmatch(origin)
     if not match:
-        return None
+        raise Unknown('origin is an unrecognized remote URL')
     host, path = match.groups()[-2:]
     path = path.strip('/')
     if path.endswith('.git'):
@@ -88,12 +92,16 @@ def github_hosts(path):
 
 def names_task(body, task_id):
     """True when a SLICE or Task line outside fences names task_id."""
-    fenced = False
+    fenced = ''
     for raw in (body or '').splitlines():
-        if FENCE.match(raw):
-            fenced = not fenced
-            continue
+        fence = FENCE.match(raw)
         if fenced:
+            if fence and fence[1][0] == fenced[0] and len(fence[1]) >= len(fenced) \
+                    and not fence[2].strip(' \t'):
+                fenced = ''
+            continue
+        if fence and (fence[1][0] != '`' or '`' not in fence[2]):
+            fenced = fence[1]
             continue
         line = DECOR.sub('', raw)
         for pattern in (SLICE_LINE, TASK_LINE):
@@ -224,7 +232,10 @@ def main(argv):
     if args.forge in ('gerrit', 'external'):
         emit({'state': 'skip', 'reason': f'forge={args.forge}',
               'notice': f'forge={args.forge} publishes no pull request a second builder would push to'})
-    origin = parse_origin(args.origin)
+    try:
+        origin = parse_origin(args.origin)
+    except Unknown as err:
+        emit({'state': 'unknown', 'provider': '', 'error': str(err)}, UNKNOWN_EXIT)
     if origin is None:
         emit({'state': 'skip', 'reason': 'no forge origin', 'notice': ''})
     host, path = origin
