@@ -1,0 +1,307 @@
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project
+EXIT=0 SECONDS=0.005
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project -c user.name=Live test -c user.email=live@example.invalid commit --allow-empty -qm initial
+EXIT=0 SECONDS=0.003
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/other-project
+EXIT=0 SECONDS=0.003
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/other-project -c user.name=Live test -c user.email=live@example.invalid commit --allow-empty -qm initial
+EXIT=0 SECONDS=0.004
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) treehouse --version
+v3.1.8
+EXIT=0 SECONDS=0.014
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project","lease_id":"9c6d42954bccd11170eca55a9ea119ea","lease_holder":"","leased_at":"2026-11-05T06:15:21.7469468-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project' to release it.
+EXIT=0 SECONDS=0.047
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project","lease_id":"ea22699d8b11e3a1529b7acdfec6415a","lease_holder":"","leased_at":"2026-11-05T06:15:21.790063359-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project' to release it.
+EXIT=0 SECONDS=0.043
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project","lease_id":"fe23c2781f6929ba62ce2b6d75252e84","lease_holder":"","leased_at":"2026-11-05T06:15:21.836726561-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project' to release it.
+EXIT=0 SECONDS=0.047
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project","lease_id":"de1063c35a6095c403adb5422937b533","lease_holder":"","leased_at":"2026-11-05T06:15:21.879511832-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project' to release it.
+EXIT=0 SECONDS=0.043
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project --if-lease-id 9c6d42954bccd11170eca55a9ea119ea
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.073
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project --if-lease-id ea22699d8b11e3a1529b7acdfec6415a
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.073
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+EXIT=0 SECONDS=0.368
+SCENARIO {"name": "check mode reads once without taking leases", "result": "pass", "status_reads": 1}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project' to release it.
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project' to release it.
+EXIT=0 SECONDS=0.445
+SCENARIO {"name": "three retained copies share one snapshot and preserve unrelated/existing leases and files", "result": "pass", "status_reads": 1, "lease_slots": ["1", "2"], "existing_lease_unchanged": true}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+EXIT=0 SECONDS=0.275
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project --if-lease-id de1063c35a6095c403adb5422937b533
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.078
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project' to release it.
+EXIT=0 SECONDS=0.428
+SCENARIO {"name": "replay refreshes status and observes a newly retained slot", "result": "pass", "replay_status_reads": 1, "newly_held_slot": "4"}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project","lease_id":"210b84794d06bae8fed58acbd4c18fb7","lease_holder":"","leased_at":"2026-11-05T06:15:23.669012091-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project' to release it.
+EXIT=0 SECONDS=0.047
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project --if-lease-id 210b84794d06bae8fed58acbd4c18fb7
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.078
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project --if-lease-id 23fc1451dd960bae7c975164b25e404d
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.074
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+open ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/treehouse-state.lock: is a directory
+REFUSED: cannot durably protect retained copy ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project (~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/home/state/z-second-root.meta); no new copy was acquired
+EXIT=1 SECONDS=0.356
+SCENARIO {"name": "later root status failure refuses without partial leases", "result": "pass", "status_reads": 2, "native_error": "treehouse-state.lock is a directory", "unchanged_pool_bytes": true}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project' to release it.
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project' to release it.
+EXIT=0 SECONDS=0.640
+SCENARIO {"name": "two roots each get one snapshot and recover after failure", "result": "pass", "roots": 2, "status_reads": 2}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a get --lease --json --no-fetch --base main
+{"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project","lease_id":"affb7e3b8b60b7cd10ccdbd20da67a39","lease_holder":"","leased_at":"2026-11-05T06:15:24.864622888-07:00","base_branch":"main"}
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project' to release it.
+EXIT=0 SECONDS=0.049
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project --if-lease-id affb7e3b8b60b7cd10ccdbd20da67a39
+🌳 Worktree returned to pool.
+EXIT=0 SECONDS=0.084
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_hold_recorded_copy "$PROJECT" "$COPY" "$TASK" "$MODE"
+printf "NEW_LEASE_ID=%s\n" "$FM_TREEHOUSE_NEW_LEASE_ID"
+
+NEW_LEASE_ID=33d4715b1af3aed026596188391ee65c
+🌳 Leased worktree 5 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project' to release it.
+EXIT=0 SECONDS=0.230
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_hold_recorded_copy "$PROJECT" "$COPY" "$TASK" "$MODE"
+printf "NEW_LEASE_ID=%s\n" "$FM_TREEHOUSE_NEW_LEASE_ID"
+
+NEW_LEASE_ID=
+EXIT=0 SECONDS=0.171
+SCENARIO {"name": "direct hold fetches fresh status and exposes new lease identity", "result": "pass", "status_reads_per_call": 1}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV) git show d23d07ade96bf4ccfae4275e4d4c63b673462c33:bin/fm-treehouse-lib.sh
+#!/usr/bin/env bash
+
+FM_TREEHOUSE_VERSION=3.1.8
+
+fm_treehouse_supports_lease() {
+  local version major minor patch floor_major floor_minor floor_patch get_help return_help option
+  version=$(treehouse --version 2>/dev/null) || return 1
+  version=${version#v}
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  IFS=. read -r major minor patch <<< "$version"
+  IFS=. read -r floor_major floor_minor floor_patch <<< "$FM_TREEHOUSE_VERSION"
+  if ! (( major > floor_major || (major == floor_major && minor > floor_minor) ||
+    (major == floor_major && minor == floor_minor && patch >= floor_patch) )); then
+    return 1
+  fi
+  get_help=$(treehouse get --help 2>/dev/null) || return 1
+  return_help=$(treehouse return --help 2>/dev/null) || return 1
+  for option in lease lease-holder json; do
+    printf '%s\n' "$get_help" | grep -Eq "(^|[^[:alnum:]_-])--$option([^[:alnum:]_-]|$)" || return 1
+  done
+  for option in if-lease-id if-lease-holder; do
+    printf '%s\n' "$return_help" | grep -Eq "(^|[^[:alnum:]_-])--$option([^[:alnum:]_-]|$)" || return 1
+  done
+}
+
+# A retained meta owns its copy until cleanup releases the record, irrespective
+# of status, endpoint liveness or backlog holds. Call under the project lock
+# before allocating, adopting, promoting or returning a copy. own_meta may be
+# absent for a fresh allocation; another spelling of that same file is allowed.
+# Requires fm-wake-lib.sh and fm-secondmate-registry-lib.sh from the caller.
+fm_worktree_require_exclusive_record() { # <state> <worktree> <own-meta>
+  local state=$1 worktree=$2 own_meta=$3 slot other field path other_slot state_dir count
+  [ -d "$worktree" ] || return 0
+  slot=$(CDPATH='' cd -- "$worktree" && pwd -P) || return 1
+  fm_local_firstmate_state_dirs "$state" || {
+    echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; copy ownership is unverified" >&2
+    return 1
+  }
+  for state_dir in "${FM_LOCAL_FIRSTMATE_STATES[@]}"; do
+    for other in "$state_dir"/*.meta; do
+      [ -e "$other" ] || [ -L "$other" ] || continue
+      [ -f "$other" ] && [ ! -L "$other" ] && [ -r "$other" ] || {
+        echo "REFUSED: cannot read task record $other to prove copy ownership" >&2
+        return 1
+      }
+      [ "${other##*/}" = "${own_meta##*/}" ] && [ "$other" -ef "$own_meta" ] && continue
+      for field in worktree home; do
+        count=$(grep -c "^$field=" "$other" || true)
+        if [ "$count" -gt 1 ]; then
+          echo "REFUSED: ambiguous $field identity in task record $other; copy ownership is unverified" >&2
+          return 1
+        fi
+        path=$(fm_meta_get "$other" "$field")
+        [ -d "$path" ] || continue
+        other_slot=$(CDPATH='' cd -- "$path" && pwd -P) || return 1
+        [ "$slot" = "$other_slot" ] || continue
+        echo "REFUSED: recorded worktree $slot is also task $(basename "$other" .meta)'s recorded $field ($other); nothing was changed" >&2
+        return 1
+      done
+    done
+  done
+  path=$(fm_meta_get "$own_meta" worktree)
+  if [ -d "$path" ] && [ "$path" -ef "$slot" ] &&
+    fm_treehouse_pool_slot "$(fm_meta_get "$own_meta" project)" "$slot"; then
+    fm_treehouse_slot_owner_state "$slot" "$(basename "$own_meta" .meta)"
+    case "$FM_TREEHOUSE_SLOT_OWNER" in
+      mine|absent) ;;
+      *)
+        echo "REFUSED: copy $slot has a foreign or unreadable slot-owner claim; reconcile $own_meta before reuse" >&2
+        return 1
+        ;;
+    esac
+  fi
+}
+
+# Legacy scouts have no branch contract. A recorded branch must match exactly,
+# including refusal of a detached HEAD; --force never authorizes another branch.
+fm_worktree_require_recorded_branch() { # <meta> <worktree>
+  local meta=$1 worktree=$2 branch actual
+  branch=$(fm_meta_get "$meta" branch)
+  [ -n "$branch" ] && [ -d "$worktree" ] || return 0
+  actual=$(git -C "$worktree" symbolic-ref --quiet --short HEAD 2>/dev/null) || actual=HEAD
+  [ "$actual" = "$branch" ] && return 0
+  echo "REFUSED: $worktree is on $actual, not task $(basename "$meta" .meta)'s recorded branch $branch; preserving the copy and task record, even with --force" >&2
+  return 1
+}
+
+# Upgrade a process reservation to Treehouse's state-only durable lease. Unlike
+# interactive get, it survives shell exit without detaching/resetting the copy.
+# Existing durable leases are already protective and are never replaced.
+# The check mode runs every refusal up to the lease without taking it.
+fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id> [check]
+  local project=$1 worktree=$2 id=$3 mode=${4:-} slot pool root entry status leased lease
+  FM_TREEHOUSE_NEW_LEASE_ID=
+  fm_treehouse_pool_slot "$project" "$worktree" || return 0
+  slot=$(CDPATH='' cd -- "$worktree" && pwd -P) || return 1
+  pool=$(dirname "$(dirname "$slot")")
+  # --root is the parent of .treehouse; Treehouse appends that component.
+  root=$(dirname "$(dirname "$pool")")
+  status=$(cd "$project" && treehouse --root "$root" status --json) || return 1
+  entry=$(printf '%s\n' "$status" | jq -ce --arg path "$slot" '
+    [.[] | select(.path == $path)] |
+    if length == 1 then .[0] else error("slot identity unavailable") end') || return 1
+  leased=$(printf '%s\n' "$entry" | jq -er '
+    (.status == "leased" or (.lease_id // "") != "" or .leased_at != null) | tostring') || return 1
+  [ "$leased" != true ] || return 0
+  fm_treehouse_supports_lease || {
+    echo "REFUSED: Treehouse v$FM_TREEHOUSE_VERSION with durable leases is required" >&2
+    return 1
+  }
+  [ "$mode" != check ] || return 0
+  lease=$(cd "$project" && treehouse --root "$root" lease "$(basename "$(dirname "$slot")")" --lease-holder "$id" --json) || return 1
+  [ "$(printf '%s\n' "$lease" | jq -er '.path')" = "$slot" ] || return 1
+  # shellcheck disable=SC2034 # The allocating caller owns conditional rollback.
+  FM_TREEHOUSE_NEW_LEASE_ID=$(printf '%s\n' "$lease" | jq -er '.lease_id | strings | select(length > 0)')
+}
+
+# Protect old process-only records BEFORE get can reset/reuse their slots.
+# The project lock serializes Firstmate allocation, promotion and cleanup.
+# No status word exempts a retained meta. Collisions refuse for reconciliation.
+# The check mode runs the same refusals without holding any copy.
+fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
+  local state=$1 project=$2 mode=${3:-} state_dir meta path
+  local -a states
+  fm_local_firstmate_state_dirs "$state" || {
+    echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; cannot protect retained copies" >&2
+    return 1
+  }
+  states=("${FM_LOCAL_FIRSTMATE_STATES[@]}")
+  for state_dir in "${states[@]}"; do
+    for meta in "$state_dir"/*.meta; do
+      [ -e "$meta" ] || [ -L "$meta" ] || continue
+      [ -f "$meta" ] && [ ! -L "$meta" ] && [ -r "$meta" ] || {
+        echo "REFUSED: cannot read retained task record $meta" >&2
+        return 1
+      }
+      # Remote routes describe another machine, never this machine's pool.
+      [ -z "$(fm_meta_get "$meta" remote_host)" ] || continue
+      path=$(fm_meta_get "$meta" worktree)
+      fm_treehouse_pool_slot "$project" "$path" || continue
+      fm_worktree_require_exclusive_record "$state" "$path" "$meta" || return 1
+      fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" "$mode" || {
+        echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
+        return 1
+      }
+    done
+  done
+}
+EXIT=0 SECONDS=0.002
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) bash -eu -c . "$ROOT/bin/fm-wake-lib.sh"
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+. "$ROOT/bin/fm-backend.sh"
+. "$LIB"
+fm_treehouse_protect_recorded_copies "$FM_HOME/state" "$PROJECT" "$MODE"
+
+EXIT=0 SECONDS=0.891
+SCENARIO {"name": "baseline reproduces per-record work with identical real pool records", "result": "pass", "retained_records": 5, "old_status_reads": 5, "fixed_status_reads": 2}
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a status --json
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"f4c80832408934784272276c0f9842a2","lease_holder":"a0","leased_at":"2026-11-05T06:15:22.723524991-07:00","processes":[]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"780555758f6fa6724ad7638623d0b51d","lease_holder":"a1","leased_at":"2026-11-05T06:15:22.818264715-07:00","processes":[]},{"name":"3","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"fe23c2781f6929ba62ce2b6d75252e84","lease_holder":"","leased_at":"2026-11-05T06:15:21.836726561-07:00","processes":[]},{"name":"4","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"eef1c1ed012a9457950307ef6d3f1bb1","lease_holder":"a3","leased_at":"2026-11-05T06:15:24.71941114-07:00","processes":[]},{"name":"5","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"33d4715b1af3aed026596188391ee65c","lease_holder":"direct","leased_at":"2026-11-05T06:15:25.176695303-07:00","processes":[]}]
+EXIT=0 SECONDS=0.145
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/other-project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a status --json
+[]
+EXIT=0 SECONDS=0.027
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a status --json
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"f4c80832408934784272276c0f9842a2","lease_holder":"a0","leased_at":"2026-11-05T06:15:22.723524991-07:00","processes":[]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"780555758f6fa6724ad7638623d0b51d","lease_holder":"a1","leased_at":"2026-11-05T06:15:22.818264715-07:00","processes":[]},{"name":"3","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"fe23c2781f6929ba62ce2b6d75252e84","lease_holder":"","leased_at":"2026-11-05T06:15:21.836726561-07:00","processes":[]},{"name":"4","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"eef1c1ed012a9457950307ef6d3f1bb1","lease_holder":"a3","leased_at":"2026-11-05T06:15:24.71941114-07:00","processes":[]},{"name":"5","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"33d4715b1af3aed026596188391ee65c","lease_holder":"direct","leased_at":"2026-11-05T06:15:25.176695303-07:00","processes":[]}]
+EXIT=0 SECONDS=0.157
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a status --json
+[]
+EXIT=0 SECONDS=0.028
+$ (cwd=~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/home) treehouse --root ~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a status --json
+not in a git or jj repository: git rev-parse --show-toplevel: fatal: not a git repository (or any of the parent directories): .git
+EXIT=1 SECONDS=0.021
+SCENARIO {"name": "cwd selects repository-specific pools; a non-repository refuses", "result": "pass", "comparison": [{"cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project", "exit": 0, "seconds": 0.145, "slots": 5, "stderr": ""}, {"cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/other-project", "exit": 0, "seconds": 0.027, "slots": 0, "stderr": ""}, {"cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project", "exit": 0, "seconds": 0.157, "slots": 5, "stderr": ""}, {"cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab", "exit": 0, "seconds": 0.028, "slots": 0, "stderr": ""}], "nonrepo_exit": 1}

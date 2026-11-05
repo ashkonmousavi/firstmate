@@ -1,0 +1,23 @@
+FM_TEST_BEGIN 2026-11-05T13:13:02Z tests/fm-shared-copy.test.sh family=unclassified expected_gate_skip=none
+ok - protect reads status once per root, filters each slot and refreshes on replay
+ok - a failed status read holds and releases nothing; check mode also stays read-only
+ok - separate roots get separate snapshots and all reads precede lease changes
+ok - spawn resolves native status and lease roots from the recorded pool
+ok - teardown rechecks the branch after its process barrier before changing the checkout
+ok - forced descendant cleanup refuses a pooled child on another recorded branch
+ok - spawn refuses a retained done or held record, without changing its copy or claim
+ok - a legacy reservation and a fresh reservation both become durable without changing the retained copy
+ok - a newly spawned scout can clean up its detached copy without an uncreated ship branch
+ok - direct spawn recovery rejects a copy another meta still names
+ok - capped and uncapped fresh same-id retries preserve retained ownership and work
+ok - the deferred queue invokes the guarded spawn and refuses a retained scout copy
+ok - leased and explicit home seeding refuse a retained scout copy without rolling it back
+ok - automatic prepared-backlog launch refuses a retained copy through the shared spawn guard
+ok - ordinary and forced teardown refuse a branch different from the recorded branch
+ok - promotion and transactional relaunch refuse shared copies before changing the task
+ok - both stale records retire without force and leave the designer copy, branch, edits, claim and meta intact
+FM_TEST_END 2026-11-05T13:13:30Z tests/fm-shared-copy.test.sh exit=0 duration_ms=28490 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=28535
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=28490 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-shared-copy.test.sh duration_ms=28490
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6NX6MWXJ2PQ9RNNAJVSV3FV/shared-copy-timing.json

@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "worktrees": [
+    {
+      "name": "1",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-b/.treehouse/project-9f00e9/1/project",
+      "created_at": "2026-11-05T06:15:23.650268547-07:00",
+      "leased": true,
+      "lease_id": "1c0cdab5e484a90359136bb39ea4435d",
+      "lease_holder": "z-second-root",
+      "leased_at": "2026-11-05T06:15:24.812629045-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "6d4ab0e6fd0279be37ab420fe9b47893ef47d55bfba3785623477b3ab57f5a96"
+    }
+  ]
+}

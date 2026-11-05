@@ -1,0 +1,64 @@
+{
+  "version": 4,
+  "worktrees": [
+    {
+      "name": "1",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project",
+      "created_at": "2026-11-05T06:15:21.727845292-07:00",
+      "leased": true,
+      "lease_id": "f4c80832408934784272276c0f9842a2",
+      "lease_holder": "a0",
+      "leased_at": "2026-11-05T06:15:22.723524991-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "6a85db431221bc6eaa258383b5ed0e0274148c368cb5502ac837987e45b0b23a"
+    },
+    {
+      "name": "2",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/2/project",
+      "created_at": "2026-11-05T06:15:21.773953113-07:00",
+      "leased": true,
+      "lease_id": "780555758f6fa6724ad7638623d0b51d",
+      "lease_holder": "a1",
+      "leased_at": "2026-11-05T06:15:22.818264715-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "08a6679f7548d64c0fe4e1ac7fd1f431057ed8aa82c04d43125596ea09d1224d"
+    },
+    {
+      "name": "3",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/3/project",
+      "created_at": "2026-11-05T06:15:21.819671391-07:00",
+      "leased": true,
+      "lease_id": "fe23c2781f6929ba62ce2b6d75252e84",
+      "leased_at": "2026-11-05T06:15:21.836726561-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "c22570c3dada902888c8144836f43c300d70597e1e7fbbb5677f8d87fe62f934"
+    },
+    {
+      "name": "4",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/4/project",
+      "created_at": "2026-11-05T06:15:21.863970058-07:00",
+      "leased": true,
+      "lease_id": "eef1c1ed012a9457950307ef6d3f1bb1",
+      "lease_holder": "a3",
+      "leased_at": "2026-11-05T06:15:24.71941114-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "98a071cf056fb0c95b3b926d41ba7a285dcef69bcf4ede637a9239c8154fb62a"
+    },
+    {
+      "name": "5",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/5/project",
+      "created_at": "2026-11-05T06:15:24.845942316-07:00",
+      "leased": true,
+      "lease_id": "33d4715b1af3aed026596188391ee65c",
+      "lease_holder": "direct",
+      "leased_at": "2026-11-05T06:15:25.176695303-07:00",
+      "base_branch": "main",
+      "seed_inventory_known": true,
+      "seed_inventory_digest": "0a5169b9dcebcc1358ac866f8b551c2a95e2d25d9c1d169516dbd822786e9c3c"
+    }
+  ]
+}

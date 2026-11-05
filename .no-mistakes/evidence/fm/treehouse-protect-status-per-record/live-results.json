@@ -1,0 +1,83 @@
+[
+  {
+    "name": "check mode reads once without taking leases",
+    "result": "pass",
+    "status_reads": 1
+  },
+  {
+    "name": "three retained copies share one snapshot and preserve unrelated/existing leases and files",
+    "result": "pass",
+    "status_reads": 1,
+    "lease_slots": [
+      "1",
+      "2"
+    ],
+    "existing_lease_unchanged": true
+  },
+  {
+    "name": "replay refreshes status and observes a newly retained slot",
+    "result": "pass",
+    "replay_status_reads": 1,
+    "newly_held_slot": "4"
+  },
+  {
+    "name": "later root status failure refuses without partial leases",
+    "result": "pass",
+    "status_reads": 2,
+    "native_error": "treehouse-state.lock is a directory",
+    "unchanged_pool_bytes": true
+  },
+  {
+    "name": "two roots each get one snapshot and recover after failure",
+    "result": "pass",
+    "roots": 2,
+    "status_reads": 2
+  },
+  {
+    "name": "direct hold fetches fresh status and exposes new lease identity",
+    "result": "pass",
+    "status_reads_per_call": 1
+  },
+  {
+    "name": "baseline reproduces per-record work with identical real pool records",
+    "result": "pass",
+    "retained_records": 5,
+    "old_status_reads": 5,
+    "fixed_status_reads": 2
+  },
+  {
+    "name": "cwd selects repository-specific pools; a non-repository refuses",
+    "result": "pass",
+    "comparison": [
+      {
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/project",
+        "exit": 0,
+        "seconds": 0.145,
+        "slots": 5,
+        "stderr": ""
+      },
+      {
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/other-project",
+        "exit": 0,
+        "seconds": 0.027,
+        "slots": 0,
+        "stderr": ""
+      },
+      {
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab/root-a/.treehouse/project-9f00e9/1/project",
+        "exit": 0,
+        "seconds": 0.157,
+        "slots": 5,
+        "stderr": ""
+      },
+      {
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6NX6MWXJ2PQ9RNNAJVSV3FV/.test-live/lab",
+        "exit": 0,
+        "seconds": 0.028,
+        "slots": 0,
+        "stderr": ""
+      }
+    ],
+    "nonrepo_exit": 1
+  }
+]
