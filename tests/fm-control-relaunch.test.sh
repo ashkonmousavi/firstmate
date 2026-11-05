@@ -5083,6 +5083,169 @@ test_registry_pr_policy_change_refuses_before_stop() {
   pass 'a registry PR-text policy change refuses relaunch before stopping the agent'
 }
 
+# Each ship delivery-contract refusal (docs/configuration.md project registry,
+# external review tool and Firstmate role sections) and each recorded-input
+# refusal must reach control before the old agent stops.
+test_delivery_admission_preserves_running_agent() {
+  local dir scenario out rc before expected meta brief
+  local control_path=$CONTROL
+  local CONTROL=$control_path
+  for scenario in launch-env relaunch-project project-dir registry-forge branch mode upstream-consent forge registry-pr \
+    yolo-gerrit yolo-external external-instructions backup-config prefix-overlap missing-remote backup-origin publication; do
+    CONTROL=$control_path
+    dir=$(new_case "delivery-admission-$scenario" dc1)
+    add_ship_task "$dir" dc1 claude
+    mkdir -p "$dir/user-home"
+    meta="$dir/home/state/dc1.meta" brief="$dir/home/data/dc1/brief.md"
+    printf -- '- proj [no-mistakes] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+    case "$scenario" in
+      yolo-external|external-instructions|backup-config|prefix-overlap|missing-remote|backup-origin)
+        printf -- '- proj [direct-PR forge=external] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+        sed -i 's/^mode=.*/mode=direct-PR/' "$meta"
+        printf 'Delivery contract: mode=direct-PR forge=external\n' >> "$brief"
+        [ "$scenario" = external-instructions ] || printf 'Publish through the review tool.\n' > "$dir/home/config/external-review.md"
+        ;;
+    esac
+    case "$scenario" in
+      launch-env)
+        printf 'BAD NAME\n' > "$dir/home/config/launch-env-allowlist"
+        expected='config/launch-env-allowlist must contain one environment name per line' ;;
+      relaunch-project)
+        sed -i '/^project=/d' "$meta"
+        expected='task dc1 has a missing, empty, or ambiguous project identity' ;;
+      project-dir)
+        sed -i "s|^project=.*|project=$dir/missing-proj|" "$meta"
+        expected="cd: $dir/missing-proj: No such file or directory" ;;
+      registry-forge)
+        printf -- '- proj [no-mistakes forge=bogus] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+        expected='the registry entry for proj does not resolve to a delivery posture' ;;
+      branch)
+        printf 'Ship branch: fm/elsewhere\n' >> "$brief"
+        expected='branch mismatch for dc1: the brief says branch=fm/elsewhere but this spawn selected branch=fm/dc1' ;;
+      mode)
+        printf 'Delivery contract: mode=direct-PR\n' >> "$brief"
+        expected='delivery mismatch for dc1: the brief says mode=direct-PR' ;;
+      upstream-consent)
+        printf 'Delivery contract: mode=no-mistakes upstream-consent=github.com/owner/repo\n' >> "$brief"
+        expected='upstream-consent mismatch for dc1' ;;
+      forge)
+        printf -- '- proj [no-mistakes forge=gerrit] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+        expected='forge mismatch for dc1: proj is registered forge=gerrit' ;;
+      registry-pr)
+        printf -- '- proj [no-mistakes pr=bogus] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+        expected='unknown PR-text binding' ;;
+      yolo-gerrit)
+        printf -- '- proj [no-mistakes forge=gerrit] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+        printf 'Delivery contract: mode=no-mistakes forge=gerrit\n' >> "$brief"
+        sed -i 's/^yolo=.*/yolo=on/' "$meta"
+        expected='--yolo on is refused for dc1: proj is registered forge=gerrit' ;;
+      yolo-external)
+        sed -i 's/^yolo=.*/yolo=on/' "$meta"
+        expected='--yolo on is refused for dc1: proj is registered forge=external' ;;
+      external-instructions)
+        expected='forge=external needs' ;;
+      backup-config)
+        printf 'origin\n' > "$dir/home/config/external-review-backup"
+        expected='names origin; the backup remote is' ;;
+      prefix-overlap)
+        printf 'backup\nprefix=fm/copies\n' > "$dir/home/config/external-review-backup"
+        expected="backup prefix 'fm/copies' equals or starts with the task branch prefix 'fm/'" ;;
+      missing-remote)
+        printf 'backup\nprefix=keep/\n' > "$dir/home/config/external-review-backup"
+        expected='names the remote backup, which' ;;
+      backup-origin)
+        printf 'backup\nprefix=keep/\n' > "$dir/home/config/external-review-backup"
+        git -C "$dir/proj" remote set-url origin https://example.invalid/team/shared.git
+        git -C "$dir/proj" remote add backup https://example.invalid/team/shared.git
+        expected="the backup remote backup points at the project's shared origin" ;;
+      publication)
+        make_admission_fixture_root "$dir"
+        CONTROL="$dir/root/bin/fm-control.sh"
+        expected='spawn refused for dc1: cannot determine whether' ;;
+    esac
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    if [ "$scenario" = publication ]; then
+      out=$(FM_ROOT_OVERRIDE="$dir/root" run_control "$dir" dc1 relaunch --note 'continue the task'); rc=$?
+    else
+      out=$(run_control "$dir" dc1 relaunch --note 'continue the task'); rc=$?
+    fi
+    [ "$rc" -ne 0 ] || fail "$scenario: refused delivery input was admitted: $out"
+    assert_contains "$out" "$expected" "$scenario: wrong admission refusal"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: pre-stop refusal changed state, instructions, endpoint or worktree"
+    assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
+    pass "delivery admission refuses $scenario before stopping the running agent"
+  done
+}
+
+# Project-wide Treehouse conditions that already hold when relaunch starts:
+# another spawn or cleanup holding the project lock (retryable), two other
+# records claiming one retained pool slot of the same project, and another
+# record claiming the relaunched task's own worktree.
+test_project_admission_preserves_running_agent() {
+  local dir scenario out rc before after holder i
+  for scenario in project-lock retained-slot own-worktree; do
+    dir=$(new_case "project-admission-$scenario" pa1)
+    add_ship_task "$dir" pa1 claude
+    mkdir -p "$dir/user-home"
+    holder=
+    case "$scenario" in
+      project-lock)
+        cat > "$dir/hold" <<'SH'
+#!/usr/bin/env bash
+. "$1/bin/fm-wake-lib.sh"
+lock=$(fm_treehouse_project_lock_path "$2/proj") || exit 1
+fm_lock_acquire_wait "$lock" || exit 1
+: > "$2/holder.ready"
+while [ ! -f "$2/holder.release" ]; do sleep 0.05; done
+fm_lock_release "$lock"
+SH
+        FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" >/dev/null 2>&1 &
+        holder=$!
+        for ((i = 0; i < 200; i++)); do
+          [ ! -f "$dir/holder.ready" ] || break
+          sleep 0.05
+        done
+        [ -f "$dir/holder.ready" ] || fail 'the project lock holder did not acquire the lock'
+        ;;
+      retained-slot)
+        mkdir -p "$dir/pool"
+        printf '{}\n' > "$dir/pool/treehouse-state.json"
+        git -C "$dir/proj" worktree add --quiet -b retained-slot "$dir/pool/2/proj"
+        printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/pool/2/proj" "$dir/proj" > "$dir/home/state/pb1.meta"
+        printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/pool/2/proj" "$dir/proj" > "$dir/home/state/pc1.meta"
+        ;;
+      own-worktree)
+        printf 'worktree=%s\nproject=%s\nkind=ship\nharness=claude\n' "$dir/wt" "$dir/proj" > "$dir/home/state/pz1.meta"
+        ;;
+    esac
+    mkdir -p "$dir/pool"
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
+    out=$(run_control "$dir" pa1 relaunch --note 'continue the task'); rc=$?
+    after=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home" "$dir/pool")
+    if [ -n "$holder" ]; then
+      : > "$dir/holder.release"
+      wait "$holder" || fail 'the project lock holder failed'
+      rm -f "$dir/holder.ready" "$dir/holder.release"
+    fi
+    case "$scenario" in
+      project-lock)
+        expect_code 75 "$rc" "a held project lock must defer the relaunch: $out"
+        assert_contains "$out" "another Treehouse slot allocation or return is in progress for $dir/proj" 'wrong project-lock refusal' ;;
+      retained-slot)
+        expect_code 1 "$rc" "a contested retained slot must refuse the relaunch: $out"
+        assert_contains "$out" "is also task pc1's recorded worktree" 'wrong retained-slot refusal' ;;
+      own-worktree)
+        expect_code 1 "$rc" "a shared own worktree must refuse the relaunch: $out"
+        assert_contains "$out" "recorded worktree $dir/wt is also task pz1's recorded worktree" 'wrong own-worktree refusal' ;;
+    esac
+    assert_equals "$before" "$after" "$scenario: pre-stop refusal changed the home, project, worktree or pool"
+    assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
+    pass "project admission refuses $scenario before stopping the running agent"
+  done
+}
+
 test_relaunch_admission_refusal_preserves_running_agent() {
   local dir out rc why meta brief backlog before
   for why in backlog capacity; do
@@ -5126,6 +5289,8 @@ test_pending_note_admission_preserves_running_agent
 test_secondmate_codex_relaunch_refuses_unusable_folders_before_stop
 test_claude_trust_check_uses_the_selected_account_store
 test_registry_pr_policy_change_refuses_before_stop
+test_delivery_admission_preserves_running_agent
+test_project_admission_preserves_running_agent
 test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs

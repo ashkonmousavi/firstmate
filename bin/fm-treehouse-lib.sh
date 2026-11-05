@@ -116,8 +116,9 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
 # Protect old process-only records BEFORE get can reset/reuse their slots.
 # The project lock serializes Firstmate allocation, promotion and cleanup.
 # No status word exempts a retained meta. Collisions refuse for reconciliation.
-fm_treehouse_protect_recorded_copies() { # <state> <project>
-  local state=$1 project=$2 state_dir meta path
+# The check mode runs the same refusals without holding any copy.
+fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
+  local state=$1 project=$2 mode=${3:-} state_dir meta path
   local -a states
   fm_local_firstmate_state_dirs "$state" || {
     echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; cannot protect retained copies" >&2
@@ -136,6 +137,7 @@ fm_treehouse_protect_recorded_copies() { # <state> <project>
       path=$(fm_meta_get "$meta" worktree)
       fm_treehouse_pool_slot "$project" "$path" || continue
       fm_worktree_require_exclusive_record "$state" "$path" "$meta" || return 1
+      [ "$mode" != check ] || continue
       fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" || {
         echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
         return 1

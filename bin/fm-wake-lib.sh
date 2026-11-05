@@ -823,6 +823,12 @@ fm_lock_mid_acquire_is_fresh() {
   return 1
 }
 
+# True when <pid>, recorded in <lockdir>, is a live holder or a fresh
+# mid-acquire one; fm_lock_try_acquire refuses on exactly this answer.
+fm_lock_holder_busy() { # <lockdir> <pid>
+  fm_lock_holder_alive "$1" "$2" || fm_lock_mid_acquire_is_fresh "$1" "$2"
+}
+
 fm_lock_recheck_stale_owner() {
   local lockdir=$1 expected_owner=$2 expected_pid=$3 actual_pid
   if [ -n "$expected_owner" ]; then
@@ -1504,11 +1510,7 @@ fm_lock_try_acquire() {
     FM_LOCK_HELD_PID=$(cat "$lockdir/pid" 2>/dev/null || true)
     return 1
   fi
-  if fm_lock_holder_alive "$lockdir" "$pid"; then
-    FM_LOCK_HELD_PID=$pid
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$pid"; then
+  if fm_lock_holder_busy "$lockdir" "$pid"; then
     FM_LOCK_HELD_PID=$pid
     return 1
   fi

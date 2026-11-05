@@ -1593,6 +1593,7 @@ relaunch_admission_preflight() {
   local CODEX_PERM_PRESENT CODEX_PERMISSION_MODE LAVISH_AXI_HOST_CONFIG_PRESENT LAVISH_AXI_HOST
   local KEEP_AI_TRAILERS HERDR_LIFECYCLE_BRIEF_GUARD HERDR_LIFECYCLE_COMMAND
   local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE BRANCH PROJ PROJ_ABS SECONDMATE_PROJECTS BRIEF
+  local SPAWN_TREEHOUSE_PROJECT_LOCK SPAWN_PROJECT_CAPACITY_ANY=''
   local YOLO UPSTREAM_CONSENT PROJ_NAME STANDING_MODE EXTERNAL_REVIEW EXTERNAL_BACKUP_REMOTE EXTERNAL_BACKUP_PREFIX
   local FM_REVIEW_URL FM_REVIEW_BACKUP_REMOTE FM_REVIEW_BACKUP_PREFIX
   local FM_ROLE_DIAG FM_ROLE_PUB_AUTHORITY FM_ROLE_PUB_DENIAL FM_ROLE_PUB_TARGET FM_ROLE_SCOPE FM_ROLE_SOURCE
@@ -1645,6 +1646,8 @@ relaunch_admission_preflight() {
     fm_spawn_relaunch_project_admit "$META" || return $?
     proj=$PROJ
     PROJ_ABS=$(cd "$PROJ" && pwd) || return 1
+    fm_spawn_project_lock_admit "$PROJ_ABS" || return $?
+    fm_spawn_retained_copies_admit check || return $?
   fi
   state_real=$(cd "$STATE" && pwd -P) || return 1
   fm_spawn_launch_files_admit "$state_real" "$WT" "$proj" || return $?

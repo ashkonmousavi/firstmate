@@ -3879,24 +3879,13 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" 
     exit 1
   fi
   SPAWN_PROJECT_CAPACITY=$FM_PROJECT_CAPACITY
+  # shellcheck disable=SC2034
   SPAWN_PROJECT_CAPACITY_ANY=$FM_PROJECT_CAPACITY_ANY
 fi
-if [ "$KIND" != secondmate ] &&
-  { [ "$BACKEND" != orca ] || [ -n "$SPAWN_PROJECT_CAPACITY_ANY" ]; }; then
-  SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
-    echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
-    exit 1
-  }
+if fm_spawn_project_lock_applies; then
+  fm_spawn_project_lock_resolve "$PROJ_ABS" || exit 1
   if ! fm_lock_try_acquire "$SPAWN_TREEHOUSE_PROJECT_LOCK"; then
-    if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
-      echo "deferred: another Treehouse slot allocation or return is in progress for $PROJ_ABS; the released copy of $ID was not recreated and nothing changed" >&2
-      exit 75
-    elif [ "$BACKEND" = orca ]; then
-      echo "error: another spawn or cleanup holds the shared project lock for $PROJ_ABS; refusing to race its capacity admission" >&2
-    else
-      echo "error: another Treehouse slot allocation or return is in progress for $PROJ_ABS; refusing to race it" >&2
-    fi
-    exit 75
+    fm_spawn_project_lock_busy "$PROJ_ABS" || exit $?
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
@@ -4377,9 +4366,7 @@ fi
 fm_spawn_backlog_close_admit || exit 1
 
 # Reserve every retained legacy copy before any allocator can reset it.
-if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
-  fm_treehouse_protect_recorded_copies "$STATE" "$PROJ_ABS" || exit 1
-fi
+fm_spawn_retained_copies_admit || exit 1
 if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$KIND" != secondmate ]; then
   fm_worktree_require_exclusive_record "$STATE" "$RELAUNCH_WT" "$RELAUNCH_META" || exit 1
 fi

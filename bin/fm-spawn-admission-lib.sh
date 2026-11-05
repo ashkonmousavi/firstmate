@@ -500,6 +500,49 @@ fm_spawn_brief_present_admit() {
   return 1
 }
 
+# The shared Treehouse project lock serializes this project's slot
+# allocation and return. A secondmate takes none; Orca takes it only when
+# project capacity is declared.
+fm_spawn_project_lock_applies() {
+  [ "$KIND" != secondmate ] && { [ "$BACKEND" != orca ] || [ -n "${SPAWN_PROJECT_CAPACITY_ANY:-}" ]; }
+}
+
+# Sets SPAWN_TREEHOUSE_PROJECT_LOCK.
+fm_spawn_project_lock_resolve() { # <project-dir>
+  SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$1") && return 0
+  echo "error: could not resolve the shared Treehouse project lock for $1" >&2
+  return 1
+}
+
+fm_spawn_project_lock_busy() { # <project-dir>
+  if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+    echo "deferred: another Treehouse slot allocation or return is in progress for $1; the released copy of $ID was not recreated and nothing changed" >&2
+  elif [ "$BACKEND" = orca ]; then
+    echo "error: another spawn or cleanup holds the shared project lock for $1; refusing to race its capacity admission" >&2
+  else
+    echo "error: another Treehouse slot allocation or return is in progress for $1; refusing to race it" >&2
+  fi
+  return 75
+}
+
+# Read-only: refuses when another live spawn or cleanup holds the project lock.
+fm_spawn_project_lock_admit() { # <project-dir>
+  local holder
+  fm_spawn_project_lock_applies || return 0
+  fm_spawn_project_lock_resolve "$1" || return 1
+  [ -e "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] || [ -L "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] || return 0
+  holder=$(cat "$SPAWN_TREEHOUSE_PROJECT_LOCK/pid" 2>/dev/null || true)
+  fm_lock_holder_busy "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$holder" || return 0
+  fm_spawn_project_lock_busy "$1"
+}
+
+# Every retained copy recorded in this project's pool must be claimed by one
+# task record; spawn then holds them, while check mode only refuses.
+fm_spawn_retained_copies_admit() { # [check]
+  [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] || return 0
+  fm_treehouse_protect_recorded_copies "$STATE" "$PROJ_ABS" "${1:-}"
+}
+
 fm_spawn_backlog_close_admit() {
   [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ] || return 0
   echo "error: task $ID has a pending authoritative backlog close at $STATE/$ID.backlog-close; finish or repair that close before dispatching a new worker" >&2
