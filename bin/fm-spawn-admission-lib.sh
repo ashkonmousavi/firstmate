@@ -164,6 +164,71 @@ fm_spawn_brief_admit() { # <brief>
   return 0
 }
 
+# Slice admission for a fresh ship (relaunches are recovery and keep their
+# scope; scouts and secondmates are knowledge or supervisor work). A home that
+# has $FM_HOME/config/slicing.json runs the vertical-slicing validator's
+# `gate` on the task body, the brief and, when present, data/<id>/prep.md,
+# before any worktree, record or backlog move exists. The validator owns the
+# policy contract (observe reports and returns 0; enforce returns 1 FAIL or
+# 2 UNKNOWN, including a malformed policy); this function refuses on any
+# nonzero gate result and prints the reasons. A home with no policy file is
+# an explicit unconfigured bypass. The validator path is FM_SLICE_VALIDATOR,
+# else the installed skills-master copy; when it yields no result, an unlisted
+# project bypasses, observe launches with a notice, and other modes refuse
+# listed projects or an unreadable projects list.
+fm_spawn_slice_admit() { # <brief>
+  local brief=$1 policy="$FM_HOME/config/slicing.json" validator mode out rc summary=
+  [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ] || return 0
+  [ -e "$policy" ] || return 0
+  validator=${FM_SLICE_VALIDATOR:-$HOME/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py}
+  mode=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("mode", ""))' "$policy" 2>/dev/null) || mode=
+  local texts=(--text "$brief")
+  [ ! -f "$DATA/$ID/prep.md" ] || texts+=(--text "$DATA/$ID/prep.md")
+  if [ -r "$validator" ]; then
+    out=$(python3 "$validator" gate --home "$FM_HOME" --project "$(basename "$PROJ_ABS")" --kind ship \
+      --task-id "$ID" --code-root "$FM_ROOT" "${texts[@]}" 2>&1)
+    rc=$?
+    summary=$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    v = json.loads(sys.stdin.read())
+    print(v["state"] + ": " + "; ".join(r["code"] + " (" + r["source"] + ")" for r in v["reasons"]) if v["reasons"] else v["state"])
+except Exception:
+    sys.exit(1)' 2>/dev/null) || summary=
+  else
+    rc=2
+    out="validator $validator is not readable"
+  fi
+  if [ -z "$summary" ]; then
+    if python3 -c '
+import json, sys
+try:
+    projects = json.load(open(sys.argv[1]))["projects"]
+    if not isinstance(projects, list) or not all(isinstance(p, str) for p in projects):
+        sys.exit(2)
+    sys.exit(0 if sys.argv[2] not in projects else 1)
+except Exception:
+    sys.exit(2)' "$policy" "$(basename "$PROJ_ABS")" 2>/dev/null; then
+      return 0
+    fi
+    if [ "$mode" = observe ]; then
+      echo "notice: slice admission ($policy, observe) could not check $ID: $(printf '%s' "$out" | tail -1); launching" >&2
+      return 0
+    fi
+    echo "error: spawn refused: slice admission ($policy, mode ${mode:-unreadable}) could not check $ID: $(printf '%s' "$out" | tail -1)" >&2
+    return 1
+  fi
+  if [ "$rc" -ne 0 ]; then
+    echo "error: spawn refused: slice admission ($policy) refuses $ID: $summary; give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue" >&2
+    return 1
+  fi
+  case $summary in
+  ok) ;;
+  *) echo "notice: slice admission ($policy, ${mode:-observe}) would refuse $ID: $summary; launching" >&2 ;;
+  esac
+  return 0
+}
+
 # Read-only checks of the per-task launch files a retained relaunch writes
 # after the stop. Each owner's check mode runs the same validation as the
 # write spawn performs: Devin hook config, polytoken config mirror, the Claude

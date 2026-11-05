@@ -2047,6 +2047,18 @@ A malformed or unreadable file refuses every fresh ship or scout spawn until it 
 Firstmate cannot see which part of a worker's life uses the resource, so the limit applies to whole workers rather than individual resource operations, and the tightest resource every worker needs should decide it.
 [`bin/fm-project-capacity-lib.sh`](../bin/fm-project-capacity-lib.sh) owns the file format, what holds a place, and why concurrent spawns cannot both take the last one.
 
+## Slice admission (config/slicing.json)
+
+The optional local, gitignored `config/slicing.json` in a home turns on slice admission for fresh ship spawns of the projects it names.
+Its format, its `observe` and `enforce` modes, the catalogue it points at and the rollout order belong to the vertical-slicing skill's slice metadata contract (`references/contract.md`, "Activation and migration"), not to Firstmate.
+Before any worktree, task record or backlog move exists, `bin/fm-spawn.sh` runs that skill's validator `gate` on the task body, `data/<id>/brief.md` and, when present, `data/<id>/prep.md`.
+In `observe` mode a missing, invalid, unknown or conflicting `SLICE:` line prints a `notice:` naming the validator's reasons, and the ship launches.
+In `enforce` mode any nonzero gate result refuses the spawn with those reasons, including a malformed policy.
+A home without the file, scouts, secondmates and `--relaunch` recovery are not checked.
+The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master copy at `~/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py`.
+When it yields no result, the admission library reads the policy's `projects` array: an unlisted project bypasses in every mode, while a listed project or an unreadable projects list launches with a notice in `observe` and refuses in any other mode.
+`fm_spawn_slice_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns this admission step.
+
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
@@ -3577,6 +3589,7 @@ FM_ROOT_OVERRIDE=        # override firstmate repo root, tangle-guard target, an
 FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
+FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds

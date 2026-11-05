@@ -3914,6 +3914,7 @@ if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
 fi
 fm_spawn_brief_present_admit || exit 1
 fm_spawn_brief_admit "$BRIEF" || exit 1
+fm_spawn_slice_admit "$BRIEF" || exit 1
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ "$RELAUNCH" -eq 1 ]; then
     BASE_BRANCH=$(fm_meta_get "$RELAUNCH_META" base_branch)
