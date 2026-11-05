@@ -2197,6 +2197,16 @@ EOF
   assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
     "an archived blocker still withholds the row"
 
+  if [ "$(id -u)" != 0 ]; then
+    chmod 000 "$home/data/done-archive.md"
+    out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+    chmod 644 "$home/data/done-archive.md"
+    assert_contains "$out" "ready list withheld: blocked-by edges cannot be decided" \
+      "an unreadable archive left the digest's fallback looking dispatchable"
+    assert_not_contains "$out" "ready queued (dispatchable now):" \
+      "an unreadable archive still printed a dispatchable ready group"
+  fi
+
   pass "the startup ready listing withholds a row whose blocker is unknown here or open in another home and keeps it once archived"
 }
 

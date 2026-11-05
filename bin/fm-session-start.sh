@@ -528,7 +528,7 @@ print_ready_queued_bounded() {
 }
 
 print_backlog_tasks_axi_compact() {
-  local path=$1 in_flight held blocked ready verdicts note err
+  local path=$1 in_flight held blocked ready verdicts note err withheld=
   if ! in_flight=$(tasks-axi list --file "$path" --state in_flight --fields "$BACKLOG_FIELDS" 2>&1); then
     err=$in_flight
   elif ! held=$(tasks-axi list --file "$path" --state held --fields "$BACKLOG_FIELDS" 2>&1); then
@@ -538,9 +538,9 @@ print_backlog_tasks_axi_compact() {
   elif ! ready=$(tasks-axi ready --file "$path" 2>&1); then
     err=$ready
   elif ! verdicts=$(fm_blocked_by_verdicts "$(dirname "$path")" 2>&1); then
-    err=$verdicts
+    err=$verdicts withheld=1
   elif ! note=$(fm_blocked_by_fleet_note "$(dirname "$path")" 2>&1); then
-    err=$note
+    err=$note withheld=1
   else
     ready=$(printf '%s\n' "$ready" | fm_blocked_by_filter_ready "$verdicts" "$note")
     printf 'compact backlog listing (tasks-axi; done rows omitted; every in-flight, held, and blocked row shown in full; ready queued bounded to %s; task bodies omitted)\n' \
@@ -557,6 +557,7 @@ print_backlog_tasks_axi_compact() {
   fi
   printf 'tasks-axi compact listing failed; falling back to title-line rendering.\n'
   printf '%s\n' "$err"
+  [ -z "$withheld" ] || printf 'ready list withheld: blocked-by edges cannot be decided, so no queued row below is known to be dispatchable.\n'
   print_backlog_manual_compact "$path" "fallback"
 }
 
