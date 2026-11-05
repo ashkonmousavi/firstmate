@@ -3710,7 +3710,7 @@ FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, a
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh
-FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
+FM_CHECK_TIMEOUT=30     # default seconds allowed per slow check script; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
@@ -3858,6 +3858,8 @@ FM_INBOX_STT_MODEL=     # overrides config/inbox-stt-model for fm-inbox.sh say
 FM_INBOX_ASK_MODEL=     # overrides config/inbox-ask-model for fm-inbox.sh ask
 FM_INBOX_PROFILE=       # overrides config/inbox-profile; explicitly empty forces ambient credentials
 ```
+
+Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
 
 `FM_WEDGE_MAX_ESCALATIONS` bounds wedge escalations, not detection, so while its markers stand the dead-endpoint report is still consulted ahead of the short-circuit and reports a proven-gone endpoint exactly once per incarnation.
 The cap covers the wedge timer, which is where a BUSY pane whose agent is still generating output is escalated once its busy age crosses `FM_BUSY_TURN_MAX_SECS`, including the early crossing an opted-in model-stream silence causes.

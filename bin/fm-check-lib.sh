@@ -2,6 +2,23 @@
 
 FM_CUSTOM_CHECK_HASH=
 FM_CUSTOM_CHECK_SNAPSHOT=
+FM_CUSTOM_CHECK_TIMEOUT=
+
+# Optional declaration in the authenticated script: # FM_CHECK_TIMEOUT=<seconds>.
+# Exactly one declaration, integer 1..86400 without leading zeroes; absent uses
+# FM_CHECK_TIMEOUT (default 30). Parse data only, never source the check.
+# shellcheck disable=SC2034 # Public result consumed by the watcher after snapshot validation.
+fm_custom_check_timeout_read() {
+  FM_CUSTOM_CHECK_TIMEOUT=$(LC_ALL=C awk '
+    /^# FM_CHECK_TIMEOUT([=[:space:]]|$)/ {
+      count++
+      if ($0 !~ /^# FM_CHECK_TIMEOUT=[1-9][0-9]*$/) bad=1
+      value=substr($0, 20)
+      if (length(value)>5 || value+0>86400) bad=1
+    }
+    END { if (bad || count>1) exit 1; if (count) print value }
+  ' "$1") || { FM_CUSTOM_CHECK_TIMEOUT=; return 1; }
+}
 
 fm_custom_check_sha256() {
   local file=$1
@@ -42,7 +59,8 @@ fm_custom_check_registered() {
   state_device=$(fm_pr_file_device "$state") || return 1
   fm_pr_private_file_valid "$check" 700 "$state_device" || return 1
   hash=$(fm_custom_check_sha256 "$check") || return 1
-  [ "$hash" = "$FM_CUSTOM_CHECK_HASH" ]
+  [ "$hash" = "$FM_CUSTOM_CHECK_HASH" ] || return 1
+  fm_custom_check_timeout_read "$check"
 }
 
 fm_custom_check_snapshot_prepare() {
@@ -66,6 +84,8 @@ fm_custom_check_snapshot_prepare() {
   hash=$(fm_custom_check_sha256 "$FM_CUSTOM_CHECK_SNAPSHOT") \
     || { fm_custom_check_snapshot_cleanup; return 1; }
   [ "$hash" = "$FM_CUSTOM_CHECK_HASH" ] || { fm_custom_check_snapshot_cleanup; return 1; }
+  fm_custom_check_timeout_read "$FM_CUSTOM_CHECK_SNAPSHOT" \
+    || { fm_custom_check_snapshot_cleanup; return 1; }
 }
 
 fm_custom_check_snapshot_cleanup() {

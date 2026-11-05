@@ -3353,6 +3353,8 @@ procevent_surface_queued() {
 
 run_check_process() {
   local c=$1
+  local CHECK_TIMEOUT=${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}
+  export FM_CHECK_TIMEOUT=$CHECK_TIMEOUT
   shift
   if [ "${FM_CHECK_FORCE_FALLBACK:-0}" != 1 ] && command -v timeout >/dev/null 2>&1; then
     exec timeout "$CHECK_TIMEOUT" bash "$c" "$@"
@@ -3372,6 +3374,8 @@ FM_ACTIVE_CHECK_PID=
 FM_ACTIVE_CHECK_PGID=
 FM_CHECK_OUTPUT=
 FM_CHECK_RESULT=
+FM_CHECK_BUDGET=
+FM_CHECK_ELAPSED=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
@@ -3421,7 +3425,8 @@ watcher_stop_signals() {
 }
 
 run_check_capture() {
-  local pgid rc=0
+  local pgid rc=0 started=$SECONDS
+  local CHECK_TIMEOUT=${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}
   fm_check_output_cleanup
   FM_CHECK_RESULT=
   FM_CHECK_EXIT_STATUS=0
@@ -3455,10 +3460,54 @@ run_check_capture() {
     FM_CHECK_EXIT_STATUS=124
     rc=124
   fi
+  FM_CHECK_ELAPSED=$((SECONDS - started))
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
   # Keep what the check printed before the cut, then report the cut itself.
   [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${CHECK_TIMEOUT}s"
+}
+
+# check_run_record <check> <identity>
+# Records the run the sweep just made of <check> in state/.check-run-<name>,
+# <name> being the check's basename without .check.sh, replaced whole with:
+#   check=<path>          identity=<what ran: sha256:<hash>, a PR URL, relay-poll>
+#   last_run=<epoch>      exit=<status>   result=ok|failed|timed-out
+#   budget_seconds=<n>    elapsed_seconds=<n> (whole wall seconds, including cleanup)
+#   last_ok=<epoch>       the last run that exited 0 within its check budget
+#   failing_since=<epoch> the first failed run of the open failure episode
+# ok means only that the check exited 0 inside its bound, not that its work
+# succeeded: a check that reports its own trouble on stdout, such as the PR
+# poll, still exits 0. Curated publishes each failure through its existing wake
+# path; this record only retains additive timing and failure-episode telemetry.
+check_run_record() {
+  local c=$1 identity=$2 record result last_ok='' since='' prior='' tmp now
+  record="$STATE/.check-run-$(basename "$c" .check.sh)"
+  now=$(date +%s)
+  case "$FM_CHECK_EXIT_STATUS" in
+    0) result=ok ;;
+    124) result='timed-out' ;;
+    *) result=failed ;;
+  esac
+  if [ -f "$record" ] && [ ! -L "$record" ] \
+    && [ "$(sed -n 's/^identity=//p' "$record")" = "$identity" ]; then
+    prior=$(sed -n 's/^result=//p' "$record")
+    last_ok=$(sed -n 's/^last_ok=//p' "$record")
+    since=$(sed -n 's/^failing_since=//p' "$record")
+  fi
+  if [ "$result" = ok ]; then
+    last_ok=$now
+    since=
+  elif [ -z "$since" ] || { [ "$prior" != failed ] && [ "$prior" != timed-out ]; }; then
+    since=$now
+  fi
+  tmp=$(mktemp "$record.tmp.XXXXXX") || tmp=
+  if [ -z "$tmp" ] \
+    || ! printf 'check=%s\nidentity=%s\nlast_run=%s\nexit=%s\nresult=%s\nlast_ok=%s\nfailing_since=%s\nbudget_seconds=%s\nelapsed_seconds=%s\n' \
+      "$c" "$identity" "$now" "$FM_CHECK_EXIT_STATUS" "$result" "$last_ok" "$since" "$FM_CHECK_BUDGET" "$FM_CHECK_ELAPSED" > "$tmp" \
+    || ! mv -f -- "$tmp" "$record"; then
+    [ -z "$tmp" ] || rm -f -- "$tmp"
+    triage_log "check run record for $c could not be written"
+  fi
 }
 
 FM_CAPTURE_OUTPUT=
@@ -4390,6 +4439,10 @@ while :; do
     rejected_checks=
     contribution_check_output=
     sweep_wake_reason=
+    for check_record in "$STATE"/.check-run-*; do
+      [ -e "$check_record" ] || [ -L "$check_record" ] || continue
+      [ -e "$STATE/${check_record##*/.check-run-}.check.sh" ] || rm -f -- "$check_record"
+    done
     # Hold release conditions are evaluated in the same sweep, before the
     # per-check loop: each newly-met condition has already opened its durable
     # keyed decision and queued its check wake before announcing it.
@@ -4476,6 +4529,7 @@ EOF
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
       is_pr_poll=0
+      FM_CHECK_BUDGET=$CHECK_TIMEOUT
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
           && [ -f "$FM_ROOT/bin/fm-x-poll.sh" ] && [ ! -L "$FM_ROOT/bin/fm-x-poll.sh" ]; then
@@ -4542,14 +4596,16 @@ EOF
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           custom_check_started=$(date +%s)
+          FM_CHECK_BUDGET=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          check_run_record "$c" "sha256:$FM_CUSTOM_CHECK_HASH"
           # A killed or failing run must not vanish: it wakes naming the check,
           # its exit code and its duration. Exit 0 keeps the printed output.
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             # Output printed before the cut stays, followed by the cut itself;
             # a silent cut names the bound that killed it.
-            [ "$out" != "timed out after ${CHECK_TIMEOUT}s" ] || out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+            [ "$out" != "timed out after ${FM_CHECK_BUDGET}s" ] || out="timed out after ${FM_CHECK_BUDGET}s (FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
             out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
           fi
