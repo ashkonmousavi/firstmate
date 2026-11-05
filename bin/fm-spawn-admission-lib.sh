@@ -245,8 +245,9 @@ except Exception:
 # --no-forge-check stays the only way to skip the read.
 SPAWN_CONTINUE_PR_URL=
 SPAWN_CONTINUE_PR_HEAD=
+# shellcheck disable=SC2034 # SPAWN_CONTINUE_PR_* feed spawn's copy freshening and task record.
 fm_spawn_duplicate_admit() {
-  local forge origin out rc state lines line number url branch head why others= lookup
+  local forge origin out rc state lines line number url branch head why others='' lookup
   [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ] || return 0
   [ "$MODE" != local-only ] || return 0
   if [ -n "${SPAWN_NO_FORGE_CHECK:-}" ]; then
