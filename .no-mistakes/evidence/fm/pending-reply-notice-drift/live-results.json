@@ -1,0 +1,9 @@
+{
+  "results": [
+    "PASS: stock local notice and previous wording retire on first watcher reconciliation, before default TTL, with no report",
+    "PASS: question/report/reply/respond/investigate suffixes retain delivered awaiting_report records",
+    "PASS: a genuine correlated helper report resolves the question request",
+    "PASS: stock inherited-material notice and CONFIG_REREAD expire through the supported TTL; explicit local update requests remain open"
+  ],
+  "messages": 9
+}

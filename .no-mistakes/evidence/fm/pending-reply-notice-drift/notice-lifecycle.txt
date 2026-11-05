@@ -1,0 +1,18 @@
+Real fm-send -> durable inbox -> real fm-watch reconciliation
+External endpoint: isolated 120x40 tmux terminal running cat. No model receipt claimed.
+
+request | after default watcher | final phase | resolution | recovery attempted
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please investiga... | awaiting_report | awaiting_report | - | none
+firstmate updated to the latest - please re-read your AGENTS.md to pick up the new instructions. | resolved | resolved | one-way-notice | none
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Is that clear? | awaiting_report | resolved | helper | none
+CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/mate/instructions.md | awaiting_report | resolved | expired-one-way | none
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Reply with the r... | awaiting_report | awaiting_report | - | none
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. | resolved | resolved | one-way-notice | none
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please report th... | awaiting_report | awaiting_report | - | none
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Respond with the... | awaiting_report | awaiting_report | - | none
+Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files bef... | awaiting_report | resolved | expired-one-way | none
+
+Local notices retired without a reply and before the default 7200-second expiry.
+Remote/config expiry used the supported FM_PENDING_REPLY_ONEWAY_TTL=1 setting.
+The question request resolved only after a real fm-secondmate-report.sh invocation.
+Private tmux server teardown exited 0; subsequent list-sessions confirmed no server.

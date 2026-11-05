@@ -1,0 +1,412 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+
+exit=0
+$ tmux -L fm-lab new-session -d -s lab -n fm-labmate -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T cat
+
+exit=0
+$ tmux -L fm-lab display-message -p #{socket_path}
+~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/tmux/tmux-1000/fm-lab
+
+exit=0
+$ bash -c . bin/fm-secondmate-nudge-lib.sh; printf "%s\n%s\n" "$FM_SECOND_MATE_NUDGE_MESSAGE" "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE"
+firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.
+Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/001.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+stock local update notice: delivered corr=3e98e6b59e78aa25
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "3e98e6b59e78aa25",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.",
+  "created_epoch": "1793850180",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "one_way": "1",
+  "delivered_epoch": "1793850180"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate updated to the latest - please re-read your AGENTS.md to pick up the new instructions.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/002.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+previous supported update wording: delivered corr=0e2e428debb00baf
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "0e2e428debb00baf",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate updated to the latest - please re-read your AGENTS.md to pick up the new instructions.",
+  "created_epoch": "1793850183",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "one_way": "1",
+  "delivered_epoch": "1793850183"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Is that clear?
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/003.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+reply-bearing suffix Is that clear?: delivered corr=0bad9005a0bbb701
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "0bad9005a0bbb701",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Is that clear?",
+  "created_epoch": "1793850186",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850187"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please report the result.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/004.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+reply-bearing suffix Please report the result.: delivered corr=a8680c2ca8b171c1
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "a8680c2ca8b171c1",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please report th...",
+  "created_epoch": "1793850190",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850190"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Reply with the result.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/005.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+reply-bearing suffix Reply with the result.: delivered corr=1469ef598ea41add
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "1469ef598ea41add",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Reply with the r...",
+  "created_epoch": "1793850193",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850193"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Respond with the result.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/006.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+reply-bearing suffix Respond with the result.: delivered corr=14b3ee1f4183bd92
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "14b3ee1f4183bd92",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Respond with the...",
+  "created_epoch": "1793850194",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850194"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please investigate the failure.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/007.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+reply-bearing suffix Please investigate the failure.: delivered corr=530e12ea658172d2
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "530e12ea658172d2",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions. Please investiga...",
+  "created_epoch": "1793850198",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850198"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/008.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+stock inherited-material notice: delivered corr=eb5521a849fc87f1
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "eb5521a849fc87f1",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files bef...",
+  "created_epoch": "1793850201",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850201"
+}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-send.sh labmate CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/mate/instructions.md
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell NOT delivered: it was typed into lab:fm-labmate and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.inbox/009.msg and the watcher will re-ring. Do not resend. reason=submit-unconfirmed
+
+exit=0
+CONFIG_REREAD pointer: delivered corr=9c74ce300d37a140
+{
+  "schema": "fm-pending-reply.v1",
+  "corr_id": "9c74ce300d37a140",
+  "task_id": "labmate",
+  "parent_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l",
+  "parent_status": "~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/state/labmate.status",
+  "parent_status_scan_signature": "",
+  "request_summary": "CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/mate/instructions.md",
+  "created_epoch": "1793850204",
+  "phase": "awaiting_report",
+  "turn_seen_busy": "0",
+  "request_turn_completed_epoch": "",
+  "recovery_attempted_epoch": "",
+  "recovery_sender_pid": "",
+  "recovery_sender_identity": "",
+  "recovery_sent_epoch": "",
+  "recovery_delivery_outcome": "",
+  "recovery_turn_seen_busy": "0",
+  "recovery_turn_completed_epoch": "",
+  "escalated_epoch": "",
+  "resolved_epoch": "",
+  "resolved_via": "",
+  "wrong_home_hits": "0",
+  "wrong_home_first_sighting": "",
+  "wrong_home_sightings": "",
+  "wrong_home_scan_signature": "",
+  "grace_secs": "120",
+  "delivered_epoch": "1793850204"
+}
+Started real fm-watch.sh pid=2430, TTL=default 7200
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/bin/fm-secondmate-report.sh done 0bad9005a0bbb701 The requested check is complete.
+
+exit=0
+Watcher stopped and reaped, exit=0
+Started real fm-watch.sh pid=17426, TTL=default 7200
+Watcher stopped and reaped, exit=-15
+Started real fm-watch.sh pid=29737, TTL=1
+$ tmux -L fm-lab capture-pane -p -t lab:fm-labmate
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labmate.inbox' steering inbox, read and act on eac
+h in numeric order, then mv each into its handled/.
+
+
+
+
+
+exit=0
+PASS: stock local notice and previous wording retire on first watcher reconciliation, before default TTL, with no report
+PASS: question/report/reply/respond/investigate suffixes retain delivered awaiting_report records
+PASS: a genuine correlated helper report resolves the question request
+PASS: stock inherited-material notice and CONFIG_REREAD expire through the supported TTL; explicit local update requests remain open
+Watcher stopped and reaped, exit=-15
+$ tmux -L fm-lab kill-server
+
+exit=0
+$ tmux -L fm-lab list-sessions
+no server running on ~/.no-mistakes/worktrees/049a88734b0e/01M6MWBAYF6YYG4VVJYRBCZW3T/.l/tmux/tmux-1000/fm-lab
+
+exit=1
+Disposable terminal and lab home removed.
