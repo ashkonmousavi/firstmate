@@ -1,0 +1,95 @@
+{
+  "scope": "Parsed workflow configuration; not a hosted execution or a new timing measurement",
+  "baseline_source": "Author-supplied complete curated run 42006800062, 2026-11-05; measurements not independently re-fetched in this test phase",
+  "job": "tests-portable-serial",
+  "old_timeout_minutes": 45,
+  "new_timeout_minutes": 60,
+  "only_workflow_semantic_change": "jobs.tests-portable-serial.timeout-minutes",
+  "shards": [
+    {
+      "shard": 1,
+      "baseline_wall_seconds": 1244,
+      "old_margin_seconds": 1456,
+      "new_margin_seconds": 2356
+    },
+    {
+      "shard": 2,
+      "baseline_wall_seconds": 2046,
+      "old_margin_seconds": 654,
+      "new_margin_seconds": 1554
+    },
+    {
+      "shard": 3,
+      "baseline_wall_seconds": 1347,
+      "old_margin_seconds": 1353,
+      "new_margin_seconds": 2253
+    },
+    {
+      "shard": 4,
+      "baseline_wall_seconds": 2021,
+      "old_margin_seconds": 679,
+      "new_margin_seconds": 1579
+    },
+    {
+      "shard": 5,
+      "baseline_wall_seconds": 1028,
+      "old_margin_seconds": 1672,
+      "new_margin_seconds": 2572
+    },
+    {
+      "shard": 6,
+      "baseline_wall_seconds": 1403,
+      "old_margin_seconds": 1297,
+      "new_margin_seconds": 2197
+    },
+    {
+      "shard": 7,
+      "baseline_wall_seconds": 2255,
+      "old_margin_seconds": 445,
+      "new_margin_seconds": 1345
+    },
+    {
+      "shard": 8,
+      "baseline_wall_seconds": 1920,
+      "old_margin_seconds": 780,
+      "new_margin_seconds": 1680
+    },
+    {
+      "shard": 9,
+      "baseline_wall_seconds": 1995,
+      "old_margin_seconds": 705,
+      "new_margin_seconds": 1605
+    },
+    {
+      "shard": 10,
+      "baseline_wall_seconds": 2636,
+      "old_margin_seconds": 64,
+      "new_margin_seconds": 964
+    },
+    {
+      "shard": 11,
+      "baseline_wall_seconds": 1772,
+      "old_margin_seconds": 928,
+      "new_margin_seconds": 1828
+    },
+    {
+      "shard": 12,
+      "baseline_wall_seconds": 1603,
+      "old_margin_seconds": 1097,
+      "new_margin_seconds": 1997
+    }
+  ],
+  "other_job_timeouts_minutes": {
+    "lint": 30,
+    "test-coverage": 5,
+    "tests-portable-parallel-1": 45,
+    "tests-portable-parallel-2": 45,
+    "tests-herdr": 75,
+    "tests-hc": 75,
+    "tests-timing-aggregate": 5,
+    "macos-stock-bash": 30,
+    "invariants": 5,
+    "full-suite": 5
+  },
+  "required_hosted_followup": "Outer executor must run the changed workflow and observe all serial jobs completing within 60 minutes."
+}
