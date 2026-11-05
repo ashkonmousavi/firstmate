@@ -3,6 +3,16 @@
 # data/<task-id>/brief.md under the active firstmate home.
 # Ship and scout scaffolds also write data/<task-id>/autolaunch-prep, the launch
 # record whose format and derivation bin/fm-autolaunch.sh owns.
+# They read the task body through bin/fm-tasks-axi.sh show <task-id> --full and
+# copy its first SLICE: declaration outside backtick or tilde fences under
+# "# Slice", before any home brief additions, trimming surrounding whitespace.
+# Declarations may use Markdown headings, dash or star bullets, and bold labels.
+# A closing fence must match the opening marker, be at least as long, and have
+# only whitespace after it; an unclosed fence keeps subsequent examples excluded.
+# Without a declaration, scaffolding succeeds with no Slice section and one
+# stderr note: "note: no SLICE line in <task-id>'s task body".
+# This copy leaves the author-filled intent and spec sections unchanged;
+# secondmate charters do not perform the lookup.
 # For ordinary tasks, the standard Setup/Rules/Definition-of-done contract is
 # filled in. Ship and scout `# Task` sections have two subsections Firstmate
 # fills before dispatch: `{TASK}` under `## Captain's intent` (the captain's
