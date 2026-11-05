@@ -1442,8 +1442,12 @@ class Controller:
         finally:
             os.close(fd)
 
-    def rows(self):
-        return [self.load(p) for p in sorted(self.root.glob("ctl-*.json"))]
+    def rows(self, nonseat=None):
+        rows = [self.load(p) for p in sorted(self.root.glob("ctl-*.json"))]
+        if nonseat is None:
+            return rows
+        return [r for r in rows if (r["kind"] in ("ring", "remote-inbox")
+                or r["key"].startswith("ctl-e-pass-")) == nonseat]
 
     def emit(self, row, result):
         append(STATE / "autolaunch.log", f"{self.now()}\t-\t{row.get('task') or '-'}\t"
@@ -1459,7 +1463,7 @@ class Controller:
     def create(self, key, task, kind, argv=None):
         old = self.load(self.path(key))
         if old and not (kind == "notice" and old.get("closed")
-                        or kind == "ring" and old["phase"] == "complete"):
+                        or kind in ("ring", "step", "remote-inbox") and old["phase"] == "complete"):
             return old
         row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="queued",
                    rung=0, opened=self.now(), overrun=0,
@@ -1562,7 +1566,7 @@ class Controller:
                     return
                 if r.returncode:
                     return
-        row.update(closed=True, phase="complete")
+        row.update(closed=True, phase="diagnosing" if row["phase"] == "diagnosing" else "complete")
         self.save(row)
         self.event(row, "resolved", f"resolved {reason}")
 
@@ -1587,22 +1591,21 @@ class Controller:
             row["due"] = row["failed_at"] + (60 if row["rung"] == 0 else 300)
             self.save(row)
 
-    def reconcile(self, rings=False):
+    def reconcile(self, nonseat=False):
         self.process_snapshot()
         overrun = int(self.load(self.passfile).get("overrun", 0))
-        for row in self.rows():
-            if (row["kind"] == "ring") != rings:
-                continue
+        for row in self.rows(nonseat):
             row["overrun"] = max(row.get("overrun", 0), overrun)
-            if row.get("closed"):
+            if row.get("closed") and row["phase"] != "diagnosing":
                 continue
             if row["phase"] == "retry-wait" and self.now() >= row["due"]:
                 row.update(phase="queued", rung=row["rung"] + 1)
                 self.save(row)
-            if row.get("handoff") and row["kind"] in ("launch", "relaunch", "recovery") and self.agent_live(row["task"]):
+            if not row.get("closed") and row.get("handoff") and row["kind"] in ("launch", "relaunch", "recovery") and self.agent_live(row["task"]):
                 self.event(row, "launched", "launched")
                 self.close(row, "launched-late")
-                continue
+                if row["phase"] != "diagnosing":
+                    continue
             if row["phase"] not in ("running", "diagnosing"):
                 continue
             diagnosis = row["phase"] == "diagnosing"
@@ -1614,9 +1617,14 @@ class Controller:
             if not result and not expired:
                 continue
             if diagnosis:
-                if not result and alive:
-                    self.summary(row, "diagnosis=failed:timeout main-still-alive=1")
+                if alive:
+                    if expired:
+                        self.summary(row, "diagnosis=failed:timeout main-still-alive=1")
                     continue  # Keep the occupied seat; never overlap diagnosis.
+                if row.get("closed"):
+                    row["phase"] = "complete"
+                    self.save(row)
+                    continue
                 outcome = "ok" if result and result["rc"] == 0 else ("failed:timeout" if not result else f"failed:exit-{result['rc']}")
                 self.summary(row, f"diagnosis={outcome} rung={row['diag_rung']}")
                 if row["diag_rung"] == 3:
@@ -1653,13 +1661,16 @@ class Controller:
         # Reuse the exact preparation, quota, backend and profile gates through
         # the existing read-only public interface; never reconstruct them here.
         r = subprocess.run(["bash", self.scheduler, "--dry-run"], text=True,
+                           env=dict(os.environ, FM_CONTROLLER_PREPARED="1"),
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
         if r.returncode:
             raise ValueError(f"controller preparation failed: {r.stderr.strip()}")
         command = None
         for line in r.stdout.splitlines():
-            if line.startswith("would-run: "):
-                command = shlex.split(line[len("would-run: "):])
+            if line.startswith("would-argv: "):
+                command = json.loads(line[len("would-argv: "):])
+                if not isinstance(command, list) or not command or not all(isinstance(a, str) for a in command):
+                    raise ValueError("invalid preparation argv")
             elif line.startswith("would-record: "):
                 fields = line[len("would-record: "):].split("\t", 4)
                 if len(fields) != 5:
@@ -1688,17 +1699,15 @@ class Controller:
             fields = line.split("\t", 4)
             if len(fields) != 5:
                 raise ValueError("invalid timed decision inventory")
-            task, key, _, at, note = fields
-            open_sources[task, key] = (at, note)
-        for row in self.rows():
+            task, key, _, at, _ = fields
+            open_sources[task, key] = at
+        for row in self.rows(False):
             if row.get("source_key"):
                 source = open_sources.get((row["task"], row["source_key"]))
-                if source is None or str(row["source_at"]) != source[0]:
+                if source is None or str(row["source_at"]) != source:
                     self.close(row, "source decision answered")
-        for (task, key), (at, note) in open_sources.items():
+        for (task, key), at in open_sources.items():
             if not at.isdigit() or self.now() - int(at) < 180:
-                continue
-            if re.search(r"human-reserved|credential|login|destruct|irreversible|merge approval", note, re.I):
                 continue
             identity = self.task_key_identity(task, key)
             row = self.create(f"ctl-c-ask-{identity}", task, "notice")
@@ -1712,13 +1721,16 @@ class Controller:
         p = self.load(self.passfile)
         self.reconcile()
         self.technical_decisions()
+        if leases():
+            row = self.create("ctl-a-step", "", "step", ["bash", self.scheduler, "--steps-only"])
+            if row["phase"] == "wait":
+                row["phase"] = "queued"
+                self.save(row)
         self.discover()
-        for row in self.rows():
+        for row in self.rows(False):
             if row["phase"] == "queued":
                 row["overrun"] = int(p.get("overrun", 0))
                 self.save(row)
-        p.update(cuts=0)
-        atomic(self.passfile, p)
 
     def discover_inboxes(self):
         # This scan also runs after an interrupted or busy planning pass. Inbox
@@ -1730,10 +1742,21 @@ class Controller:
             fields = r.stdout.strip().split(maxsplit=1)
             if r.returncode or len(fields) != 2 or fields[0] not in ("ring", "retry"):
                 continue
-            record = fields[1]
+            verb, record = fields
             identity = self.task_key_identity(task, Path(record).name)
             key = f"ctl-c-ring-{identity}"
-            row = self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record])
+            row = self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record, verb])
+            if row["phase"] == "wait":
+                row["phase"] = "queued"
+                self.save(row)
+        if any(kv(p).get("kind") == "secondmate" and kv(p).get("remote_host")
+               for p in STATE.glob("*.meta")):
+            due = subprocess.run(["bash", self.scheduler, "--controller-remote-inbox", "due"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+            if due.returncode:
+                return
+            row = self.create("ctl-c-remote-inbox", "", "remote-inbox",
+                              ["bash", self.scheduler, "--controller-remote-inbox", "run"])
             if row["phase"] == "wait":
                 row["phase"] = "queued"
                 self.save(row)
@@ -1767,7 +1790,7 @@ class Controller:
                 row["overrun"] = 1
                 self.own(row, f"persistent pass lock holder={pid} start={start} held_s={held}")
         elif rc == 0:
-            for row in self.rows():
+            for row in self.rows(True):
                 if row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
                     self.close(row, "pass lock acquired")
             p.pop("holder", None)
@@ -1776,26 +1799,39 @@ class Controller:
             row = self.create("ctl-e-pass-error", "", "notice")
             self.own(row, f"planning failed exit={rc}")
         atomic(self.passfile, p)
+        self.reconcile(nonseat=True)
+        self.discover_inboxes()
+        for row in self.rows(True):
+            self.deliver(row)
+        for row in self.rows(True):
+            if row["phase"] == "queued":
+                self.start(row)
+        with (self.root / ".journal.lock").open("a") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            self.seat_effects(rc)
+        if rc == 0:
+            p = self.load(self.passfile)
+            p.update(overrun=0, cuts=0)
+            p.pop("cut_at", None)
+            atomic(self.passfile, p)
+
+    def seat_effects(self, rc):
         if rc in (124, 137):
-            for row in self.rows():
+            for row in self.rows(False):
                 if row.get("handoff") and not row["handoff"]["receipt"] and not row.get("overrun"):
                     row["overrun"] = 1
                     self.summary(row, "recording pass interrupted overrun=1")
                     self.save(row)
-        self.reconcile(rings=True)
-        self.discover_inboxes()
-        for row in self.rows():
+        for row in self.rows(False):
             self.deliver(row)
         # Only an uninterrupted planning pass publishes new seat-taking work.
-        for row in self.rows():
-            if row["phase"] == "queued" and (rc == 0 or row["kind"] == "ring"):
+        for row in self.rows(False):
+            if row["phase"] == "queued" and rc == 0:
                 self.start(row)
         self.diagnoses()
-        if rc == 0:
-            p = self.load(self.passfile)
-            p.update(overrun=0)
-            p.pop("cut_at", None)
-            atomic(self.passfile, p)
 
     def start(self, row, diagnosis=False):
         # A wait may redispatch the same rung; it is still a new attempt with
@@ -1812,7 +1848,13 @@ class Controller:
         if not diagnosis and row["rung"]:
             self.event(row, f"retry-{row['rung']}", f"retry rung={row['rung']}")
         envargs = [f"--setenv={k}={v}" for k, v in os.environ.items()
-                   if k in ("PATH", "FM_HOME", "FM_ROOT_OVERRIDE", "FM_STATE_OVERRIDE", "FM_DATA_OVERRIDE", "FM_CONFIG_OVERRIDE", "FM_BACKEND", "FM_CODEX_TYPED_LAUNCH")
+                   if k in ("PATH", "FM_HOME", "FM_ROOT_OVERRIDE", "FM_STATE_OVERRIDE", "FM_DATA_OVERRIDE", "FM_CONFIG_OVERRIDE", "FM_BACKEND", "FM_CODEX_TYPED_LAUNCH",
+                            "FM_ZELLIJ_SESSION", "ZELLIJ", "ZELLIJ_SESSION_NAME", "ZELLIJ_PANE_ID",
+                            "HERDR_ENV", "HERDR_SESSION", "HERDR_SOCKET_PATH", "HERDR_PANE_ID", "TMUX_TMPDIR", "TMUX", "TMUX_PANE",
+                            "CMUX_WORKSPACE_ID", "CMUX_SURFACE_ID", "CMUX_TAB_ID", "CMUX_PANEL_ID", "CMUX_SOCKET_PATH",
+                            "TERM_PROGRAM", "REX_SESSION", "REX_BLOCK", "REX_SERVER", "REX_BIN_DIR", "FM_BACKEND_REX_NO_AUTOSTART",
+                            "FM_TERN_SESSION", "TERN_IDENTITY", "TERN_PANE", "TERN_PANE_SOCKET", "TERN_WINDOW_KEY", "TERN_WINDOW_SOCKET",
+                            "FM_HC_SOCKET", "HC_SESSION", "HC_TERMINAL_ID", "HC_TERMINAL_SOCKET", "HC_SCOPE", "PASEO_WORKSPACE_ID", "PASEO_AGENT_ID")
                    or (TEST and (k.startswith("FM_") or k in ("K1", "KF", "KB", "ROOT", "REAL_TIMEOUT", "K1_TEST_PID", "TMUX_TMPDIR")))]
         args = ["systemd-run", "--user", "--collect", "--service-type=exec", "--expand-environment=no",
                 "-p", "KillMode=process", "-p", f"RuntimeMaxSec={self.DEADLINES[attempt['kind']]}",
@@ -1915,9 +1957,7 @@ def controller_main(command, scheduler, argument=None):
     c = Controller(scheduler)
     if command == "controller-action":
         return c.action(argument)
-    # A kernel lock serializes journal publications across plan/effects while
-    # independent unit wrappers only write their own identity/result receipts.
-    with (c.root / ".journal.lock").open("a") as lock:
+    with (c.root / (".delivery.lock" if command == "controller-effects" else ".journal.lock")).open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

@@ -899,7 +899,6 @@ Held, parked, blocked, and unprepared items never launch, and an item already wa
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
-`--controller-mode` inspects that selection without starting work.
 Installing this cut alone keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
 Diagnosis defaults are read-only Codex `gpt-6.1-sol` followed by Claude `claude-opus-5-5`, after ownership has already reached the technical responder.
 A home may replace either command prefix with a nonempty JSON argv array named `rung3` or `rung4` in `config/controller-diagnosis`; the controller appends its diagnosis prompt and retains the 900-second bound.

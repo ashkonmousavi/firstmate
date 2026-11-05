@@ -14,7 +14,6 @@
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
 #   fm-autolaunch.sh --explain        prepared entries and current wait reasons
-#   fm-autolaunch.sh --controller-mode inspect activation without dispatch
 #   fm-autolaunch.sh --help
 #
 # Timer proposals capture the caller's PATH and resolved FM_HOME for both
@@ -32,7 +31,6 @@
 # is required; a missing manager never falls back with durable controller work.
 # Without activation evidence the legacy path preserves leased slice progress.
 # The explicit fake-clock seam selects the controller in isolated tests only.
-# --controller-mode prints the selected path without dispatching or journaling.
 # Controller planning holds .autolaunch.lock under PATH-resolved GNU timeout
 # -k 5 20. Busy or killed plans still run non-seat delivery reconciliation;
 # action units run separately, with non-inherited per-key slot descriptors.
@@ -163,7 +161,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--controller-mode|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
@@ -176,12 +174,12 @@ case "${1:-}" in
   '') ;;
   --run-action) ACTION=controller-action; STEP_TARGET=${2:-} ;;
   --controller-plan) ACTION=controller-plan ;;
-  --controller-mode) ACTION=controller-mode ;;
+  --controller-remote-inbox) ACTION=controller-remote-inbox; STEP_TARGET=${2:-} ;;
   --controller-decisions) ACTION=controller-decisions ;;
   --controller-spawn-lock) ACTION=controller-spawn-lock; STEP_TARGET=${2:-} ;;
   --controller-inbox-due) ACTION=controller-inbox-due; STEP_TARGET=${2:-} ;;
   --controller-spawn-result) ACTION=controller-spawn-result; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
-  --controller-ring) ACTION=controller-ring; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --controller-ring) ACTION=controller-ring; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-} ;;
   --explain) ACTION=explain ;;
   --dry-run) ACTION=dry ;;
   --steps-only) ACTION=steps ;;
@@ -200,7 +198,11 @@ if [ "$ACTION" = timer ] && [ "${2:-}" = --steps-only ] && [ "$#" -eq 2 ]; then
   TIMER_STEPS=1
 elif [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
-elif { [ "$ACTION" = controller-ring ] || [ "$ACTION" = controller-spawn-result ]; } && [ "$#" -eq 3 ]; then
+elif [ "$ACTION" = controller-ring ] && [ "$#" -eq 4 ] && { [ "$STEP_FAMILY" = ring ] || [ "$STEP_FAMILY" = retry ]; }; then
+  :
+elif [ "$ACTION" = controller-spawn-result ] && [ "$#" -eq 3 ]; then
+  :
+elif [ "$ACTION" = controller-remote-inbox ] && [ "$#" -eq 2 ] && { [ "$STEP_TARGET" = due ] || [ "$STEP_TARGET" = run ]; }; then
   :
 elif { [ "$ACTION" = controller-action ] || [ "$ACTION" = controller-spawn-lock ] || [ "$ACTION" = controller-inbox-due ]; } && [ "$#" -eq 2 ]; then
   :
@@ -769,12 +771,23 @@ controller_enabled() {
   return 2
 }
 
+if [ "${FM_TEST_SEAM:-}" = 1 ] && [ "${FM_AUTOLAUNCH_INSPECT_SELECTION:-}" = 1 ]; then
+  mode_rc=0
+  controller_enabled || mode_rc=$?
+  case "$mode_rc" in 0) echo controller ;; 1) echo legacy ;; *) exit 1 ;; esac
+  exit 0
+fi
+
 case "$ACTION" in
-  controller-mode)
-    mode_rc=0
-    controller_enabled || mode_rc=$?
-    case "$mode_rc" in 0) echo controller ;; 1) echo legacy ;; *) exit 1 ;; esac
-    exit 0
+  controller-remote-inbox)
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/fm-watch.sh"
+    if [ "$STEP_TARGET" = due ]; then
+      [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ]
+      exit $?
+    fi
+    remote_inbox_tick
+    exit $?
     ;;
   controller-decisions)
     # The existing fold owns the status grammar, terminal behavior, reserved
@@ -825,9 +838,19 @@ case "$ACTION" in
     fm_task_id_creation_valid "$STEP_TARGET" || exit 2
     # shellcheck source=bin/fm-task-inbox-lib.sh
     . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+    # shellcheck source=bin/fm-classify-lib.sh
+    . "$SCRIPT_DIR/fm-classify-lib.sh"
     if [ "$ACTION" = controller-inbox-due ]; then
-      fm_task_inbox_due_action "$STATE" "$STEP_TARGET"
-      exit $?
+      due=$(fm_task_inbox_due_action "$STATE" "$STEP_TARGET") || exit $?
+      if [ "${due%% *}" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$STEP_TARGET.status")" ]; then
+        printf quiet
+      else
+        printf '%s' "$due"
+      fi
+      exit 0
+    fi
+    if [ "$STEP_FAMILY" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$STEP_TARGET.status")" ]; then
+      exit 75
     fi
     meta="$STATE/$STEP_TARGET.meta"
     window=$(sed -n 's/^window=//p' "$meta" | head -1)
@@ -835,6 +858,10 @@ case "$ACTION" in
     harness=$(sed -n 's/^harness=//p' "$meta" | head -1)
     ring_rc=0
     fm_task_inbox_ring "${backend:-tmux}" "$window" "$STEP_EXCLUDE" "fm-$STEP_TARGET" "$harness" || ring_rc=$?
+    if [ "$STEP_FAMILY" = retry ]; then
+      fm_task_inbox_clear_retry "$STATE" "$STEP_TARGET" "$STEP_EXCLUDE" || exit 1
+      exit 0
+    fi
     fm_task_inbox_record_ring "$STATE" "$STEP_TARGET" "$STEP_EXCLUDE" || exit 1
     exit "$ring_rc"
     ;;
@@ -1056,9 +1083,13 @@ for id in $ids; do
     outcome=''
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
-      printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
-      printf ' %q' "${SPAWN_ARGV[@]}"
-      printf '\n'
+      if [ "${FM_CONTROLLER_PREPARED:-}" = 1 ]; then
+        python3 -c 'import json,sys; print("would-argv: " + json.dumps(sys.argv[1:]))' "$SPAWN_BIN" "${SPAWN_ARGV[@]}"
+      else
+        printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
+        printf ' %q' "${SPAWN_ARGV[@]}"
+        printf '\n'
+      fi
       outcome=launched
       [ "$slot" != - ] || outcome=would-launch-when-a-lane-frees
       break

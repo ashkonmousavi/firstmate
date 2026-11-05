@@ -246,7 +246,7 @@ for row in rows:
     n = int(size)
     task, sep, key = rest[:n], rest[n:n+1], rest[n+1:]
     assert sep == '-' and task == row['task'], row
-    assert key == Path(row['argv'][-1]).name, row
+    assert key == Path(row['argv'][-2]).name, row
     pairs.add((task, key))
 assert {t for t, _ in pairs} == {'build-api', 'build'}
 PYCASE
@@ -277,7 +277,7 @@ import json
 from pathlib import Path
 import sys
 row = json.loads(Path(sys.argv[1]).read_text())
-assert row['argv'][-1] == sys.argv[2], row
+assert row['argv'][-2:] == [sys.argv[2], 'ring'], row
 PYCASE
   k1_pass 55 kill
   assert_equals 2 "$(k1_units_max_count 60)" 'a cut planning pass reconciles the first receipt and starts the next due ring'
@@ -376,6 +376,264 @@ test_controller_main_close_timeout_preserves_progress() {
   assert_equals 1 "$(tail -2 "$KF/send.log" | cut -f3 | sort -u | grep -c .)" 'closure retries retain their request identity'
   k1_teardown
   pass 'MAIN closure timeout retains its request identity and unrelated progress'
+}
+
+test_controller_retry_spends_once_after_decision() {
+  local retry_record row attempt rc=0
+  k1_setup retry-once mate
+  : > "$H/config/wait-no-turns"
+  retry_record=$( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_write "$H/state" k1-retry 'one retry' fire-and-forget )
+  ( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_mark_retry "$H/state" k1-retry "$retry_record" ) || fail 'retry fixture must publish its mark'
+  fm_touch_epoch 100 "$H/state/k1-retry.inbox/.retry-ring"
+  printf 'needs-decision [key=answer] [at=%s]: choose interval\n' "$K1_T0" > "$H/state/k1-retry.status"
+  k1_pass 0
+  assert_equals 0 "$(k1_units_max_count 60)" 'an open decision defers the fire-and-forget retry'
+  PATH="$KB:$PATH" bash "$AL" --controller-ring k1-retry "$retry_record" retry >/dev/null 2>&1 || rc=$?
+  expect_code 75 "$rc" 'dispatch rechecks a decision opened after discovery'
+  assert_present "$H/state/k1-retry.inbox/.retry-ring" 'deferred retry retains its mark'
+  printf 'resolved [key=answer] [at=%s]: answered\n' $((K1_T0 + 55)) >> "$H/state/k1-retry.status"
+  k1_pass 55
+  row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-c-ring-*.json)
+  attempt=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["attempt"])' "$row")
+  k1_wait_file "$H/state/autolaunch-controller/$attempt.result" || fail 'retry must publish its result receipt'
+  k1_pass 110
+  assert_equals 1 "$(k1_units_max_count 60)" 'the retry is attempted once even when its endpoint is absent'
+  assert_absent "$H/state/k1-retry.inbox/.retry-ring" 'the retry mark is spent whatever the doorbell result'
+  assert_absent "$H/state/k1-retry.inbox/.ring-state" 'a fire-and-forget retry never enters the ordinary ladder'
+  k1_teardown
+  pass 'retry defers for a decision and spends its one mark after the attempt'
+}
+
+test_controller_prepared_argv_preserves_unicode() {
+  k1_setup 'argv-é' mate
+  k1_ready k1-unicode
+  cat > "$KB/spawn-é" <<'SH'
+#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+Path(os.environ['KF'], 'spawn-argv.json').write_text(json.dumps(sys.argv))
+SH
+  chmod +x "$KB/spawn-é"
+  export FM_AUTOLAUNCH_SPAWN_BIN="$KB/spawn-é"
+  k1_pass 0
+  k1_wait_file "$KF/spawn-argv.json" || fail 'a prepared Unicode executable must run'
+  python3 - "$KF/spawn-argv.json" "$KB/spawn-é" "$H/projects/proj" <<'PYCASE' || fail 'prepared argv must retain Unicode and spaces byte for byte'
+import json
+from pathlib import Path
+import sys
+argv = json.loads(Path(sys.argv[1]).read_text())
+assert argv[0] == sys.argv[2], argv
+assert argv[2] == sys.argv[3], argv
+assert argv[1] == 'k1-unicode', argv
+PYCASE
+  k1_teardown
+  pass 'structured preparation executes Unicode paths with their exact argv'
+}
+
+test_controller_backend_context_reaches_units() {
+  k1_setup unit-context mate
+  mkdir -p "$H/state/autolaunch-controller"
+  python3 - "$H/state/autolaunch-controller/ctl-b-context.json" <<'PYCASE'
+import json
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_text(json.dumps(dict(key='ctl-b-context', task='k1-context', kind='launch',
+    argv=['bash', '-c', 'exit 0'], phase='queued', rung=0, opened=1800000000, overrun=0, generation=1)))
+PYCASE
+  cp "$KB/systemd-run" "$KB/systemd-run-original"
+  cat > "$KB/systemd-run" <<'SH'
+#!/usr/bin/env bash
+python3 - "$KF/unit-context.json" "$@" <<'PYCASE'
+import json
+from pathlib import Path
+import sys
+fields = dict(a[len('--setenv='):].split('=', 1) for a in sys.argv[2:] if a.startswith('--setenv='))
+Path(sys.argv[1]).write_text(json.dumps(fields))
+PYCASE
+exec "$KB/systemd-run-original" "$@"
+SH
+  FM_TEST_SEAM=0 FM_ZELLIJ_SESSION=crew HERDR_SESSION=crew HERDR_SOCKET_PATH="$K1/herdr.sock" \
+    FM_TERN_SESSION=crew FM_HC_SOCKET="$K1/hc.sock" CMUX_SOCKET_PASSWORD=secret \
+    PATH="$KB:$PATH" python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$AL" 0 \
+    || fail 'production unit dispatch must retain its routing context'
+  python3 - "$KF/unit-context.json" "$K1" <<'PYCASE' || fail 'the production service envelope must preserve non-secret routing selectors'
+import json
+from pathlib import Path
+import sys
+fields = json.loads(Path(sys.argv[1]).read_text())
+root = sys.argv[2]
+for key, value in dict(FM_ZELLIJ_SESSION='crew', HERDR_SESSION='crew', HERDR_SOCKET_PATH=root+'/herdr.sock',
+                      TMUX_TMPDIR=root+'/tmux', FM_TERN_SESSION='crew', FM_HC_SOCKET=root+'/hc.sock').items():
+    assert fields.get(key) == value, (key, fields)
+assert 'CMUX_SOCKET_PASSWORD' not in fields, fields
+PYCASE
+  k1_teardown
+  pass 'production unit envelopes preserve backend routing without forwarding secrets'
+}
+
+test_controller_technical_notes_are_not_reserved() {
+  local task
+  k1_setup technical-prose mate
+  for task in k1-login k1-destructor; do
+    printf 'needs-decision [key=retry-policy] [at=%s]: Choose login retry backoff and destructor ordering\n' "$K1_T0" > "$H/state/$task.status"
+  done
+  printf 'needs-decision [key=pending-reply-reserved] [at=%s]: choose interval\n' "$K1_T0" > "$H/state/k1-reserved.status"
+  k1_pass 220
+  for task in k1-login k1-destructor; do
+    assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'technical prose never removes a key from the bounded handoff route'
+  done
+  assert_equals 0 "$(k1_owned k1-reserved | grep -c .)" 'the shared reserved namespace remains excluded'
+  k1_teardown
+  pass 'technical notes use shared key classification rather than prose guessing'
+}
+
+test_controller_late_launch_keeps_diagnosis_occupied() {
+  local action_pid child_pid command
+  k1_setup diagnosis-late-close mate
+  printf -v command '%q 100000' "$K1/agent/claude"
+  tmux -f /dev/null new-session -d -s sess -n fm-k1-late "$command" || fail 'late agent fixture must start'
+  printf 'window=sess:fm-k1-late\nbackend=tmux\nharness=claude\n' > "$H/state/k1-late.meta"
+  mkdir -p "$H/state/autolaunch-controller" "$H/state/autolaunch-diag"
+  python3 - "$H" "$K1_T0" <<'PYCASE'
+import json
+from pathlib import Path
+import sys
+home, now = Path(sys.argv[1]), int(sys.argv[2])
+root = home/'state/autolaunch-controller'
+evidence = home/'state/autolaunch-diag/evidence.md'
+evidence.write_text('diagnosis occupancy fixture')
+for task, phase in [('k1-late', 'diagnosing'), ('k1-next', 'diagnose-queued')]:
+    key = 'ctl-b-launch-'+task
+    row = dict(key=key, task=task, kind='launch', phase=phase, rung=0, diag_rung=3,
+               opened=now, queued_at=now, generation=1, overrun=0, evidence=str(evidence),
+               handoff=dict(payload=key+' owned', request='a'*32, receipt=True), argv=[])
+    if phase == 'diagnosing':
+        row['attempt'] = 'held-diagnosis'
+    (root/(key+'.json')).write_text(json.dumps(row))
+(root/'held-diagnosis').write_text(json.dumps(dict(key='ctl-b-launch-k1-late', kind='diagnosis',
+    argv=['bash', '-c', 'echo $$ > "$KF/diagnosis-child.pid"; exec "$REAL_SLEEP" 100000'], deadline=now+900)))
+PYCASE
+  PATH="$KB:$PATH" python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" held-diagnosis >/dev/null 2>&1 &
+  k1_wait_file "$H/state/autolaunch-controller/held-diagnosis.identity" || fail 'diagnosis fixture must publish its identity'
+  action_pid=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$H/state/autolaunch-controller/held-diagnosis.identity")
+  k1_wait_file "$KF/diagnosis-child.pid" || fail 'diagnosis fixture must occupy its real action slot'
+  child_pid=$(cat "$KF/diagnosis-child.pid")
+  k1_pass 0; k1_pass 55
+  assert_equals 1 "$(k1_count "$H/state/k1-late.status" resolved launched-late)" 'the late launch closes its handoff'
+  assert_equals 0 "$(k1_units_max_count 900)" 'a closed handoff retains the live diagnosis seat'
+  kill "$child_pid"; wait "$action_pid" 2>/dev/null || true
+  k1_pass 110
+  assert_equals 1 "$(k1_units_max_count 900)" 'another diagnosis starts only after the first action terminates'
+  k1_teardown
+  pass 'late launch closure retains diagnosis occupancy until its action finishes'
+}
+
+test_controller_remote_inbox_uses_existing_due_owner() {
+  local i=0
+  k1_setup remote-deadline mate
+  k1_pass 0
+  assert_equals 0 "$(k1_units_max_count 300)" 'a home without a remote obligation creates no remote action'
+  printf 'kind=secondmate\nremote_host=fixture.invalid\n' > "$H/state/k1-remote.meta"
+  k1_pass 55
+  assert_equals 1 "$(k1_units_max_count 300)" 'an owed remote inbox pass gets its existing 300-second deadline'
+  while [ ! -e "$H/state/.remote-inbox-tick" ] && [ "$i" -lt 50 ]; do "$REAL_SLEEP" 0.1; i=$((i + 1)); done
+  assert_present "$H/state/.remote-inbox-tick" 'the remote unit runs the existing inbox tick owner'
+  k1_pass 110
+  assert_equals 1 "$(k1_units_max_count 300)" 'the existing remote grace suppresses an unnecessary action'
+  k1_teardown
+  pass 'remote inbox units exist only for an owed remote tick and reuse its owner'
+}
+
+test_controller_journal_contention_keeps_delivery_live() {
+  local journal_pid
+  k1_setup journal-contention mate
+  k1_inbox_due k1-journal-ring
+  k1_pass_lock_holder
+  mkdir -p "$H/state/autolaunch-controller"
+  python3 - "$H/state/autolaunch-controller/.journal.lock" "$KF/journal-ready" <<'PYCASE' &
+import fcntl
+import os
+from pathlib import Path
+import sys
+import time
+with open(sys.argv[1], 'a') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    Path(sys.argv[2]).write_text(str(os.getpid()))
+    time.sleep(100000)
+PYCASE
+  k1_wait_file "$KF/journal-ready" || fail 'journal contention fixture did not acquire its real flock'
+  journal_pid=$(cat "$KF/journal-ready")
+  k1_pass 55; k1_pass 110; k1_pass 165
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a retained planning journal cannot suppress the bounded persistent-holder handoff'
+  [ "$(k1_units_max_count 60 k1-journal-ring)" -ge 1 ] || fail 'a retained planning journal cannot suppress due non-seat delivery'
+  kill -0 "$journal_pid" || fail 'the live journal holder may not be killed or stolen'
+  k1_alive "$K1_HOLDER" || fail 'the live primary holder may not be killed or stolen'
+  k1_pass 220
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'continued contention never repeats the handoff'
+  kill "$journal_pid"; wait "$journal_pid" 2>/dev/null || true
+  k1_teardown
+  pass 'health ownership and non-seat delivery survive a retained planning journal'
+}
+
+test_controller_existing_steps_receive_deadlines() {
+  k1_setup leased-step mate
+  k1_ready k1-slice
+  printf '0\n' > "$KF/free"
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  k1_pass 0
+  assert_equals 1 "$(k1_units_max_count 120)" 'activated leased progression receives the other-step-effects deadline'
+  k1_wait_file "$H/state/autolaunch-steps.pass" || fail 'activated scheduling must execute the existing leased slice engine'
+  python3 - "$H/state/autolaunch-steps.pass" <<'PYCASE' || fail 'the step engine must publish the active owner receipt'
+import json
+from pathlib import Path
+import sys
+assert json.loads(Path(sys.argv[1]).read_text())['owners'] == ['k1-slice']
+PYCASE
+  k1_pass 55
+  assert_equals 2 "$(k1_units_max_count 120)" 'a completed slice pass permits the next leased progression'
+  k1_teardown
+  pass 'activated leased progression runs as recurring bounded step actions'
+}
+
+test_controller_activation_preserves_legacy_until_rollout() {
+  local manager_bin="$FAKE/controller-manager" out rc
+  mkdir -p "$manager_bin"
+  cat > "$manager_bin/systemctl" <<'SH'
+#!/usr/bin/env bash
+case "${FM_K1_FAKE_MANAGER:-ok}" in
+  absent) exit 1 ;;
+  malformed) echo success ;;
+  *) echo '262' ;;
+esac
+SH
+  chmod +x "$manager_bin/systemctl"
+  out=$(FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' PATH="$manager_bin:$PATH" bash "$AL")
+  assert_equals legacy "$out" 'available manager alone never activates partial K1'
+  assert_absent "$H/state/autolaunch-controller" 'selection inspection creates no activation evidence'
+  : > "$H/config/autolaunch-sole"
+  out=$(FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' PATH="$manager_bin:$PATH" bash "$AL")
+  assert_equals controller "$out" 'rollout marker selects the controller with a verified manager'
+  rc=0
+  FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'activated home never falls back when manager is unavailable'
+  rm "$H/config/autolaunch-sole"
+  mkdir -p "$H/state/autolaunch-controller"
+  out=$(FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' PATH="$manager_bin:$PATH" bash "$AL")
+  assert_equals controller "$out" 'durable controller work retains custody after marker removal'
+  rc=0
+  FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'outstanding controller work never falls back without a manager'
+  rc=0
+  FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE='' FM_K1_FAKE_MANAGER=malformed PATH="$manager_bin:$PATH" bash "$AL" >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'manager protocol must have a meaningful version response'
+  rmdir "$H/state/autolaunch-controller"
+  printf 'invalid\n' > "$FAKE/controller-clock"
+  rc=0
+  FM_TEST_SEAM=1 FM_AUTOLAUNCH_INSPECT_SELECTION=1 FM_AUTOLAUNCH_NOW_FILE="$FAKE/controller-clock" PATH="$manager_bin:$PATH" bash "$AL" >/dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" 'malformed declared test clock never selects legacy execution'
+  pass 'controller activation preserves legacy until rollout and protects outstanding work'
 }
 
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
@@ -1985,44 +2243,6 @@ pass 'the check arms through fm-check-register and the timer is only a printed p
 
 # Builder-owned coverage for the staged activation boundary. These cases use
 # the production selector and a manager protocol stub, with no action dispatch.
-test_controller_activation_preserves_legacy_until_rollout() {
-  local manager_bin="$FAKE/controller-manager" out rc
-  mkdir -p "$manager_bin"
-  cat > "$manager_bin/systemctl" <<'SH'
-#!/usr/bin/env bash
-case "${FM_K1_FAKE_MANAGER:-ok}" in
-  absent) exit 1 ;;
-  malformed) echo success ;;
-  *) echo '262' ;;
-esac
-SH
-  chmod +x "$manager_bin/systemctl"
-  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
-  assert_equals legacy "$out" 'available manager alone never activates partial K1'
-  assert_absent "$H/state/autolaunch-controller" 'selection inspection creates no activation evidence'
-  : > "$H/config/autolaunch-sole"
-  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
-  assert_equals controller "$out" 'rollout marker selects the controller with a verified manager'
-  rc=0
-  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
-  expect_code 1 "$rc" 'activated home never falls back when manager is unavailable'
-  rm "$H/config/autolaunch-sole"
-  mkdir -p "$H/state/autolaunch-controller"
-  out=$(FM_TEST_SEAM=0 PATH="$manager_bin:$PATH" bash "$AL" --controller-mode)
-  assert_equals controller "$out" 'durable controller work retains custody after marker removal'
-  rc=0
-  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=absent PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
-  expect_code 1 "$rc" 'outstanding controller work never falls back without a manager'
-  rc=0
-  FM_TEST_SEAM=0 FM_K1_FAKE_MANAGER=malformed PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
-  expect_code 1 "$rc" 'manager protocol must have a meaningful version response'
-  rmdir "$H/state/autolaunch-controller"
-  printf 'invalid\n' > "$FAKE/controller-clock"
-  rc=0
-  FM_AUTOLAUNCH_NOW_FILE="$FAKE/controller-clock" PATH="$manager_bin:$PATH" bash "$AL" --controller-mode >/dev/null 2>&1 || rc=$?
-  expect_code 1 "$rc" 'malformed declared test clock never selects legacy execution'
-  pass 'controller activation preserves legacy until rollout and protects outstanding work'
-}
 test_controller_activation_preserves_legacy_until_rollout
 
 # The step-pass matrix uses this same executable seam and hermetic task store.
@@ -2040,7 +2260,15 @@ k1_run test_controller_decision_pair_is_injective \
   test_controller_ring_recurrence_preserves_spaced_paths \
   test_controller_partial_plan_ownership_is_late \
   test_controller_status_timeouts_preserve_progress \
-  test_controller_main_close_timeout_preserves_progress
+  test_controller_main_close_timeout_preserves_progress \
+  test_controller_journal_contention_keeps_delivery_live \
+  test_controller_existing_steps_receive_deadlines \
+  test_controller_retry_spends_once_after_decision \
+  test_controller_prepared_argv_preserves_unicode \
+  test_controller_backend_context_reaches_units \
+  test_controller_technical_notes_are_not_reserved \
+  test_controller_late_launch_keeps_diagnosis_occupied \
+  test_controller_remote_inbox_uses_existing_due_owner
 
 # Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
 # run last so every earlier case keeps its coverage while they are red.
