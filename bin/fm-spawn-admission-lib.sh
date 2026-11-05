@@ -239,12 +239,14 @@ except Exception:
 # --no-forge-check <reason> was given. Relaunches, scouts, secondmates and
 # local-only tasks never consult it. Every refusal exits 1, never the deferral
 # exit, so a batch reports it as a failure rather than retrying it.
-# FM_OPEN_PR_LOOKUP replaces the lookup program (same arguments and JSON); the
-# test library (tests/lib.sh) points it at a stub so suites never reach a forge.
+# Test seam, honored only with FM_TEST_SEAM=1: FM_OPEN_PR_LOOKUP replaces the
+# lookup program (same arguments and JSON); tests/lib.sh points it at an offline
+# stub so suites never reach a forge. Without FM_TEST_SEAM=1 it is ignored, so
+# --no-forge-check stays the only way to skip the read.
 SPAWN_CONTINUE_PR_URL=
 SPAWN_CONTINUE_PR_HEAD=
 fm_spawn_duplicate_admit() {
-  local forge origin out rc state lines line number url branch head why others=
+  local forge origin out rc state lines line number url branch head why others= lookup
   [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ] || return 0
   [ "$MODE" != local-only ] || return 0
   if [ -n "${SPAWN_NO_FORGE_CHECK:-}" ]; then
@@ -257,7 +259,9 @@ fm_spawn_duplicate_admit() {
   }
   # The configured URL names the forge; url.<base>.insteadOf may point fetches at a mirror.
   origin=$(git -C "$PROJ_ABS" config --get remote.origin.url 2>/dev/null) || origin=
-  out=$("${FM_OPEN_PR_LOOKUP:-$FM_ROOT/bin/fm-open-pr-lookup.py}" --forge "${forge:-none}" --origin "$origin" \
+  lookup=$FM_ROOT/bin/fm-open-pr-lookup.py
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then lookup=${FM_OPEN_PR_LOOKUP:-$lookup}; fi
+  out=$("$lookup" --forge "${forge:-none}" --origin "$origin" \
     --branch "$BRANCH" --task-id "$ID" --timeout "${FM_SPAWN_FORGE_TIMEOUT:-30}" \
     --github-hosts "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/github-hosts" 2>&1)
   rc=$?

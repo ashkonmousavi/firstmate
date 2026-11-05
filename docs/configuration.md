@@ -3601,7 +3601,6 @@ FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
 FM_SPAWN_FORGE_TIMEOUT=30 # duplicate-builder admission: seconds each forge read may take before a fresh ship spawn refuses as UNKNOWN
-FM_OPEN_PR_LOOKUP=        # duplicate-builder admission lookup program (test seam); unset means bin/fm-open-pr-lookup.py
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
