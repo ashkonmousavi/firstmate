@@ -9,6 +9,9 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# These fake homes have no supervisor lease; never inherit the invoking harness.
+export FM_TEST_SEAM=1 FM_TEST_HARNESS=unknown
+
 ROOT_BIN="$ROOT/bin/fm-spawn-deferred.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-deferred)

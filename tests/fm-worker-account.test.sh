@@ -949,6 +949,43 @@ test_codex_default_model() {
   pass 'Codex resolves and pins actual default models across selection, gates and launch'
 }
 
+test_codex_deferred_model_effort() {
+  local TMP_ROOT=$TMP_ROOT SPAWN backend model root id out rc staged launch orca_bin
+  FM_TEST_FIXTURE_IMPORT=spawn-orca-worktree . "$ROOT/tests/fm-spawn-orca-worktree.test.sh"
+  for backend in tmux orca; do
+    for model in gpt-5.6-luna configured-default; do
+      id="deferred-effort-$backend-$model"
+      codex_case "$id"
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq -n --arg model "$model" '{config:{model:$model}}' > "$root/effective-config.json"
+      done
+      if [ "$backend" = orca ]; then
+        orca_bin=$(make_orca_fakebin "$CASE")
+        cp "$orca_bin/orca" "$FAKEBIN/orca"
+      fi
+      out=$(FM_TEST_ORCA_DIR="$CASE" FM_TEST_ORCA_LOG="$CASE/terminal.log" FM_TEST_ORCA_CONSUME=1 \
+        spawn_ship "$id" --harness codex --backend "$backend" --effort max); rc=$?
+      expect_code 0 "$rc" "deferred model spawn must succeed: $out"
+      assert_equals "$model" "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'metadata records the resolved model'
+      assert_equals max "$(sed -n 's/^effort=//p' "$HOME_DIR/state/$id.meta")" 'metadata records the requested effort'
+      if [ "$backend" = orca ]; then
+        staged=$(sed -n "s/^[^']*'\([^']*\/launch\.[^'\/]*\.sh\)'.*$/\1/p" "$CASE/terminal.log" | tail -1)
+        [ -f "$staged.copy" ] || fail 'Orca did not receive the staged launch'
+        cp "$staged.copy" "$CASE/launch.log"
+      fi
+      run_pane
+      launch=$(cat "$CASE/account-two/worker-arguments")
+      assert_contains "$launch" "--model $model" 'the launch uses the resolved model'
+      if [ "$model" = gpt-5.6-luna ]; then
+        assert_contains "$launch" 'model_reasoning_effort="max"' 'Luna receives its supported max effort'
+      else
+        assert_not_contains "$launch" 'model_reasoning_effort' 'an unsupported model retains its default effort'
+      fi
+    done
+  done
+  pass 'deferred Codex model selection controls effort flags on tmux and Orca'
+}
+
 test_codex_project_model() {
   local root out rc id kind
   codex_case codex-project-model
@@ -1645,6 +1682,7 @@ test_codex_folder_selection_and_guard
 test_codex_guard_metadata_and_identity
 test_codex_applicable_quota
 test_codex_default_model
+test_codex_deferred_model_effort
 test_codex_project_model
 test_codex_secondmate_project_model
 test_t3_refuses_deferred_codex_accounts_before_provisioning

@@ -1655,11 +1655,11 @@ Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchj
 Among eligible folders, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
 Under rank-only, exhausted folders remain eligible with a notice; weekly ranking, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation or stopping a live secondmate.
+Fresh and released copies resolve default models after allocation, and fresh secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
-Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+Control-plane relaunch of an existing copy, a secondmate's home included, resolves folder and model in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.
@@ -1963,7 +1963,7 @@ Install that reader before updating; missing or invalid activity evidence refuse
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
-Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 when full; the [relaunch transaction](agent-control.md#transactional-relaunch) owns refusal ordering and state preservation.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
@@ -1983,7 +1983,7 @@ The shared [`bin/fm-machine-resources.py`](../bin/fm-machine-resources.py) reade
 The capacity report's `headroom_kb` subtracts the fixed reserve from that same effective reading.
 Resource refusals retain physical free-seat counts, so free seats alone do not establish admission.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
-Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
+Resource verdict logging is best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns sampling exceptions, columns and the size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
