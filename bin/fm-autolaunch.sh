@@ -356,16 +356,7 @@ item_show() {
 # prep_doc <id>: prints the item's prep file (home-relative), or returns 1.
 # Needs item_show first for the body.
 prep_doc() {
-  local id=$1 p
-  [ -s "$DATA/$id/prep.md" ] && { printf 'data/%s/prep.md\n' "$id"; return 0; }
-  while IFS= read -r p; do
-    case "/$p/" in */../*) continue ;; esac
-    [ -f "$DATA/${p#data/}" ] && [ -s "$DATA/${p#data/}" ] || continue
-    printf '%s\n' "$p"
-    return 0
-  done < <(printf '%s\n' "$ITEM_BODY" | awk '{ gsub(/\\n/, "\n"); print }' |
-    sed -n 's|^[[:space:]]*Prep: \(data/[^[:space:]]*[^[:space:]/]\).*|\1|p')
-  return 1
+  printf '%s\n' "$ITEM_BODY" | python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-doc "$1"
 }
 
 # brief_line <id> <sed-expression>: the first match from the item's brief.
@@ -378,14 +369,15 @@ brief_line() {
 prep_read() {
   local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
   local b_mode b_consent b_branch b_base prep_path
-  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
+  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR='' P_HAS_PREP=0
+  prep_path=$(prep_doc "$id") && P_HAS_PREP=1
   if [ -f "$DATA/$id/prep-ship-brief.md" ] && python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-pending "$id"; then
     PREP_ERR="initial prep pending"; return 1
   fi
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
-  prep_path=$(prep_doc "$id") || {
+  [ "$P_HAS_PREP" = 1 ] || {
     PREP_ERR="no prep file (data/$id/prep.md or a Prep: data/<path> line in the item)"; return 1
   }
   file="$DATA/$id/autolaunch-prep"
@@ -548,7 +540,7 @@ deferred_pending() {
 # check_item <id>: 0 when launchable; else CHECK_ERR holds the refusal.
 check_item() {
   local id=$1
-  CHECK_ERR=
+  CHECK_ERR= P_HAS_PREP=0
   item_show "$id" || { CHECK_ERR="not prepared: backlog show failed"; return 1; }
   [ "$ITEM_HELD" != yes ] || { CHECK_ERR=held; return 1; }
   prep_read "$id" || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
@@ -857,7 +849,7 @@ for id in $ids; do
     slot=-
   fi
   if ! check_item "$id"; then
-    [ "$CHECK_ERR" != "spawn deferred pending" ] || HAD_PREPARED=1
+    [ "$P_HAS_PREP" = 0 ] || HAD_PREPARED=1
     record "$slot" "$id" - "refused:$CHECK_ERR"
     continue
   fi

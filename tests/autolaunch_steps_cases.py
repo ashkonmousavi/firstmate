@@ -135,6 +135,136 @@ rm -f "$FM_HOME/state/$1.meta"
         self.assertEqual(self.effects("spawn "), ["spawn help gpt-5.5"], result.stdout)
         self.assertFalse((self.home / "data/ai/brief.md").exists())
 
+    def test_prep_fallback_refused_preparation_never_becomes_initial_prep(self):
+        for linked in (False, True):
+            for refusal in ("override", "brief", "PERSONA", "DOCTOR", "XAI-SURFACE"):
+                with self.subTest(linked=linked, refusal=refusal):
+                    self.prep_queue(prepared=True)
+                    brief = self.home / "data/help/brief.md"
+                    if refusal == "override":
+                        with (self.home / "data/help/autolaunch-prep").open("a") as stream:
+                            stream.write("unknown=value\n")
+                    elif refusal == "brief":
+                        brief.unlink()
+                    else:
+                        (self.home / "projects/NOT_Q").mkdir()
+                        record = self.home / "data/help/autolaunch-prep"
+                        record.write_text(record.read_text().replace("project=proj", "project=NOT_Q"))
+                        declarations = {
+                            "PERSONA": "researcher; surfaces=chat; usage=beginner",
+                            "DOCTOR": "check saved labels",
+                            "XAI-SURFACE": "none; because labels only",
+                        }
+                        self.write("data/help/prep.md", "".join(
+                            f"{key}: {value}\n" for key, value in declarations.items() if key != refusal))
+                    if linked:
+                        (self.home / "data/help/prep.md").rename(
+                            self.write("data/shared-prep.md", ""))
+                        backlog = self.home / "data/backlog.md"
+                        backlog.write_text(backlog.read_text().replace(
+                            "SLICE: main/help | outcome | role=owner",
+                            "SLICE: main/help | outcome | role=owner\n  Prep: data/shared-prep.md"))
+                    original = brief.read_bytes() if brief.exists() else None
+                    result = self.run_pass(ordinary=True)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    expected = {"override": "unknown key unknown", "brief": "no brief"}.get(
+                        refusal, f"{refusal} missing")
+                    self.assertIn(expected, result.stdout)
+                    self.assertEqual(self.effects("spawn "), [], result.stdout)
+                    self.assertEqual(brief.read_bytes() if brief.exists() else None, original)
+                    self.assertFalse((self.home / "data/ai/brief.md").exists())
+                    direct = subprocess.run([
+                        "python3", str(ROOT / "bin/fm-autolaunch-steps.py"), "prep", "ai", "help", "j01"
+                    ], env=self.env, capture_output=True, text=True, timeout=40)
+                    self.assertEqual(direct.returncode, 0, direct.stdout + direct.stderr)
+                    self.assertEqual(self.effects("spawn "), [])
+                    self.tmp.cleanup()
+                    self.setUp()
+
+    def test_prep_fallback_uses_first_nonfenced_markdown_slice(self):
+        for label in ("SLICE:", "**SLICE**:", "- **SLICE**:", "### SLICE:", "## - **SLICE**:"):
+            with self.subTest(label=label):
+                self.env["TASKS_AXI_BACKEND"] = "markdown"
+                self.prep_queue()
+                backlog = self.home / "data/backlog.md"
+                body = backlog.read_text()
+                for task in ("help", "j01", "ai"):
+                    body = body.replace(
+                        f"  SLICE: main/{task} | outcome | role=owner\n",
+                        "  ````example\n  SLICE: main/help | fenced | role=owner\n"
+                        "  ```\n  ~~~\n  ```` trailing\n  ````\n"
+                        "  ~~~example\n  SLICE: main/help | fenced | role=owner\n  ~~~\n"
+                        f"  {label} main/{task} | outcome | role=owner\n"
+                        "  SLICE: main/help | later | role=owner\n")
+                backlog.write_text(body)
+                result = self.run_pass(ordinary=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)
+                brief = (self.home / "data/ai/brief.md").read_text()
+                self.assertIn("\n# Slice\n", brief)
+                declaration = brief.split("\n# Slice\n", 1)[1].splitlines()[0]
+                self.assertIn(declaration, (
+                    "SLICE: main/ai | outcome | role=owner",
+                    f"{label} main/ai | outcome | role=owner"))
+                self.tmp.cleanup()
+                self.setUp()
+
+    def test_prep_fallback_new_preparation_blocks_pending_effects(self):
+        for boundary in ("before:file-prep", "after:file-prep", "before:launch-prep"):
+            for linked in (False, True):
+                with self.subTest(boundary=boundary, linked=linked):
+                    self.prep_queue()
+                    self.write("data/ai/brief.md", "Original outcome\n")
+                    first = self.run_pass(stop=boundary, ordinary=True)
+                    self.assertNotEqual(first.returncode, 0, first.stdout)
+                    original = (self.home / "data/ai/brief.md").read_bytes()
+                    self.write("data/shared-prep.md" if linked else "data/ai/prep.md", "Ready to build\n")
+                    if linked:
+                        backlog = self.home / "data/backlog.md"
+                        backlog.write_text(backlog.read_text().replace(
+                            "SLICE: main/ai | outcome | role=owner",
+                            "SLICE: main/ai | outcome | role=owner\n  Prep: data/shared-prep.md"))
+                    if boundary == "before:launch-prep":
+                        records = [json.loads(line) for line in (
+                            self.home / "data/ai/slice-steps.log").read_text().splitlines()]
+                        action = next(row["effect"]["id"] for row in records
+                                      if row.get("effect", {}).get("kind") == "launch-prep")
+                        dispatched = subprocess.run([
+                            "bash", str(ROOT / "bin/fm-autolaunch.sh"), "--step-dispatch", "ai", "", "", f"ai:{action}"
+                        ], env=self.env, capture_output=True, text=True, timeout=40)
+                        self.assertNotEqual(dispatched.returncode, 0, dispatched.stdout + dispatched.stderr)
+                        self.assertEqual(self.effects("spawn "), [])
+                    self.write("config/autolaunch-steps", "act ai\n")
+                    result = self.run_pass(ordinary=True)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.effects("spawn "), [], result.stdout)
+                    self.assertEqual((self.home / "data/ai/brief.md").read_bytes(), original)
+                    self.tmp.cleanup()
+                    self.setUp()
+
+    def test_markdown_slice_bindings_keep_child_admission_and_ownership(self):
+        for role in ("tester", "review"):
+            with self.subTest(role=role):
+                backlog = self.home / "data/backlog.md"
+                backlog.write_text(backlog.read_text().replace(
+                    "  SLICE: id=demo role=owner\n",
+                    "  ~~~example\n  SLICE: id=wrong role=tester\n  ~~~\n"
+                    "  **SLICE**: id=demo role=owner\n  SLICE: id=wrong role=review\n"))
+                self.prepare_effect("launch-" + role)
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                target = "special-tester" if role == "tester" else "builder-review-1-1"
+                shown = subprocess.run([
+                    "bash", str(ROOT / "bin/fm-tasks-axi.sh"), "show", target, "--full"
+                ], env=self.env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(shown.returncode, 0, shown.stdout + shown.stderr)
+                self.assertIn(f"SLICE: id=demo role={role} builder=main:builder", shown.stdout)
+                self.assertEqual(len(self.completed("launch-" + role)), 1)
+                model = "opus" if role == "tester" else "gpt-5.5"
+                self.assertEqual(self.effects("spawn "), [f"spawn {target} {model}"])
+                self.tmp.cleanup()
+                self.setUp()
+
     def test_prep_fallback_g9_empty_queue_is_nothing_to_prep(self):
         self.prep_queue()
         self.write("data/backlog.md", "## In flight\n## Queued\n## Done\n")

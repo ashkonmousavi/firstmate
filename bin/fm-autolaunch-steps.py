@@ -228,6 +228,37 @@ def fields(text):
     return dict(re.findall(r"^([A-Z][A-Z ]*):[ \t]*(.*)$", text, re.M))
 
 
+def slice_binding(text):
+    fence = ""
+    for line in text.splitlines():
+        marker = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", line)
+        if marker:
+            token, rest = marker.groups()
+            if not fence:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence) and not rest.strip():
+                fence = ""
+        elif not fence:
+            match = re.match(r"\s*(?:#{1,6}\s+)?(?:[-*]\s+)?(?:\*\*)?SLICE(?:\*\*)?:(.*)$", line)
+            if match:
+                return match[1].strip()
+    return ""
+
+
+def prep_doc(owner, body):
+    local = DATA / owner / "prep.md"
+    if local.exists() and local.stat().st_size:
+        return f"data/{owner}/prep.md"
+    for match in re.finditer(r"^[ \t]*Prep: (data/\S*[^\s/])", body.replace("\\n", "\n"), re.M):
+        name = match[1]
+        if ".." in name.split("/"):
+            continue
+        path = DATA / name[5:]
+        if path.is_file() and path.stat().st_size:
+            return name
+    return ""
+
+
 def latest(records):
     return {r["trigger"]: r for r in records}
 
@@ -291,13 +322,15 @@ def launch_admission(task, candidate, action):
         return "task-unreadable"
     prep = prep_receipt(task, action)
     if prep:
+        if prep_doc(task, task_body(shown.stdout)):
+            return "prep-already-present"
         if re.search(r"^  held: yes$", shown.stdout, re.M):
             return "held"
         return "" if re.search(r"^  state: queued$", shown.stdout, re.M) else "prep-owner-not-queued"
     if any(r.get("effect", {}).get("kind") in PREP_ACTIONS and r.get("receipt") == "pending"
            for r in latest(rows(task)).values()):
         return "step-receipt-required"
-    identity = tokens(fields(task_body(shown.stdout)).get("SLICE", ""))
+    identity = tokens(slice_binding(task_body(shown.stdout)))
     role = identity.get("role")
     if role not in ("tester", "review"):
         return "unexpected-step-target" if action else ""
@@ -1010,7 +1043,7 @@ class Slice:
                     f"and {directory / 'autolaunch-prep'} for firstmate's standard promotion; never promote yourself.\n"
                     f"Rule 2 also permits writing this task's prep at {self.prep_path}.\n")
             brief = brief.replace("{TASK}", intent).replace("{FIRSTMATE_SPEC}", spec)
-            binding = fields(self.body).get("SLICE", "")
+            binding = slice_binding(self.body)
             if binding and "# Slice\n" not in brief:
                 brief += "\n# Slice\nSLICE: " + binding + "\n"
             for name, content in (("prep-ship-brief.md", original), ("brief.md", brief)):
@@ -1056,7 +1089,7 @@ class Slice:
                   f"FM_HOME={shlex.quote(str(HOME))} FM_CONFIG_OVERRIDE={shlex.quote(str(CONFIG))} "
                   f"bash {shlex.join([str(BIN / 'fm-status-append.sh'), str(STATE / (target + '.status')), 'done'])} <<'EOF'\n"
                   "<result phrase>\nEOF\n")
-        slice_line = fields(effect["body"]).get("SLICE", "")
+        slice_line = slice_binding(effect["body"])
         if "role=owner" not in slice_line:
             raise ValueError("owner SLICE role is missing")
         child_slice = slice_line.replace("role=owner", f"role={role} builder={self.home_id}:{self.owner}")
@@ -1065,7 +1098,7 @@ class Slice:
                 "step-body.md": f"SLICE: {child_slice}\nPrep: data/{target}/prep.md\nStep action: {effect['id']}\n"}
 
     def child_owned(self, effect, shown):
-        child_slice = tokens(fields(task_body(shown)).get("SLICE", ""))
+        child_slice = tokens(slice_binding(task_body(shown)))
         role = "tester" if effect["kind"] in ("file-tester", "launch-tester", "relaunch-tester") else "review"
         return (child_slice.get("role") == role and
                 child_slice.get("builder", child_slice.get("owner", "")) == f"{self.home_id}:{self.owner}")
@@ -1126,6 +1159,8 @@ class Slice:
     def apply(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
+        if kind in PREP_ACTIONS and prep_doc(self.owner, self.body):
+            return False, "prep-already-present"
         if kind == "file-prep":
             return self.file_prep(effect)
         if kind == "launch-prep":
@@ -1492,7 +1527,10 @@ def prep_fallback(owners, dry=False):
         if not SLUG.fullmatch(owner):
             continue
         slice_ = Slice(owner)
-        binding = fields(slice_.body).get("SLICE", "")
+        if prep_doc(owner, slice_.body):
+            print("nothing-to-prep")
+            return
+        binding = slice_binding(slice_.body)
         if (slice_.held or slice_.kind not in ("ship", "scout") or
                 "role=owner" not in binding or not Path(slice_.project).is_dir()):
             continue
@@ -1518,6 +1556,12 @@ def main():
         print(__doc__)
         return 0
     command = sys.argv[1]
+    if command == "prep-doc" and len(sys.argv) == 3:
+        path = prep_doc(sys.argv[2], sys.stdin.read())
+        if path:
+            print(path)
+            return 0
+        return 3
     if command == "prep":
         prep_fallback([arg for arg in sys.argv[2:] if arg != "--dry-run"], "--dry-run" in sys.argv[2:])
         return 0
