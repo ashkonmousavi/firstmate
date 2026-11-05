@@ -432,6 +432,7 @@ item_show() {
     out=$(printf '%s\n' "$out" | awk -v expected="$1" '
       /^task:$/ { tasks++; inside=1; print; next }
       /^[^[:space:]]/ { inside=0 }
+      !inside && /^[[:space:]]*(id|held|kind|repo):/ { bad=1 }
       inside && /^  [a-z_]+: / {
         key=$0; sub(/^  /,"",key); sub(/:.*/,"",key)
         if (seen[key]++) bad=1
