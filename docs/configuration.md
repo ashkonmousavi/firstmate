@@ -1008,6 +1008,11 @@ Keep the export root private and never serve it directly.
 The schema is versioned for compatible readers, but it is not a Firstmate command API and no Firstmate reader consumes it.
 [`architecture.md`](architecture.md#read-only-record-exports) describes the mechanism boundary; [`bin/fm-record-export.sh`](../bin/fm-record-export.sh) owns the exact allowlist, schema, path checks, publication, and retention mechanics.
 
+## Reply formatting (config/reply-shape)
+
+The optional local `config/reply-shape` enables reply-format checks in the Claude [state-claim Stop check](turnend-guard.md#state-claim-check).
+The [guard's module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the rule IDs, file format, config resolution, exceptions and continuation behavior.
+
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
 The optional local, gitignored `config/turnend-churn-absorb` presence flag opts this home into a default-off third form of positive work evidence in watcher triage.
@@ -1646,20 +1651,21 @@ Each folder needs its own sign-in, obtained independently on that machine; never
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
 Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
-It may skip a folder only when applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now.
+Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it may skip a folder only when applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now.
 The first folder not skipped must be locally signed in with required shared configuration present; otherwise launch refuses with a repair message instead of switching accounts.
 Weekly percentages do not change that preference.
 The horizon uses the absolute projected exhaustion time when available, otherwise the usable runway seconds anchored to that folder's reading time; exactly three hours remains eligible.
 A through-reset reading stays eligible, while missing, stale, unavailable or unknown quota remains unmeasured and does not by itself authorize switching to another account.
 An unavailable sign-in or missing required shared configuration cannot launch.
 If no folder is eligible, launch refuses.
-Exhausted runway excludes an account even when its remaining percentage is unknown.
+Under rank-only, exhausted and below-horizon folders remain eligible with a notice; configured preference, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
+Under quota enforcement, exhausted runway excludes an account even when its remaining percentage is unknown.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight rejects known universal exhaustion or below-horizon runway before allocation or stopping a live secondmate.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion or below-horizon runway before allocation or stopping a live secondmate.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
-Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+Control-plane relaunch of an existing copy, a secondmate's home included, resolves folder and model in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.
@@ -1958,11 +1964,13 @@ The push guard and this check each run and each refuse on their own, and the pro
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
 For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
-[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy (including task records retained after cleanup), exemptions and refusal rules.
+[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, activity-reader integration, exemptions and refusal rules.
+Physical occupied and free seats come from the installed skills-master `activity.sh` machine reader; the [capacity library header](../bin/fm-capacity-lib.sh) names its required location and interface.
+Install that reader before updating; missing or invalid activity evidence refuses worker admission.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
-Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 when full; the [relaunch transaction](agent-control.md#transactional-relaunch) owns refusal ordering and state preservation.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
@@ -1978,10 +1986,11 @@ The [machine-admission PSI-window verification](verification/machine-admission-p
 The window change takes effect on a host only after its config adds `memory_full_avg300_max` and adjusts the avg60 ceiling.
 Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
 CPU utilization and load average do not gate admission.
-The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
-This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
+The shared [`bin/fm-machine-resources.py`](../bin/fm-machine-resources.py) reader owns cache-aware effective available memory from host and cgroup facts, including reclaimable clean active and inactive file cache.
+The capacity report's `headroom_kb` subtracts the fixed reserve from that same effective reading.
+Resource refusals retain physical free-seat counts, so free seats alone do not establish admission.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
-Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
+Resource verdict logging is best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns sampling exceptions, columns and the size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
@@ -1996,13 +2005,14 @@ A fresh ship or scout spawn deferred with `no free machine lane` is recorded for
 Automatic retry requires a readable backlog row proving the task is still queued, not held, and not blocked; manual-backlog homes and unreadable rows never launch automatically.
 Relaunches and other admission refusals are not recorded for automatic retry.
 The [`bin/fm-spawn-deferred.sh` header](../bin/fm-spawn-deferred.sh) owns eligibility, retry timing, saved launch arguments, failure handling, and state mechanics.
-`bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
-External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
+`bin/fm-fleet-view.sh --capacity` supplies a human-readable capacity report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
+CI-runner and placement tools should consume this API instead of retaining ceiling or reserve constants.
 
 The existing home-summary refresh also atomically publishes `state/lane-capacity.json` with occupancy, free lanes, available memory (`mem_available_kb`), reserve, headroom and a timestamp.
 Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+When local lanes are full, capacity text reports can also advise placement from supplied publications without changing local admission; the [report header](../bin/fm-capacity.sh) owns the options and output fields.
 fm-capacity reports one machine-wide `admitted` fact (readable, reason `ok` and a free lane), with `generated_epoch` as its age; per-task eligibility, filtering before ranking and the join are computed by the consuming reader that joins this fact with its own task list.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
 
@@ -2027,7 +2037,7 @@ The name is the project's registered name, which is its clone directory name and
 A line that is only `#`, or that begins with `#` followed by whitespace, is a comment, as is a `#` line whose last field is not an integer.
 A project name may begin with `#` when that `#` is written immediately against the rest of the name and the line ends with the project's capacity.
 A name that is `#`, or that begins with `#` and a space, cannot be declared, because that line is a comment.
-Ships and scouts share the project's places across local homes and same-origin clones; see the [occupancy contract](../bin/fm-project-capacity-lib.sh) for PR handoff and release before cleanup under the live-process seat rule shared with lane counting.
+Ships and scouts share the project's places across local homes and same-origin clones; see the [project occupancy contract](../bin/fm-project-capacity-lib.sh) for PR handoff and release before cleanup.
 Failed or cancelled fresh spawns and same-id retries follow the [spawn rollback contract](../bin/fm-spawn.sh), including retained-copy ownership; [backend proof requirements and limits](../bin/fm-backend.sh) govern endpoint absence separately.
 The declaration is matched by the spawning clone's directory name, so clones of the same origin share the cap only when they use that same directory name.
 A clone of that origin under a different directory name finds no declaration and is not capped, though its workers are still counted as holders for a same-origin clone that is capped.
@@ -2058,14 +2068,19 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
   Strings are used as written: the gate does not resolve aliases or defaults through a harness catalog, invoke a harness executable, or change worker model selection.
   A profile's declared provider is its quota family; a model's account prefix selects its account row through the same family/account relation as typed dispatch.
   Single-provider harnesses retain their existing family mapping.
-- The gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- With no `config/quota-gate` file, the gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- A per-home `config/quota-gate` containing exactly one line `rank-only` retains quota evaluation and alternative ranking but admits every quota verdict without `--quota-override`.
+  A would-be refusal prints a `notice:` naming `config/quota-gate=rank-only`, the runway reason, and ranked alternatives.
+  Any other value, including an empty file or blank line, behaves like an absent setting and is reported on every read without writing state.
+  The [automatic-launch dispatch contract](../bin/fm-autolaunch.sh) owns default-profile ordering under this setting; [Codex account folders](#codex-account-folders-configcodex-accounts) owns account selection and authentication guards.
+  The setting is primary-authoritative inherited configuration: ordinary secondmate configuration convergence copies it, including absence.
 - Alternatives come only from configured rules and default profiles.
   The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
   Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
   Remote secondmate routes exclude OMP from alternatives; local secondmates retain OMP support.
   Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
 - A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
-  Conflicting configured quota-family declarations refuse unless overridden.
+  Conflicting configured quota-family declarations refuse unless overridden or the home selects `rank-only`.
 - `--quota-override <reason>` launches a refused adapter and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
   The flag requires an explicitly named adapter and a non-empty one-line reason; implicit launches and raw launch commands reject it.
   A batch forwards its shared override to every pair.

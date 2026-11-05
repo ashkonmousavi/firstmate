@@ -823,6 +823,12 @@ fm_lock_mid_acquire_is_fresh() {
   return 1
 }
 
+# True when <pid>, recorded in <lockdir>, is a live holder or a fresh
+# mid-acquire one; fm_lock_try_acquire refuses on exactly this answer.
+fm_lock_holder_busy() { # <lockdir> <pid>
+  fm_lock_holder_alive "$1" "$2" || fm_lock_mid_acquire_is_fresh "$1" "$2"
+}
+
 fm_lock_recheck_stale_owner() {
   local lockdir=$1 expected_owner=$2 expected_pid=$3 actual_pid
   if [ -n "$expected_owner" ]; then
@@ -832,13 +838,7 @@ fm_lock_recheck_stale_owner() {
   fi
   actual_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
   [ "$actual_pid" = "$expected_pid" ] || return 1
-  if fm_lock_holder_alive "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  return 0
+  ! fm_lock_holder_busy "$lockdir" "$actual_pid"
 }
 
 FM_RECOVERY_MARKER_TOKEN=
@@ -907,7 +907,7 @@ _fm_recovery_marker_publish() {
   local lock saved_token generation='' status=pending previous_append_token='' guard=${5:-}
   if [ "$#" -ge 5 ]; then shift 5; else set --; fi
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|append|handback) ;; *) return 1 ;; esac
+  case "$source" in watcher|append|handback|delivered) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
@@ -938,6 +938,16 @@ _fm_recovery_marker_publish() {
         previous_append_token=$FM_RECOVERY_MARKER_TOKEN
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
+        acked:*)
+          # A delivered close is not a new outage. Main can acknowledge its
+          # durable rows before EXIT gets this lock; keep that retirement.
+          # Unexpected exits and new appends still open fresh downtime below.
+          if [ "$source" = delivered ]; then
+            FM_RECOVERY_MARKER_TOKEN=$saved_token
+            fm_lock_release "$lock"
+            return 0
+          fi
+          ;;
         pending:handling:*|pending:downtime:*)
           generation=${FM_RECOVERY_MARKER_TOKEN##*:}
           status=pending
@@ -1132,7 +1142,7 @@ fm_recovery_lock_wait() {  # <lockdir> <bound-seconds>
 }
 
 _fm_recovery_marker_arm_check() {
-  local marker=$1 bound=${2:-} lock line quarantine
+  local marker=$1 bound=${2:-} announced_generation=${3:-} lock line quarantine
   FM_RECOVERY_MARKER_ACTION='none'
   FM_RECOVERY_MARKER_QUEUED=0
   lock="${marker}.lock"
@@ -1150,6 +1160,7 @@ _fm_recovery_marker_arm_check() {
         fm_lock_release "$FM_WAKE_QUEUE_LOCK"
         return 1
       fi
+      FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
       FM_RECOVERY_MARKER_ACTION='recover'
     fi
     fm_lock_release "$lock"
@@ -1170,6 +1181,7 @@ _fm_recovery_marker_arm_check() {
       fm_lock_release "$FM_WAKE_QUEUE_LOCK"
       return 1
     fi
+    FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
     FM_RECOVERY_MARKER_ACTION='recover'
     fm_lock_release "$lock"
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
@@ -1177,11 +1189,20 @@ _fm_recovery_marker_arm_check() {
   fi
   line=$FM_RECOVERY_MARKER_TOKEN
   case "$line" in
-    pending:handling:*|announced:handling:*|announced:downtime:*)
+    pending:handling:*|announced:handling:*)
       FM_RECOVERY_MARKER_ACTION='wait'
       fm_lock_release "$lock"
       fm_lock_release "$FM_WAKE_QUEUE_LOCK"
       return 0
+      ;;
+    announced:downtime:*)
+      # Startup may have announced this generation before its first poll.
+      # Revalidate that delivery under the same locks as acknowledgement: an
+      # acked or handling episode cannot inherit a cached recovery decision.
+      FM_RECOVERY_MARKER_ACTION='wait'
+      if [ -n "$announced_generation" ] && [ "${line##*:}" = "$announced_generation" ]; then
+        FM_RECOVERY_MARKER_ACTION='recover'
+      fi
       ;;
     pending:downtime:*)
       if ! _fm_recovery_marker_write_locked "$marker" downtime "${line##*:}" announced; then
@@ -1199,6 +1220,7 @@ _fm_recovery_marker_arm_check() {
           fm_lock_release "$FM_WAKE_QUEUE_LOCK"
           return 1
         fi
+        FM_RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_WRITTEN_TOKEN
         # shellcheck disable=SC2034 # Output read by callers after this function returns.
         FM_RECOVERY_MARKER_ACTION='recover'
       fi
@@ -1238,8 +1260,8 @@ _fm_recovery_marker_reopen_announced() {
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
 
-# The handover rule for a watcher stopped by bin/fm-watch-arm.sh --take-over
-# (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
+# The handover rule for owner stops by bin/fm-watch-arm.sh --take-over and
+# --restart (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
 # the marker token and the queue's append sequence under both locks before the
 # stop; handover-restore puts an acknowledged token back only while that
 # sequence is unchanged and the marker reads the fresh pending downtime the
@@ -1290,6 +1312,46 @@ _fm_recovery_marker_handover_restore() {
   return "$status"
 }
 
+# The stopped watcher's EXIT cleanup can miss the marker lock inside its bound
+# and retain its singleton, leaving the acknowledged marker untouched. The next
+# start would then publish fresh downtime while stealing that stale lock. The
+# stopping arm (take-over or --restart), which knows the stop was its own,
+# clears that exact dead holder's
+# lock instead, under the same snapshot rule: only while the queue sequence and
+# the acknowledged token are both unchanged. Anything else is left for the
+# ordinary stale-lock steal, which publishes downtime.
+_fm_recovery_marker_handover_clear_stale() {
+  local marker=$1 token=$2 seq=$3 watch_lock=$4 stopped_pid=$5 lock steal status=1
+  case "$token" in acked:*) ;; *) return 1 ;; esac
+  case "$stopped_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(cat "$watch_lock/pid" 2>/dev/null || true)" = "$stopped_pid" ] || return 1
+  ! fm_pid_alive "$stopped_pid" || return 1
+  lock="${marker}.lock"
+  steal="${watch_lock}.steal"
+  fm_lock_acquire_wait "$steal" || return 1
+  if ! fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK"; then
+    fm_lock_release "$steal"
+    return 1
+  fi
+  if ! fm_lock_acquire_wait "$lock"; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    fm_lock_release "$steal"
+    return 1
+  fi
+  if [ "$(cat "$STATE/.wake-queue.seq" 2>/dev/null || true)" = "$seq" ] \
+    && fm_recovery_marker_read "$marker" \
+    && [ "$FM_RECOVERY_MARKER_TOKEN" = "$token" ] \
+    && [ "$(cat "$watch_lock/pid" 2>/dev/null || true)" = "$stopped_pid" ] \
+    && ! fm_pid_alive "$stopped_pid" \
+    && fm_lock_remove_path "$watch_lock"; then
+    status=0
+  fi
+  fm_lock_release "$lock"
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  fm_lock_release "$steal"
+  return "$status"
+}
+
 fm_recovery_transition() {
   local marker=$1 action=$2 target=${3:-} value=${4:-} bound=${5:-}
   case "$action" in
@@ -1303,7 +1365,7 @@ fm_recovery_transition() {
       _fm_recovery_marker_ack "$marker" "$target"
       ;;
     arm-check)
-      _fm_recovery_marker_arm_check "$marker" "$bound"
+      _fm_recovery_marker_arm_check "$marker" "$bound" "$target"
       ;;
     reopen-announced)
       _fm_recovery_marker_reopen_announced "$marker" "$bound"
@@ -1314,9 +1376,11 @@ fm_recovery_transition() {
     handback)
       _fm_recovery_marker_publish "$marker" downtime "" handback
       ;;
-    release-lock)
+    release-lock|release-lock-delivered)
       [ -n "$target" ] || return 1
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
+      local source=watcher
+      [ "$action" != release-lock-delivered ] || source=delivered
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" "$source" || return 1
       fm_lock_release "$target"
       ;;
     release-lock-existing)
@@ -1364,7 +1428,8 @@ fm_recovery_marker_begin_handling() {
 }
 
 fm_recovery_marker_arm_check() {
-  fm_recovery_transition "$1" arm-check "" "" "${2:-}"
+  # <marker> [lock-bound] [generation announced by this caller for delivery]
+  fm_recovery_transition "$1" arm-check "${3:-}" "" "${2:-}"
 }
 
 fm_recovery_marker_reopen_announced() {
@@ -1373,6 +1438,11 @@ fm_recovery_marker_reopen_announced() {
 
 fm_recovery_marker_handover_restore() {  # <marker> <snapshot-token> <snapshot-seq>
   fm_recovery_transition "$1" handover-restore "$2" "$3"
+}
+
+# <marker> <snapshot-token> <snapshot-seq> <watch-lock> <stopped-pid>
+fm_recovery_marker_handover_clear_stale() {
+  _fm_recovery_marker_handover_clear_stale "$@"
 }
 
 # fm_lock_reap_dead_link <lockdir>
@@ -1386,8 +1456,9 @@ fm_recovery_marker_handover_restore() {  # <marker> <snapshot-token> <snapshot-s
 # than the dead holder's pid-start inside the directory. Hex keeps the same
 # start-time identity portable in filenames. Legacy names and unavailable
 # probes keep the PID-only answer; only a proven mismatch permits takeover.
-fm_lock_reap_dead_link() {
-  local lockdir=$1 owner pid token tomb current reaper recorded start
+# The check mode returns that answer before electing or removing anything.
+fm_lock_reap_dead_link() { # <lockdir> [check]
+  local lockdir=$1 mode=${2:-} owner pid token tomb current reaper recorded start
   [ -L "$lockdir" ] || return 1
   owner=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || return 1
   fm_current_pid current || return 1
@@ -1416,6 +1487,7 @@ fm_lock_reap_dead_link() {
     done
     [ -n "$token" ] || return 1
   fi
+  [ "$mode" != check ] || return 0
   tomb="$owner.reaped.$current"
   start=$(fm_pid_start_time "$current" 2>/dev/null || true)
   if [ -n "$start" ]; then
@@ -1450,6 +1522,27 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
   fm_lock_try_create "$lockdir"
 }
 
+# Read-only: 0 when another process could take <lockdir> through
+# fm_lock_try_acquire now, answered by the predicates that acquisition and its
+# steal mutex refuse on, before any of their mutations; 1 when it would refuse.
+fm_lock_acquire_check() { # <lockdir>
+  local lockdir=$1 steal="$1.steal" pid='' owner=''
+  if [ -e "$lockdir" ] || [ -L "$lockdir" ]; then
+    pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+    ! fm_lock_holder_busy "$lockdir" "$pid" || return 1
+  elif ! fm_lock_claim_blocked_by_steal "$lockdir"; then
+    return 0
+  fi
+  if fm_lock_claim_blocked_by_steal "$steal"; then
+    fm_lock_reap_dead_link "$steal.steal" check || return 1
+  fi
+  if [ -e "$steal" ] || [ -L "$steal" ]; then
+    fm_lock_reap_dead_link "$steal" check || return 1
+  fi
+  [ ! -L "$lockdir" ] || owner=$(fm_lock_link_owner "$lockdir" 2>/dev/null || true)
+  fm_lock_recheck_stale_owner "$lockdir" "$owner" "$pid"
+}
+
 fm_lock_try_acquire() {
   local lockdir=$1 marker_publish_bound=${2:-} pid steal cur rc steal_owner primary_owner current
   FM_LOCK_HELD_PID=
@@ -1479,11 +1572,7 @@ fm_lock_try_acquire() {
     FM_LOCK_HELD_PID=$(cat "$lockdir/pid" 2>/dev/null || true)
     return 1
   fi
-  if fm_lock_holder_alive "$lockdir" "$pid"; then
-    FM_LOCK_HELD_PID=$pid
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$pid"; then
+  if fm_lock_holder_busy "$lockdir" "$pid"; then
     FM_LOCK_HELD_PID=$pid
     return 1
   fi

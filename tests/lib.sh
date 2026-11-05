@@ -128,6 +128,10 @@ TOML
 # shellcheck disable=SC2034
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Unrelated spawn fixtures receive an empty machine from the external activity
+# protocol stub. Capacity regressions supply their own explicit activity facts.
+export FM_ACTIVITY_READER="$ROOT/tests/fixtures/activity.sh"
+
 # Spawn fixtures use deterministic Linux memory facts, including on macOS.
 # Admission regressions explicitly override this test-only reader input.
 export FM_CAPACITY_MEMINFO=${FM_CAPACITY_MEMINFO:-$ROOT/tests/captures/capacity-meminfo}

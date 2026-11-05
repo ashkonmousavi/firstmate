@@ -6,6 +6,58 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Treehouse acquisition failure diagnostics
+
+`bash tests/fm-spawn-worktree-settle.test.sh` exercises the public spawn entrypoint with controlled cwd and capture responses, including failure confirmation, unreadable output, stale exit markers, 180 queued cwd-probe lines after acquisition output, bounded diagnostics and a healthy acquisition settling at the deadline.
+Its token-free live case runs by default when tmux is installed and uses a private tmux server plus a fake Treehouse executable, without acquiring a pool slot or contacting GitHub.
+Force that live case with `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+The fish submission cases execute successful and failing acquisitions through fish when it is installed; force them with `FM_SPAWN_TREEHOUSE_REASON_FISH=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+Fish was absent from PATH for this Linux refresh, so fish execution remains unverified; the suite reports that capability skip explicitly.
+Optional live skips leave the portable cases running; a live failure fails the suite.
+Verified on 2026-11-04 UTC, Linux x86_64, tmux 3.4, using the shell completion marker and the shared backend capture reader.
+The refresh command was `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh tests/fm-spawn-pool-base-freshen.test.sh tests/fm-tangle-guard.test.sh tests/fm-control-relaunch.test.sh`.
+The relevant exact output was:
+
+```text
+ok - 180 queued cwd-probe lines preserve early and deadline failure reasons
+ok - real tmux tmux 3.4: shell exit plus captured error refuses in 2s
+ok - treehouse failure refuses after two reads with its own error
+ok - error output alone never cuts a running get short; deadline includes its reason
+ok - an unreadable pane keeps the full wait and explains the missing output
+ok - healthy get can use the entire wait window
+```
+
+`FM_LIVE=0 bash bin/fm-test-run.sh tests/fm-spawn-worktree-settle.test.sh` also passed on that date, printing `skip: live: disabled by FM_LIVE=0` before the remaining portable cases and `# all fm-spawn-worktree-settle tests passed` at completion.
+An injected tmux startup exit of 47 produced `not ok - could not start private tmux test server` and suite exit 1.
+This proves shell completion, terminal rendering and capture through real tmux with a failing stand-in executable; it does not reproduce GitHub authentication failure or acquire a real Treehouse pool slot.
+Herdr, Zellij, cmux, Paseo, Rex, Tern and hc use the same wait and existing capture dispatch, but this guard does not establish live failure-diagnostic evidence for those backends or for macOS.
+The command runs before agent launch, so model harnesses and account selection are outside this check.
+
+## Claude during-turn continuity
+
+The portable guard `bash bin/fm-test-run.sh tests/fm-claude-watch-guard.test.sh` exercises a simulated 20-minute model turn through executable arm cycles, command refusal and recovery, session ownership, and Stop wake delivery.
+Its independent elapsed-time observer uses an accelerated clock and is regression evidence, not proof that a real Claude hook remains scheduled for 20 wall-clock minutes.
+The real-harness refresh command is `FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh`.
+That guard names the installed Claude version, exercises the tracked async and synchronous registrations in an isolated Claude session, and refuses a pass without both during-tool cycles and an observed stale-send denial.
+The arm and send executables are fixtures, so this establishes hook transport and lifetime, not backend dispatch or real worker lifecycle behavior.
+Verified on 2026-11-04 UTC, Linux x86_64, Claude Code 2.1.318, using the existing signed-in account without account-pin changes.
+The isolated print-mode run observed 65 new arm-fixture cycles during the eight-second Bash tool and an actual synchronous stale-send denial.
+
+```text
+FM_CLAUDE_WATCH_GUARD_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-watch-guard-live-e2e.test.sh
+ok - 2.1.318 (Claude Code) async continuity ran during a tool; synchronous stale send refused
+FM_TEST_COMPLETE
+FM_CLAUDE_LIVE_E2E=1 bash bin/fm-test-run.sh tests/fm-claude-stop-autoarm-live-e2e.test.sh
+ok - Claude 2.1.318 (Claude Code) live E2E reclaimed a stale session lock through session start, completed two tokenless Stop-owned rewake cycles, and preserved the competing-live-owner boundary
+```
+
+The legacy Stop live guard deliberately excludes during-turn guard hooks because its immediate-return arm fixture has no shared singleton; handling successors acknowledge separately without consuming its two foreground wake events.
+The portable guard additionally covers real watcher coexistence, guarded pending-wake recovery, and preservation of healthy watchers in unguarded plain and hosted Stop paths.
+A separate isolated real-Claude check using the production arm, watcher, registered check, spawn and send entrypoints observed a 0-1 second beat age during twelve samples, stale and absent-beat refusal through `env -S`, and recovery through the emitted restart command.
+That check also preserved the same healthy watcher PID and queued wake when unguarded plain and hosted Stop paths attached, and confirmed worker, secondmate and unmarked callers remained outside admission enforcement.
+This is short wall-clock coverage alongside the independent simulated 20-minute proof, not a 20-minute real-Claude run.
+macOS, Windows, interactive sessions, remote installations and separate account pins remain live-proof gaps.
+
 ## Claude state-claim Stop check
 
 The [state-claim check](../turnend-guard.md#state-claim-check) owns the current operator contract.
@@ -22,7 +74,8 @@ ok - 2.1.316 (Claude Code) real Stop read: exits 0
 ok - 2.1.316 (Claude Code) state-claim live guard checked 2 sessions
 ```
 
-The portable guard exercises MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The portable guard at that verification exercised MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The later capacity and optional reply-format rules have [portable regression coverage](../../tests/fm-state-claim-guard.test.sh); the live results above do not establish coverage for those additions.
 The live guard asserts the affirmative claim in both sessions and verifies that the matching fixture read executed and completed in Claude's transcript.
 Additional real Claude print-mode scenarios in the retained evidence verify resource mismatches, previous-turn reads, another hook's continuation, MAIN and secondmate enforcement, and worker exemption.
 The evidence retained in `state-claim-live-report.md` records a portable maximum of 37.6 ms across five full-hook blocking samples and a largest live full-hook invocation of 65.79 ms, both below the 200 ms budget.
@@ -764,7 +817,8 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 
 ## Claude background exit
 
-Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+The live guard's control arm disables Firstmate's launch safeguards and exercises a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+The [background-task exit picker measurement](#claude-background-task-exit-picker) records the shell dialog with the handoff disabled.
 Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
 The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
@@ -833,10 +887,11 @@ The guard submits no prompt and spends no tokens, so it runs by default wherever
 
 `bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
 `tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, ordered preference independent of weekly percentage, applicable quota exhaustion and the exact three-hour runway boundary, refusal to switch on preferred-account sign-in/configuration/status failures with sufficient or unknown quota, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+Its `rank-only admits exhausted Codex accounts in configured preference order while preserving pins and authentication` case covers the [account selection policy](../configuration.md#codex-account-folders-configcodex-accounts), repeated invalid-setting diagnostics without receipts, signed-out and duplicate-auth refusal, preselected folders, and explicit launches with requested and default models.
 It also covers universal-exhaustion preflight, incompatible Treehouse refusal before allocation or endpoint creation, identity-checked lease return on repeated default-model refusals, and bounded reads and external watchdog cancellation of both vendor subprocess paths with real wrapper descendants and an unrelated process.
 `tests/fm-control.test.sh` also covers quota-authorized two-account relaunch and preferred-account repair refusal before stopping a ship, scout or secondmate.
-It verifies that unusable lists and exhausted or below-horizon configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion or below-horizon runway preserves a live default-model secondmate's agent, metadata and ownership.
-`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane; the worker-account suite also runs these focused cases.
+It verifies that unusable lists and, under quota enforcement, exhausted or below-horizon configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion or below-horizon runway preserves a live default-model secondmate's agent, metadata and ownership.
+`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane, under quota enforcement and rank-only with all accounts exhausted; the worker-account suite also runs these focused cases.
 
 The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
 It suppresses vendor diagnostics and confines synthetic ChatGPT workspace discovery to a loopback fixture; no synthetic credential is sent to an external service.
@@ -2212,21 +2267,33 @@ ok - live Herdr submit confirm: Claude Code (2.1.301 (Claude Code)) on herdr 0.9
 
 ### Claude background-task exit picker
 
-Measured 2026-10-05 against Claude Code 2.1.289 in an isolated tmux session.
-The Herdr lab was not running, so the Herdr path is covered by the existing fakes.
-Typing `/exit` while a background shell is still running opens a picker whose selected row is "Exit and stop tasks" and whose footer is "Enter to confirm · Esc to cancel".
-That screen still classifies as pending, the same verdict as unsubmitted composer text.
-A second Enter would confirm the selected row.
-The picker is recognised by its recorded structure only: the heading on its own line, then the selected row alone on its row, with `Enter to confirm · Esc to cancel` as the last non-blank row.
-The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
-Submit retries now stop after the Enter that opened the picker and report unknown.
-A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
-`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release without accepting the task, validated lane release without backlog Done, and refusal for unauthorized tasks and secondmates.
-Its tmux and Herdr adapter cases include a compatible-client retry and refusal after the busy state, generation, live dialog or viewport changes.
-That coverage uses stubbed panes and a fake Herdr CLI, with no live Claude or Herdr run; the picker's recorded structure is unchanged.
-A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out and applies the same authorization boundary there.
-Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
+Measured 2026-11-04 against Claude Code 2.1.318 and Herdr 0.9.5 in an isolated named Herdr lab.
+The real `/exit` dialog lists `shell · sleep 120`, `1. Exit and stop tasks`, `2. Stay`, and `Enter to confirm · Esc to cancel`, followed by another composer and status footer.
+The strict last-row matcher below misses that layout; the control-plane shell protection in [`fm_control_background_shell_running`](../../bin/fm-control-lib.sh) accepts the captured dialog with its trailing composer or an independent positive shell status count.
+The live guard uses Claude bash mode and submits no model prompt.
+Refresh with `FM_CONTROL_CLAUDE_BUSY_LIVE=1 bash tests/fm-control-claude-busy-live-e2e.test.sh` after a Claude or Herdr upgrade.
+Exact result:
+
+```text
+# harness: 2.1.318 (Claude Code); transport: Herdr 0.9.5
+ok - Claude 2.1.318 (Claude Code): real background-shell exit dialog recognized with no confirmation sent
+```
+
+[`tests/fm-control.test.sh`](../../tests/fm-control.test.sh) replays the captured viewport through executable exit and relaunch, independently blinds the dialog and status-count signals, and verifies status 75, no lifecycle input, and real process survival.
+It also keeps a real `fm-send` waiting in its transport and verifies that exit preserves it and its unacknowledged steer.
+[`tests/fm-remote-secondmate-relaunch.test.sh`](../../tests/fm-remote-secondmate-relaunch.test.sh) verifies that status 75 and its reason survive the remote path without changing the parent's record.
+These caller outcomes use fixtures; the live guard proves the vendor surface rather than claiming a live remote relaunch.
+Other harnesses have no changed dialog mechanics; the portable adapter suite verifies their existing exit commands, and explicitly rejects Claude shell surfaces for those adapters.
+
+The composer-level matcher retains the structure measured on 2026-10-05 against Claude Code 2.1.289: a heading on its own line, the selected `Exit and stop tasks` row, and `Enter to confirm · Esc to cancel` as the last nonblank row.
+The same strings quoted above a normal composer do not satisfy that strict matcher.
+A typed submit that recognizes the picker sends no Enter, and its retry loop stops after an Enter opens one.
+The control-plane exit guard also runs before submit retries, covering a shell dialog that cannot fill the older dialog sink.
+Non-shell picker confirmation follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
+`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release, validated lane release, unauthorized tasks, and secondmates using non-shell fixture work.
+Its tmux and Herdr cases include compatible-client retry and refusal after the busy state, generation, live dialog, or viewport changes.
+A stopped agent whose pane retains dialog text is not treated as busy.
+The confirmation cases use fixtures; the live shell-dialog measurement above proves the vendor surface.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.
 A worker pane parked on it keeps the ordinary stale triage and schedule, and its plain stale reason and its final wedge escalation reason name the picker after `blocked-on-prompt:`; the deferral, dead-record, and declared-wait recheck reasons do not.
 A second mate stays off that path, and a finished worker in away mode is handled as before.
@@ -4109,7 +4176,7 @@ The focused review regression commands are `bash tests/fm-lane-release.test.sh` 
 | Busy and intervening turns | Sweep evaluation and detached validation compare a validated busy generation and full record across live reads; submission guards compare that incarnation and sequence before literal input and every Enter, including Herdr client retries. | `tests/fm-lane-release.test.sh`, `tests/fm-control.test.sh`, `tests/fm-busy-state.test.sh`, `tests/fm-busy-adapter-wiring.test.sh` | Run the applicable harness signal guards listed below; a source without a monotonic busy record remains ineligible. |
 | Composer | `read_composer` reaches the backend composer classifier; pending text, dialogs and unknown reads retain the seat. | `tests/fm-composer-lib.test.sh`, `tests/fm-composer-ghost.test.sh`, `tests/fm-control.test.sh` | `tests/fm-composer-matrix-live-e2e.test.sh`; historical versions in this record do not establish present behavior. |
 | Own doorbell | `composer_holds_doorbell` reaches task-inbox extraction for tmux, Herdr, or generic capture; every unread message retains the seat, and an own unsubmitted doorbell is stuck-composer. | `tests/fm-task-inbox.test.sh`, `tests/fm-send-inbox.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-send-inbox-doorbell-live-e2e.test.sh`; real handling and acknowledgement do not alone establish release-race exclusion. |
-| Seat verification | Marker verification and audit share `fm_task_record_holds_seat`; dead or missing agents require readable worktree and process evidence before their seats can be called free. | `tests/fm-capacity.test.sh`, `tests/fm-project-capacity.test.sh`, `tests/fm-lane-release.test.sh` | Retain actual endpoint, process and seat-count observations for RELEASED and RELEASE_INCOMPLETE; missing or unreadable `lsof`/`ps` is unknown. |
+| Seat verification | Marker verification and audit share the [seat proof contract](../../bin/fm-project-capacity-lib.sh) in `fm_task_record_holds_seat`. | `tests/fm-capacity.test.sh`, `tests/fm-project-capacity.test.sh`, `tests/fm-lane-release.test.sh` | Retain actual endpoint, worktree-field and seat-count observations for RELEASED and RELEASE_INCOMPLETE, plus process observations when the contract requires a cwd scan; missing or unreadable `lsof`/`ps` then leaves occupancy unknown. |
 | Unattended exit | `exit-worker` invokes `fm-control exit --if-idle --expect-spawn-gen`; metadata validation excludes published steers, turn guards cover submission reads and waits, and the ordinary stopped path retires busy wiring. | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-control-herdr-smoke.test.sh`, `tests/fm-claude-bg-exit-live-e2e.test.sh`; current per-harness unattended-exit evidence remains to be collected. |
 | Open-PR metrics | Audit uses bounded existing GitHub, GitLab, Forgejo and Gerrit record readers; OPEN evidence is required, while terminal states contribute no open-PR hours and unreadable provider, endpoint, status or inbox evidence returns unknown. | `tests/fm-lane-release.test.sh`, provider reader cases in `tests/fm-crew-state.test.sh` | Refresh provider credential and protocol coverage; [GitHub CLI documentation](https://cli.github.com/manual/gh_pr_view) defines its state read interface. |
 | Sweep scheduling | Verification and candidate evaluation share the existing durable cursor and overall deadline, including orphan markers, slow reads, and the two-release limit. | `tests/fm-lane-release.test.sh` | No additional vendor signal is introduced; retain wall-time and eventual candidate progress evidence. |

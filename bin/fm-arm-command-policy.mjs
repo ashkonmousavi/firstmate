@@ -556,6 +556,7 @@ export function commandPosition(tokens) {
     if (name === "exec" || name === "command" || name === "sudo" || name === "nohup") {
       wrappers.push(name);
       const options = consumeWrapperOptions(name, words, index + 1);
+      if (name === "command" && words.slice(index + 1, options.index).some(word => /^-[pvV]*[vV][pvV]*$/.test(word.value))) break;
       unresolvedWrapperOption ||= options.unresolved;
       wrapperPayloads.push(...options.embeddedPayloads);
       index = options.index;
@@ -614,16 +615,17 @@ function hasUnclassifiableProtectedExpansion(word, root) {
   return /(?:^|\/)fm-watch/.test(word.value);
 }
 
-function shellInvocation(position) {
+export function shellInvocation(position) {
   if (!position.command) return null;
   const name = basename(position.command.value);
-  if (!["sh", "bash", "zsh"].includes(name)) return null;
+  if (!["sh", "bash", "zsh", "dash"].includes(name)) return null;
   const words = position.words;
   let readsStdin = false;
   let optionsEnded = false;
   for (let i = position.index + 1; i < words.length; i += 1) {
     const option = words[i];
-    if (/^-[A-Za-z]*c[A-Za-z]*$/.test(option.value)) {
+    if (!optionsEnded && ["--help", "--version"].includes(option.value)) return { kind: "none", payload: null };
+    if (!optionsEnded && /^-[A-Za-z]*c[A-Za-z]*$/.test(option.value)) {
       let payloadIndex = i + 1;
       if (words[payloadIndex]?.value === "--") payloadIndex += 1;
       return { kind: "command", payload: words[payloadIndex] || null };
@@ -644,18 +646,19 @@ function shellInvocation(position) {
     // a positional parameter, kept as `operand` so a protected path there still
     // fails closed.
     if (readsStdin) return { kind: "stdin", payload: null, operand: option };
+    if (option.value === "/dev/stdin") return { kind: "stdin", payload: null };
     return { kind: "script", payload: option };
   }
   return { kind: "stdin", payload: null };
 }
 
-function shellHeredocPayloads(tokens, position) {
+export function shellHeredocPayloads(tokens, position) {
   if (shellInvocation(position)?.kind !== "stdin") return [];
   const heredocs = tokens.filter((token) => token.type === "redir" && token.fd === 0 && typeof token.heredoc === "string");
   return heredocs.length === 0 ? [] : [heredocs.at(-1).heredoc];
 }
 
-function shellHereStringPayloads(tokens, position) {
+export function shellHereStringPayloads(tokens, position) {
   if (shellInvocation(position)?.kind !== "stdin") return [];
   const payloads = [];
   for (let i = 0; i < tokens.length; i += 1) {
@@ -667,12 +670,12 @@ function shellHereStringPayloads(tokens, position) {
   return payloads;
 }
 
-function sourcedScript(position) {
+export function sourcedScript(position) {
   if (!position.command || ![".", "source"].includes(position.command.value)) return null;
   return position.words[position.index + 1] || null;
 }
 
-function evalPayload(position) {
+export function evalPayload(position) {
   if (!position.command || basename(position.command.value) !== "eval") return null;
   const payloads = position.words.slice(position.index + 1);
   if (payloads.length === 0 || payloads.some((payload) => !payload.literal || payload.subs.length > 0)) return null;

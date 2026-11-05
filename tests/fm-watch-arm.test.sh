@@ -933,6 +933,10 @@ test_append_wakes_live_announced_watcher() {
   start_rearm_arm "$home" "$state" "$fakebin" "$idle_out"
   is_live_non_zombie "$ARM_PID" \
     || fail "the announced empty recovery did not leave a live watcher"
+  sleep 3
+  if grep -F 'check: rearm-resurface' "$idle_out" >/dev/null || ! is_live_non_zombie "$ARM_PID"; then
+    fail "a repeated empty-queue arm re-announced the same recovery: $(cat "$idle_out")"
+  fi
   append_wake "$state" check inbox:fixture 'check: captain inbox note fixture' \
     || fail "the generic producer could not append its wake"
   wait_for_exit "$ARM_PID" 80 \
@@ -1957,6 +1961,126 @@ EOF
   pass "watch-arm: the OpenCode arm plugin decides with the shared supervision predicate"
 }
 
+# A fake mktemp that refuses the downtime-marker lock owner only inside a
+# process tree started with FM_TEST_FAIL_MARKER_LOCK naming an existing file.
+# A long-poll seed sleeps through the arming window, so the first refused
+# acquire is its EXIT cleanup after the owner's stop: the cleanup misses the
+# lock within its bound and retains its singleton, as on a loaded host.
+make_marker_lock_refusing_mktemp() {  # <fakebin>
+  local real_mktemp
+  real_mktemp=$(command -v mktemp)
+  cat > "$1/mktemp" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  *'/.watcher-down.lock.owner.'*)
+    if [ -n "\${FM_TEST_FAIL_MARKER_LOCK:-}" ] && [ -e "\$FM_TEST_FAIL_MARKER_LOCK" ]; then exit 1; fi ;;
+esac
+exec "$real_mktemp" "\$@"
+SH
+  chmod +x "$1/mktemp"
+}
+
+# Owner-initiated re-arming stops (take-over, --restart) of a healthy watcher
+# after main acknowledged its episode, with an empty queue, must not leave a
+# recovery for the next cycle - including when the stopped watcher's cleanup
+# missed the marker lock and retained a stale singleton for the next start to
+# steal. A later durable append still surfaces once.
+assert_owner_stop_keeps_acknowledged_episode_quiet() {  # <mode: take-over|restart> [clean]
+  local mode=$1 cleanup=${2:-stale} dir state fakebin armout owner seed acknowledged i
+  dir=$(make_case "owner-stop-$cleanup-$mode")
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  armout="$dir/arm.out"
+  make_marker_lock_refusing_mktemp "$fakebin"
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=60 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_WATCHER_CLEANUP_LOCK_BOUND=1 FM_TEST_FAIL_MARKER_LOCK="$dir/refuse" \
+    FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" "$WATCH_ARM" > "$dir/owner.out" &
+  owner=$!
+  wait_for_file_text "$dir/owner.out" 'watcher: started pid=' \
+    || fail "$mode: fixture arm did not start a watcher: $(cat "$dir/owner.out")"
+  seed=$(cat "$state/.watch.lock/pid")
+  sleep 2
+  append_wake "$state" signal owner-stop "signal: fixture handled by main"
+  ack_wakes "$state" >/dev/null || fail "$mode: fixture could not acknowledge the wake"
+  acknowledged=$(cat "$state/.watcher-down")
+  case "$acknowledged" in acked:*) ;; *) fail "$mode: fixture episode was not acknowledged: $acknowledged" ;; esac
+  [ ! -s "$state/.wake-queue" ] || fail "$mode: fixture left queued work"
+  [ "$cleanup" = clean ] || : > "$dir/refuse"
+  case "$mode" in
+    take-over) set -- --take-over "$owner" ;;
+    restart) set -- --restart ;;
+  esac
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" "$WATCH_ARM" "$@" > "$armout" &
+  ARM_PID=$!
+  # A stop waits for the stopped watcher's bounded cleanup before it starts
+  # the next cycle, so this outlasts the arm's confirmation budget.
+  i=0
+  while [ "$i" -lt "$REARM_REPORT_POLLS" ] && ! grep -q '^watcher: started ' "$armout" 2>/dev/null \
+    && is_live_non_zombie "$ARM_PID"; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  grep -q '^watcher: started ' "$armout" \
+    || fail "$mode: the next cycle did not start: $(cat "$armout"); marker=$(cat "$state/.watcher-down")"
+  ! is_live_non_zombie "$seed" || fail "$mode: the stopped watcher still runs"
+  sleep 4
+  if ! is_live_non_zombie "$ARM_PID" || grep -q 'check: rearm-resurface' "$armout"; then
+    fail "$mode: an owner stop after acknowledgement woke main with an empty recovery: $(cat "$armout"); marker=$(cat "$state/.watcher-down")"
+  fi
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] \
+    || fail "$mode: the owner stop reopened the acknowledged episode: $(cat "$state/.watcher-down")"
+  append_wake "$state" signal owner-stop "signal: genuinely new work after the stop"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "$mode: new work did not close the cycle"
+  grep -q 'genuinely new work\|^check: rearm-resurface' "$armout" \
+    || fail "$mode: new work after the stop did not surface: $(cat "$armout")"
+  kill -TERM "$owner" 2>/dev/null || true
+  wait_for_exit "$owner" 50 >/dev/null 2>&1 || true
+  rm -f "$dir/refuse"
+  pass "watch-arm: an owner $mode after acknowledgement ($cleanup cleanup) keeps the next cycle quiet"
+}
+test_take_over_with_retained_stale_lock_stays_quiet() { assert_owner_stop_keeps_acknowledged_episode_quiet take-over; }
+test_restart_after_acknowledgement_stays_quiet() { assert_owner_stop_keeps_acknowledged_episode_quiet restart; }
+test_clean_restart_after_acknowledgement_stays_quiet() { assert_owner_stop_keeps_acknowledged_episode_quiet restart clean; }
+
+# The supervision host's --stop hands back to main through the stopped
+# watcher's downtime: its Stop-hook rewake commits only on pending or announced
+# downtime, so a --stop after main acknowledged its episode must not restore
+# the acknowledged token.
+test_stop_after_acknowledgement_keeps_downtime_published() {
+  local dir state armout owner seed acknowledged marker out status
+  dir=$(make_case stop-after-ack)
+  state="$dir/state"
+  armout="$dir/owner.out"
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=60 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" "$WATCH_ARM" > "$armout" &
+  owner=$!
+  wait_for_file_text "$armout" 'watcher: started pid=' \
+    || fail "stop-after-ack: fixture arm did not start a watcher: $(cat "$armout")"
+  seed=$(cat "$state/.watch.lock/pid")
+  sleep 2
+  append_wake "$state" signal owner-stop "signal: fixture handled by main"
+  ack_wakes "$state" >/dev/null || fail "stop-after-ack: fixture could not acknowledge the wake"
+  acknowledged=$(cat "$state/.watcher-down")
+  case "$acknowledged" in acked:*) ;; *) fail "stop-after-ack: fixture episode was not acknowledged: $acknowledged" ;; esac
+  is_live_non_zombie "$seed" || fail "stop-after-ack: the fixture watcher was not live before --stop"
+  out=$(FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$WATCH_ARM" --stop 2>&1); status=$?
+  expect_code 0 "$status" "--stop of a live watcher after acknowledgement must succeed"
+  assert_contains "$out" "watcher: stopped pid=$seed" "--stop must name the watcher it stopped"
+  ! is_live_non_zombie "$seed" || fail "stop-after-ack: the watcher survived --stop"
+  marker=$(cat "$state/.watcher-down" 2>/dev/null || true)
+  case "$marker" in
+    pending:downtime:*|announced:downtime:*) ;;
+    *) fail "stop-after-ack: --stop left no downtime for the owner's rewake: $marker (acknowledged $acknowledged)" ;;
+  esac
+  kill -TERM "$owner" 2>/dev/null || true
+  wait_for_exit "$owner" 50 >/dev/null 2>&1 || true
+  pass "watch-arm: --stop after acknowledgement leaves downtime published for the owner's rewake"
+}
+
 test_append_wakes_handling_successor after-ack
 test_append_wakes_handling_successor before-ack
 test_append_wakes_handling_successor after-ack missing
@@ -1997,4 +2121,8 @@ test_take_over_attaches_to_a_cycle_the_named_arm_does_not_own
 test_take_over_owns_a_fresh_cycle_and_keeps_queued_work_surfacing
 test_take_over_preserves_downtime_from_watcher_self_exit
 test_take_over_confirms_a_watcher_stopped_inside_its_event_wait
+test_take_over_with_retained_stale_lock_stays_quiet
+test_restart_after_acknowledgement_stays_quiet
+test_clean_restart_after_acknowledgement_stays_quiet
+test_stop_after_acknowledgement_keeps_downtime_published
 test_opencode_arm_plugin_decides_with_the_shared_predicate

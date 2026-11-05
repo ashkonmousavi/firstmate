@@ -16,6 +16,8 @@ refresh, cache or fallback. Applicable exhausted quota or measured runway below
 10800 seconds authorizes skipping a folder. The first quota-eligible folder must
 be launch-ready or selection refuses with a repair message, irrespective of percentage.
 Unknown/unavailable quota stays unknown and does not authorize fallback.
+Under config/quota-gate=rank-only, exhausted or short-runway folders remain
+eligible with a notice; configured preference and repair refusals still apply.
 All vendor output is captured; only allowlisted quota fields escape this process.
 
 check is silent when healthy; six days since the newer of the sign-in file's
@@ -266,21 +268,37 @@ def reading(root):
                 "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
 
 
-def quota_usable(row, model):
+def rank_only(config):
+    setting = Path(config).with_name("quota-gate")
+    try:
+        if not setting.is_file():
+            return False
+        if setting.read_bytes() in (b"rank-only", b"rank-only\n"):
+            return True
+    except OSError:
+        return False
+    print("notice: config/quota-gate has an invalid value, expected rank-only; retaining quota refusal behavior", file=sys.stderr)
+    return False
+
+
+def quota_usable(row, model, rank_only=False):
     bare = model.rsplit("/", 1)[-1]
     scopes = {"all_models", "all_products"}
     if bare:
         scopes.update(("model:" + bare, "product:" + bare))
+    usable = True
     for bound in row["quotaSemantics"]["effectiveAvailability"]:
         if bound["scope"] not in scopes:
             continue
         runway = bound.get("runway", {})
         if runway.get("status") == "exhausted_now":
-            return False
+            usable = False
+            break
         if bound.get("status") != "known":
             continue
         if bound.get("effectivePercentRemaining") == 0:
-            return False
+            usable = False
+            break
         if runway.get("status") == "projected_exhaustion":
             # Match the native launch gate: prefer an absolute end, otherwise
             # anchor relative seconds to this folder's own reading clock.
@@ -291,8 +309,11 @@ def quota_usable(row, model):
                     and math.isfinite(seconds) and seconds >= 0):
                 end = generated + seconds
             if end is not None and end - time.time() < 10800:
-                return False
-    return True
+                usable = False
+                break
+    if not usable and rank_only:
+        print("notice: Codex account quota is exhausted or below the three-hour runway horizon; proceeding under config/quota-gate=rank-only", file=sys.stderr)
+    return usable or rank_only
 
 
 def timestamp(value):
@@ -305,13 +326,13 @@ def timestamp(value):
         return None
 
 
-def preflight(roots, codex):
+def preflight(roots, codex, rank_only=False):
     # Before a released copy/secondmate has its actual launch cwd, only universal
     # quota can authorize skipping a folder. Do not guess its future model.
-    require_winner(snapshot(roots, codex, "", os.getcwd(), defer_model=True))
+    require_winner(snapshot(roots, codex, "", os.getcwd(), rank_only, defer_model=True))
 
 
-def snapshot(roots, codex, model, cwd, defer_model=False):
+def snapshot(roots, codex, model, cwd, rank_only=False, defer_model=False):
     guard(roots, codex)
     rows = []
     candidate = None
@@ -322,7 +343,7 @@ def snapshot(roots, codex, model, cwd, defer_model=False):
         # A failed login/status/config check is not quota evidence. Read quota
         # independently; missing/unavailable evidence cannot authorize fallback.
         row = reading(root)
-        usable = quota_usable(row, launch_model)
+        usable = quota_usable(row, launch_model, rank_only)
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
                    model=launch_model, launchReady=ready and configured and usable)
@@ -418,12 +439,12 @@ def main():
     if args.command == "guard":
         guard(roots, args.codex)
     elif args.command == "preflight":
-        preflight(roots, args.codex)
+        preflight(roots, args.codex, rank_only(args.config))
     elif args.command in ("select", "quota"):
         cwd = str(Path(args.cwd).resolve())
         if not Path(cwd).is_dir():
             raise ValueError(f"Codex launch directory is unavailable: {cwd}")
-        data = snapshot(roots, args.codex, args.model, cwd)
+        data = snapshot(roots, args.codex, args.model, cwd, rank_only(args.config))
         if args.folder:
             require_winner(data)
             root = str(Path(args.folder).resolve())

@@ -54,6 +54,25 @@ case "$*" in
     ;;
 esac
 case "${1:-}" in
+  capture-pane)
+    capture_count_file="${FM_FAKE_PANE_COUNTFILE}.captures"
+    captures=0
+    [ ! -f "$capture_count_file" ] || captures=$(cat "$capture_count_file")
+    captures=$((captures + 1))
+    printf '%s\n' "$captures" > "$capture_count_file"
+    [ "${FM_FAKE_CAPTURE_FAIL_ON:-0}" != "$captures" ] || exit 1
+    [ "${FM_FAKE_CAPTURE_UNREADABLE:-0}" = 0 ] || exit 1
+    lines=80
+    previous=
+    for arg in "$@"; do
+      [ "$previous" != -S ] || lines=${arg#-}
+      previous=$arg
+    done
+    {
+      cat "${FM_FAKE_PANE_COUNTFILE}.output" 2>/dev/null
+      printf '%s\n' "${FM_FAKE_CAPTURE_TRAILER:-}"
+    } | tail -n "$lines"
+    exit 0 ;;
   display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows) [ ! -s "$window_file" ] || cat "$window_file"; exit 0 ;;
   new-window)
@@ -67,13 +86,32 @@ case "${1:-}" in
     exit 0 ;;
   kill-window) : > "$window_file"; exit 0 ;;
   has-session|new-session) exit 0 ;;
-  send-keys) exit 0 ;;
+  send-keys)
+    for arg in "$@"; do
+      case "$arg" in
+        'treehouse get'*)
+          # Execute the submitted shell line against a fake external boundary,
+          # so the exit marker is emitted by the real command, never the fake.
+          "${FM_FAKE_PANE_SHELL:-bash}" -c "$arg" > "${FM_FAKE_PANE_COUNTFILE}.output" 2>&1
+          ;;
+      esac
+    done
+    exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
   fm_test_codex_first_turn_wrap "$fakebin"
-  fm_fake_exit0 "$fakebin" treehouse
+  cat > "$fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "$*" = get ]; then
+  printf '%s\n' "$*" >> "${FM_FAKE_PANE_COUNTFILE}.treehouse-calls"
+  printf '%s\n' "${FM_FAKE_TREEHOUSE_OUTPUT:-}"
+  exit "${FM_FAKE_TREEHOUSE_EXIT:-0}"
+fi
+exit 0
+SH
+  chmod +x "$fakebin/treehouse"
   printf '%s\n' "$fakebin"
 }
 
@@ -256,10 +294,229 @@ test_unborn_head_project_is_refused_at_once() {
   pass "a project with an unborn HEAD is refused at once with its cause named"
 }
 
+# Public seam: invoke the real spawn with a backend returning command output
+# and a controlled cwd sequence. No-op sleeps make all 60 deadline polls cheap.
+test_treehouse_failure_reason() {
+  local rec id out status reads
+  id=settle-fetch-failed-z6
+  rec=$(make_settle_case settle-fetch-failed "$id" 100000)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  out=$(FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' \
+    FM_FAKE_TREEHOUSE_EXIT=1 FM_FAKE_CAPTURE_TRAILER='__FM_CWD_BEGIN__
+/project
+__FM_CWD_END__
+worker$' run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" "failed treehouse get must refuse spawn"
+  assert_contains "$out" 'fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' "refusal lost treehouse's own error"
+  reads=$(cat "$COUNTFILE")
+  [ "$reads" -eq 2 ] || fail "failed get took $reads cwd reads instead of two consecutive failure reads"
+  assert_contains "$out" 'treehouse get exited before entering an isolated worktree' 'failed get was reported as a timeout'
+  pass "treehouse failure refuses after two reads with its own error"
+}
+
+test_treehouse_error_while_running_keeps_waiting() {
+  local rec id out status reads
+  id=settle-running-error-z7
+  rec=$(make_settle_case settle-running-error "$id" 100000)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  out=$(FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: still retrying inside treehouse' run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" 'running get should refuse only at deadline'
+  reads=$(cat "$COUNTFILE")
+  [ "$reads" -eq 60 ] || fail "running get was cut short after $reads reads"
+  assert_contains "$out" 'within 60s' 'running get lost the existing timeout message'
+  assert_contains "$out" 'fetch failed: still retrying inside treehouse' 'deadline refusal lost the recent output'
+  pass "error output alone never cuts a running get short; deadline includes its reason"
+}
+
+test_unreadable_treehouse_pane_keeps_deadline() {
+  local rec id out status reads
+  id=settle-unreadable-z8
+  rec=$(make_settle_case settle-unreadable "$id" 100000)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  out=$(FM_FAKE_CAPTURE_UNREADABLE=1 run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" 'unreadable pane should keep refusal code'
+  reads=$(cat "$COUNTFILE")
+  [ "$reads" -eq 60 ] || fail "unreadable pane was cut short after $reads reads"
+  assert_contains "$out" 'within 60s' 'unreadable pane lost the existing timeout message'
+  assert_contains "$out" 'pane could not be read' 'unreadable pane was silently ignored'
+  pass "an unreadable pane keeps the full wait and explains the missing output"
+}
+
+test_slow_treehouse_get_still_succeeds() {
+  local rec id out status
+  id=settle-slow-healthy-z9
+  rec=$(make_settle_case settle-slow-healthy "$id" 58)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  out=$(FM_FAKE_TREEHOUSE_OUTPUT='Fetching origin...' run_settle_spawn "$id")
+  status=$?
+  expect_code 0 "$status" "healthy get that settles on the final poll must succeed"$'\n'"$out"
+  assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" 'slow get recorded the wrong worktree'
+  pass "healthy get can use the entire wait window"
+}
+
+test_failure_reads_must_be_consecutive() {
+  local rec id out status reads
+  id=settle-interrupted-error-z10
+  rec=$(make_settle_case settle-interrupted-error "$id" 100000)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  out=$(FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: Permission denied (publickey)' \
+    FM_FAKE_TREEHOUSE_EXIT=1 FM_FAKE_CAPTURE_FAIL_ON=2 run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" 'failed get should refuse after capture recovers'
+  reads=$(cat "$COUNTFILE")
+  [ "$reads" -eq 4 ] || fail "capture failure did not restart the two-read proof: $reads reads"
+  assert_contains "$out" 'Permission denied (publickey)' 'recovered capture lost the reason'
+  pass "an unreadable sample restarts consecutive failure confirmation"
+}
+
+test_treehouse_output_bound_and_stale_marker() {
+  local rec id out status reads text
+  id=settle-bounded-output-z11
+  rec=$(make_settle_case settle-bounded-output "$id" 100000)
+  read_settle_record "$rec"
+  STALE_DIR=$PROJ_DIR
+  fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+  text=$(printf '%2000s' x)
+  out=$(FM_FAKE_TREEHOUSE_OUTPUT="__FM_TREEHOUSE_GET_EXIT_0__=1
+$text
+fetch failed: key-role-name Permission denied (publickey)" run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" 'failed acquisition must refuse at deadline'
+  reads=$(cat "$COUNTFILE")
+  [ "$reads" -eq 60 ] || fail "a stale exit marker cut the wait short at $reads reads"
+  assert_contains "$out" 'key-role-name Permission denied (publickey)' 'bounded detail changed the printed identity'
+  [ "${#out}" -lt 2500 ] || fail "pane output was not bounded (${#out} characters)"
+  pass "diagnostics are bounded and an old exit marker cannot end a new get"
+}
+
+test_treehouse_probe_backlog_keeps_reason() {
+  local rec id out status reads trailer backend i treehouse_status expected_reads
+  trailer=$(for backend in ZELLIJ CMUX PASEO; do
+    for i in $(seq 1 20); do
+      printf '__FM_%s_CWD_BEGIN__\n/project/%s\n__FM_%s_CWD_END__\n' "$backend" "$i" "$backend"
+    done
+  done)
+  [ "$(printf '%s\n' "$trailer" | wc -l)" -gt 80 ] || fail 'fixture needs more than 80 queued probe lines'
+  for treehouse_status in 0 1; do
+    id="settle-probe-backlog-$treehouse_status-z14"
+    rec=$(make_settle_case "settle-probe-backlog-$treehouse_status" "$id" 100000)
+    read_settle_record "$rec"
+    STALE_DIR=$PROJ_DIR
+    fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+    out=$(FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' \
+      FM_FAKE_TREEHOUSE_EXIT="$treehouse_status" FM_FAKE_CAPTURE_TRAILER="$trailer" run_settle_spawn "$id")
+    status=$?
+    expect_code 1 "$status" 'acquisition without a worktree must refuse'
+    assert_contains "$out" 'fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' 'queued cwd probes hid the Treehouse reason'
+    [ "${#out}" -lt 2500 ] || fail "probe backlog made the refusal unbounded (${#out} characters)"
+    expected_reads=60
+    if [ "$treehouse_status" -ne 0 ]; then
+      expected_reads=2
+      assert_contains "$out" 'exited before entering an isolated worktree' 'queued cwd probes hid the completion marker'
+    else
+      assert_contains "$out" 'within 60s' 'probe output without a completion marker cut the wait short'
+    fi
+    reads=$(cat "$COUNTFILE")
+    [ "$reads" -eq "$expected_reads" ] || fail "probe backlog case $treehouse_status took $reads cwd reads, expected $expected_reads"
+  done
+  pass '180 queued cwd-probe lines preserve early and deadline failure reasons'
+}
+
+test_treehouse_failure_real_tmux() (
+  local rec id out status real_tmux socket started elapsed
+  fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_LIVE tmux
+  real_tmux=$(command -v tmux)
+  socket="fm-treehouse-reason-$$"
+  id=settle-real-failure-z12
+  rec=$(make_settle_case settle-real-failure "$id" 100000)
+  read_settle_record "$rec"
+  # Use a private server with an ordinary shell and a fake treehouse binary.
+  # This exercises the actual submitted command, terminal rendering and capture
+  # without acquiring a pool slot or contacting GitHub.
+  cat > "$FAKEBIN_DIR/treehouse" <<'SH'
+#!/usr/bin/env bash
+printf 'fetch failed: git fetch origin: git@github.com: Permission denied (publickey)\n'
+exit 1
+SH
+  chmod +x "$FAKEBIN_DIR/treehouse"
+  cat > "$FAKEBIN_DIR/tmux" <<SH
+#!/usr/bin/env bash
+exec "$real_tmux" -f /dev/null -L "$socket" "\$@"
+SH
+  PATH="$FAKEBIN_DIR:$PATH" "$real_tmux" -f /dev/null -L "$socket" new-session -d -s firstmate -n supervisor 'bash --noprofile --norc' \
+    || fail 'could not start private tmux test server'
+  "$real_tmux" -L "$socket" set-option -g default-command 'bash --noprofile --norc'
+  started=$SECONDS
+  out=$(run_settle_spawn "$id")
+  status=$?
+  elapsed=$((SECONDS - started))
+  "$real_tmux" -L "$socket" kill-server
+  expect_code 1 "$status" "real tmux failed get should refuse"$'\n'"$out"
+  assert_contains "$out" 'fetch failed: git fetch origin: git@github.com: Permission denied (publickey)' 'real pane refusal lost the error'
+  assert_contains "$out" 'exited before entering' 'real pane was treated as a timeout'
+  [ "$elapsed" -lt 30 ] || fail "real failed get took ${elapsed}s"
+  pass "real tmux $($real_tmux -V): shell exit plus captured error refuses in ${elapsed}s"
+)
+
+test_treehouse_fish_submission() (
+  fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_FISH fish
+  local rec id out status reads treehouse_status stale_reads
+  for treehouse_status in 0 7; do
+    stale_reads=58
+    [ "$treehouse_status" -eq 0 ] || stale_reads=100000
+    id="settle-fish-$treehouse_status-z13"
+    rec=$(make_settle_case "settle-fish-$treehouse_status" "$id" "$stale_reads")
+    read_settle_record "$rec"
+    STALE_DIR=$PROJ_DIR
+    fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+    out=$(FM_FAKE_PANE_SHELL=fish FM_FAKE_TREEHOUSE_EXIT="$treehouse_status" \
+      FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: Permission denied (publickey)' run_settle_spawn "$id")
+    status=$?
+    grep -Fxq -- 'get' "$COUNTFILE.treehouse-calls" || fail 'fish must execute Treehouse before reporting its outcome'
+    reads=$(cat "$COUNTFILE")
+    if [ "$treehouse_status" -eq 0 ]; then
+      expect_code 0 "$status" "healthy Treehouse acquisition through fish must succeed"$'\n'"$out"
+      assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" 'fish spawn recorded the wrong worktree'
+      [ "$reads" -eq 61 ] || fail "healthy fish acquisition took $reads cwd reads"
+      pass 'fish executes a healthy acquisition without a failure marker'
+    else
+      expect_code 1 "$status" "failed Treehouse acquisition through fish must refuse"$'\n'"$out"
+      assert_contains "$out" 'exited before entering an isolated worktree' 'fish failure was treated as a timeout'
+      assert_contains "$out" 'fetch failed: Permission denied (publickey)' 'fish refusal lost the Treehouse error'
+      [ "$reads" -eq 2 ] || fail "failed fish acquisition took $reads cwd reads"
+      pass 'fish reports a nonzero Treehouse exit promptly with its reason'
+    fi
+  done
+)
+
+test_failure_reads_must_be_consecutive
+test_treehouse_output_bound_and_stale_marker
+test_treehouse_probe_backlog_keeps_reason
+test_treehouse_failure_real_tmux || exit $?
+
+test_treehouse_failure_reason
+test_treehouse_error_while_running_keeps_waiting
+test_unreadable_treehouse_pane_keeps_deadline
+test_slow_treehouse_get_still_succeeds
+
 test_single_stale_first_read_is_not_accepted
 test_already_settled_pane_costs_one_confirm_read
 test_transient_primary_checkout_is_not_accepted
 test_primary_checkout_that_never_settles_fails_at_the_deadline
 test_unborn_head_project_is_refused_at_once
+test_treehouse_fish_submission || exit $?
 
 echo "# all fm-spawn-worktree-settle tests passed"

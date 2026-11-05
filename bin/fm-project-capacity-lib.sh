@@ -45,14 +45,13 @@
 #   - has no recorded PR handoff: the pr= line bin/fm-pr-check.sh records when a
 #     worker's PR is ready, after which the worker waits on review or merge and
 #     no longer uses local resources, and
-#   - holds a seat under fm_task_record_holds_seat below, the shared owner of
-#     the live-process rule also used by bin/fm-capacity-lib.sh's lane count.
+#   - holds a project place under fm_task_record_holds_seat below.
 # A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
 # A local-only ship and a scout have no recorded handoff, so their retained
-# records count only while they hold a seat under that shared rule.
+# records count only while they hold a place under that predicate.
 # A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones
 # of one origin share the cap only when they use that same directory name. A
@@ -73,11 +72,13 @@
 # the count.
 #
 # Requires bin/fm-wake-lib.sh (root home, local homes, project lock path),
-# bin/fm-agent-process-lib.sh (fm_agent_process_classify),
 # bin/fm-secondmate-registry-lib.sh (which the local-homes walk reads), and
 # bin/fm-backend.sh (fm_meta_get, fm_backend_of_meta, fm_backend_agent_state,
 # fm_task_record_endpoint_confirmed_gone) to be
 # sourced first. No side effects on source.
+
+# shellcheck source=bin/fm-agent-process-lib.sh
+. "${BASH_SOURCE[0]%/*}/fm-agent-process-lib.sh"
 
 # Exit status of a spawn deferred because the project is at capacity: the
 # sysexits "temporary failure" code, so a caller can tell a deferral that leaves
@@ -104,6 +105,7 @@ fm_project_capacity_config_dir() {  # <spawning-home> <spawning-config-dir>
 # to the project's capacity, or to empty when the project declares none, and
 # FM_PROJECT_CAPACITY_ANY to 1 when the declaration caps any project at all.
 # Returns 1 with FM_PROJECT_CAPACITY_ERROR when the declaration is unreadable.
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_project_capacity_lookup() {  # <config-dir> <project-name>
   local name=$2 line lineno=0 pname pcap seen='|'
   FM_PROJECT_CAPACITY_FILE="$1/project-capacity"
@@ -169,19 +171,21 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
   return 0
 }
 
-# Does one task record hold a seat? The single owner of the rule shared by the
-# lane count (bin/fm-capacity-lib.sh) and the project count above. Returns 0
+# Does one task record hold a project place? Returns 0
 # when the record holds a seat and 1 when it holds none. <raw> is the record's
 # text, <meta> its path, and <state-dir> the state directory that holds it.
 # Only an agent proven dead or missing can free a seat, and then only when the
-# record names bin/fm-teardown.sh's <state-dir>/<id>.released-copy sentinel or
+# record explicitly clears worktree=, names bin/fm-teardown.sh's
+# <state-dir>/<id>.released-copy sentinel, or
 # its worktree is an absolute, readable, searchable directory that resolves to
 # a physical path with no non-shell process working in it or its descendants.
 # Use teardown's bounded cwd scan, never a recursive file-tree walk.
-# A live agent, unknown liveness, a missing or unreadable worktree, or missing,
+# A live agent, unknown liveness, an absent worktree field, a missing or
+# unreadable directory, or missing,
 # unreadable or malformed process evidence keeps the seat.
 # FM_TASK_RECORD_SEAT_KNOWN distinguishes proven occupancy or vacancy (1)
 # from a conservative hold caused by unreadable or uncertain evidence (0).
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
   local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
   local holds name args argv0
@@ -194,6 +198,12 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
     *) return 0 ;;
   esac
   worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
+  # An explicit empty field records no retained copy; an absent field is
+  # incomplete evidence and must retain its conservative seat.
+  if [ -z "$worktree" ] && printf '%s\n' "$raw" | grep -q '^worktree='; then
+    FM_TASK_RECORD_SEAT_KNOWN=1
+    return 1
+  fi
   # A teardown-completed record names the <id>.released-copy sentinel, which is
   # never a real directory, so with no live agent it holds no seat.
   [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || { FM_TASK_RECORD_SEAT_KNOWN=1; return 1; }
@@ -248,6 +258,7 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
 # FM_PROJECT_CAPACITY_ERROR when the local homes cannot be enumerated, or when
 # a state directory or task record in them cannot be read, since skipping it
 # could undercount the holders.
+# shellcheck disable=SC2034 # Result variables are consumed by sourcing callers.
 fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> <own-id>
   local want=$1 own=$2 first=$3 self=$4 state meta kind project lock id label i
   local -a cache_dirs cache_locks

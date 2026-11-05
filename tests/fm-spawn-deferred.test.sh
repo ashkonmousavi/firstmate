@@ -9,6 +9,9 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# These fake homes have no supervisor lease; never inherit the invoking harness.
+export FM_TEST_SEAM=1 FM_TEST_HARNESS=unknown
+
 ROOT_BIN="$ROOT/bin/fm-spawn-deferred.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-deferred)
@@ -407,7 +410,7 @@ test_real_spawn_starts_after_a_lane_frees() {
       ;;
   esac
   rc=0
-  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" \
+  out=$(FM_TEST_ACTIVITY_LANES=1 FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE="$projects_override" FM_CONFIG_OVERRIDE='' \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
@@ -441,7 +444,7 @@ test_real_spawn_starts_after_a_lane_frees() {
     mkdir -p "$proof"
     cat > "$proof/proof.txt" <<EOF
 isolated_home=$home
-defer_command=FM_HOME=$home FM_SPAWN_NO_GUARD=1 TMUX=fake,1,0 FM_BACKEND=tmux PATH=$fakebin:\$PATH $SPAWN retry-one $project --mode no-mistakes --yolo off
+defer_command=FM_TEST_ACTIVITY_LANES=1 FM_HOME=$home FM_SPAWN_NO_GUARD=1 TMUX=fake,1,0 FM_BACKEND=tmux PATH=$fakebin:\$PATH $SPAWN retry-one $project --mode no-mistakes --yolo off
 defer_exit=75
 defer_record=state/spawn-deferred/queue task=retry-one
 lane_free_command=rm -f $home/state/occupant.meta

@@ -684,6 +684,65 @@ run_update_bounded() {  # <world> <ssh>; prints combined output
     FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" "$UPDATE" 2>&1
 }
 
+test_remote_status_survives_trailing_diagnostics() {
+  local w out fake_ssh status expected
+  w=$(remote_only_world remote-trailing-diagnostics)
+  fake_ssh="$w/fakebin/fake-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+set -u
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$4")
+case "${rargs[1]:-}" in
+  update) cat "$FM_FAKE_DIR/remote-output" ;;
+  state) printf 'alive\n' ;;
+esac
+SH
+  chmod +x "$fake_ssh"
+  local commit
+  commit=$(git -C "$w/main" rev-parse HEAD)
+  for status in synced current; do
+    case "$status" in
+      synced) expected="updated on remote-box ($commit)" ;;
+      current) expected="already current on remote-box ($commit)" ;;
+    esac
+    # A previous status must not override the final status, and a later
+    # diagnostic must not hide it. Exercise both one and multiple statuses.
+    local prior
+    for prior in no yes; do
+      {
+        [ "$prior" = no ] || printf 'current: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n'
+        printf '%s: %s\n' "$status" "$commit"
+        printf 'pr-poll-rearm: home=/srv/sm1 rearmed=0 left=0\n'
+      } > "$w/fake/remote-output"
+      out=$(run_update_bounded "$w" "$fake_ssh")
+      assert_contains "$out" "remote secondmate sm1: $expected" \
+        "$status status was hidden by trailing diagnostics (prior=$prior)"
+      assert_contains "$out" 'restart-secondmates: fm-sm1' \
+        "$status remote mate was excluded from restart (prior=$prior)"
+      assert_contains "$out" 'nudge-secondmates: none' "the restartable mate was also nudged"
+      assert_contains "$out" 'pr-poll-rearm: home=/srv/sm1 rearmed=0 left=0' \
+        "remote rearm diagnostics were lost"
+    done
+  done
+  for status in missing malformed; do
+    {
+      [ "$status" = missing ] || printf 'diagnostic: synced: %s\nsynced without colon\n' "$commit"
+      printf 'pr-poll-rearm: home=/srv/sm1 rearmed=0 left=0\n'
+    } > "$w/fake/remote-output"
+    out=$(run_update_bounded "$w" "$fake_ssh")
+    assert_contains "$out" 'remote secondmate sm1: skipped on remote-box: malformed update result' \
+      "$status status did not stay a malformed-result skip"
+    assert_contains "$out" 'restart-secondmates: none' "$status status selected a mate for restart"
+  done
+  pass "remote synced/current statuses survive trailing diagnostics; missing or malformed statuses are skipped"
+}
+
 test_remote_steps_are_bounded() {
   local w out started elapsed
   w=$(remote_only_world t14)
@@ -1090,6 +1149,7 @@ test_firstmate_detached_head_skipped
 test_unsafe_secondmate_home_skipped_before_git_update
 test_primary_update_rebinds_local_watch
 test_curated_branch_is_the_update_target
+test_remote_status_survives_trailing_diagnostics
 test_remote_steps_are_bounded
 test_remote_commit_mismatch_is_skipped
 test_unresolved_target_leaves_all_homes_untouched

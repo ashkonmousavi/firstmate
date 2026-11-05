@@ -868,7 +868,7 @@ test_machine_ceiling_across_projects() {
   for n in 1 2 3 4 5; do
     write_live "$home" "live-$n" "$case_dir/project-$((n % 3))"
   done
-  out=$(spawn_ship "$case_dir" task-six "$case_dir/unused") || rc=$?
+  out=$(FM_TEST_ACTIVITY_LANES=5 spawn_ship "$case_dir" task-six "$case_dir/unused") || rc=$?
   expect_code 75 "$rc" "sixth worker across three projects: $out"
   assert_contains "$out" 'lanes=5 target=5' 'machine reading'
   assert_absent "$home/state/task-six.meta" 'deferred record'
@@ -952,7 +952,7 @@ test_machine_refuses_inaccessible_state() {
   pass 'unreadable root state defers local secondmate workers'
 }
 
-test_machine_counts_published_lane_without_lock() {
+test_machine_consumes_updated_activity_without_lock() {
   local case_dir home mate hold wt pid i n a=0 b=0
   case_dir=$(make_case machine-concurrent task-a)
   home="$case_dir/home"
@@ -965,7 +965,7 @@ test_machine_counts_published_lane_without_lock() {
   for n in 1 2 3 4; do write_live "$home" "live-$n" "$case_dir/other-$n"; done
   hold="$case_dir/hold"
   wt=$(new_worktree "$case_dir" task-a)
-  FM_FAKE_HOLD="$hold" spawn_ship "$case_dir" task-a "$wt" > "$case_dir/a.out" 2>&1 &
+  FM_TEST_ACTIVITY_LANES=4 FM_FAKE_HOLD="$hold" spawn_ship "$case_dir" task-a "$wt" > "$case_dir/a.out" 2>&1 &
   pid=$!
   i=0
   while [ ! -f "$hold.reached" ]; do
@@ -975,12 +975,12 @@ test_machine_counts_published_lane_without_lock() {
   assert_absent "$home/state/.machine-lane-capacity.lock" 'machine lock must not span launch'
   : > "$hold.release"
   wait "$pid" || a=$?
-  run_spawn "$case_dir" "$mate" "$case_dir/unused" task-b "$case_dir/other-project" --mode no-mistakes --yolo off > "$case_dir/b.out" 2>&1 || b=$?
+  FM_TEST_ACTIVITY_LANES=5 run_spawn "$case_dir" "$mate" "$case_dir/unused" task-b "$case_dir/other-project" --mode no-mistakes --yolo off > "$case_dir/b.out" 2>&1 || b=$?
   expect_code 0 "$a" "first spawn: $(cat "$case_dir/a.out")"
   expect_code 75 "$b" "concurrent other-project spawn: $(cat "$case_dir/b.out")"
   assert_present "$home/state/task-a.meta" 'winner published'
   assert_absent "$mate/state/task-b.meta" 'loser did not publish'
-  pass 'machine admission holds no lock across launch and counts the published lane across projects'
+  pass 'machine admission holds no lock across launch and consumes the updated activity snapshot across projects'
 }
 
 test_machine_registry_parent_refuses_spawn() {
@@ -1003,13 +1003,13 @@ test_machine_registry_parent_refuses_spawn() {
   for n in 1 2 3 4 5; do write_live "$sibling" "live-$n" "$case_dir/other-$n"; done
   chmod 000 "$root/data"
   rc=0
-  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  out=$(FM_TEST_ACTIVITY_LANES=5 run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
   chmod 755 "$root/data"
   expect_code 75 "$rc" "inaccessible registry parent admitted a sixth lane: $out"
   assert_contains "$out" "registry parent is unreadable at $root/data" 'spawn names inaccessible registry parent'
   assert_absent "$mate/state/task-m.meta" 'refused spawn published a record'
   rc=0
-  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  out=$(FM_TEST_ACTIVITY_LANES=5 run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
   expect_code 75 "$rc" "restored registry hid sibling holders: $out"
   assert_contains "$out" 'lanes=5 target=5' 'restored registry counts sibling holders'
   pass 'inaccessible root registry parent defers a worker from a writable secondmate'
@@ -1242,4 +1242,4 @@ test_machine_ceiling_across_projects
 test_machine_memory_and_unreadable
 test_machine_refuses_inaccessible_state
 test_machine_registry_parent_refuses_spawn
-test_machine_counts_published_lane_without_lock
+test_machine_consumes_updated_activity_without_lock

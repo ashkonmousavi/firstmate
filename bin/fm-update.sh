@@ -379,7 +379,7 @@ if [ -f "$SECONDMATES_MD" ]; then
       elif [ "$remote_rc" -eq 2 ]; then
         echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: pinned update rejected; manual update required" >&2
       elif [ "$remote_rc" -eq 0 ]; then
-        remote_result=$(printf '%s\n' "$remote_out" | tail -1)
+        remote_result=$(printf '%s\n' "$remote_out" | sed -n -e '/^synced:/p' -e '/^current:/p' | tail -1)
         remote_reported=${remote_result#*: }
         remote_reported=${remote_reported%% *}
         case "$remote_result" in

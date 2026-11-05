@@ -838,7 +838,7 @@ _fm_status_kind() {
   case "$kind" in ship|scout|secondmate) printf '%s' "$kind" ;; *) printf unknown ;; esac
 }
 
-_fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb> <kind> [timed]
+_fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb> <kind> [timed|emitted]
   local open=$1 line=$2 resolve=$3 held=$4 kind=$5 verb key note unstamped
   local timed=${6:-} epoch
   # Both colon tests below ask where the head ends, the same question the note
@@ -874,11 +874,12 @@ _fm_decision_fold_line() {  # <open-set> <status-line> <resolve-verb> <held-verb
   case "$verb" in
     needs-decision|blocked)
       note=$(status_line_note "$line")
-      if [ "$timed" = timed ]; then
+      if [ -n "$timed" ]; then
         # The timed view adds an emission-time column, without changing any
-        # open/closed rule. Keyless or unstamped events have unknown age.
+        # open/closed rule. The emitted view also dates keyless events
+        # for presentation ordering; the timed age-policy view keeps them unknown.
         epoch=unknown
-        if [ -n "$(_fm_decision_key "$line" '')" ]; then
+        if [ "$timed" = emitted ] || [ -n "$(_fm_decision_key "$line" '')" ]; then
           _fm_status_at_epoch "$line" epoch || epoch=unknown
         fi
         note="$epoch"$'\t'"$note"
@@ -1178,8 +1179,10 @@ EOF
 #
 # The cursor format is `version` (FM_OPEN_DECISIONS_FOLD_VERSION plus the task
 # kind, as `<n>:<kind>`), `offset`, `ident`, then the folded open set.
-# The optional timed view uses a separate `.timed` cursor and adds `:timed`
-# to the version; status_open_decisions_incremental owns its row format.
+# Optional timed/emitted views use separate cursors and version suffixes;
+# status_open_decisions_incremental owns their row format.
+# An emitted-view commit also refreshes the ordinary cursor without its epoch
+# column, so supervision peeks reuse the drain's consumed prefix and row format.
 # FM_OPEN_DECISIONS_FOLD_VERSION must be bumped whenever
 # _fm_decision_fold_line semantics change, so persisted state from an older
 # interpretation is discarded and rebuilt from byte 0; the kind suffix does the
@@ -1342,18 +1345,20 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
   ' "$f" "$start" "$length"
 }
 
-status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [timed]
+status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [timed|emitted]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor kind fold_version timed=${3:-}
-  case "$timed" in ''|timed) ;; *) return 2 ;; esac
+  local target_cursor ordinary_cursor kind fold_version timed=${3:-}
+  case "$timed" in ''|timed|emitted) ;; *) return 2 ;; esac
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
   kind=$(_fm_status_kind "$f")
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
   cf=$(_fm_open_decisions_cursor_path "$f")
   # A separate cursor keeps the ordinary presentation view byte-compatible.
-  # Timed rows are <key> TAB <verb> TAB <epoch-or-unknown> TAB <note>.
-  if [ "$timed" = timed ]; then cf="$cf.timed"; fold_version="$fold_version:timed"; fi
+  # Timed/emitted rows are <key> TAB <verb> TAB <epoch-or-unknown> TAB <note>.
+  # Emitted rows retain keyless timestamps for presentation; timed rows keep
+  # keyless ages unknown for the reminder policy.
+  if [ -n "$timed" ]; then cf="$cf.$timed"; fold_version="$fold_version:$timed"; fi
   offset=0
   ident=''
   if [ -f "$cf" ] && [ -r "$cf" ] && [ ! -L "$cf" ]; then
@@ -1455,6 +1460,16 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [
       printf 'ident=%s\n' "$cur_ident"
       if [ -n "$open" ]; then printf '%s' "$open"; fi
     } > "$target_cursor" || return 1
+    if [ "$timed" = emitted ]; then
+      ordinary_cursor=$(_fm_open_decisions_cursor_path "$f")
+      {
+        printf 'version=%s\n' "$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
+        printf 'offset=%s\n' "$offset"
+        printf 'ident=%s\n' "$cur_ident"
+        if [ -n "$open" ]; then printf '%s' "$open" | cut -f1,2,4-; fi
+      } > "$ordinary_cursor.tmp.$$" || return 1
+      mv -f "$ordinary_cursor.tmp.$$" "$ordinary_cursor" || return 1
+    fi
     mv -f "$target_cursor" "$cf" || return 1
   fi
   printf '%s' "$open"
@@ -1470,18 +1485,18 @@ status_open_decisions_peek() {  # <status-file>
 }
 
 # Incremental sibling of scan_open_decisions: same fleet-wide directory walk and
-# output shape ("<task>\t<key>\t<verb>\t<note>" per open decision), but folds
+# default output shape ("<task>\t<key>\t<verb>\t<note>" per open decision), but folds
 # each task's status log through status_open_decisions_incremental instead of
 # the whole-file status_open_decisions, so a fleet-wide per-drain scan stays
 # bounded by new appends rather than total lifetime log size across every task.
-scan_open_decisions_incremental() {  # <state>
-  local state=$1 f task open line exclude
+scan_open_decisions_incremental() {  # <state> [timed|emitted]
+  local state=$1 timed=${2:-} f task open line exclude
   exclude=$(status_scan_parent_channel_exclude "$state")
   for f in "$state"/*.status; do
     [ -e "$f" ] || continue
     [ "$f" = "$exclude" ] && continue
     task=$(basename "$f"); task="${task%.status}"
-    open=$(status_open_decisions_incremental "$f") || continue
+    open=$(status_open_decisions_incremental "$f" '' "$timed") || continue
     [ -n "$open" ] || continue
     while IFS= read -r line; do
       [ -n "$line" ] || continue
@@ -1815,6 +1830,8 @@ status_retire_presentation_task() {  # <state> <task-id> [<archive-file>]
     && [ ! -L "$state/.$task.open-decisions-cursor" ] \
     && [ ! -e "$state/.$task.open-decisions-cursor.timed" ] \
     && [ ! -L "$state/.$task.open-decisions-cursor.timed" ] \
+    && [ ! -e "$state/.$task.open-decisions-cursor.emitted" ] \
+    && [ ! -L "$state/.$task.open-decisions-cursor.emitted" ] \
     && [ ! -e "$home_appends" ] && [ ! -L "$home_appends" ] \
     && [ ! -e "$home_appends_lock" ] && [ ! -L "$home_appends_lock" ] \
     && [ ! -e "$signal_marker" ] && [ ! -L "$signal_marker" ] \
@@ -1885,6 +1902,7 @@ EOF
   if [ "$rc" -eq 0 ]; then
     rm -f -- "$state/$task.status" "$state/.$task.open-decisions-cursor" \
       "$state/.$task.open-decisions-cursor.timed" \
+      "$state/.$task.open-decisions-cursor.emitted" \
       "$home_appends" "$signal_marker" "$heartbeat_marker" "$daemon_marker" || rc=1
     fm_lock_remove_path "$home_appends_lock" 2>/dev/null || true
   fi
@@ -1963,12 +1981,12 @@ EOF
   mv -f "$tmp" "$state/.status-presentation-cursor" || { rm -f "$tmp"; return 1; }
 }
 
-scan_open_decisions_snapshot() {  # <state> <task-and-endpoint-snapshot>
-  local state=$1 snapshot=$2 task endpoint ident f open line
+scan_open_decisions_snapshot() {  # <state> <task-and-endpoint-snapshot> [timed|emitted]
+  local state=$1 snapshot=$2 timed=${3:-} task endpoint ident f open line
   while IFS=$(printf '\t') read -r task endpoint ident; do
     [ -n "$task" ] || continue
     f="$state/$task.status"
-    open=$(status_open_decisions_incremental "$f" "$endpoint") || return 1
+    open=$(status_open_decisions_incremental "$f" "$endpoint" "$timed") || return 1
     [ -n "$open" ] || continue
     while IFS= read -r line; do
       [ -n "$line" ] || continue

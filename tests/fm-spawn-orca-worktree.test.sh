@@ -917,6 +917,8 @@ PY
   pass "real tmux preserves absent/C locale values and reported raw bytes, rejects missing/phantom names and excludes the automatic SSH agent"
 }
 
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != spawn-orca-worktree ] || return 0
+
 test_orca_source_preserves_values_without_utf8_locale
 test_orca_launch_uses_controlled_tmux_environment
 test_orca_allowlist_without_source_warns

@@ -4,7 +4,7 @@ This document is the authoritative human-readable contract for the watcher arm P
 `bin/fm-arm-command-policy.mjs` is the single semantic owner.
 `bin/fm-arm-pretool-check.sh` is only the stable harness transport and output renderer.
 The tracked harness adapters forward command text without classifying it.
-`bin/fm-arm-command-policy.mjs` is also the sole owner of firstmate's shell classification: it exports the tokenizer and command-position analysis, which the sibling cd-guard seatbelt (`bin/fm-cd-pretool-check.sh`, `docs/cd-guard.md`) reuses instead of duplicating shell lexing.
+`bin/fm-arm-command-policy.mjs` also owns the shared tokenizer and command-position analysis reused by the [cd-guard seatbelt](cd-guard.md) and [Claude during-turn classifier](watcher-continuity.md#claude-during-turn-continuity).
 
 ## Purpose and boundary
 
@@ -76,12 +76,12 @@ This covers statically-visible literal words in command position; opaque dynamic
 `bin/fm-watch.sh` is protected but is not a blessed entry point.
 A direct `bin/fm-watch.sh` execution - relative, `<code-root>`-anchored, `$VAR`-prefixed, or `~`-prefixed - always denies with `watcher-direct`, whose reason points the caller at `bin/fm-watch-arm.sh` and `bin/fm-watch-checkpoint.sh`.
 
-The same bytes in an argument, comment, assertion, documentation query, Python string, `printf`, or `tmux send-keys` payload are data and do not make the outer command relevant.
+The same bytes in an argument, comment, assertion, documentation query, `command -v` or `command -V` lookup, Python string, `printf`, or `tmux send-keys` payload are data and do not make the outer command relevant.
 
-Literal `sh`, `bash`, or `zsh` `-c` payloads and literal `eval` payloads are recursively classified.
+Literal `sh`, `bash`, `zsh`, or `dash` `-c` payloads and literal `eval` payloads are recursively classified.
 A literal nested payload that only runs a data-bearing command is allowed.
 A literal nested payload that executes a protected command is denied as `watcher-nested`, even when that inner protected call would be allowed at top level.
-A heredoc or literal here-string fed to a shell that reads its program from stdin is classified the same way.
+A heredoc or literal here-string fed to a shell that reads its program from stdin, including through a `/dev/stdin` operand, is classified the same way.
 With `-s`, later operands set positional parameters rather than naming a script, so `bash -s sentinel <<< 'bin/fm-watch.sh'` is denied.
 An operand after `-s --` remains positional, while a protected watcher path in the first operand position is still denied.
 

@@ -7,6 +7,7 @@ set -eu
 LAB=$(fm_test_tmproot fm-state-claim)
 python3 - "$ROOT" "$LAB" <<'PY'
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -23,6 +24,9 @@ subprocess.run(["git", "init", "-q", str(primary)], check=True)
 (primary / "state").mkdir()
 module = root / "bin/fm-state-claim-guard.py"
 user = {"type": "user", "message": {"role": "user", "content": "Report current state."}}
+activity = lab / "activity.sh"
+activity.write_text('#!/usr/bin/env bash\nprintf \'%s\\n\' \'{"readable":true,"lanes":3,"target":10,"free_lanes":7}\'\n')
+activity_read = f"bash {activity} --machine-json {primary}"
 
 
 def tool(command, ident="read", error=False):
@@ -34,8 +38,10 @@ def tool(command, ident="read", error=False):
     ]
 
 
-def check(label, message, commands=(), expected=2, rows=None, active=False, path=None, hook=False, extra_env=None, extra_payload=None, named_claim=None):
+def check(label, message, commands=(), expected=2, rows=None, active=False, path=None, hook=False, extra_env=None, extra_payload=None, named_claim=None, capacity_read=True, expected_hint="State claim needs a same-turn read"):
     records = [user] if rows is None else list(rows)
+    if capacity_read:
+        records.extend(tool(activity_read, ident="activity"))
     for command in commands:
         records.extend(tool(command))
     transcript.write_text("".join(json.dumps(row) + "\n" for row in records))
@@ -58,7 +64,7 @@ def check(label, message, commands=(), expected=2, rows=None, active=False, path
     elapsed = (time.perf_counter() - start) * 1000
     assert result.returncode == expected, (label, result.returncode, result.stdout, result.stderr)
     if expected == 2:
-        assert "State claim needs a same-turn read" in result.stderr, (label, result.stderr)
+        assert expected_hint in result.stderr, (label, result.stderr)
         if named_claim:
             assert named_claim in result.stderr, (label, result.stderr)
         assert not result.stdout, (label, result.stdout)
@@ -66,6 +72,70 @@ def check(label, message, commands=(), expected=2, rows=None, active=False, path
         assert not result.stdout and not result.stderr, (label, result.stdout, result.stderr)
     print(f"ok - {label} ({elapsed:.1f}ms)")
     return elapsed
+
+
+# Claude can append harness text to the same user row as a tool result.
+reminder = {"type": "text", "text": "<system-reminder>Read current capacity.</system-reminder>"}
+for extra_text in (reminder, {"type": "text", "text": "Hook feedback: continue working."}):
+    capacity = tool(activity_read, ident="activity")
+    capacity[1]["message"]["content"].append(extra_text)
+    check("capacity result with harness text counts: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *capacity], capacity_read=False, expected=0)
+    later = tool("printf OK", ident="later")
+    later[1]["message"]["content"].append(extra_text)
+    check("later harness result preserves completed capacity: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *tool(activity_read), *later],
+          capacity_read=False, expected=0)
+    failed = tool(activity_read, ident="failed", error=True)
+    failed[1]["message"]["content"].append(extra_text)
+    check("failed capacity with harness text does not count: " + extra_text["text"],
+          "There are 7 free lanes.", rows=[user, *failed], capacity_read=False)
+for human in (user, {"type": "user", "message": {"content": [
+        {"type": "text", "text": "Report current state again."}]}}):
+    check("human text resets completed capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, *tool(activity_read), human], capacity_read=False)
+    call, result = tool(activity_read)
+    check("human text resets pending capacity: " + repr(human), "There are 7 free lanes.",
+          rows=[user, call, human, result], capacity_read=False)
+# Claude Code 2.1.318 writes Stop hook feedback as an isMeta string user row in
+# the same turn (MAIN 593af4e3 row 889). This guard's own refusal must not wipe
+# an earlier read; any other feedback (a watcher rewake) or a human row resets.
+own_refusal = ("Stop hook feedback:\n[command hook 2]: State claim needs a same-turn read (deploy): "
+               "The site is deployed.\nRead activity.sh successfully in this turn.\n")
+rewake = "Stop hook feedback:\n[command hook 2]: TURN WOULD END BLIND - SUPERVISION IS OFF\n"
+for label, feedback, expected in (
+        ("own refusal feedback keeps capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content": own_refusal}}, 0),
+        ("own reply-shape feedback keeps capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+          "Stop hook feedback:\n[command hook 2]: Reply shape: too long. This check blocks only once.\n"}}, 0),
+        ("rewake feedback resets capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content": rewake}}, 2),
+        ("own refusal combined with rewake resets capacity read",
+         {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+          own_refusal + rewake.removeprefix("Stop hook feedback:\n")}}, 2),
+        ("human row quoting refusal text resets capacity read",
+         {"type": "user", "message": {"role": "user", "content": own_refusal}}, 2)):
+    check(label, "There are 7 free lanes.", rows=[user, *tool(activity_read), feedback],
+          capacity_read=False, expected=expected)
+# Current Claude headers name the full tracked Stop command (row 7192).
+stop_command = next(h["command"] for group in json.loads((root / ".claude/settings.json").read_text())["hooks"]["Stop"]
+                    for h in group["hooks"] if "fm-turnend-guard.sh" in h.get("command", ""))
+check("own refusal under tracked hook header keeps capacity read", "There are 7 free lanes.",
+      rows=[user, *tool(activity_read), {"type": "user", "isMeta": True, "message": {"role": "user", "content":
+            f"Stop hook feedback:\n[{stop_command}]: State claim needs a same-turn read (deploy): The site is deployed.\n"}}],
+      capacity_read=False, expected=0, hook=True)
+# A Bash result reports only the last pipeline/chain stage, so a piped or
+# chained read cannot prove activity.sh succeeded. The refusal must say so,
+# or the agent repeats the same refused read (MAIN 593af4e3, 2026-11-04).
+saved = lab / "activity-saved.txt"
+for command in (f"{activity_read} | awk '/lanes/' | sort | uniq -c",
+                f"{activity_read} > {saved}; echo rc=$?"):
+    check("piped or chained capacity read names standalone form: " + command,
+          "There are 7 free lanes.", [command], capacity_read=False,
+          expected_hint="as its own Bash command")
+check("standalone capacity read redirected to a file counts", "There are 7 free lanes.",
+      [f"{activity_read} > {saved}"], capacity_read=False, expected=0)
 
 
 check("planted queue claim without read blocks and names claim", "PR https://github.com/example/repo/pull/9 is in the queue.",
@@ -362,12 +432,98 @@ writer.chmod(0o755)
 primary = linked
 check("secondmate claim blocks", "The lane is running.", hook=True)
 assert (lab / "verdict").read_text().strip() == "busy"
-check("secondmate second Stop allows and closes busy", "The lane is running.", hook=True, active=True, expected=0)
+check("secondmate supported second Stop allows and closes busy", "The lane is running.",
+      ["bash bin/fm-crew-state.sh lane-a"], hook=True, active=True, expected=0)
 assert (lab / "verdict").read_text().strip() == "idle"
 (linked / ".fm-secondmate-home").unlink()
 check("ship and scout worktree is exempt", "The deploy is live.", hook=True, expected=0)
 
 primary = lab / "primary"
+capacity_phrases = (
+    "Laptop 8 live of 8, admission no.",
+    "Laptop 3 live of 10.",
+    "PC has 2 free of 8.",
+    "PC: 3 working, 7 available.",
+    "Laptop: 3 of 10 occupied.",
+    "Server: 3/10 live.",
+    "3 lanes are working.",
+    "Three lanes are working.",
+    "Seats are full.",
+    "Slots are available.",
+    "Capacity is 8.",
+    "Admission no.",
+    "Admission yes.",
+    "No room.",
+    "3 free.",
+    "N live of M.",
+    "lane-b is running.",
+    "Lane alpha and worker beta are running.",
+    "The alpha lane and beta worker are running.",
+    "Lane alpha is not running.",
+    "0 free seats.",
+)
+for message in capacity_phrases:
+    check("21-case capacity replay blocks without activity: " + message, message, capacity_read=False)
+    check("21-case capacity replay blocks repeated Stop: " + message, message,
+          capacity_read=False, active=True)
+    check("21-case capacity replay accepts activity and named reads: " + message, message,
+          ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta",
+           "bash bin/fm-crew-state.sh lane-b"], expected=0)
+for assertion in ("PC has 2 free", "2 seats are available", "3 slots are occupied",
+                  "Admission no", "No room", "lane-b is running",
+                  "Lane alpha and worker beta are running"):
+    crew_reads = ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta",
+                  "bash bin/fm-crew-state.sh lane-b"]
+    for separator in ("; ", ". ", "! ", ", "):
+        message = assertion + separator + "should I fill them?"
+        check("trailing question cannot exempt capacity: " + message, message,
+              crew_reads, capacity_read=False)
+        check("repeated trailing question cannot exempt capacity: " + message, message,
+              crew_reads, capacity_read=False, active=True)
+        check("supported assertion can precede a question: " + message, message, crew_reads, expected=0)
+    check("leading question cannot exempt capacity: " + assertion, "Should I fill them? " + assertion + ".",
+          crew_reads, capacity_read=False)
+for question in ("how many lanes are free?", "How many seats are available?",
+                 "Are slots occupied?", "Is admission no?", "Is there no room?",
+                 "Is lane-b running?", "Are lane alpha and worker beta running?"):
+    for prefix in ("", "👉 ", "- ", "+ ", "* ", "1. ", "1) ", "• ", "  - 👉 ", "👉 - "):
+        check("pure capacity question needs no activity: " + prefix + question, prefix + question,
+              capacity_read=False, expected=0)
+for prefix in ("👉 ", "- ", "+ ", "* ", "1. ", "1) ", "• ", "  - 👉 ", "👉 - "):
+    message = prefix + "PC has 2 free; should I fill them?"
+    check("presentation cannot exempt an assertion: " + prefix, message, capacity_read=False)
+    check("presentation cannot exempt repeated assertion: " + prefix, message, capacity_read=False, active=True)
+    check("supported formatted assertion passes: " + prefix, message, expected=0)
+for records in ([user, *tool(activity_read, error=True)],
+                [user, *tool(activity_read), user],
+                [user, tool(activity_read)[0]],
+                [user, *tool("printf 'check-wake: activity.sh read completed'")]):
+    check("capacity needs a completed successful current-turn read", capacity_phrases[0],
+          rows=records, capacity_read=False)
+alias = lab / "activity-alias.sh"
+alias.symlink_to(activity)
+for command in (str(activity), f"bash {activity}", f"bash {alias}", "bash ./activity.sh"):
+    check("21-case capacity reader spelling: " + command, capacity_phrases[0], [command],
+          capacity_read=False, expected=0, extra_payload={"cwd": str(lab)})
+
+bad_state = lab / "state-file"
+bad_state.write_text("not a directory\n")
+directory_state = lab / "marker-directory"
+directory_state.mkdir()
+directory_marker = directory_state / (".state-claim-" + hashlib.sha256(b"fixture").hexdigest() + ".blocked")
+directory_marker.mkdir()
+for state in (bad_state, directory_state):
+    for active in (False, True):
+        check("marker I/O cannot allow unsupported capacity", capacity_phrases[0],
+              capacity_read=False, active=active, extra_env={"FM_STATE_OVERRIDE": str(state)})
+        check("marker I/O cannot block supported capacity", capacity_phrases[0],
+              expected=0, active=active, extra_env={"FM_STATE_OVERRIDE": str(state)})
+config = lab / "reply-config"
+config.mkdir()
+(config / "reply-shape").write_text("ask-first\n")
+check("reply-shape marker failure cannot allow capacity", "PC has 2 free. Can you approve?",
+      capacity_read=False, extra_env={"FM_STATE_OVERRIDE": str(bad_state), "FM_CONFIG_OVERRIDE": str(config)},
+      expected_hint="Reply shape:")
 timings = [check(f"budget sample {i}", "PR 9 is merged.", hook=True) for i in range(5)]
 assert max(timings) < 200, f"guard exceeded 200ms: {timings}"
 print(f"ok - full synchronous hook worst time {max(timings):.1f}ms < 200ms")
