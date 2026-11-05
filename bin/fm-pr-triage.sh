@@ -56,7 +56,11 @@
 #   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
 #   home. Without data/secondmates.md every task not open here is unowned.
 #   A task no home holds open is refused, with a record every pass and no
-#   notice. For this home's task, with a state/<id>.meta record:
+#   notice. A task this home holds open is still refused when
+#   bin/fm-pr-owner.sh (asked with --task) names another home as the pull
+#   request's owner, or says UNKNOWN with candidate homes, because the same id
+#   can be a row in several homes; a lookup that sees no row at all leaves the
+#   backlog's answer standing. For this home's task, with a state/<id>.meta record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -553,6 +557,26 @@ steer_owner() {
   record "$url" "$rank" fix "refused:owned by $home: steered $task (queue=$q)"
 }
 
+# owner_elsewhere <url> <task>: status 0 and the refusal reason when the owner
+# lookup does not let this home's task own the pull request.
+owner_elsewhere() {
+  local url=$1 task=$2 out rc first home id where why cands
+  out=$(FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-pr-owner.sh" "$url" --task "$task" 2>&1)
+  rc=$?
+  first=$(printf '%s\n' "$out" | sed -n 1p)
+  case "$rc:${first%%$'\t'*}" in
+    0:known)
+      IFS=$'\t' read -r _ home id where why <<<"$first"
+      [ "$where" = here ] && return 1
+      printf 'owned by %s per the owner lookup: %s' "$home" "$why" ;;
+    3:unknown)
+      IFS=$'\t' read -r _ cands where why <<<"$first"
+      [ "$cands" = - ] && return 1
+      printf 'owner UNKNOWN for %s, candidate homes %s: %s' "$task" "$cands" "$why" ;;
+    *) printf 'owner lookup failed for %s: %s' "$task" "$(flat "$out")" ;;
+  esac
+}
+
 fix_note() {  # <url> <base> <why>
   printf '%s\n' "PR triage ranks $1 among the pull requests to move first, and it is $3."
   printf '%s\n' "Merge origin/$2 into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once."
@@ -579,6 +603,10 @@ act_fix() {
       '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
       *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q" ;;
     esac
+    return 0
+  fi
+  if owner=$(owner_elsewhere "$url" "$task"); then
+    record "$url" "$rank" fix "refused:$owner (queue=$q)"
     return 0
   fi
   if [ ! -f "$STATE/$task.meta" ]; then

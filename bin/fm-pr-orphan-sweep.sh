@@ -34,9 +34,10 @@
 # homes; its header owns that rule and the fleet list it reads. When it names
 # this home, the wake names this home's task. When it names another home or is
 # UNKNOWN, a main home still wakes, naming that owner or UNKNOWN and the
-# candidates, so the main firstmate can route it; a secondmate home stays quiet,
-# because the pull request is not its work and its main home sweeps the same
-# project when registered there. When the lookup sees no row at all, this home's
+# candidates, so the main firstmate can route it. A secondmate home wakes for
+# UNKNOWN only when it is one of the candidates, so a home that may own the work
+# still hears of it; otherwise it stays quiet, because the pull request is not its
+# work and its main home sweeps the same project when registered there. When the lookup sees no row at all, this home's
 # backlog is still asked for the head branch's id (bin/fm-tasks-axi.sh show), so a
 # backlog it cannot read directly keeps claiming its own tasks. With no fleet list,
 # or a stale one, the wake ends with the lookup's fleet_list line.
@@ -235,7 +236,7 @@ task_claimed_here() {  # <task-id>
 }
 
 # pr_owner <url> <head> <task>: the wake's owner text, or status 1 when this
-# home stays quiet (a secondmate home whose lookup names no task here).
+# home stays quiet (a secondmate home the lookup leaves out).
 pr_owner() {
   local url=$1 head=$2 task=$3 bound out rc first verdict home id where why cands note=''
   bound=$(fm_checkpoint_budget "$BOUND") || return 1
@@ -255,16 +256,16 @@ pr_owner() {
     return 0
   fi
   if [ "$rc" = 3 ] && [ "$verdict" = unknown ]; then
-    IFS=$'\t' read -r _ cands why <<<"$first"
+    IFS=$'\t' read -r _ cands where why <<<"$first"
   else
     warn "could not decide the owner of $url"
-    cands=- why="the owner lookup could not read this home's rows"
+    cands=- where=elsewhere why="the owner lookup could not read this home's rows"
   fi
   if [ "$cands" = - ] && task_claimed_here "$task"; then
     printf "task %s in this home's backlog\n" "$task"
     return 0
   fi
-  [ "$MAIN_HOME" = 1 ] || return 1
+  [ "$MAIN_HOME" = 1 ] || [ "$where" = here ] || return 1
   [ "$cands" != - ] || cands=none
   printf 'UNKNOWN, candidate homes: %s (%s)%s\n' "$cands" "$why" "${note:+; $note}"
 }

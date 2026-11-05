@@ -567,6 +567,7 @@ A merged pull request never clears an edge by itself, because the same id can st
 A blocker whose only trace is its merged pull request is cleared by recording a mark with [`bin/fm-blocked-by.sh`](../bin/fm-blocked-by.sh) `mark`, which `unmark` reverses; the marks live in the home's `data/blocked-by-marks.tsv`.
 The optional fleet list `data/blocked-by-fleet-rows.tsv` holds every home's open, done and archived rows; the blocked-by census kit's `fleet-rows` output writes one per home, and it is copied into each home by hand.
 With it, an edge written `<home>:<id>` resolves against that home's rows.
+Its rows also carry the full pull request URLs each row cites, which [`bin/fm-pr-owner.sh`](../bin/fm-pr-owner.sh) reads to name the home and task that own a pull request.
 Without it, or once it is older than six hours (`FM_BLOCKED_BY_FLEET_MAX_AGE` seconds), the ready list and the digest print a `blocked_by_fleet_list:` line saying so.
 A stale list's open rows still block, but its done rows clear nothing.
 `bin/fm-blocked-by.sh verdicts` prints the verdict for every edge.

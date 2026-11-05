@@ -381,7 +381,7 @@ test_owner_routing() {
 # the pull request URL the build row records once it opens one. The prep home's
 # own backlog holds the id, so asking only this home's backlog names the wrong home.
 test_owner_lookup_names_the_home_that_owns_the_pull_request() {
-  local home=$TMP_ROOT/laptop mate=$TMP_ROOT/laptop-mate other=$TMP_ROOT/other-home out
+  local home=$TMP_ROOT/laptop mate=$TMP_ROOT/laptop-mate both=$TMP_ROOT/both-hold other=$TMP_ROOT/other-home out
   local id=x-j09-basket-approval-build
   make_home "$home"
   printf '7\tfm/%s\n' "$id" > "$home/pr-list.tsv"
@@ -401,6 +401,19 @@ test_owner_lookup_names_the_home_that_owns_the_pull_request() {
   [ -z "$out" ] && [ "$(orphan_wakes "$mate/state")" = 0 ] \
     || fail "a secondmate woke for a pull request another home owns: $out"
   ! grep -q '^api graphql' "$mate/gh.log" || fail "a secondmate read another home's pull request label"
+  # Live today: both homes hold the id and no row cites the URL yet, so each
+  # candidate home wakes, secondmate or not, naming both candidates.
+  make_home "$both"
+  cp "$home/pr-list.tsv" "$both/pr-list.tsv"
+  cp "$home/data/backlog.md" "$both/data/"
+  printf 'self\tq-zenbook\ngenerated\t%s\nhomes\tq-server,q-zenbook\nrow\tq-server\t%s\topen\n' "$(date +%s)" "$id" \
+    > "$both/data/blocked-by-fleet-rows.tsv"
+  printf 'q-zenbook\n' > "$both/.fm-secondmate-home"
+  out=$(SHOW_CMD=true run_sweep "$both" 2>&1) || fail "sweep failed"
+  case "$out" in
+    *"owner: UNKNOWN, candidate homes: q-zenbook,q-server (branch fm/$id names rows in q-zenbook,q-server and 0 of them cite the pull request)") ;;
+    *) fail "a candidate secondmate stayed quiet on an UNKNOWN owner: $out" ;;
+  esac
   make_home "$other"
   printf 'self\tpc\ngenerated\t%s\nhomes\tpc,server,zen\nrow\tserver\tlane\tdone\t-\nrow\tzen\tlane\topen\t-\n' "$(date +%s)" \
     > "$other/data/blocked-by-fleet-rows.tsv"

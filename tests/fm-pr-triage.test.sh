@@ -121,7 +121,8 @@ meta() {  # <id> [worktree]
 reset() {
   rm -f "$LOG" "$FAKE"/*.log "$FAKE"/show-*.json "$FAKE"/posture-* "$FAKE/control-rc" \
     "$FAKE/gh-fail" "$FAKE/mergify-fail" "$FAKE/send-fail" "$FAKE/remote-open" \
-    "$H/data/secondmates.md" "$H/state"/*.meta "$H/state/.wake-queue" "$H/state/.wake-queue.seq"
+    "$H/data/secondmates.md" "$H/state"/*.meta "$H/state/.wake-queue" "$H/state/.wake-queue.seq" \
+    "$H/data/blocked-by-fleet-rows.tsv"
   rm -rf "$H/state/pr-triage" "$H/state/spawn-deferred" "$H/state/.pr-triage.lock"
   printf '1\n' > "$FAKE/free"
   queue
@@ -162,6 +163,35 @@ bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 10)" 'refused:worker live for red-task' 'a live worker gets no second worker'
 [ "$(grep -c " relaunch --note" "$FAKE/control.log")" -eq 1 ] || fail 'live worker: no launch'
 pass 'conflicting and red relaunches the owning task once, never beside a live worker'
+
+# --- the same task id open in another home: the owner lookup decides --------
+# Live 2026-11-05: x-j09-basket-approval-build is an open prep-scout row on the
+# Zenbook and the server's open build row; the fixture's server row carries the
+# pull request URL a build row records once it opens one.
+reset
+backlog <<'MD'
+- [ ] x-j09-basket-approval-build - J-01 prep scout; the task stays with q-server (repo: proj) (kind: scout) (since 2026-11-05)
+MD
+meta x-j09-basket-approval-build
+echo exited > "$FAKE/posture-x-j09-basket-approval-build"
+printf 'self\tq-zenbook\ngenerated\t%s\nhomes\tq-server,q-zenbook\nrow\tq-server\tx-j09-basket-approval-build\topen\t%s/30\n' \
+  "$(date +%s)" "$URL" > "$H/data/blocked-by-fleet-rows.tsv"
+pr 30 fm/x-j09-basket-approval-build CONFLICTING FAILURE | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 30)" 'refused:owned by q-server per the owner lookup: task x-j09-basket-approval-build names rows in q-zenbook,q-server; only q-server' \
+  'a pull request the server row cites is not fixed from the prep home'
+assert_absent "$FAKE/control.log" 'the prep home relaunched nothing for the server pull request'
+printf 'self\tq-zenbook\ngenerated\t%s\nhomes\tq-server,q-zenbook\nrow\tq-server\tx-j09-basket-approval-build\topen\n' \
+  "$(date +%s)" > "$H/data/blocked-by-fleet-rows.tsv"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 30)" 'refused:owner UNKNOWN for x-j09-basket-approval-build, candidate homes q-zenbook,q-server' \
+  'two homes holding the id with no citing row is UNKNOWN, never a launch'
+assert_absent "$FAKE/control.log" 'an UNKNOWN owner relaunched nothing'
+rm -f "$H/data/blocked-by-fleet-rows.tsv"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 'launched x-j09-basket-approval-build (queue=not queued)' "$(field "$(rec 30)" 5)" \
+  "with no fleet list this home's open row still owns its pull request"
+pass 'a fix launches only when the owner lookup leaves the pull request with this home'
 
 reset
 backlog <<'MD'

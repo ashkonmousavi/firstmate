@@ -61,11 +61,11 @@ test_branch_id_in_two_homes_goes_to_the_row_citing_the_pull_request() {
 exit=0" "the build row's home did not own its pull request"
   fleet_list "$home" laptop "$now" laptop,server "server|$ID|open|-"
   out=$(owner "$home" "$PR" --branch "fm/$ID")
-  expect "$out" "unknown	laptop,server	branch fm/$ID names rows in laptop,server and 0 of them cite the pull request
+  expect "$out" "unknown	laptop,server	here	branch fm/$ID names rows in laptop,server and 0 of them cite the pull request
 exit=3" "two homes holding the branch's id without a citing row were not UNKNOWN"
   fleet_list "$home" laptop "$now" laptop,server "server|$ID|open|$PR" "zen|$ID|done|$PR"
   out=$(owner "$home" "$PR" --branch "fm/$ID")
-  expect "$out" "unknown	laptop,server,zen	*2 of them cite*exit=3" "two citing homes were resolved to one"
+  expect "$out" "unknown	laptop,server,zen	here	*2 of them cite*exit=3" "two citing homes were resolved to one"
   pass "a branch id held in several homes goes to the one home whose row cites the pull request, else UNKNOWN"
 }
 
@@ -81,6 +81,11 @@ exit=0" "an archived row in another home did not own its branch"
   out=$(owner "$home" "$PR" --branch fm/lane)
   expect "$out" "known	pc	lane	here	branch fm/lane names a row only in pc
 exit=0" "this home's own row was not named as here"
+  out=$(owner "$home" "$PR" --task lane)
+  expect "$out" "known	pc	lane	here	task lane names a row only in pc
+exit=0" "--task did not name the task directly"
+  out=$(owner "$home" "$PR" --task lane --branch fm/lane 2>&1)
+  expect "$out" "*alternatives*exit=2" "--task and --branch were both accepted"
   pass "a branch whose id has rows in exactly one home belongs to that home, archived rows included"
 }
 
@@ -97,13 +102,13 @@ exit=0" "the same number in another repository was matched"
   expect "$out" "known	server	lane-a	elsewhere	branch other/zzz names no task; only server:lane-a cites*exit=0" \
     "a URL differing only in owner or repository case did not match"
   out=$(owner "$home" https://github.com/ashkonmousavi/NOT_Q/pull/170 --branch fm/zzz)
-  expect "$out" "unknown	-	no row is named zzz and no row cites the pull request
+  expect "$out" "unknown	-	elsewhere	no row is named zzz and no row cites the pull request
 exit=3" "a number prefix matched a different pull request"
   fleet_list "$home" pc "$(date +%s)" pc,server,zen \
     "server|lane-a|open|https://github.com/ashkonmousavi/NOT_Q/pull/1700" \
     "zen|lane-c|done|https://github.com/x/y/pull/3,https://github.com/ashkonmousavi/NOT_Q/pull/1700"
   out=$(owner "$home" https://github.com/ashkonmousavi/NOT_Q/pull/1700 --branch fm/zzz)
-  expect "$out" "unknown	server,zen	no row is named zzz; 2 tasks in server,zen cite the pull request
+  expect "$out" "unknown	server,zen	elsewhere	no row is named zzz; 2 tasks in server,zen cite the pull request
 exit=3" "two homes citing the same pull request were resolved to one"
   pass "citing rows match the full pull request URL, and two citing tasks are UNKNOWN with both homes"
 }
@@ -113,7 +118,7 @@ test_this_homes_list_rows_are_ignored() {
   home=$(home_with pc-self)
   fleet_list "$home" pc "$(date +%s)" pc,server "pc|old-lane|done|$PR"
   out=$(owner "$home" "$PR" --branch fm/zzz)
-  expect "$out" "unknown	-	no row is named zzz and no row cites the pull request
+  expect "$out" "unknown	-	elsewhere	no row is named zzz and no row cites the pull request
 exit=3" "the fleet list's copy of this home's rows was read"
   pass "the fleet list's rows for this home are ignored; this home's own backlog is read instead"
 }
