@@ -1654,36 +1654,78 @@ test_completion_closes_a_local_only_ship_before_reporting_success() {
 }
 
 test_scout_phase_retention_replays_without_worker_metadata() {
-  local case_dir home id state mode out state_expected
-  for state in queued in_flight "done"; do
-    for mode in close retain; do
-      id="phase-replay-$state-$mode"
-      case_dir=$(make_home "$id")
-      home=$(home_of "$case_dir")
-      add_item "$case_dir" "$id" ship
-      [ "$state" != in_flight ] || start_item "$case_dir" "$id"
-      [ "$state" != "done" ] || tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
-      out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" bash -c '
-        . "$1/bin/fm-tasks-axi-lib.sh"
-        . "$1/bin/fm-backlog-transition-lib.sh"
-        flags=()
-        [ "$4" != retain ] || flags=(--retain)
-        fm_backlog_close_marker_stage "$2/state/$3.backlog-close" "$3" "$2/data" phase-gen "$2/state" 0 "${flags[@]}" --report "data/$3/report.md" || exit
-        fm_backlog_close_marker_replay "$2/state" "$2/state/$3.backlog-close" "$2/data"
-      ' _ "$ROOT" "$home" "$id" "$mode" 2>&1) || fail "phase replay failed: $out"
-      if [ "$state" = "done" ]; then state_expected=queued; else state_expected=$state; fi
-      [ "$(row_state "$case_dir" "$id")" = "$state_expected" ] || fail "phase replay closed or moved the parent"
-      assert_grep 'scout phase finished' "$(backlog_of "$case_dir")" "replay lost phase note"
-      assert_grep "data/$id/report.md" "$(backlog_of "$case_dir")" "replay lost phase report"
-      assert_absent "$home/state/$id.backlog-close" "replay left the phase marker"
+  local case_dir home id state mode out kind
+  for kind in ship owner; do
+    for state in queued in_flight "done"; do
+      for mode in close retain; do
+        id="phase-replay-$kind-$state-$mode"
+        case_dir=$(make_home "$id")
+        home=$(home_of "$case_dir")
+        if [ "$kind" = ship ]; then add_item "$case_dir" "$id" ship;
+        else
+          add_item "$case_dir" "$id" scout
+          tasks-axi update "$id" --body '**SLICE**: main/example role=owner' --file "$(backlog_of "$case_dir")" >/dev/null
+        fi
+        [ "$state" != in_flight ] || start_item "$case_dir" "$id"
+        [ "$state" != "done" ] || tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
+        out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" bash -c '
+          . "$1/bin/fm-tasks-axi-lib.sh"
+          . "$1/bin/fm-backlog-transition-lib.sh"
+          flags=()
+          [ "$4" != retain ] || flags=(--retain)
+          fm_backlog_close_marker_stage "$2/state/$3.backlog-close" "$3" "$2/data" phase-gen "$2/state" 0 "${flags[@]}" --report "data/$3/report.md" || exit
+          fm_backlog_close_marker_replay "$2/state" "$2/state/$3.backlog-close" "$2/data"
+        ' _ "$ROOT" "$home" "$id" "$mode" 2>&1) || fail "phase replay failed: $out"
+        [ "$(row_state "$case_dir" "$id")" = queued ] || fail "phase replay left the parent outside Queued"
+        assert_grep 'scout phase finished' "$(backlog_of "$case_dir")" "replay lost phase note"
+        assert_grep "data/$id/report.md" "$(backlog_of "$case_dir")" "replay lost phase report"
+        assert_absent "$home/state/$id.backlog-close" "replay left the phase marker"
+      done
     done
   done
-  pass "scout report replay retains parent rows after metadata removal, including legacy close records"
+  pass "scout report replay queues parent rows after metadata removal, including legacy close records"
+}
+
+test_scout_phase_declaration_grammar() {
+  local case_dir home id label body expected out rc
+  id=phase-declaration
+  case_dir=$(make_home "$id")
+  home=$(home_of "$case_dir")
+  add_item "$case_dir" "$id" scout
+  for label in 'SLICE' '# SLICE' '## SLICE' '### SLICE' '#### SLICE' '##### SLICE' '###### SLICE' \
+    '- SLICE' '* SLICE' '**SLICE**' '# - **SLICE**' '###### * **SLICE**' \
+    fenced-backtick fenced-tilde unclosed short-close wrong-close suffix-close indented-close \
+    fenced-then-owner first-scout first-owner invalid-label; do
+    expected=0
+    body="$label: main/example role=owner"
+    case "$label" in
+      fenced-backtick) body=$'```text\nSLICE: main/example role=owner\n```'; expected=1 ;;
+      fenced-tilde) body=$'~~~text\nSLICE: main/example role=owner\n~~~'; expected=1 ;;
+      unclosed) body=$'```text\nSLICE: main/example role=owner'; expected=1 ;;
+      short-close) body=$'````text\n```\nSLICE: main/example role=owner'; expected=1 ;;
+      wrong-close) body=$'```text\n~~~\nSLICE: main/example role=owner'; expected=1 ;;
+      suffix-close) body=$'```text\n```suffix\nSLICE: main/example role=owner'; expected=1 ;;
+      indented-close) body=$'```text\n    ```\nSLICE: main/example role=owner'; expected=1 ;;
+      fenced-then-owner) body=$'   ~~~~text\nSLICE: main/example role=tester\n```\n   ~~~~~ \n# - **SLICE**: main/example role=owner' ;;
+      first-scout) body=$'**SLICE**: main/example role=tester\nSLICE: main/example role=owner'; expected=1 ;;
+      first-owner) body=$'**SLICE**: main/example role=owner\nSLICE: main/example role=tester' ;;
+      invalid-label) body='SLICE example role=owner'; expected=1 ;;
+    esac
+    tasks-axi update "$id" --body "$body" --file "$(backlog_of "$case_dir")" >/dev/null
+    rc=0
+    out=$(FM_HOME="$home" bash -c '
+      . "$1/bin/fm-tasks-axi-lib.sh"
+      . "$1/bin/fm-backlog-transition-lib.sh"
+      fm_backlog_scout_phase "$2/data" "$3" scout
+    ' _ "$ROOT" "$home" "$id" 2>&1) || rc=$?
+    [ "$rc" -eq "$expected" ] || fail "$label: phase classification was $rc, expected $expected: $out"
+  done
+  pass "phase classification follows the first unfenced Markdown SLICE declaration"
 }
 
 test_scout_phase_done_preserves_the_parent_row() {
   local case_dir id kind state verb out home shown
-  for kind in ship owner scout; do
+  for kind in ship owner owner-bold scout fenced first-scout; do
     for state in queued in_flight; do
       for verb in "done" close library; do
         id="phase-$kind-$state-$verb"
@@ -1691,9 +1733,14 @@ test_scout_phase_done_preserves_the_parent_row() {
         home=$(home_of "$case_dir")
         if [ "$kind" = ship ]; then add_item "$case_dir" "$id" ship;
         else add_item "$case_dir" "$id" scout; fi
-        if [ "$kind" = owner ]; then
-          tasks-axi update "$id" --body 'SLICE: main/example role=owner' --file "$(backlog_of "$case_dir")" >/dev/null
-        fi
+        case "$kind" in
+          owner) shown='SLICE: main/example role=owner' ;;
+          owner-bold) shown='**SLICE**: main/example role=owner' ;;
+          fenced) shown=$'```text\nSLICE: main/example role=owner\n```' ;;
+          first-scout) shown=$'SLICE: main/example role=tester\nSLICE: main/example role=owner' ;;
+          *) shown='' ;;
+        esac
+        [ -z "$shown" ] || tasks-axi update "$id" --body "$shown" --file "$(backlog_of "$case_dir")" >/dev/null
         [ "$state" != in_flight ] || start_item "$case_dir" "$id"
         write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-$id"
         mkdir -p "$home/data/$id"
@@ -1709,7 +1756,7 @@ test_scout_phase_done_preserves_the_parent_row() {
             || fail "native completion failed: $out"
         fi
         shown=$(tasks-axi show "$id" --full --file "$(backlog_of "$case_dir")")
-        if [ "$kind" = scout ]; then
+        if [[ "$kind" = scout || "$kind" = fenced || "$kind" = first-scout ]]; then
           [ "$(row_state "$case_dir" "$id")" = "done" ] || fail "ordinary scout no longer closes"
         else
           [ "$(row_state "$case_dir" "$id")" = "$state" ] \
@@ -1728,6 +1775,7 @@ test_completion_closes_a_scout_with_its_report() {
   id=atomic-close-b6
   case_dir=$(make_home close-scout)
   add_item "$case_dir" "$id" scout
+  tasks-axi update "$id" --body $'```text\nSLICE: main/example role=owner\n```' --file "$(backlog_of "$case_dir")" >/dev/null
   start_item "$case_dir" "$id"
   tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-close-scout"
@@ -3254,6 +3302,7 @@ test_dispatch_does_not_resurrect_a_row_closed_after_preflight
 test_dispatch_fails_when_its_row_vanishes_after_preflight
 test_completion_closes_a_local_only_ship_before_reporting_success
 test_scout_phase_retention_replays_without_worker_metadata
+test_scout_phase_declaration_grammar
 test_scout_phase_done_preserves_the_parent_row
 test_completion_closes_a_scout_with_its_report
 test_completion_refuses_a_legacy_record_without_an_incarnation

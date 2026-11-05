@@ -60,8 +60,8 @@
 # first applies any supported retained artifact from the validated record, then
 # replay simply retires the record.
 # A scout phase on a ship or SLICE role=owner row uses that retain path too,
-# keeping the report and phase note without moving an open row or accepting its
-# parent outcome. The report argument preserves this distinction during replay.
+# keeping the report and phase note without accepting its parent outcome.
+# The report argument preserves this distinction during replay.
 
 # Set by fm_backlog_transition_applies for a return-1 exemption.
 # shellcheck disable=SC2034 # Output global, read by the sourcing caller.
@@ -587,7 +587,18 @@ fm_backlog_scout_phase() {  # <data-dir> <id> [worker-kind; otherwise read this 
     if ($body =~ /\A"/) {
       $body = JSON::PP->new->utf8->allow_nonref->decode($body);
     }
-    exit($body =~ /^\s*SLICE\b[^\n]*\brole=owner(?:\s|$)/m ? 0 : 1);
+    my $fence = "";
+    for my $line (split /\n/, $body) {
+      if ($line =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
+        my ($marker, $rest) = ($1, $2);
+        if (!$fence) { $fence = $marker; }
+        elsif (substr($marker, 0, 1) eq substr($fence, 0, 1)
+            && length($marker) >= length($fence) && $rest !~ /\S/) { $fence = ""; }
+      } elsif (!$fence && $line =~ /^\s*(?:#{1,6}\s+)?(?:[-*]\s+)?(?:\*\*)?SLICE(?:\*\*)?:(.*)$/) {
+        exit($1 =~ /\brole=owner(?:\s|$)/ ? 0 : 1);
+      }
+    }
+    exit 1;
   '
   status=$?
   [ "$status" -le 1 ] || { FM_BACKLOG_TRANSITION_ERROR="cannot decode $2's backlog outcome"; return 2; }
@@ -779,9 +790,8 @@ _fm_backlog_retain_locked() {  # <data-dir> <id> [flag...]
   if [ "${#row_args[@]}" -gt 0 ]; then
     fm_backlog_mutate "$authorized_data" update "$id" "${row_args[@]}" || return 1
   fi
-  if [ "$phase_status" = 0 ]; then
+  if [ "$phase_status" = 0 ] && { [ -e "$state/$id.meta" ] || [ -L "$state/$id.meta" ]; }; then
     fm_backlog_row_probe "$data" "$id" || { FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR; return 1; }
-    # A phase never moves an open row. Repair an old premature close to Queued.
     [ "${FM_BACKLOG_ROW_STATE%% *}" = "done" ] || return 0
   fi
   fm_backlog_mutate "$authorized_data" reopen "$id"

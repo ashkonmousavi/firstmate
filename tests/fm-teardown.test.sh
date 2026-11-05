@@ -6183,8 +6183,8 @@ test_open_pr_keep_open_with_a_dependent_holds_and_names_it() {
 }
 
 test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
-  local case_dir kind accepted expected
-  for kind in ship owner; do
+  local case_dir kind accepted body
+  for kind in ship owner owner-bold; do
     for accepted in no yes; do
       case_dir=$(make_case "scout-phase-$kind-$accepted")
       write_meta "$case_dir" no-mistakes scout
@@ -6192,17 +6192,17 @@ test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
       if [ "$kind" = ship ]; then seed_backlog_in_flight "$case_dir" ship;
       else
         seed_backlog_in_flight "$case_dir" scout
-        tasks-axi update task-x1 --body 'SLICE: main/example role=owner' --file "$case_dir/data/backlog.md" >/dev/null
+        body='SLICE: main/example role=owner'
+        [ "$kind" != owner-bold ] || body='**SLICE**: main/example role=owner'
+        tasks-axi update task-x1 --body "$body" --file "$case_dir/data/backlog.md" >/dev/null
       fi
-      expected=in_flight
       if [ "$accepted" = yes ]; then
         tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
-        expected=queued
       fi
       [ "$accepted" != no ] || add_blocked_by_child "$case_dir" child-one 'still needs the owner'
       teardown_capture "$case_dir"
       expect_code 0 "$TEARDOWN_CAPTURE_RC" "scout phase cleanup must succeed: $(cat "$case_dir/stderr")"
-      [ "$(backlog_row_state "$case_dir")" = "$expected" ] || fail "scout phase cleanup closed or moved its owner"
+      [ "$(backlog_row_state "$case_dir")" = queued ] || fail "scout phase cleanup left its owner outside Queued"
       assert_absent "$case_dir/state/task-x1.meta" "phase worker metadata survives cleanup"
       assert_absent "$case_dir/state/task-x1.backlog-close" "phase retain left a pending marker"
       assert_grep 'data/task-x1/report.md' "$case_dir/data/backlog.md" "phase report missing"
