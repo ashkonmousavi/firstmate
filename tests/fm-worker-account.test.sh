@@ -658,6 +658,7 @@ if [ "${1:-}" = -c ]; then
 fi
 if [ "${1:-}" = login ] && [ "${2:-}" = status ]; then
   [ -z "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}" ] || exit 82
+  [ ! -f "$CODEX_HOME/login-read-fails" ] || exit 79
   printf 'status diagnostics must stay private\n' >&2
   [ -f "$CODEX_HOME/signed-in" ]
   exit
@@ -827,6 +828,39 @@ test_codex_preference_horizon() {
   out=$(codex_at select --model requested); rc=$?
   expect_code 1 "$rc" 'both unavailable sign-ins refuse'
   pass 'Codex ordered preference honors exact runway boundary, scoped exhaustion and unknown distinctions'
+}
+
+# Repair failures are not quota evidence authorizing another account.
+test_codex_preferred_repair_refusal() {
+  local state fault out rc id kind
+  for state in sufficient unknown; do
+    for fault in signed-out config login-read; do
+      for kind in ship scout; do
+        codex_case "codex-repair-$state-$fault-$kind"
+        id="repair-$state-$fault-$kind"
+        codex_runway "$CASE/account-two" all_models through_reset 14400
+        if [ "$state" = unknown ]; then codex_quota "$CASE/account-two" unavailable 90; fi
+        case "$fault" in
+          signed-out) rm "$CASE/account-two/signed-in" ;;
+          config) rm "$CASE/account-two/config.toml" ;;
+          login-read) : > "$CASE/account-two/login-read-fails" ;;
+        esac
+        if [ "$kind" = ship ]; then
+          out=$(spawn_ship "$id" --harness codex --model requested); rc=$?
+        else
+          fm_test_spawn_brief "$HOME_DIR" "$id"
+          out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" \
+            --scout --harness codex --model requested); rc=$?
+        fi
+        expect_code 1 "$rc" "preferred repair must refuse $state/$fault/$kind: $out"
+        assert_refused_before_launch "$id" "$out" 'repair'
+        out=$(codex_tool select --folder "$CASE/account one" --model requested); rc=$?
+        expect_code 1 "$rc" 'an explicit fallback cannot bypass preferred-account repair'
+        assert_contains "$out" 'repair' 'refusal explains the repair instead of silently switching'
+      done
+    done
+  done
+  pass 'Codex preferred sign-in/config/status failures refuse ships and scouts even with unknown quota'
 }
 
 test_codex_launch_preference() {
@@ -1678,6 +1712,7 @@ if [ "${FM_TEST_FIXTURE_IMPORT:-}" = worker-account ]; then
 fi
 
 test_codex_preference_horizon
+test_codex_preferred_repair_refusal
 test_codex_launch_preference
 
 test_codex_empty_list_refuses_before_endpoint

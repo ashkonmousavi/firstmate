@@ -7,12 +7,14 @@ no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
 and auth symlinks/hardlinks refuse. The guard compares file metadata and the
 runner's reported account identity, never reading credential contents itself.
-Missing auth is allowed in the list but cannot win. The runner's local status
+Missing auth is allowed in the list but requires repair unless quota authorizes
+skipping that folder. The runner's local status
 is not a network validation.
 
 quota-axi >=0.1.66 --profile-only supplies one redacted reading per folder without
 refresh, cache or fallback. Applicable exhausted quota or measured runway below
-10800 seconds excludes a folder. The first remaining launch-ready folder wins, irrespective of percentage.
+10800 seconds authorizes skipping a folder. The first quota-eligible folder must
+be launch-ready or selection refuses with a repair message, irrespective of percentage.
 Unknown/unavailable quota stays unknown and does not authorize fallback.
 All vendor output is captured; only allowlisted quota fields escape this process.
 
@@ -304,33 +306,42 @@ def timestamp(value):
 
 
 def preflight(roots, codex):
-    guard(roots, codex)
-    if not any(signed_in(root, codex) and shared_ready(root) and quota_usable(reading(root), "")
-               for root in roots):
-        raise ValueError("codex-accounts has no usable signed-in folder with shared configuration")
+    # Before a released copy/secondmate has its actual launch cwd, only universal
+    # quota can authorize skipping a folder. Do not guess its future model.
+    require_winner(snapshot(roots, codex, "", os.getcwd(), defer_model=True))
 
 
-def snapshot(roots, codex, model, cwd):
+def snapshot(roots, codex, model, cwd, defer_model=False):
     guard(roots, codex)
     rows = []
+    candidate = None
     for root in roots:
         ready = signed_in(root, codex)
-        configured = ready and shared_ready(root)
-        launch_model = effective_model(root, codex, model, cwd) if configured else ""
-        row = reading(root) if ready else {"state": {"status": "unavailable"}, "windows": [],
-                                           "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
+        configured = shared_ready(root)
+        launch_model = (model or "") if defer_model or not (ready and configured) else effective_model(root, codex, model, cwd)
+        # A failed login/status/config check is not quota evidence. Read quota
+        # independently; missing/unavailable evidence cannot authorize fallback.
+        row = reading(root)
+        usable = quota_usable(row, launch_model)
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
-                   model=launch_model, launchReady=configured and quota_usable(row, launch_model))
+                   model=launch_model, launchReady=ready and configured and usable)
         rows.append(row)
-    winner = next((r for r in rows if r["launchReady"]), None)
-    return {"schemaVersion": 6, "providers": rows,
+        if candidate is None and usable:
+            candidate = row
+    winner = candidate if candidate and candidate["launchReady"] else None
+    repair = None
+    if candidate and not winner:
+        repair = ("codex-accounts preferred quota-eligible folder requires repair of sign-in, "
+                  "login-status read or shared configuration: " + candidate["accountLocator"]["path"] +
+                  "; no default fallback or account switch without quota authorization")
+    return {"schemaVersion": 6, "providers": rows, "selectionError": repair,
             "selectedRoot": winner["accountLocator"]["path"] if winner else None}
 
 
 def require_winner(data):
     if not data["selectedRoot"]:
-        raise ValueError("codex-accounts has no usable signed-in folder with config.toml, AGENTS.md and rules; no default fallback")
+        raise ValueError(data.get("selectionError") or "codex-accounts has no usable signed-in folder with config.toml, AGENTS.md and rules; no default fallback")
     return data["selectedRoot"]
 
 
@@ -414,6 +425,7 @@ def main():
             raise ValueError(f"Codex launch directory is unavailable: {cwd}")
         data = snapshot(roots, args.codex, args.model, cwd)
         if args.folder:
+            require_winner(data)
             root = str(Path(args.folder).resolve())
             if not any(r["launchReady"] and r["accountLocator"]["path"] == root for r in data["providers"]):
                 raise ValueError("codex-accounts preselected folder is no longer usable; no fallback")

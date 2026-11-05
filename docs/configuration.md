@@ -1646,7 +1646,8 @@ Each folder needs its own sign-in, obtained independently on that machine; never
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
 Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
-Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now, then selects the first remaining folder in list order.
+It may skip a folder only when applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now.
+The first folder not skipped must be locally signed in with required shared configuration present; otherwise launch refuses with a repair message instead of switching accounts.
 Weekly percentages do not change that preference.
 The horizon uses the absolute projected exhaustion time when available, otherwise the usable runway seconds anchored to that folder's reading time; exactly three hours remains eligible.
 A through-reset reading stays eligible, while missing, stale, unavailable or unknown quota remains unmeasured and does not by itself authorize switching to another account.

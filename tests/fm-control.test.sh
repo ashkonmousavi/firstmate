@@ -40,7 +40,7 @@ control_test_cleanup() {
       kill "$pid" 2>/dev/null || true
     done < "$TMP_ROOT/background-pids"
   fi
-  rm -rf "$TMP_ROOT"
+  fm_test_remove_tree "$TMP_ROOT"
 }
 trap control_test_cleanup EXIT
 
@@ -136,6 +136,9 @@ case "${1:-}" in
     done
     payload=${1:-}
     if [ "$literal" = 1 ]; then
+      case "$payload" in
+        ". '"*"'") staged=${payload#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || payload=$(cat "$staged") ;;
+      esac
       printf '%s\n' "$payload" >> "$D/literal"
       if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then printf '%s' "$payload" > "$D/draft"; fi
       if [ -z "${FM_FAKE_NEVER_DIES:-}" ] \
@@ -2281,6 +2284,120 @@ SH
   pass "lane release revalidates ship and scout evidence under the steer publication lock before exit"
 }
 
+codex_control_accounts() {
+  local dir=$1 root
+  for root in "$dir/preferred" "$dir/fallback"; do
+    mkdir -p "$root/rules"
+    printf 'fixture-%s\n' "$root" > "$root/auth.json"
+    : > "$root/signed-in"
+    printf 'model="requested"\n' > "$root/config.toml"
+    : > "$root/AGENTS.md"
+    printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$root/rules/default.rules"
+    jq -n '{generatedAt:(now|todate),providers:[{provider:"codex",state:{status:"fresh"},
+      quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",
+        effectivePercentRemaining:90,runway:{status:"through_reset"}}]}}]}' > "$root/quota.json"
+  done
+  printf '%s\n' "$dir/preferred" "$dir/fallback" > "$dir/home/config/codex-accounts"
+  cat > "$dir/fakebin/codex" <<'PYCODE'
+#!/usr/bin/env python3
+import json, os, pathlib, sys
+root = pathlib.Path(os.environ.get("CODEX_HOME", "/nonexistent"))
+if "status" in sys.argv:
+    sys.exit(79 if (root / "login-read-fails").exists() else 0 if (root / "signed-in").exists() else 1)
+if "app-server" not in sys.argv:
+    print("codex-cli 0.163.0")
+    sys.exit(0)
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        result = {"config": {"model": "requested"}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PYCODE
+  cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+cat "$CODEX_HOME/quota.json"
+SH
+  chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+}
+
+test_codex_preferred_repair_preserves_incarnation() {
+  local dir kind state fault out rc meta_before claim_before
+  for kind in ship scout secondmate; do
+    for state in sufficient unknown; do
+      for fault in signed-out config login-read; do
+        dir=$(new_case "codex-repair-$kind-$state-$fault")
+        add_task "$dir" t1 codex "$kind"
+        alive_as "$dir" codex
+        codex_control_accounts "$dir"
+        if [ "$state" = unknown ]; then
+          printf '{"providers":[]}\n' > "$dir/preferred/quota.json"
+        fi
+        case "$fault" in
+          signed-out) rm "$dir/preferred/signed-in" ;;
+          config) rm "$dir/preferred/config.toml" ;;
+          login-read) : > "$dir/preferred/login-read-fails" ;;
+        esac
+        meta_before=$(cat "$dir/home/state/t1.meta")
+        printf 'task=t1\nhome=%s\n' "$dir/home" > "$dir/.fm-slot-owner"
+        claim_before=$(cat "$dir/.fm-slot-owner")
+        out=$(run_control "$dir" t1 relaunch --harness codex --model default --note retry); rc=$?
+        expect_code 1 "$rc" "preferred repair must refuse $kind/$state/$fault: $out"
+        assert_contains "$out" repair 'preflight names the repair'
+        assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'repair refusal sends no lifecycle input'
+        assert_equals codex "$(cat "$dir/fake/command")" 'the old incarnation stays alive'
+        assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'repair refusal preserves metadata'
+        assert_equals "$claim_before" "$(cat "$dir/.fm-slot-owner")" 'repair refusal preserves ownership'
+        assert_absent "$dir/home/state/t1.control-relaunch" 'repair refusal starts no transaction'
+      done
+    done
+  done
+  pass 'Codex preferred-account repair refuses before stopping ship, scout or secondmate'
+}
+
+test_codex_two_account_relaunch_switch() {
+  local dir out rc before after
+  dir=$(new_case codex-switch)
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
+  add_task "$dir" t1 codex
+  alive_as "$dir" codex
+  printf codex > "$dir/fake/becomes"
+  codex_control_accounts "$dir"
+  cat > "$dir/home/data/t1/brief.md" <<'MD'
+# Task
+## Captain's intent
+Preserve the task while replacing the worker on the quota-authorized account.
+
+## Firstmate spec
+Exercise the native account-switching relaunch.
+MD
+  printf 'account=%s\n' "$dir/preferred" >> "$dir/home/state/t1.meta"
+  before=s1000.1.1
+  printf 'spawn_gen=%s\n' "$before" >> "$dir/home/state/t1.meta"
+  jq '.providers[].quotaSemantics.effectiveAvailability[].runway={status:"projected_exhaustion",usableRunwaySeconds:10799}' \
+    "$dir/preferred/quota.json" > "$dir/short.json"
+  mv "$dir/short.json" "$dir/preferred/quota.json"
+  out=$(FM_SPAWN_NO_GUARD=1 run_control "$dir" t1 relaunch --model requested --effort high --note 'quota-authorized account switch'); rc=$?
+  expect_code 0 "$rc" "two-account switching relaunch must succeed: $out"
+  assert_grep "account=$dir/fallback" "$dir/home/state/t1.meta" 'replacement records the quota-authorized fallback'
+  assert_grep 'model=requested' "$dir/home/state/t1.meta" 'replacement retains the model'
+  assert_grep 'effort=high' "$dir/home/state/t1.meta" 'replacement retains the effort'
+  assert_grep '/quit' "$dir/fake/literal" 'the previous incarnation was stopped'
+  assert_grep "CODEX_HOME='$dir/fallback'" "$dir/fake/literal" 'replacement launch exports the selected account'
+  after=$(sed -n 's/^spawn_gen=//p' "$dir/home/state/t1.meta")
+  [ -n "$after" ] && [ "$after" != "$before" ] || fail 'switch must create a fresh spawn incarnation'
+  assert_grep 'phase=complete' "$dir/home/state/t1.control-relaunch" 'switching transaction completes'
+  pass 'Codex relaunch switches to fallback below the horizon and preserves model and effort'
+}
+
 test_codex_relaunch_accounts_preflight() {
   local dir out rc meta_before kind
   for kind in ship scout; do
@@ -2382,6 +2499,8 @@ test_devin_stuck_picker_refuses_and_exit_types_nothing
 test_opencode_interrupts_twice_and_others_once
 test_unverified_harness_is_refused
 test_harness_family_resolution
+test_codex_preferred_repair_preserves_incarnation
+test_codex_two_account_relaunch_switch
 test_codex_relaunch_accounts_preflight
 test_codex_relaunch_default_model_preflight
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
