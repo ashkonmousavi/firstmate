@@ -1,0 +1,9 @@
+The account suite first refused a secondmate fixture because TMPDIR was placed under the source repository. The existing secondmate placement guard correctly rejected that setup. The rerun used the test toolchain's normal /tmp directory and passed that case.
+
+The rerun then failed the imported test_codex_project_cwd_handoffs assertion: ordinary rank-only relaunch expected account-two, but received account-one. The fixture lists account-one first, while account-two has a higher weekly percentage. Both accounts are exhausted under rank-only.
+
+The independent expected result comes from the accepted owner requirement that configured account preference supersedes credit ranking, including when quota-gate is rank-only. A separate read-only reviewer confirmed that account-one is correct and found no other stale account-ranking expectation in the file. The test expectation was corrected without changing its fixtures, model assertions, lifecycle checks, claim-failure checks, or quota notices. The focused imported function passed after the correction; account-project-handoffs-fixed.log retains its result. account-targeted-retry.log retains the preceding failure.
+
+Native Codex local status, config/read, and account/read were exercised with disposable synthetic caches. Measured-quota selector checks use a controlled external quota adapter. These establish selector behavior and native local-status compatibility, not real ChatGPT quota or authenticated worker account use. No production account folder or fleet actor was touched. The required no-mistakes review-child sibling and fleet rollout remain separate work.
+
+The final normal-composition fm-worker-account suite exited 0 after the oracle correction; account-final-tests.log and account-final-timing.json retain the completed result. All explicitly started check sessions have exited, and workspace-local disposable fixtures were removed.

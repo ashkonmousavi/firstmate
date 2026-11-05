@@ -1,0 +1,33 @@
+FM_TEST_BEGIN 2026-11-05T08:15:47Z tests/fm-worker-account.test.sh family=backend-dispatch expected_gate_skip=none
+ok - Codex ordered preference honors exact runway boundary, scoped exhaustion and unknown distinctions
+ok - Codex preferred sign-in/config/status failures refuse ships and scouts even with unknown quota
+fake codex 0.136.0
+fake codex 0.136.0
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex ships and scouts launch the preferred or horizon fallback folder with model and effort preserved
+fake codex 0.136.0
+fake codex 0.136.0
+ok - rank-only admits exhausted Codex accounts in configured preference order while preserving pins and authentication
+ok - Codex refuses an empty opt-in before endpoint creation
+ok - raw launch commands refuse quota overrides instead of bypassing the quota check
+ok - Codex preserves configured preference with unknown quota and rejects credential copies/links
+ok - Codex guard uses metadata and private runner identities without opening credentials
+ok - Codex filters applicable exhaustion before preference, including unknown percentages and preselected folders
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves and pins actual default models across selection, gates and launch
+fake codex 0.136.0
+fake codex 0.136.0
+fake codex 0.136.0
+fake codex 0.136.0
+ok - deferred Codex model selection controls effort flags on tmux and Orca
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves project defaults in the actual worktree before filtering, gating and launch
+not ok - secondmate must resolve its model after home preparation: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/049a88734b0e/01M6NBA314FZTVWW3NTV86N8Q4/.test-phase-tmp/fm-worker-account.bJukHS/codex-secondmate-project/mate-home: expected exit 0, got 1
+FM_TEST_END 2026-11-05T08:17:08Z tests/fm-worker-account.test.sh exit=1 duration_ms=80862 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=80894
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=80862 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-worker-account.test.sh duration_ms=80862
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6NBA314FZTVWW3NTV86N8Q4/account-targeted-timing.json
