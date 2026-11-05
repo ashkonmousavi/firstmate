@@ -54,13 +54,13 @@
 #   hashed from the pull request number, head, home and message so an
 #   uncertain send retried with the same message deduplicates; its backlog is
 #   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
-#   home. Without data/secondmates.md every task not open here is unowned.
-#   A task no home holds open is refused, with a record every pass and no
-#   notice. A task this home holds open is still refused when
-#   bin/fm-pr-owner.sh (asked with --task) names another home as the pull
-#   request's owner, or says UNKNOWN with candidate homes, because the same id
-#   can be a row in several homes; a lookup that sees no row at all leaves the
-#   backlog's answer standing. For this home's task, with a state/<id>.meta record:
+#   home. An unregistered owning home is reported without a steer.
+#   Before checking any home, bin/fm-pr-owner.sh (asked with --task) selects
+#   the owning home and task; UNKNOWN is refused with its candidate homes.
+#   Only that home's backlog is checked for open work, including when this
+#   home has a done row with the same id. A task no home holds open is refused,
+#   with a record every pass and no notice.
+#   For this home's task, with a state/<id>.meta record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -506,36 +506,30 @@ marker_put() {  # <file> <head>
   mkdir -p "$MARKS" && printf '%s\n' "$2" > "$1"
 }
 
-# owning_home <task>: prints the id of the registered home whose backlog holds
-# the task open, or nothing; a home whose backlog cannot be read is printed as
-# "?<id>" after the scan.
-owning_home() {
-  local reg="$DATA/secondmates.md" line out rc unread=''
+# open_owner <task> <home>: prints the selected registered home if its backlog
+# holds the task open, or nothing; an unreadable backlog is printed as "?<id>".
+open_owner() {
+  local reg="$DATA/secondmates.md" out rc=0
   [ -f "$reg" ] && [ ! -L "$reg" ] || return 0
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in '- '*) ;; *) continue ;; esac
-    secondmate_registry_parse_line "$line" || { unread="$unread ?malformed-registry-line"; continue; }
-    rc=0
-    if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ]; then
-      out=$(fm_run_timed "$BOUND" "$ON_BIN" "$SECONDMATE_REGISTRY_ID" fm-tasks-axi.sh show "$1" 2>&1 < /dev/null) || rc=$?
-    else
-      case "$SECONDMATE_REGISTRY_HOME" in
-        /*) out=$(fm_run_timed "$BOUND" env -u FM_DATA_OVERRIDE FM_HOME="$SECONDMATE_REGISTRY_HOME" \
-              "$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" 2>&1 < /dev/null) || rc=$? ;;
-        *) out=; rc=1 ;;
-      esac
-    fi
-    if [ "$rc" = 0 ]; then
-      case "$(printf '%s\n' "$out" | sed -n 's/^  state: //p' | head -1)" in
-        done) ;;
-        '') unread="$unread ?$SECONDMATE_REGISTRY_ID" ;;
-        *) printf '%s\n' "$SECONDMATE_REGISTRY_ID"; return 0 ;;
-      esac
-    elif ! printf '%s\n' "$out" | grep -qx 'code: NOT_FOUND'; then
-      unread="$unread ?$SECONDMATE_REGISTRY_ID"
-    fi
-  done < "$reg"
-  [ -z "$unread" ] || printf '%s\n' "${unread# }"
+  secondmate_registry_line_for_id "$reg" "$2" || { printf '?%s\n' "$2"; return 0; }
+  if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ]; then
+    out=$(fm_run_timed "$BOUND" "$ON_BIN" "$SECONDMATE_REGISTRY_ID" fm-tasks-axi.sh show "$1" 2>&1 < /dev/null) || rc=$?
+  else
+    case "$SECONDMATE_REGISTRY_HOME" in
+      /*) out=$(fm_run_timed "$BOUND" env -u FM_DATA_OVERRIDE FM_HOME="$SECONDMATE_REGISTRY_HOME" \
+            "$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" 2>&1 < /dev/null) || rc=$? ;;
+      *) out=; rc=1 ;;
+    esac
+  fi
+  if [ "$rc" = 0 ]; then
+    case "$(printf '%s\n' "$out" | sed -n 's/^  state: //p' | head -1)" in
+      done) ;;
+      '') printf '?%s\n' "$2" ;;
+      *) printf '%s\n' "$2" ;;
+    esac
+  elif ! printf '%s\n' "$out" | grep -qx 'code: NOT_FOUND'; then
+    printf '?%s\n' "$2"
+  fi
 }
 
 # steer_owner <number> <url> <rank> <task> <home> <head> <note> <queue>
@@ -557,26 +551,6 @@ steer_owner() {
   record "$url" "$rank" fix "refused:owned by $home: steered $task (queue=$q)"
 }
 
-# owner_elsewhere <url> <task>: status 0 and the refusal reason when the owner
-# lookup does not let this home's task own the pull request.
-owner_elsewhere() {
-  local url=$1 task=$2 out rc first home id where why cands
-  out=$(FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-pr-owner.sh" "$url" --task "$task" 2>&1)
-  rc=$?
-  first=$(printf '%s\n' "$out" | sed -n 1p)
-  case "$rc:${first%%$'\t'*}" in
-    0:known)
-      IFS=$'\t' read -r _ home id where why <<<"$first"
-      [ "$where" = here ] && return 1
-      printf 'owned by %s per the owner lookup: %s' "$home" "$why" ;;
-    3:unknown)
-      IFS=$'\t' read -r _ cands where why <<<"$first"
-      [ "$cands" = - ] && return 1
-      printf 'owner UNKNOWN for %s, candidate homes %s: %s' "$task" "$cands" "$why" ;;
-    *) printf 'owner lookup failed for %s: %s' "$task" "$(flat "$out")" ;;
-  esac
-}
-
 fix_note() {  # <url> <base> <why>
   printf '%s\n' "PR triage ranks $1 among the pull requests to move first, and it is $3."
   printf '%s\n' "Merge origin/$2 into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once."
@@ -586,10 +560,39 @@ fix_note() {  # <url> <base> <why>
 # act_fix <number> <url> <rank> <task> <why> <head> <base>
 act_fix() {
   local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 base=$7 q posture rc note owner
+  local out first selected_home id where evidence cands
   q=$(queue_state "$n")
   note=$(fix_note "$url" "$base" "$why")
   if [ -z "$task" ]; then
     record "$url" "$rank" fix "refused:no task branch (queue=$q)"
+    return 0
+  fi
+  rc=0
+  out=$(FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-pr-owner.sh" "$url" --task "$task" 2>&1) || rc=$?
+  first=$(printf '%s\n' "$out" | sed -n 1p)
+  case "$rc:${first%%$'\t'*}" in
+    0:known)
+      IFS=$'\t' read -r _ selected_home id where evidence <<<"$first"
+      task=$id ;;
+    3:unknown)
+      IFS=$'\t' read -r _ cands where evidence <<<"$first"
+      if [ "$cands" = - ]; then
+        record "$url" "$rank" fix "refused:no home owns $task (queue=$q)"
+      else
+        record "$url" "$rank" fix "refused:owner UNKNOWN for $task, candidate homes $cands: $evidence (queue=$q)"
+      fi
+      return 0 ;;
+    *)
+      record "$url" "$rank" fix "refused:owner lookup failed for $task: $(flat "$out") (queue=$q)"
+      return 0 ;;
+  esac
+  if [ "$where" != here ]; then
+    owner=$(open_owner "$task" "$selected_home")
+    case "$owner" in
+      '') record "$url" "$rank" fix "refused:owned by $selected_home per the owner lookup: $evidence; no open registered task (queue=$q)" ;;
+      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
+      *) steer_owner "$n" "$url" "$rank" "$task" "$selected_home" "$head" "$note" "$q" ;;
+    esac
     return 0
   fi
   if backlog_done "$task"; then
@@ -597,16 +600,7 @@ act_fix() {
     return 0
   fi
   if ! in_backlog "$task"; then
-    owner=$(owning_home "$task")
-    case "$owner" in
-      '') record "$url" "$rank" fix "refused:no home owns $task (queue=$q)" ;;
-      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
-      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q" ;;
-    esac
-    return 0
-  fi
-  if owner=$(owner_elsewhere "$url" "$task"); then
-    record "$url" "$rank" fix "refused:$owner (queue=$q)"
+    record "$url" "$rank" fix "refused:no home owns $task (queue=$q)"
     return 0
   fi
   if [ ! -f "$STATE/$task.meta" ]; then

@@ -397,6 +397,8 @@ backlog < /dev/null
   printf -- '- sm2 - remote mate (host: q-crew; root: /srv/fm; home: /srv/home; scope: proj work; projects: proj; added 2026-10-30)\n'
 } > "$H/data/secondmates.md"
 printf 'r-task\n' > "$FAKE/remote-open"
+printf 'self\tmain\ngenerated\t%s\nhomes\tmain,sm1,sm2\nrow\tsm1\tsm-task\topen\nrow\tsm1\tsm-done\tdone\nrow\tsm2\tr-task\topen\nrow\tsm2\tu-task\topen\n' \
+  "$(date +%s)" > "$H/data/blocked-by-fleet-rows.tsv"
 {
   pr 100 fm/sm-task CONFLICTING FAILURE 'J-01 their fix'
   pr 101 fm/r-task MERGEABLE FAILURE 'J-01 remote'
@@ -413,7 +415,8 @@ assert_equals 'refused:owned by sm2: steered r-task (queue=not queued)' "$(field
 assert_contains "$(cat "$FAKE/on.log")" 'sm2 fm-tasks-axi.sh show r-task' 'remote backlog read with fm-tasks-axi show'
 assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it'
 assert_equals 'refused:no home owns orphan-meta (queue=not queued)' "$(field "$(rec 105)" 5)" 'a record here but no backlog item: no relaunch'
-assert_equals 'refused:no home owns sm-done (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
+assert_contains "$(rec 103)" 'refused:owned by sm1 per the owner lookup:' 'a done row retains its owner'
+assert_contains "$(rec 103)" 'no open registered task' 'done in the other home gets no steer'
 assert_equals 'refused:owner unknown for u-task: unreadable sm2 (queue=not queued)' "$(field "$(rec 104)" 5)" 'an unreadable home is named'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" "sm1|--one-way|PR triage: $URL/100 belongs to your task sm-task." 'steer names the URL'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" 'Do not force-push.' 'steer carries the fix instruction'
@@ -450,6 +453,71 @@ ids=$(sed -n 's/^sm1 //p' "$FAKE/send-ids.log")
 [ "$(printf '%s\n' "$ids" | sed -n 4p)" != "$(printf '%s\n' "$ids" | sed -n 5p)" ] || fail 'a changed message under the same head gets a new request id'
 assert_contains "$(rec 100)" 'refused:owned by sm1: steered sm-task' 'the changed message is delivered'
 pass 'another home is steered once per head and an unowned task is refused'
+
+# Oracle: the cut-13 PR ownership rule selects the only citing home when
+# several homes hold the branch task; registry order and local row state must
+# not change the destination. First-match routing would steer sm1 instead.
+reset
+backlog <<'MD'
+- [ ] shared-task - J-01 local prep (repo: proj) (kind: scout) (since 2026-10-30)
+MD
+{
+  printf -- '- sm1 - laptop (host: zb-crew; root: /srv/fm; home: /srv/laptop; scope: proj work; projects: proj; added 2026-10-30)\n'
+  printf -- '- sm2 - server (host: q-crew; root: /srv/fm; home: /srv/server; scope: proj work; projects: proj; added 2026-10-30)\n'
+} > "$H/data/secondmates.md"
+printf 'remote-task\nold-done\nshared-task\nambiguous-task\nunlisted-task\n' > "$FAKE/remote-open"
+{
+  printf 'self\tmain\ngenerated\t%s\nhomes\tmain,sm1,sm2\n' "$(date +%s)"
+  for entry in 'remote-task 110' 'old-done 111' 'shared-task 112'; do
+    read -r task number <<<"$entry"
+    printf 'row\tsm1\t%s\topen\t-\nrow\tsm2\t%s\topen\t%s/%s\n' "$task" "$task" "$URL" "$number"
+  done
+  printf 'row\tsm1\tambiguous-task\topen\t-\nrow\tsm2\tambiguous-task\topen\t-\n'
+} > "$H/data/blocked-by-fleet-rows.tsv"
+{
+  pr 110 fm/remote-task CONFLICTING FAILURE 'J-01 absent here'
+  pr 111 fm/old-done CONFLICTING FAILURE 'J-01 done here'
+  pr 112 fm/shared-task CONFLICTING FAILURE 'J-01 prep here'
+  pr 113 fm/ambiguous-task CONFLICTING FAILURE 'J-01 unresolved'
+  pr 114 fm/unlisted-task CONFLICTING FAILURE 'J-01 unseen row'
+} | prs
+out=$(bash "$TRIAGE" 2>&1)
+assert_contains "$out" 'sm2 --one-way' 'dry run also selects the citing server'
+assert_absent "$FAKE/send.log" 'dry run sends nothing'
+assert_absent "$FAKE/control.log" 'dry run launches nothing'
+bash "$TRIAGE" --apply >/dev/null 2>&1
+for entry in 'remote-task 110' 'old-done 111' 'shared-task 112'; do
+  read -r task number <<<"$entry"
+  assert_equals "refused:owned by sm2: steered $task (queue=not queued)" "$(field "$(rec "$number")" 5)" \
+    'the PR-citing server receives the fix regardless of local row state'
+  assert_contains "$(cat "$FAKE/send.log")" "sm2|--one-way|PR triage: $URL/$number belongs to your task $task." \
+    'the steer targets the resolved home and task'
+done
+assert_contains "$(rec 113)" 'refused:owner UNKNOWN for ambiguous-task, candidate homes sm1,sm2' \
+  'ambiguous remote ownership refuses before any steer'
+assert_contains "$(rec 114)" 'refused:no home owns unlisted-task' 'unlisted remote work never falls back to a registry scan'
+assert_equals 3 "$(wc -l < "$FAKE/send.log" | tr -d ' ')" 'only the three resolved PRs produce steers'
+assert_not_contains "$(cat "$FAKE/on.log")" 'sm1 ' 'the earlier registered nonowner is never probed'
+assert_absent "$FAKE/control.log" 'remote ownership never relaunches a local duplicate'
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 3 "$(wc -l < "$FAKE/send.log" | tr -d ' ')" 'a repeated pass sends no duplicate steers'
+backlog <<MD
+- [ ] shared-task - J-01 local build (repo: proj) (kind: ship) (pr: $URL/112) (since 2026-10-30)
+MD
+printf 'self\tmain\ngenerated\t%s\nhomes\tmain,sm1,sm2\nrow\tsm1\tshared-task\topen\t-\nrow\tsm2\tshared-task\topen\t-\n' \
+  "$(date +%s)" > "$H/data/blocked-by-fleet-rows.tsv"
+meta shared-task
+echo exited > "$FAKE/posture-shared-task"
+pr 112 fm/shared-task CONFLICTING FAILURE 'J-01 local build' | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 'launched shared-task (queue=not queued)' "$(field "$(rec 112)" 5)" \
+  'a citing local build still launches when remote prep rows share its id'
+assert_contains "$(cat "$FAKE/control.log")" 'shared-task relaunch --note' 'the selected local task uses guarded relaunch'
+printf 'invalid fleet header\n' > "$H/data/blocked-by-fleet-rows.tsv"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 112)" 'refused:owner lookup failed for shared-task' 'lookup errors refuse before relaunch'
+assert_equals 1 "$(grep -c ' relaunch --note' "$FAKE/control.log")" 'a failed lookup cannot launch a second worker'
+pass 'PR ownership precedes remote routing and local open or done shortcuts'
 
 # --- one GraphQL read per pass, whatever the number of pull requests ---------------
 # Oracle: the owner's rate-limit requirement: the single paginated read serves
