@@ -139,6 +139,37 @@ latest_record_body() {  # <home> <task>
 
 # --- tests ------------------------------------------------------------------
 
+test_stock_secondmate_notices() {
+  local home state text corr rec suffix
+  # Read the same constants used by bootstrap, restart, and config-push so
+  # sender wording changes exercise the classifier rather than a copied phrase.
+  # shellcheck source=bin/fm-secondmate-nudge-lib.sh
+  . "$ROOT/bin/fm-secondmate-nudge-lib.sh"
+  home=$(setup_parent stock-notices)
+  state="$home/state"
+  export FM_PENDING_REPLY_NOW=1000
+  for text in "$FM_SECOND_MATE_NUDGE_MESSAGE" "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE"; do
+    if ! fm_pending_reply_text_is_notice "$text" && ! [[ $text =~ $FM_PENDING_REPLY_ONEWAY_RE ]]; then
+      fail "stock secondmate notice is reply-bearing: $text"
+    fi
+    corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    export FM_PENDING_REPLY_NOW=9000
+    fm_pending_reply_try_resolve "$state" "$corr" || fail "stock notice did not retire"
+    [ "$(phase_of "$state" "$corr")" = resolved ] || fail "stock notice still awaits a reply"
+    export FM_PENDING_REPLY_NOW=1000
+  done
+  # The local update notice must classify immediately, without the legacy TTL.
+  fm_pending_reply_text_is_notice "$FM_SECOND_MATE_NUDGE_MESSAGE" || fail "update nudge is not a notice"
+  for suffix in ' Is that clear?' ' Please report the result.' ' Reply with the result.' ' Respond with the result.'; do
+    text="$FM_SECOND_MATE_NUDGE_MESSAGE$suffix"
+    corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+    rec=$(fm_pending_reply_path "$state" "$corr")
+    [ -z "$(fm_pending_reply_get "$rec" one_way)" ] || fail "update request was treated as a notice: $text"
+  done
+  pass "stock secondmate notice constants retire without replies and update requests remain reply-bearing"
+}
+
 test_normal_correlated_reply_resolves_once() {
   local home state corr status rec
   home=$(setup_parent resolve-once)
@@ -2351,6 +2382,7 @@ test_recovery_gate_ignores_decisions_older_than_the_request() {
 }
 
 
+test_stock_secondmate_notices
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_recovery_waits_while_the_mate_has_an_open_decision
