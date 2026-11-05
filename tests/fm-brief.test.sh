@@ -1730,9 +1730,9 @@ make_slice_brief_fixture() {
 case "$2" in
   custom-*) python3 -c 'import json,os;print("  body: " + json.dumps(os.environ["FM_SLICE_BODY"]))' ;;
   stamped-*)
-    printf '%s\n' '  body: "```text\nSLICE: example/ignored | Example | role=owner\n```\n# SLICE: heading/ignored\n- SLICE: bullet/ignored\n* SLICE: bullet/ignored\n**SLICE**: bold/ignored\nSLICE: main/main-model | First chat | role=owner\nRULES: owner\nSCOPE: First chat\nORACLE: brief-slice\nSLICE: later/ignored | Later | role=owner"'
+    printf '%s\n' '  body: "```text\nSLICE: example/ignored | Example | role=owner\n```\nSLICE: main/main-model | First chat | role=owner\nRULES: owner\nSCOPE: First chat\nORACLE: brief-slice\nSLICE: later/ignored | Later | role=owner"'
     ;;
-  missing-*) printf '%s\n' '  body: "A task without a slice declaration.\n# SLICE: heading/ignored\n- SLICE: bullet/ignored\n* SLICE: bullet/ignored\n**SLICE**: bold/ignored"' ;;
+  missing-*) printf '%s\n' '  body: "A task without a slice declaration."' ;;
   fenced-*)
     printf '%s\n' '  body: "An example only:\n```text\nSLICE: example/ignored | Example | role=owner\n```\n~~~text\nSLICE: another/ignored | Example | role=owner\n~~~"'
     ;;
@@ -1835,9 +1835,44 @@ test_task_slice_fence_boundaries() {
   pass "fm-brief.sh: ship and scout respect fence marker, length, suffix, indentation, and closure"
 }
 
+test_task_slice_matching_forms() {
+  local fixture label declaration body kind id out brief section index
+  fixture="$TMP_ROOT/slice-matching-forms"
+  make_slice_brief_fixture "$fixture"
+  index=0
+  for label in 'SLICE' '# SLICE' '## SLICE' '### SLICE' '#### SLICE' '##### SLICE' '###### SLICE' \
+    '- SLICE' '* SLICE' '**SLICE**' '# - **SLICE**' '###### * **SLICE**'; do
+    index=$((index + 1))
+    declaration="$label: main/main-model | First chat | role=owner"
+    printf -v body '~~~markdown\n```text\n%s: example/ignored | Example | role=owner\n~~~\n%s\nSLICE: later/ignored | Later | role=owner\n' "$label" "$declaration"
+    for kind in no-mistakes direct-PR local-only scout; do
+      id="custom-form-$index-$kind"
+      if [ "$kind" = scout ]; then
+        out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --scout 2>&1) \
+          || fail "$id scaffold failed: $out"
+      else
+        out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --mode "$kind" 2>&1) \
+          || fail "$id scaffold failed: $out"
+      fi
+      brief="$fixture/home/data/$id/brief.md"
+      section=$(sed -n '/^# Slice$/,/^# Home brief additions$/p' "$brief")
+      [ "$section" = "$(printf '%s\n' '# Slice' "$declaration" '' '# Home brief additions')" ] \
+        || fail "$id did not copy the first unfenced $label declaration unchanged before home additions"
+      assert_no_grep 'example/ignored' "$brief" "$id copied a fenced declaration"
+      assert_no_grep 'later/ignored' "$brief" "$id copied a later declaration"
+      assert_not_contains "$out" 'note: no SLICE line' "$id rejected an accepted declaration form"
+      section=$(sed -n "/^## Captain's intent$/,/^## Firstmate spec$/p" "$brief")
+      [ "$section" = "$(printf '%s\n' "## Captain's intent" '{TASK}' '' '## Firstmate spec')" ] \
+        || fail "$id changed the intent placeholder while copying Slice identity"
+    done
+  done
+  pass "fm-brief.sh: every ship mode and scouts preserve accepted Slice declaration forms"
+}
+
 test_task_slice_is_copied_into_ship_and_scout
 test_missing_or_fenced_task_slice_is_not_copied
 test_task_slice_fence_boundaries
+test_task_slice_matching_forms
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header

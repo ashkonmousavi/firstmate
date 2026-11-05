@@ -478,7 +478,7 @@ for l in b.splitlines():
     marker,rest=fence.groups()
     if not f:f=marker
     elif marker[0]==f[0] and len(marker)>=len(f) and not rest.strip():f=""
-  elif not f and re.match(r"\s*SLICE:",l):print(l.strip());break
+  elif not f and re.match(r"\s*(#{1,6}\s+)?([-*]\s+)?(\*\*)?SLICE(\*\*)?:",l):print(l.strip());break
 ') || line=
   [ -n "$line" ] || { echo "note: no SLICE line in $ID's task body" >&2; return 0; }
   printf '\n# Slice\n%s\n' "$line" >> "$BRIEF"
