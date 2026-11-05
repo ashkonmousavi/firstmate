@@ -113,14 +113,15 @@ test_controller_equal_decision_keys_remain_task_scoped() {
   for task in k1-equal-a k1-equal-b; do
     printf 'resolved [key=api-shape] [at=%s]: answered\n' $((K1_T0 + 275)) >> "$H/state/$task.status"
   done
-  k1_pass 275
+  printf 'needs-decision [key=api-shape] [at=%s]: choose a technical retry interval\n' $((K1_T0 + 280)) >> "$H/state/k1-equal-a.status"
+  k1_pass 500
   for task in k1-equal-a k1-equal-b; do
     assert_equals 1 "$(k1_count "$H/state/$task.status" resolved ctl-c-ask-)" 'answering a source decision closes only its controller notice'
   done
-  printf 'needs-decision [key=api-shape] [at=%s]: choose a technical retry interval\n' $((K1_T0 + 330)) >> "$H/state/k1-equal-a.status"
-  k1_pass 550
+  printf 'needs-decision [key=api-shape] [at=%s]: choose a technical retry interval\n' $((K1_T0 + 550)) >> "$H/state/k1-equal-b.status"
+  k1_pass 770
   assert_equals 2 "$(k1_owned k1-equal-a | grep -c .)" 'reopening the source decision receives a new notice generation'
-  assert_equals 1 "$(k1_owned k1-equal-b | grep -c .)" 'an answered sibling task receives no new notice'
+  assert_equals 2 "$(k1_owned k1-equal-b | grep -c .)" 'an answered sibling task can reopen independently'
   assert_absent "$KF/diag.log" 'known unanswered decisions never launch diagnosis'
   k1_teardown
   pass 'equal decision keys on different tasks each receive their own handoff'
@@ -255,6 +256,128 @@ PYCASE
   pass 'inbox task/message identities are reversible and use the shared pair encoding'
 }
 
+test_controller_ring_recurrence_preserves_spaced_paths() {
+  local rec row attempt
+  k1_setup 'ring recurrence' mate
+  k1_inbox_due k1-ring
+  cat > "$KB/systemd-run" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/systemd-run.log"
+python3 - "$FM_HOME/state/autolaunch-controller/${!#}.result" <<'PYCASE'
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_text('{"rc": 0}')
+PYCASE
+SH
+  k1_pass 0
+  row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-c-ring-*.json)
+  rec=$(printf '%s\n' "$H"/state/k1-ring.inbox/*.msg)
+  python3 - "$row" "$rec" <<'PYCASE' || fail 'a ring must retain the complete spaced record path'
+import json
+from pathlib import Path
+import sys
+row = json.loads(Path(sys.argv[1]).read_text())
+assert row['argv'][-1] == sys.argv[2], row
+PYCASE
+  k1_pass 55 kill
+  assert_equals 2 "$(k1_units_max_count 60)" 'a cut planning pass reconciles the first receipt and starts the next due ring'
+  attempt=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["attempt"])' "$row")
+  rm "$H/state/autolaunch-controller/$attempt.result"
+  k1_pass 80 kill
+  assert_equals 2 "$(k1_units_max_count 60)" 'a running ring suppresses overlapping attempts'
+  printf '{"rc":0}\n' > "$H/state/autolaunch-controller/$attempt.result"
+  k1_pass 110 kill
+  assert_equals 3 "$(k1_units_max_count 60)" 'each later due ring has independent attempt receipts'
+  k1_teardown
+  pass 'successful rings recur during cut passes and preserve paths with spaces'
+}
+
+test_controller_partial_plan_ownership_is_late() {
+  local row
+  k1_setup partial-plan mate
+  printf 'needs-decision [key=retry] [at=%s]: choose retry interval\n' "$K1_T0" > "$H/state/k1-partial.status"
+  cp "$KB/timeout" "$KB/timeout-original"
+  cat > "$KB/timeout" <<'SH'
+#!/usr/bin/env bash
+"$KB/timeout-original" "$@" || exit $?
+case "$*" in *--controller-plan*) exit 124 ;; esac
+SH
+  cp "$KB/timeout" "$KB/gnutimeout"
+  k1_pass 220
+  assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'planning is interrupted after recording ownership'
+  assert_equals 1 "$(k1_count "$H/state/k1-partial.status" blocked overrun=1)" 'pending ownership is delivered with the interrupted-pass verdict'
+  row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-c-ask-*.json)
+  python3 - "$row" <<'PYCASE' || fail 'the durable ownership and evidence must record the interrupted pass'
+import json
+from pathlib import Path
+import sys
+row = json.loads(Path(sys.argv[1]).read_text())
+assert row['overrun'] == 1, row
+assert Path(row['evidence']).read_text().splitlines()[-1].endswith('overrun=1'), row
+PYCASE
+  cp "$KB/timeout-original" "$KB/timeout"
+  cp "$KB/timeout-original" "$KB/gnutimeout"
+  k1_pass 275
+  assert_equals 1 "$(k1_owned k1-partial | grep -c .)" 'the following successful pass does not repeat ownership'
+  assert_absent "$KF/diag.log" 'known unanswered decisions require no diagnosis'
+  k1_teardown
+  pass 'a partially recorded interrupted pass publishes one late handoff'
+}
+
+test_controller_status_timeouts_preserve_progress() {
+  local row
+  k1_setup status-timeouts mate
+  printf 'needs-decision [key=retry] [at=%s]: choose retry interval\n' "$K1_T0" > "$H/state/k1-status.status"
+  k1_inbox_due k1-other
+  : > "$H/config/fleet-ledger"
+  mkdir "$H/state/.fleet-ledger.lock"
+  printf '%s\n' "$$" > "$H/state/.fleet-ledger.lock/pid"
+  k1_pass 220
+  assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'uncertain status delivery does not abort effects'
+  assert_equals 1 "$(k1_units_max_count 60 k1-other)" 'an unrelated ring still starts after a status timeout'
+  row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-c-ask-*.json)
+  python3 - "$row" <<'PYCASE' || fail 'a timed-out opener must retain its pending receipt'
+import json
+from pathlib import Path
+import sys
+assert not json.loads(Path(sys.argv[1]).read_text())['handoff']['receipt']
+PYCASE
+  k1_pass 275
+  assert_equals 1 "$(k1_owned k1-status | grep -c .)" 'an appended opener is reconciled without another append'
+  printf 'resolved [key=retry] [at=%s]: answered\n' $((K1_T0 + 300)) >> "$H/state/k1-status.status"
+  k1_pass 330
+  assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'uncertain status closure does not abort effects'
+  rm "$H/config/fleet-ledger"
+  k1_pass 385
+  assert_equals 1 "$(k1_count "$H/state/k1-status.status" resolved ctl-c-ask-)" 'the uncertain closer is reconciled without another append'
+  python3 - "$row" <<'PYCASE' || fail 'an already appended closure must converge on the following pass'
+import json
+from pathlib import Path
+import sys
+assert json.loads(Path(sys.argv[1]).read_text())['closed']
+PYCASE
+  k1_teardown
+  pass 'status opener and closer timeouts preserve receipts and unrelated progress'
+}
+
+test_controller_main_close_timeout_preserves_progress() {
+  k1_setup main-close-timeout main
+  k1_pass_lock_holder
+  k1_pass 55; k1_pass 110; k1_pass 165
+  assert_equals 1 "$(grep -c . "$KF/accepted")" 'the initial MAIN incident is accepted'
+  kill -KILL "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null; K1_HOLDER=
+  k1_inbox_due k1-other
+  printf 'hang\nok\n' > "$KF/send-mode"
+  k1_pass 220
+  assert_equals 0 "$(tail -1 "$KF/pass-rc.log" | cut -f2)" 'uncertain MAIN closure does not abort effects'
+  assert_equals 1 "$(k1_units_max_count 60 k1-other)" 'an unrelated ring still starts after a MAIN closure timeout'
+  k1_pass 275
+  assert_equals 2 "$(grep -c . "$KF/accepted")" 'exactly one opener and one closure are accepted'
+  assert_equals 1 "$(tail -2 "$KF/send.log" | cut -f3 | sort -u | grep -c .)" 'closure retries retain their request identity'
+  k1_teardown
+  pass 'MAIN closure timeout retains its request identity and unrelated progress'
+}
+
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
 # fleet-ops:lc-core-scheduler". The builder runs these and never edits this
@@ -280,10 +403,6 @@ PYCASE
 #                            process; k1_tick plays systemd at each pass time:
 #                            TERM to the main pid only at RuntimeMaxSec and
 #                            KILL TimeoutStopSec later (KillMode=process).
-#   Agent identity           a started agent is recorded as agent_root_pid,
-#                            agent_root_start (/proc/<pid>/stat field 22) and
-#                            boot_id lines in state/<task>.meta (the K2a
-#                            identity fields).
 # Run one case alone: FM_AUTOLAUNCH_TEST_ONLY='<test name>...' (or k1 for all).
 K1_T0=1800000000
 REAL_TIMEOUT=$(command -v timeout)
@@ -296,13 +415,13 @@ k1_setup() {  # <case> <mate|main>
   mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects/proj" "$KF/units" "$KB" "$K1/agent" "$K1/tmux"
   fm_test_tasks_toml "$H/.tasks.toml"
   K1_TEST_PID=$$
-  export FM_HOME="$H" K1 KF KB REAL_TIMEOUT ROOT K1_TEST_PID
+  export FM_HOME="$H" K1 KF KB REAL_TIMEOUT REAL_SLEEP ROOT K1_TEST_PID
+  unset TMUX TMUX_PANE
   [ "$2" = main ] || printf 'k1-mate\n' > "$H/.fm-secondmate-home"
   printf '%s\n' "$K1_T0" > "$KF/clock"
   printf '1\n' > "$KF/free"
   printf 'ok\n' > "$KF/spawn-mode"
-  cp "$REAL_SLEEP" "$KB/k1-sleep"
-  cp "$REAL_SLEEP" "$K1/agent/claude"
+  ln -s "$K1_STANDIN" "$K1/agent/claude"
   k1_write_stubs
   export FM_AUTOLAUNCH_SPAWN_BIN="$KB/spawn" FM_AUTOLAUNCH_CAPACITY_BIN="$KB/capacity" \
     FM_AUTOLAUNCH_SEND_BIN="$KB/fm-send" TMUX_TMPDIR="$K1/tmux"
@@ -326,12 +445,14 @@ id=$1
 printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
 mode=$(cat "$KF/spawn-mode")
 start_agent() {
-  "$K1/agent/claude" 100000 </dev/null >/dev/null 2>&1 &
-  apid=$!
-  astart=$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$apid/stat")
-  printf 'agent_root_pid=%s\nagent_root_start=%s\nboot_id=%s\n' "$apid" "$astart" \
-    "$(cat /proc/sys/kernel/random/boot_id)" >> "$FM_HOME/state/$id.meta"
-  printf '%s\n' "$apid" > "$KF/agent-$id.pid"
+  printf -v command '%q 100000' "$K1/agent/claude"
+  if tmux has-session -t sess 2>/dev/null; then
+    tmux new-window -d -t sess -n "fm-$id" "$command" || exit 1
+  else
+    tmux -f /dev/null new-session -d -s sess -n "fm-$id" "$command" || exit 1
+  fi
+  printf 'window=sess:fm-%s\nbackend=tmux\nharness=claude\n' "$id" >> "$FM_HOME/state/$id.meta"
+  tmux display-message -p -t "sess:fm-$id" '#{pane_pid}' > "$KF/agent-$id.pid"
 }
 case "$mode" in
   ok) printf 'spawned %s\n' "$id"; exit 0 ;;
@@ -345,12 +466,12 @@ esac
   fm_lock_try_acquire "$STATE/.spawn-$id.lock" || exit 3
   printf '%s\n' "$BASHPID" > "$KF/holder-$id.pid"
   [ "$mode" != hung-child-exits ] || exit 0
-  while [ ! -e "$KF/agent-go-$id" ]; do "$KB/k1-sleep" 0.2; done
+  while [ ! -e "$KF/agent-go-$id" ]; do "$REAL_SLEEP" 0.2; done
   start_agent
-  exec "$KB/k1-sleep" 100000
+  exec "$REAL_SLEEP" 100000
 ) </dev/null >/dev/null 2>&1 &
-while [ ! -s "$KF/holder-$id.pid" ]; do "$KB/k1-sleep" 0.05; done
-exec "$KB/k1-sleep" 100000
+while [ ! -s "$KF/holder-$id.pid" ]; do "$REAL_SLEEP" 0.05; done
+exec "$REAL_SLEEP" 100000
 SH
   cat > "$KB/systemd-run" <<'SH'
 #!/usr/bin/env bash
@@ -379,7 +500,7 @@ n=$(( $(find "$KF/units" -type f | wc -l) + 1 ))
 argv="$*"
 cmd=("$@")
 if [ -s "$KF/hang-match" ] && printf '%s\n' "$argv" | grep -qF -f "$KF/hang-match"; then
-  cmd=("$KB/k1-sleep" 100000)
+  cmd=("$REAL_SLEEP" 100000)
 fi
 if [ -e "$KF/ignore-term" ]; then
   setsid bash -c 'trap "" TERM; exec "$@"' k1-unit "${cmd[@]}" </dev/null >>"$KF/unit-$n.out" 2>&1 &
@@ -457,10 +578,16 @@ SH
   # before it can record a receipt), ok. Accepted identities: fake/accepted.
   cat > "$KB/fm-send" <<'SH'
 #!/usr/bin/env bash
-printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/send.log"
+id=${FM_SEND_REQUEST_ID:-}
+printf '%s\t%s\t%s\n' "$(cat "$KF/clock")" "$*" "$id" >> "$KF/send.log"
+[[ "$id" =~ ^[0-9a-f]{32}$ ]] || exit 2
 mode=$(head -1 "$KF/send-mode" 2>/dev/null); [ -z "$mode" ] || sed -i 1d "$KF/send-mode"
-case "${mode:-ok}" in fail) echo 'error: k1 enqueue failed' >&2; exit 1 ;; esac
-id=$(printf '%s' "$*" | sha256sum | cut -c1-16)
+case "${mode:-ok}" in
+  fail) echo 'error: k1 enqueue failed' >&2; exit 1 ;;
+  hang) exec "$REAL_SLEEP" 100000 ;;
+esac
+. "$ROOT/bin/fm-task-inbox-lib.sh"
+fm_task_inbox_write_idempotent "$KF/delivery-state" fleet-ops "$*" '' "$id" >/dev/null || exit 1
 grep -qx "$id" "$KF/accepted" 2>/dev/null || printf '%s\n' "$id" >> "$KF/accepted"
 if [ "$mode" = crash ]; then
   p=$PPID
@@ -475,7 +602,7 @@ SH
   cat > "$KB/codex" <<'SH'
 #!/usr/bin/env bash
 printf '%s\tcodex %s\n' "$(cat "$KF/clock")" "$*" >> "$KF/diag.log"
-[ "$(cat "$KF/codex-mode" 2>/dev/null)" != hang ] || exec "$KB/k1-sleep" 100000
+[ "$(cat "$KF/codex-mode" 2>/dev/null)" != hang ] || exec "$REAL_SLEEP" 100000
 echo 'k1 rung-3 advice'
 SH
   cat > "$KB/claude" <<'SH'
@@ -508,10 +635,10 @@ k1_tick() {
     [ "$now" -ge $((start + max)) ] || continue
     if [ -s "$KF/unkillable-match" ] && grep -qF -f "$KF/unkillable-match" "$rec"; then continue; fi
     grep -qx 'termed=1' "$rec" || { kill -TERM "$pid" 2>/dev/null; printf 'termed=1\n' >> "$rec"; }
-    i=0; while k1_alive "$pid" && [ "$i" -lt 10 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+    i=0; while k1_alive "$pid" && [ "$i" -lt 10 ]; do "$REAL_SLEEP" 0.1; i=$((i + 1)); done
     if k1_alive "$pid" && [ "$now" -ge $((start + max + stop)) ]; then
       kill -KILL "$pid" 2>/dev/null
-      i=0; while k1_alive "$pid" && [ "$i" -lt 20 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+      i=0; while k1_alive "$pid" && [ "$i" -lt 20 ]; do "$REAL_SLEEP" 0.1; i=$((i + 1)); done
     fi
   done
 }
@@ -615,7 +742,7 @@ k1_inbox_due() {  # <task>: a live task with one unacknowledged message past its
 }
 # shellcheck disable=SC2031 # $! is read in this shell, right after the background start
 k1_pass_lock_holder() {  # a live holder of state/.autolaunch.lock from T0
-  "$KB/k1-sleep" 100000 &
+  "$REAL_SLEEP" 100000 &
   K1_HOLDER=$!
   mkdir "$H/state/.autolaunch.lock"
   printf '%s\n' "$K1_HOLDER" > "$H/state/.autolaunch.lock/pid"
@@ -626,6 +753,7 @@ k1_teardown() {
   for rec in "$KF"/units/*; do [ -f "$rec" ] && kill -KILL "$(k1_unit_field "$rec" pid)" 2>/dev/null; done
   [ -z "${K1_HOLDER:-}" ] || kill -KILL "$K1_HOLDER" 2>/dev/null
   K1_HOLDER=
+  tmux kill-server 2>/dev/null || true
   fm_test_reap_root_processes "$K1"
 }
 k1_need_unit() {  # <message> <fixed string>...: fail unless a matching unit started
@@ -650,7 +778,7 @@ k1_main_of() {  # <fixed string>: main pid of the first fake unit whose call hol
 }
 k1_wait_file() {  # <file>: up to 5 real seconds
   local i=0
-  while [ ! -s "$1" ] && [ "$i" -lt 50 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+  while [ ! -s "$1" ] && [ "$i" -lt 50 ]; do "$REAL_SLEEP" 0.1; i=$((i + 1)); done
   [ -s "$1" ]
 }
 k1_live_units() {  # <RuntimeMaxSec>: fake units of that deadline whose main still runs
@@ -1033,6 +1161,8 @@ test_responder_handoff_survives_failed_send_and_restart() {
   [ "$(grep -c . "$KF/send.log")" -ge 3 ] || fail "K1-R11: the hand-off was not retried after the failed enqueue and the crash: $(cat "$KF/send.log")"
   assert_equals 1 "$(cut -f2- "$KF/send.log" | sort -u | grep -c .)" 'K1-R11: every retry carries the same identity'
   assert_equals 1 "$(grep -c . "$KF/accepted")" 'K1-R11: exactly one accepted hand-off'
+  assert_equals 1 "$(cut -f3 "$KF/send.log" | sort -u | grep -Ec '^[0-9a-f]{32}$')" 'K1-R11: retries preserve the actual request identity'
+  assert_equals 1 "$(find "$KF/delivery-state/fleet-ops.inbox" -name '*.msg' | wc -l | tr -d ' ')" 'K1-R11: the real enqueue boundary accepts one record'
   assert_equals 3 "$(grep -c . "$KF/send.log")" 'K1-R11: no send after the receipt is recorded'
   [ ! -s "$H/state/.wake-queue" ] || fail 'K1-R11: the hand-off woke MAIN'
   assert_equals '' "$(find "$H/state" -maxdepth 1 -name '*.status' -size +0)" 'K1-R11: a MAIN-home no-task key writes no status line'
@@ -1099,7 +1229,21 @@ test_responder_handoff_survives_failed_send_and_restart
 test_unanswered_technical_key_goes_to_responder_without_diagnosis
 test_unanswered_technical_key_goes_to_responder_without_diagnosis_interrupted'
 k1_run() {  # <test name>... (k1 = all)
-  local name
+  local name tool
+  if [ "$(uname -s)" != Linux ] || [ ! -r /proc/sys/kernel/random/boot_id ] || [ ! -r /proc/self/stat ]; then
+    printf 'skip: K1 fixtures require Linux process identity\n'
+    return 0
+  fi
+  for tool in timeout flock setsid tmux; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      printf 'skip: K1 fixtures require %s\n' "$tool"
+      return 0
+    fi
+  done
+  K1_STANDIN=$(fm_agent_standin "$TMP_ROOT/k1-standin") || {
+    printf 'skip: K1 fixtures require a working agent stand-in\n'
+    return 0
+  }
   trap 'k1_teardown_all; fm_test_cleanup' EXIT
   # shellcheck disable=SC2086 # one test name per word
   [ "$*" != k1 ] || set -- $K1_TESTS
@@ -1886,13 +2030,17 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-test_controller_decision_pair_is_injective
-test_controller_inbox_pair_preserves_task_and_message
-test_controller_quota_refusal_is_a_wait
-test_controller_deferred_attempt_has_fresh_receipts
-test_controller_equal_decision_keys_remain_task_scoped
-test_controller_lock_incident_reopens_after_recovery
-test_controller_diagnosis_charge_survives_dispatch_crash
+k1_run test_controller_decision_pair_is_injective \
+  test_controller_inbox_pair_preserves_task_and_message \
+  test_controller_quota_refusal_is_a_wait \
+  test_controller_deferred_attempt_has_fresh_receipts \
+  test_controller_equal_decision_keys_remain_task_scoped \
+  test_controller_lock_incident_reopens_after_recovery \
+  test_controller_diagnosis_charge_survives_dispatch_crash \
+  test_controller_ring_recurrence_preserves_spaced_paths \
+  test_controller_partial_plan_ownership_is_late \
+  test_controller_status_timeouts_preserve_progress \
+  test_controller_main_close_timeout_preserves_progress
 
 # Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
 # run last so every earlier case keeps its coverage while they are red.

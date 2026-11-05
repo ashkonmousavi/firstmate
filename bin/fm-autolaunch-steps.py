@@ -1408,9 +1408,12 @@ class Controller:
                     and self.snapshot.get(int(identity["pid"])) == str(identity["start"]))
 
     def agent_live(self, task):
-        m = kv(STATE / f"{task}.meta")
-        return self.live(dict(pid=m.get("agent_root_pid"), start=m.get("agent_root_start"),
-                              boot_id=m.get("boot_id")))
+        try:
+            result = subprocess.run(["bash", self.scheduler, "--step-agent", task],
+                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+        except subprocess.TimeoutExpired:
+            return False
+        return result.returncode == 0 and result.stdout.strip() == "alive"
 
     @staticmethod
     def task_key_identity(task, key):
@@ -1455,7 +1458,8 @@ class Controller:
 
     def create(self, key, task, kind, argv=None):
         old = self.load(self.path(key))
-        if old and (not old.get("closed") or kind != "notice"):
+        if old and not (kind == "notice" and old.get("closed")
+                        or kind == "ring" and old["phase"] == "complete"):
             return old
         row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="queued",
                    rung=0, opened=self.now(), overrun=0,
@@ -1498,9 +1502,12 @@ class Controller:
                          for line in read(status).splitlines())
             if not exists:
                 text = h["payload"] + f" overrun={row.get('overrun', 0)}"
-                result = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "blocked",
-                                         "--key", row["key"]], input=text, text=True,
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                try:
+                    result = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "blocked",
+                                             "--key", row["key"]], input=text, text=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                except subprocess.TimeoutExpired:
+                    return
                 if result.returncode:
                     return
         else:
@@ -1533,9 +1540,12 @@ class Controller:
                 generation = f"generation={row.get('generation', 1)}"
                 if not any(line.startswith("resolved ") and marker in line and generation in line
                            for line in read(status).splitlines()):
-                    r = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "resolved",
-                                        "--key", row["key"]], input=f"{row['key']} {reason} {generation}", text=True,
-                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                    try:
+                        r = subprocess.run([str(BIN / "fm-status-append.sh"), str(status), "resolved",
+                                            "--key", row["key"]], input=f"{row['key']} {reason} {generation}", text=True,
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                    except subprocess.TimeoutExpired:
+                        return
                     if r.returncode:
                         return
             else:
@@ -1544,9 +1554,12 @@ class Controller:
                 self.save(row)
                 h = row['close_handoff']
                 send = os.environ.get("FM_AUTOLAUNCH_SEND_BIN", str(BIN / "fm-send.sh")) if TEST else str(BIN / "fm-send.sh")
-                r = subprocess.run([send, "fleet-ops", "--one-way", h["payload"]],
-                                   env=dict(os.environ, FM_SEND_REQUEST_ID=h["request"]),
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                try:
+                    r = subprocess.run([send, "fleet-ops", "--one-way", h["payload"]],
+                                       env=dict(os.environ, FM_SEND_REQUEST_ID=h["request"]),
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                except subprocess.TimeoutExpired:
+                    return
                 if r.returncode:
                     return
         row.update(closed=True, phase="complete")
@@ -1574,13 +1587,18 @@ class Controller:
             row["due"] = row["failed_at"] + (60 if row["rung"] == 0 else 300)
             self.save(row)
 
-    def reconcile(self):
+    def reconcile(self, rings=False):
         self.process_snapshot()
         overrun = int(self.load(self.passfile).get("overrun", 0))
         for row in self.rows():
+            if (row["kind"] == "ring") != rings:
+                continue
             row["overrun"] = max(row.get("overrun", 0), overrun)
             if row.get("closed"):
                 continue
+            if row["phase"] == "retry-wait" and self.now() >= row["due"]:
+                row.update(phase="queued", rung=row["rung"] + 1)
+                self.save(row)
             if row.get("handoff") and row["kind"] in ("launch", "relaunch", "recovery") and self.agent_live(row["task"]):
                 self.event(row, "launched", "launched")
                 self.close(row, "launched-late")
@@ -1665,13 +1683,19 @@ class Controller:
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
         if r.returncode:
             raise ValueError("controller decision inventory unavailable")
-        open_sources = set()
+        open_sources = {}
         for line in r.stdout.splitlines():
             fields = line.split("\t", 4)
             if len(fields) != 5:
                 raise ValueError("invalid timed decision inventory")
             task, key, _, at, note = fields
-            open_sources.add((task, key))
+            open_sources[task, key] = (at, note)
+        for row in self.rows():
+            if row.get("source_key"):
+                source = open_sources.get((row["task"], row["source_key"]))
+                if source is None or str(row["source_at"]) != source[0]:
+                    self.close(row, "source decision answered")
+        for (task, key), (at, note) in open_sources.items():
             if not at.isdigit() or self.now() - int(at) < 180:
                 continue
             if re.search(r"human-reserved|credential|login|destruct|irreversible|merge approval", note, re.I):
@@ -1683,9 +1707,6 @@ class Controller:
                 row["source_key"] = key
                 row["source_at"] = int(at)
                 self.own(row, f"unanswered key={key}")
-        for row in self.rows():
-            if row.get("source_key") and (row["task"], row["source_key"]) not in open_sources:
-                self.close(row, "source decision answered")
 
     def plan(self):
         p = self.load(self.passfile)
@@ -1693,9 +1714,6 @@ class Controller:
         self.technical_decisions()
         self.discover()
         for row in self.rows():
-            if row["phase"] == "retry-wait" and self.now() >= row["due"]:
-                row.update(phase="queued", rung=row["rung"] + 1)
-                self.save(row)
             if row["phase"] == "queued":
                 row["overrun"] = int(p.get("overrun", 0))
                 self.save(row)
@@ -1709,13 +1727,16 @@ class Controller:
             task = path.name[:-6]
             r = subprocess.run(["bash", self.scheduler, "--controller-inbox-due", task],
                                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
-            fields = r.stdout.split()
-            if r.returncode or not fields or fields[0] not in ("ring", "retry"):
+            fields = r.stdout.strip().split(maxsplit=1)
+            if r.returncode or len(fields) != 2 or fields[0] not in ("ring", "retry"):
                 continue
             record = fields[1]
             identity = self.task_key_identity(task, Path(record).name)
             key = f"ctl-c-ring-{identity}"
-            self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record])
+            row = self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record])
+            if row["phase"] == "wait":
+                row["phase"] = "queued"
+                self.save(row)
 
     def effects(self, rc):
         p = self.load(self.passfile)
@@ -1755,6 +1776,13 @@ class Controller:
             row = self.create("ctl-e-pass-error", "", "notice")
             self.own(row, f"planning failed exit={rc}")
         atomic(self.passfile, p)
+        if rc in (124, 137):
+            for row in self.rows():
+                if row.get("handoff") and not row["handoff"]["receipt"] and not row.get("overrun"):
+                    row["overrun"] = 1
+                    self.summary(row, "recording pass interrupted overrun=1")
+                    self.save(row)
+        self.reconcile(rings=True)
         self.discover_inboxes()
         for row in self.rows():
             self.deliver(row)
@@ -1773,7 +1801,7 @@ class Controller:
         # A wait may redispatch the same rung; it is still a new attempt with
         # independent identity/result receipts, never the preceding attempt.
         row["dispatch"] = row.get("dispatch", 0) + 1
-        token = f"{row['key']}-r{row['diag_rung'] if diagnosis else row['rung']}-a{row['dispatch']}"
+        token = f"{row['key']}-g{row.get('generation', 1)}-r{row['diag_rung'] if diagnosis else row['rung']}-a{row['dispatch']}"
         unit = "fm-al-" + hashlib.sha256(str(HOME.resolve()).encode()).hexdigest()[:10] + "-" + hashlib.sha256(token.encode()).hexdigest()[:16]
         attempt = dict(key=row["key"], kind="diagnosis" if diagnosis else row["kind"],
                        argv=row["argv"], deadline=self.now() + self.DEADLINES["diagnosis" if diagnosis else row["kind"]],
