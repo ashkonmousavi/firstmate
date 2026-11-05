@@ -30,8 +30,9 @@
 #   self<TAB><this home's name>
 #   generated<TAB><epoch the rows were read>
 #   homes<TAB><comma-separated homes the rows cover>
-#   row<TAB><home><TAB><id><TAB><open|done|archive>
-# with `#` comment lines allowed. Rows for self are ignored, because this home's
+#   row<TAB><home><TAB><id><TAB><open|done|archive>[<TAB><pull-request-urls>]
+# with `#` comment lines allowed; the optional last field lists every full
+# pull request URL the row cites, comma-separated (bin/fm-pr-owner.sh reads it). Rows for self are ignored, because this home's
 # own backlog and archive are read live. Without the list a blocker open only in
 # another home is invisible, so an edge whose id is done here still reads
 # satisfied; fm_blocked_by_fleet_note says so on every ready list. A list older
@@ -135,7 +136,8 @@ fm_blocked_by_fleet_note() {
     "$(fm_blocked_by_iso "$gen")" "$(( ($(date +%s) - gen) / 3600 ))" "$homes"
 }
 
-# fm_blocked_by_row_states <file> <backlog|archive>: <id><TAB><open|done|archive><TAB><first PR URL or ->
+# fm_blocked_by_row_states <file> <backlog|archive>:
+#   <id><TAB><open|done|archive><TAB><first PR URL or -><TAB><every PR URL, comma-separated, or ->
 fm_blocked_by_row_states() {
   FM_BLOCKED_BY_SOURCE=$2 perl -ne '
     BEGIN { $archive = $ENV{FM_BLOCKED_BY_SOURCE} eq "archive" }
@@ -147,8 +149,9 @@ fm_blocked_by_row_states() {
       ($state, $id, $tail) = ($done ? "done" : "open", $1, $2);
     } else { next }
     $state = "archive" if $archive;
-    my $pr = $tail =~ m{(https?://[^\s)<>"]+/pull/\d+)} ? $1 : "-";
-    print join("\t", $id, $state, $pr), "\n";
+    my @prs = $tail =~ m{(https?://[^\s)<>",]+/pull/\d+)}g;
+    my %seen; @prs = grep { !$seen{$_}++ } @prs;
+    print join("\t", $id, $state, (@prs ? $prs[0] : "-"), (@prs ? join(",", @prs) : "-")), "\n";
   ' "$1"
 }
 
@@ -159,6 +162,36 @@ fm_blocked_by_readable() {  # <file> <what>
   fi
   printf 'blocked-by: the %s %s cannot be read\n' "$2" "$1" >&2
   return 2
+}
+
+# fm_blocked_by_fleet_rows <data-dir>: every row this home can see, as
+#   <home><TAB><id><TAB><open|done|archive><TAB><PR URLs, comma-separated, or ->
+# this home's live backlog and archive first, named by the fleet list's self
+# line (or `.` without a list), then the fleet list's rows for every other home.
+# Returns 2 like fm_blocked_by_verdicts when an input cannot be read.
+fm_blocked_by_fleet_rows() {
+  local data=${1%/} backlog archive fleet header self=. rows
+  backlog=$data/backlog.md
+  archive=$(fm_blocked_by_archive_file "$data")
+  fleet=$(fm_blocked_by_fleet_file "$data")
+  fm_blocked_by_readable "$backlog" backlog || return 2
+  fm_blocked_by_readable "$archive" archive || return 2
+  fm_blocked_by_readable "$fleet" "fleet list" || return 2
+  if [ -f "$fleet" ]; then
+    header=$(fm_blocked_by_fleet_header "$fleet") || return 2
+    self=${header%%$'\t'*}
+  fi
+  if [ -f "$backlog" ]; then
+    rows=$(fm_blocked_by_row_states "$backlog" backlog) || return 2
+    [ -z "$rows" ] || printf '%s\n' "$rows" | awk -F '\t' -v h="$self" '{ print h "\t" $1 "\t" $2 "\t" $4 }'
+  fi
+  if [ -f "$archive" ]; then
+    rows=$(fm_blocked_by_row_states "$archive" archive) || return 2
+    [ -z "$rows" ] || printf '%s\n' "$rows" | awk -F '\t' -v h="$self" '{ print h "\t" $1 "\t" $2 "\t" $4 }'
+  fi
+  if [ -f "$fleet" ]; then
+    awk -F '\t' -v self="$self" '$1 == "row" && NF >= 4 && $2 != self { print $2 "\t" $3 "\t" $4 "\t" (NF >= 5 && $5 != "" ? $5 : "-") }' "$fleet" || return 2
+  fi
 }
 
 fm_blocked_by_verdicts() {  # <data-dir>

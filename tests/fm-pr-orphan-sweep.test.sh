@@ -113,7 +113,7 @@ test_torn_down_task_conflict_wakes_once() {
   make_home "$home"
   out=$(run_sweep "$home" 2> "$home/err") || fail "sweep failed: $(cat "$home/err")"
   case "$out" in
-    "check: pr-orphan-conflict: $URL (branch fm/lane) has carried the conflict label since "*"no task poll watches it; owner: no task in this home's backlog is named lane") ;;
+    "check: pr-orphan-conflict: $URL (branch fm/lane) has carried the conflict label since "*"no task poll watches it; owner: UNKNOWN, candidate homes: none (no row is named lane and no row cites the pull request); fleet list absent: "*) ;;
     *) fail "torn-down task's conflicted pull request did not wake: [$out] $(cat "$home/err")" ;;
   esac
   [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "a branch outside the ship prefix woke: $out"
@@ -376,6 +376,42 @@ test_owner_routing() {
   pass "the wake names this home's task, a main home reports unclaimed work, and a secondmate only its own"
 }
 
+# The live 2026-11-05 shape: task id x-j09-basket-approval-build is an open
+# prep-scout row on the Zenbook and the server's open build row; the fixture adds
+# the pull request URL the build row records once it opens one. The prep home's
+# own backlog holds the id, so asking only this home's backlog names the wrong home.
+test_owner_lookup_names_the_home_that_owns_the_pull_request() {
+  local home=$TMP_ROOT/laptop mate=$TMP_ROOT/laptop-mate other=$TMP_ROOT/other-home out
+  local id=x-j09-basket-approval-build
+  make_home "$home"
+  printf '7\tfm/%s\n' "$id" > "$home/pr-list.tsv"
+  printf '# Backlog\n\n## Queued\n- [ ] %s - Basket approval prep (kind: scout) (since 2026-11-05)\n' "$id" > "$home/data/backlog.md"
+  printf 'self\tlaptop\ngenerated\t%s\nhomes\tlaptop,server\nrow\tserver\t%s\topen\t%s\n' "$(date +%s)" "$id" "$URL" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(SHOW_CMD=true run_sweep "$home" 2>&1) || fail "sweep failed"
+  case "$out" in
+    *"owner: task $id in home server (branch fm/$id names rows in laptop,server; only server's cites the pull request)") ;;
+    *) fail "the pull request was not routed to the server's build row: $out" ;;
+  esac
+  make_home "$mate"
+  cp "$home/pr-list.tsv" "$mate/pr-list.tsv"
+  cp "$home/data/backlog.md" "$home/data/blocked-by-fleet-rows.tsv" "$mate/data/"
+  printf 'q-laptop\n' > "$mate/.fm-secondmate-home"
+  out=$(SHOW_CMD=true run_sweep "$mate" 2>&1) || fail "sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$mate/state")" = 0 ] \
+    || fail "a secondmate woke for a pull request another home owns: $out"
+  ! grep -q '^api graphql' "$mate/gh.log" || fail "a secondmate read another home's pull request label"
+  make_home "$other"
+  printf 'self\tpc\ngenerated\t%s\nhomes\tpc,server,zen\nrow\tserver\tlane\tdone\t-\nrow\tzen\tlane\topen\t-\n' "$(date +%s)" \
+    > "$other/data/blocked-by-fleet-rows.tsv"
+  out=$(SHOW_CMD=true run_sweep "$other" 2>&1) || fail "sweep failed"
+  case "$out" in
+    *"owner: UNKNOWN, candidate homes: server,zen (branch fm/lane names rows in server,zen and 0 of them cite the pull request)") ;;
+    *) fail "an ambiguous owner was not reported as UNKNOWN with its candidates: $out" ;;
+  esac
+  pass "the wake names the home whose row owns the pull request, or UNKNOWN with the candidate homes"
+}
+
 test_unswept_projects_and_usage() {
   local home=$TMP_ROOT/local-only out
   make_home "$home" local-only
@@ -430,5 +466,6 @@ test_episode_survives_temporary_coverage
 test_episode_survives_quiet_and_failed_reads
 test_literal_fm_prefix
 test_owner_routing
+test_owner_lookup_names_the_home_that_owns_the_pull_request
 test_unswept_projects_and_usage
 test_watcher_wakes_owner_home
