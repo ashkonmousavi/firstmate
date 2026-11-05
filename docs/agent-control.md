@@ -105,6 +105,9 @@ For a secondmate, relaunch first honors the [owner-park contract](configuration.
    An omp secondmate replacement likewise passes its [per-secondmate omp profile](configuration.md#per-secondmate-omp-profile) file check before the old agent stops.
    Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
    An explicit `--harness` also passes the [explicit-harness quota gate](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) here; that contract owns home-level admission policy and per-launch overrides.
+   A Codex replacement, a secondmate's included, resolves its [account folder and model](configuration.md#codex-account-folders-configcodex-accounts) in the recorded worktree here, so no usable folder refuses before the old agent stops.
+   Then the replacement's deterministic launch admission runs through the functions `bin/fm-spawn.sh` itself uses (`bin/fm-spawn-admission-lib.sh` and the watcher-continuity admission): backend, launch environment, launch configuration such as permission and approval modes, adapter and executable checks including the Kimi turn-end hook configuration, the backlog row, one capacity read, and for a ship or scout the instructions with the pending progress note appended to a scratch copy, including the Herdr lifecycle guard.
+   Any refusal here leaves the old agent running and the task unchanged; runtime failures after the stop are not part of this check.
 2. **Safe checkpoint.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.
@@ -223,7 +226,7 @@ A relaunch of such a record recreates the copy instead of reusing one.
 The following applies to relaunches that reuse an existing copy; released-copy rollback is owned by the section above.
 
 - A refusal **before** the agent is stopped leaves the durable record and the instructions byte-identical.
-- A launch failure **after** the agent is stopped restores the prior durable record, keeps the progress note so a later recovery still has it, marks the journal `failed:launching`, and reports plainly that no agent is running and where the work is preserved.
+- A launch failure **after** the agent is stopped is reported as a `commit-phase failure`, restores the prior durable record, keeps the progress note so a later recovery still has it, marks the journal `failed:launching`, and reports plainly that no agent is running and where the work is preserved.
 - If the launch owner already published the new record but no running agent can be confirmed, the new record is kept: the task is recorded on the new harness with no agent confirmed, which is exactly what recovery reconciles.
   Rewriting it back to the old harness would be a second, worse inaccuracy.
 

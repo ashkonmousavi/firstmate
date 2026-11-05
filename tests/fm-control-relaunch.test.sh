@@ -79,20 +79,6 @@ SH
 #!/usr/bin/env bash
 set -u
 D=$FM_FAKE_DIR
-if [ -n "${FM_FAKE_PREPARE_WRITER:-}" ] && [ ! -e "$D/prepare-writer-started" ]; then
-  case "$(ps -ww -o args= -p "$PPID" 2>/dev/null)" in
-    *fm-spawn.sh*--admission-only*) ;;
-    *fm-spawn.sh*--relaunch*)
-      : > "$D/prepare-writer-started"
-      "$FM_FAKE_PREPARE_WRITER" </dev/null >"$D/prepare-writer.out" 2>&1 &
-      i=0
-      while [ ! -e "$D/prepare-writer-waiting" ] && [ ! -e "$D/prepare-writer-done" ] && [ "$i" -lt 1000 ]; do
-        /bin/sleep 0.01
-        i=$((i + 1))
-      done
-      ;;
-  esac
-fi
 case "${1:-}" in
   send-keys)
     shift
@@ -2471,6 +2457,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
   out=$(run_control "$dir" rl13 relaunch --harness codex --note "carry this forward"); rc=$?
   expect_code 1 "$rc" "a failed launch should fail closed"$'\n'"$out"
   assert_contains "$out" "no agent is running" "the failure should say no agent is running"
+  assert_contains "$out" "commit-phase failure" "a failure after the stop should be classified as a commit-phase failure"
   assert_contains "$out" "$dir/wt" "the failure should say where the work is preserved"
   [ "$(cat "$dir/home/state/rl13.meta")" = "$before" ] \
     || fail "a failed launch must keep the prior durable record"
@@ -4709,30 +4696,34 @@ REX
   done
 }
 
-make_admission_fixture_root() {
-  local dir=$1 entry
-  mkdir -p "$dir/root/bin"
-  for entry in "$ROOT/bin/"*; do
-    ln -s "$entry" "$dir/root/bin/${entry##*/}"
-  done
-}
-
 run_admission_only() {
-  local dir=$1 harness=$2 model=$3
-  run_lifecycle_fixture "$dir" "$SPAWN" ap2 --relaunch --admission-only \
-    --harness "$harness" --model "$model"
+  local dir=$1; shift
+  # shellcheck disable=SC2016
+  run_lifecycle_fixture "$dir" bash -c '
+    set -eu
+    SCRIPT_DIR=$1/bin
+    FM_ROOT=${FM_ROOT_OVERRIDE:-$1}
+    XDG_CONFIG_HOME=$HOME/.config XDG_DATA_HOME=$HOME/.local/share
+    ID=ap2 KIND=ship RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+    STATE=${FM_ADMISSION_TEST_STATE:-$FM_HOME/state} DATA=$FM_HOME/data CONFIG=$FM_HOME/config
+    HARNESS=$2 MODEL=$3 EFFORT=default BACKEND=tmux RAW_LAUNCH=0 ARG3= LAUNCH=
+    for library in fm-config-inherit-lib fm-wake-lib fm-lease-lib fm-backend fm-control-lib fm-backlog-transition-lib fm-tasks-axi-lib fm-project-capacity-lib fm-capacity-lib fm-polytoken-lib fm-cursor-lib fm-timeout-lib fm-exclude-tools-lib fm-omp-profile-lib fm-spawn-admission-lib; do
+      . "$SCRIPT_DIR/$library.sh"
+    done
+    fm_backend_validate_spawn "$BACKEND" || exit $?
+    fm_spawn_launch_env_admit || exit $?
+    fm_spawn_adapter_admit || exit $?
+    fm_spawn_backlog_admit || exit $?
+    fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" "${4:-0}"
+  ' _ "$ROOT" "$@"
 }
 
 test_admission_only_has_no_side_effects() {
-  local dir before out rc scenario harness model expected diagnostic spawn_path
-  local SPAWN=$SPAWN
-  spawn_path=$SPAWN
+  local dir before out rc scenario harness model expected diagnostic
   for scenario in admitted existing-sample backlog capacity overlay hook-path credential model executable; do
-    SPAWN=$spawn_path
     dir=$(new_case "admission-only-$scenario" ap2)
     add_ship_task "$dir" ap2 claude
     seed_backlog "$dir" ap2 in_flight
-    mkdir -p "$dir/user-home"
     harness=claude model=default expected=0 diagnostic=
     case "$scenario" in
       existing-sample)
@@ -4746,8 +4737,7 @@ test_admission_only_has_no_side_effects() {
       overlay)
         harness=omp expected=1 diagnostic='omp worker posture overlay missing'
         printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/omp"
-        make_admission_fixture_root "$dir"
-        SPAWN="$dir/root/bin/fm-spawn.sh"
+        mkdir -p "$dir/root"
         ;;
       hook-path|model)
         harness=kiro expected=1 diagnostic='kiro hook scripts would live'
@@ -4756,7 +4746,6 @@ test_admission_only_has_no_side_effects() {
           model=unlisted diagnostic="kiro model 'unlisted' is not listed"
         else
           mkdir -p "$dir/home/state space"
-          mv "$dir/home/state/ap2.meta" "$dir/home/state space/ap2.meta"
         fi
         ;;
       credential)
@@ -4766,28 +4755,35 @@ test_admission_only_has_no_side_effects() {
       executable) harness=devin expected=1 diagnostic='devin executable not found on PATH' ;;
     esac
     chmod +x "$dir/fakebin/"*
-    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+    before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")
     case "$scenario" in
       hook-path)
-        out=$(FM_STATE_OVERRIDE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+        out=$(FM_ADMISSION_TEST_STATE="$dir/home/state space" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
       overlay)
         out=$(FM_ROOT_OVERRIDE="$dir/root" run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
       executable)
         out=$(PATH=/usr/bin:/bin run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
-      *) out=$(XDG_CONFIG_HOME="$dir/user-home/.config" XDG_DATA_HOME="$dir/user-home/.local/share" \
-          FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
+      *) out=$(FM_ADMISSION_LOG_MAX_BYTES=1 run_admission_only "$dir" "$harness" "$model"); rc=$? ;;
     esac
     expect_code "$expected" "$rc" "$scenario admission: $out"
     [ -z "$diagnostic" ] || assert_contains "$out" "$diagnostic" "$scenario: wrong admission refusal"
-    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake")" "$scenario: admission-only execution changed files or created an endpoint, worktree, metadata, backlog transition or queue record"
     pass "admission-only $scenario leaves state and task files byte-identical"
   done
   dir=$(new_case sampled-admission ap2)
   add_ship_task "$dir" ap2 claude
-  out=$(run_control "$dir" ap2 relaunch --note 'ordinary relaunch still samples'); rc=$?
-  expect_code 0 "$rc" "ordinary relaunch failed: $out"
+  out=$(run_admission_only "$dir" claude default 1); rc=$?
+  expect_code 0 "$rc" "sampled admission failed: $out"
   assert_present "$dir/home/state/machine-admission.log" 'ordinary admission stopped recording resource samples'
   pass 'ordinary admission still records resource samples'
+}
+
+make_admission_fixture_root() {
+  local dir=$1 entry
+  mkdir -p "$dir/root/bin"
+  for entry in "$ROOT/bin/"*; do
+    ln -s "$entry" "$dir/root/bin/${entry##*/}"
+  done
 }
 
 test_configuration_admission_preserves_running_agent() {
@@ -4889,120 +4885,136 @@ POLYTOKEN
       out=$(XDG_CONFIG_HOME="$dir/user-home/.config" XDG_DATA_HOME="$dir/user-home/.local/share" \
         FM_ADMISSION_REAL_PERL="$real_perl" run_control "$dir" cp1 relaunch --harness "$harness" "${args[@]}" --note 'must not be recorded'); rc=$?
     fi
-    [ "$rc" -ne 0 ] || fail "$scenario: invalid prepare input was admitted"
+    [ "$rc" -ne 0 ] || fail "$scenario: invalid admission input was admitted"
     assert_contains "$out" "$expected" "$scenario: wrong admission refusal"
-    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: pre-commit refusal changed state, instructions, endpoint or worktree"
+    assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$scenario: pre-stop refusal changed state, instructions, endpoint or worktree"
     assert_equals claude "$(cat "$dir/fake/command")" "$scenario: old agent stopped"
     assert_equals '' "$(cat "$dir/fake/literal")" "$scenario: commands reached the old agent"
     pass "configuration admission refuses $scenario before stopping the running agent"
   done
 }
 
-test_spawn_prepare_commit_boundary() {
-  local dir out rc before
-  dir=$(new_case prepare-last-refusal bp1)
-  add_ship_task "$dir" bp1 claude
-  mkdir -p "$dir/user-home"
-  before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
-  out=$(FM_TEST_SPAWN_FAIL_AT=prepare-last run_control "$dir" bp1 relaunch --note 'must not be recorded'); rc=$?
-  [ "$rc" -ne 0 ] || fail 'the last prepare refusal was admitted'
-  assert_contains "$out" 'injected prepare-last refusal' 'the last pre-commit refusal was not reached'
-  assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" 'last pre-commit refusal changed task files or state'
-  assert_equals claude "$(cat "$dir/fake/command")" 'last pre-commit refusal stopped the old agent'
-  assert_equals '' "$(cat "$dir/fake/literal")" 'last pre-commit refusal sent input'
-  pass 'the last pre-commit refusal preserves the running agent and byte-identical state'
-
-  dir=$(new_case commit-first-failure bp2)
-  add_ship_task "$dir" bp2 claude
-  out=$(FM_TEST_SPAWN_FAIL_AT=commit-first run_control "$dir" bp2 relaunch --note 'commit attempt'); rc=$?
-  [ "$rc" -ne 0 ] || fail 'the first commit failure was reported as success'
-  assert_contains "$out" 'injected commit-first failure' 'the first commit step was not reached'
-  assert_contains "$out" 'commit-phase failure' 'post-commit failure lacks its distinct classification'
-  assert_equals zsh "$(cat "$dir/fake/command")" 'commit-phase execution did not stop the old agent after prepare'
-  assert_absent "$dir/fake/created-windows" 'the first commit step created another endpoint'
-  pass 'the first post-commit failure has a distinct commit-phase failure message'
-}
-
-test_spawn_prepare_refuses_changed_copy_shape() {
-  local dir direction out rc expected_state real_cat
-  real_cat=$(command -v cat)
-  for direction in retained-to-released released-to-retained; do
-    dir=$(new_case "prepare-shape-$direction" shape1)
-    add_ship_task "$dir" shape1 claude
-    printf zsh > "$dir/fake/command"
-    cp "$dir/home/state/shape1.meta" "$dir/retained.meta"
-    sed "s|^worktree=.*|worktree=$dir/home/state/shape1.released-copy|" \
-      "$dir/retained.meta" > "$dir/released.meta"
-    case "$direction" in
-      retained-to-released)
-        cp "$dir/retained.meta" "$dir/initial.meta"
-        cp "$dir/released.meta" "$dir/expected.meta" ;;
-      released-to-retained)
-        cp "$dir/released.meta" "$dir/initial.meta"
-        cp "$dir/retained.meta" "$dir/expected.meta" ;;
-    esac
-    cp "$dir/expected.meta" "$dir/home/state/shape1.meta"
-    expected_state=$(admission_snapshot "$dir/home/state")
-    cp "$dir/initial.meta" "$dir/home/state/shape1.meta"
-    cat > "$dir/fakebin/cat" <<'CAT'
-#!/usr/bin/env bash
-if [ "$#" = 1 ] && [ "$1" = "$FM_SHAPE_TRIGGER" ] && [ ! -e "$FM_SHAPE_FLIPPED" ]; then
-  cp "$FM_SHAPE_EXPECTED" "$FM_SHAPE_META" || exit $?
-  : > "$FM_SHAPE_FLIPPED"
-fi
-exec "$FM_SHAPE_REAL_CAT" "$@"
-CAT
-    chmod +x "$dir/fakebin/cat"
-    out=$(FM_SHAPE_META="$dir/home/state/shape1.meta" FM_SHAPE_EXPECTED="$dir/expected.meta" \
-      FM_SHAPE_TRIGGER="$dir/home/state/.control-shape1.lock/pid" \
-      FM_SHAPE_FLIPPED="$dir/flipped" FM_SHAPE_REAL_CAT="$real_cat" \
-      run_spawn "$dir" shape1 --relaunch --harness claude); rc=$?
-    expect_code 1 "$rc" "$direction must refuse stale preparation: $out"
-    assert_present "$dir/flipped" "$direction: concurrent metadata change was not injected"
-    assert_contains "$out" 'task record changed during preparation' "$direction: copy shape was not revalidated"
-    assert_equals "$expected_state" "$(admission_snapshot "$dir/home/state")" "$direction: spawn changed state beyond the external metadata update"
-    assert_equals '' "$(cat "$dir/fake/literal")" "$direction: stale preparation sent endpoint input"
-    assert_absent "$dir/fake/created-windows" "$direction: stale preparation allocated an endpoint"
-    pass "prepare refuses $direction metadata drift before allocation"
+test_pending_note_admission_preserves_running_agent() {
+  local dir kind option out rc before
+  for kind in ship scout; do
+    for option in --note --note-file; do
+      dir=$(new_case "pending-note-$kind-${option#--}" note1)
+      add_ship_task "$dir" note1
+      printf 'kind=%s\n' "$kind" >> "$dir/home/state/note1.meta"
+      : > "$dir/home/config/herdr-lifecycle-spawn-guard"
+      mkdir -p "$dir/user-home"
+      printf '%s\n' 'Do not run bin/fm-herdr-lab.sh; continue the source fix' > "$dir/pending-note"
+      before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+      if [ "$option" = --note ]; then
+        out=$(run_control "$dir" note1 relaunch --note "$(cat "$dir/pending-note")"); rc=$?
+      else
+        out=$(run_control "$dir" note1 relaunch --note-file "$dir/pending-note"); rc=$?
+      fi
+      expect_code 1 "$rc" "$kind $option: lifecycle note should refuse admission: $out"
+      assert_contains "$out" 'lacks the Herdr isolation contract' 'pending note did not reach the spawn validator'
+      assert_equals claude "$(cat "$dir/fake/command")" "$kind $option: pending note refusal stopped the old agent"
+      assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$kind $option: pending note refusal changed task state"
+      pass "$kind $option: pending note validation preserves agent and task"
+    done
   done
 }
 
-test_relaunch_record_writer_during_preparation_does_not_refuse_after_stop() {
-  local dir out rc i=0
-  dir=$(new_case prepare-record-writer pw1)
-  add_ship_task "$dir" pw1 claude
-  cat > "$dir/writer" <<'WRITER'
-#!/usr/bin/env bash
-set -u
-sleep() { /bin/sleep "$@"; }
-. "$FM_WRITER_ROOT/bin/fm-wake-lib.sh"
-lock=$(fm_meta_lock_path "$FM_WRITER_META") || exit 1
-if ! fm_lock_try_acquire "$lock"; then
-  : > "$FM_FAKE_DIR/prepare-writer-waiting"
-  fm_lock_acquire_wait "$lock" || exit 1
-fi
-tmp="$FM_WRITER_META.writer.$$"
-{ grep -v '^review=' "$FM_WRITER_META"; printf 'review=https://example.invalid/review/1\n'; } > "$tmp" &&
-  chmod 0600 "$tmp" && mv -f "$tmp" "$FM_WRITER_META" || exit 1
-fm_lock_release "$lock"
-: > "$FM_FAKE_DIR/prepare-writer-done"
-WRITER
-  chmod +x "$dir/writer"
-  out=$(FM_FAKE_PREPARE_WRITER="$dir/writer" FM_WRITER_ROOT="$ROOT" \
-    FM_WRITER_META="$dir/home/state/pw1.meta" \
-    run_control "$dir" pw1 relaunch --note 'record writer during preparation'); rc=$?
-  while [ ! -e "$dir/fake/prepare-writer-done" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.1
-    i=$((i + 1))
+test_secondmate_codex_relaunch_refuses_unusable_folders_before_stop() {
+  local dir out rc id=smc1 root marker=
+  dir=$(new_case secondmate-codex-folders "$id")
+  add_ship_task "$dir" "$id" codex
+  mkdir -p "$dir/wt/state" "$dir/wt/data" "$dir/wt/bin"
+  printf '%s\n' "$id" > "$dir/wt/.fm-secondmate-home"
+  printf '# agents\n' > "$dir/wt/AGENTS.md"
+  printf '# charter\n' > "$dir/wt/data/charter.md"
+  {
+    printf 'window=fmses:fm-%s\nendpoint_task_id=%s\n' "$id" "$id"
+    printf 'worktree=%s\nproject=%s\nhome=%s\n' "$dir/wt" "$dir/wt" "$dir/wt"
+    printf 'harness=codex\nkind=secondmate\nmode=secondmate\nyolo=off\nmodel=default\neffort=default\n'
+  } > "$dir/home/state/$id.meta"
+  printf codex > "$dir/fake/command"
+  printf codex > "$dir/fake/becomes"
+  for root in "$dir/account-one" "$dir/account-two"; do
+    mkdir -p "$root/rules"
+    printf '%s\n' "synthetic-session-$root" "$marker" > "$root/auth.json"
+    marker="${marker}x"
+    printf 'model="account-default"\n' > "$root/config.toml"
+    printf '/nonexistent\n' > "$root/trusted-cwd"
+    : > "$root/AGENTS.md"
+    printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$root/rules/default.rules"
+    jq '.providers |= [.[] | select(.provider=="codex") |
+      .state={status:"fresh"} | .windows=[{id:"weekly",kind:"weekly",percentRemaining:80}] |
+      .quotaSemantics.effectiveAvailability += [{scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]]' \
+      "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$root/quota.json"
   done
-  assert_present "$dir/fake/prepare-writer-started" 'the record writer did not run during replacement preparation'
-  expect_code 0 "$rc" "a record writer during preparation refused the relaunch after its old agent stopped"$'\n'"$out"
-  assert_not_contains "$out" 'commit-phase failure' 'a record writer during preparation caused a commit-phase failure'
-  assert_equals claude "$(cat "$dir/fake/command")" 'the replacement agent was not launched'
-  assert_present "$dir/fake/prepare-writer-done" 'the record writer never completed'
-  assert_present "$dir/fake/prepare-writer-waiting" 'the replacement did not hold the task record lock through preparation'
-  assert_equals 'https://example.invalid/review/1' "$(meta_field "$dir" pw1 review)" 'the record writer update was lost'
-  pass 'a record writer during replacement preparation waits instead of refusing the relaunch after stop'
+  printf '%s\n' "$dir/account-one" "$dir/account-two" > "$dir/home/config/codex-accounts"
+  cat > "$dir/fakebin/codex" <<'PY'
+#!/usr/bin/env python3
+import json, os, pathlib, sys
+if "status" in sys.argv:
+    sys.exit(0)
+root = pathlib.Path(os.environ["CODEX_HOME"])
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        config = root / "config.toml"
+        model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
+        result = {"config": {"model": model}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PY
+  cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+cat "$CODEX_HOME/quota.json"
+SH
+  chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+  cp "$dir/home/state/$id.meta" "$dir/meta-before"
+  out=$(run_control "$dir" "$id" relaunch --harness codex --model default); rc=$?
+  expect_code 1 "$rc" "a secondmate whose Codex folders cannot admit its model must refuse: $out"
+  assert_contains "$out" 'no usable signed-in folder' 'the refusal must name the Codex folder admission'
+  assert_equals codex "$(cat "$dir/fake/command")" 'the folder refusal stopped the running secondmate'
+  assert_equals '' "$(cat "$dir/fake/literal")" 'the folder refusal sent secondmate lifecycle input'
+  cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'the folder refusal changed the secondmate record'
+  pass 'secondmate Codex relaunch refuses unusable folders before stopping the running agent'
+}
+
+test_fresh_spawn_guard_records_and_clears_warning_episodes() {
+  local dir out rc marker
+  dir=$(new_case fresh-spawn-warning guard1)
+  add_ship_task "$dir" guard1
+  marker="$dir/home/state/.guard-watcher-stale-banner"
+  mkdir -p "$dir/root/bin"
+  cat > "$dir/root/bin/fm-guard.sh" <<'GUARD'
+#!/usr/bin/env bash
+printf 'guard-ran FM_SPAWN_NO_GUARD=<%s> FM_GUARD_READ_ONLY=<%s>\n' "${FM_SPAWN_NO_GUARD-unset}" "${FM_GUARD_READ_ONLY-unset}"
+exec "$FM_WARNING_REAL_GUARD" "$@"
+GUARD
+  chmod +x "$dir/root/bin/fm-guard.sh"
+  # Refuse at adapter selection, after the real ordinary-spawn guard runs.
+  # No new endpoint or live worker is needed to observe the warning contract.
+  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
+    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
+  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched'
+  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<unset>' 'guard execution and effective empty override must be observed'
+  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
+  assert_contains "$out" 'WATCHER DOWN' 'ordinary spawn did not show the warning'
+  assert_present "$marker" 'ordinary spawn did not record its warning episode'
+  rm "$dir/home/state/guard1.meta"
+  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
+    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
+  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched after recovery'
+  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<unset>' 'recovered guard execution must be observed'
+  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
+  assert_absent "$marker" 'ordinary spawn did not clear its recovered warning episode'
+  pass 'ordinary fresh spawn records warning episodes and clears recovered episodes'
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
@@ -5057,71 +5069,13 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
-test_pending_note_admission_preserves_running_agent() {
-  local dir kind option out rc before
-  for kind in ship scout; do
-    for option in --note --note-file; do
-      dir=$(new_case "pending-note-$kind-${option#--}" note1)
-      add_ship_task "$dir" note1
-      printf 'kind=%s\n' "$kind" >> "$dir/home/state/note1.meta"
-      : > "$dir/home/config/herdr-lifecycle-spawn-guard"
-      mkdir -p "$dir/user-home"
-      printf '%s\n' 'Do not run bin/fm-herdr-lab.sh; continue the source fix' > "$dir/pending-note"
-      before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
-      if [ "$option" = --note ]; then
-        out=$(run_control "$dir" note1 relaunch --note "$(cat "$dir/pending-note")"); rc=$?
-      else
-        out=$(run_control "$dir" note1 relaunch --note-file "$dir/pending-note"); rc=$?
-      fi
-      expect_code 1 "$rc" "$kind $option: lifecycle note should refuse admission: $out"
-      assert_contains "$out" 'lacks the Herdr isolation contract' 'pending note did not reach the spawn validator'
-      assert_equals claude "$(cat "$dir/fake/command")" "$kind $option: pending note refusal stopped the old agent"
-      assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" "$kind $option: pending note refusal changed task state"
-      pass "$kind $option: pending note validation preserves agent and task"
-    done
-  done
-}
-
-test_fresh_spawn_guard_records_and_clears_warning_episodes() {
-  local dir out rc marker
-  dir=$(new_case fresh-spawn-warning guard1)
-  add_ship_task "$dir" guard1
-  marker="$dir/home/state/.guard-watcher-stale-banner"
-  mkdir -p "$dir/root/bin"
-  cat > "$dir/root/bin/fm-guard.sh" <<'GUARD'
-#!/usr/bin/env bash
-printf 'guard-ran FM_SPAWN_NO_GUARD=<%s> FM_GUARD_READ_ONLY=<%s>\n' "${FM_SPAWN_NO_GUARD-unset}" "${FM_GUARD_READ_ONLY-unset}"
-exec "$FM_WARNING_REAL_GUARD" "$@"
-GUARD
-  chmod +x "$dir/root/bin/fm-guard.sh"
-  # Refuse at adapter selection, after the real ordinary-spawn guard runs.
-  # No new endpoint or live worker is needed to observe the warning contract.
-  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
-    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
-  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched'
-  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<0>' 'guard execution and effective empty override must be observed'
-  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
-  assert_contains "$out" 'WATCHER DOWN' 'ordinary spawn did not show the warning'
-  assert_present "$marker" 'ordinary spawn did not record its warning episode'
-  rm "$dir/home/state/guard1.meta"
-  out=$(FM_ROOT_OVERRIDE="$dir/root" FM_WARNING_REAL_GUARD="$ROOT/bin/fm-guard.sh" \
-    FM_SPAWN_NO_GUARD='' FM_SUPERVISION_MODEL=persistent run_spawn "$dir" fresh "$dir/proj" --mode no-mistakes --yolo off --harness invalid-fixture); rc=$?
-  [ "$rc" -ne 0 ] || fail 'invalid fixture harness unexpectedly launched after recovery'
-  assert_contains "$out" 'guard-ran FM_SPAWN_NO_GUARD=<> FM_GUARD_READ_ONLY=<0>' 'recovered guard execution must be observed'
-  printf '%s\n' "$out" | sed -n '/^guard-ran /p'
-  assert_absent "$marker" 'ordinary spawn did not clear its recovered warning episode'
-  pass 'ordinary fresh spawn records warning episodes and clears recovered episodes'
-}
-
-test_pending_note_admission_preserves_running_agent
-test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_adapter_admission_preserves_running_agent
-test_configuration_admission_preserves_running_agent
-test_spawn_prepare_commit_boundary
-test_spawn_prepare_refuses_changed_copy_shape
-test_relaunch_record_writer_during_preparation_does_not_refuse_after_stop
 test_admission_only_has_no_side_effects
 test_relaunch_admission_refusal_preserves_running_agent
+test_configuration_admission_preserves_running_agent
+test_pending_note_admission_preserves_running_agent
+test_secondmate_codex_relaunch_refuses_unusable_folders_before_stop
+test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
 

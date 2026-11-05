@@ -1383,6 +1383,9 @@ resolve_relaunch_profile() {
   else
     TARGET_EFFORT=default
   fi
+  if [ "$TARGET_EFFORT" = ultra ]; then
+    "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$TARGET_HARNESS" "$TARGET_MODEL" "$TARGET_EFFORT" || return 1
+  fi
   # The launch owner applies this home's worker account pin too, but only after
   # the old agent has been stopped, so a pin that no longer resolves or is
   # signed out must refuse here, while nothing has changed yet. Codex's opt-in
@@ -1405,6 +1408,32 @@ resolve_relaunch_profile() {
     TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
     account_model=${account_selection##*$'\t'}
     TARGET_MODEL=$account_model
+  fi
+  fm_omp_profile_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
+    "$account_mate" >/dev/null || return 1
+  # Likewise polytoken's launch profile and wiring refusals
+  # (bin/fm-polytoken-lib.sh owns them). The launch owner retires the prior
+  # incarnation's own generated hook layer, so only one it did not generate
+  # refuses here.
+  if [ "$TARGET_HARNESS" = polytoken ]; then
+    local polytoken_bin polytoken_state
+    polytoken_bin=$(fm_polytoken_binary) || return 1
+    fm_polytoken_launch_ref "$polytoken_bin" "$TARGET_MODEL" "$TARGET_EFFORT" >/dev/null || return 1
+    polytoken_state=$(cd "$STATE" && pwd -P) || return 1
+    fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$polytoken_state" "$ID")" || return 1
+    # A released copy has no worktree yet: the launch owner checks the hook
+    # layer of the copy it recreates before arming anything there.
+    if [ "$RELEASED" = 0 ]; then
+      fm_control_harness_wiring_paths "$PRIOR_HARNESS" "$WT" "$STATE" "$ID" "$KIND" \
+          | grep -qxF "$(fm_polytoken_hooks_file "$WT")" \
+        || fm_polytoken_require_hooks_free "$WT" || return 1
+    fi
+  fi
+  # Likewise config/crew-exclude-tools: a malformed file, or a replacement
+  # runtime that cannot hide the listed tools, refuses here, before the old
+  # agent stops. Secondmate agents are not covered.
+  if [ "$KIND" != secondmate ]; then
+    fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
   fi
   # Likewise the spawn quota gate for an explicitly chosen harness. The launch
   # owner does not gate a relaunch this transaction drives, so this is the one
@@ -1540,6 +1569,72 @@ record_note() {
   esac
 }
 
+# Dynamic-scope locals preserve control's resolved context while the shared
+# admission readers use their ordinary globals, without a subshell boundary.
+# shellcheck disable=SC2034 # Locals scope the shared readers' outputs.
+relaunch_admission_preflight() {
+  local STATE=$STATE FM_HOME=$FM_HOME DATA=$DATA ID=$ID KIND=$KIND BACKEND=$BACKEND
+  local CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
+  local RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+  local HARNESS=$TARGET_HARNESS MODEL=$TARGET_MODEL EFFORT=$TARGET_EFFORT
+  local RAW_LAUNCH=0 ARG3='' LAUNCH='' EXCLUDE_TOOLS=''
+  local DEVIN_BIN COMMANDCODE_BIN CORTEX_BIN PI_BIN CURSOR_BIN CURSOR_MODELS
+  local OMP_BIN OMP_WORKER_CFG AGY_BIN KIRO_BIN POLYTOKEN_BIN POLYTOKEN_MODEL_REF
+  local OMP_PROFILE_MATE OMP_PROFILE_RAW OMP_PROFILE_PIN
+  local MUSE_BIN MUSE_CONFIG_HOME MUSE_DATA_HOME MUSE_AUTH_FILE KIMI_BIN ROVO_BIN
+  local LAUNCH_ENV_ENABLED LAUNCH_ENV_NAMES
+  local BACKLOG_TRANSITION BACKLOG_ROW_STATE BACKLOG_GATE_STATUS spawn_preflight_actor
+  local FM_BACKLOG_TRANSITION_SKIP FM_BACKLOG_TRANSITION_ERROR FM_BACKLOG_ROW_RESULT
+  local FM_BACKLOG_ROW_STATE FM_BACKLOG_ROW_ERROR FM_BACKLOG_ROW_HOLD_KIND
+  local CLAUDE_PERM_PRESENT CLAUDE_PERMISSION_MODE CLAUDE_PERM_FLAG
+  local CODEX_APPROVAL_PRESENT CODEX_APPROVAL_MODE CODEX_APPROVAL_FLAG
+  local CODEX_PERM_PRESENT CODEX_PERMISSION_MODE LAVISH_AXI_HOST_CONFIG_PRESENT LAVISH_AXI_HOST
+  local KEEP_AI_TRAILERS HERDR_LIFECYCLE_BRIEF_GUARD HERDR_LIFECYCLE_COMMAND
+  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE scratch='' brief=$RELAUNCH_BRIEF status=0 state_real
+  MODE=$(fm_meta_get "$META" mode)
+  # shellcheck source=bin/fm-tasks-axi-lib.sh
+  . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+  # shellcheck source=bin/fm-backlog-transition-lib.sh
+  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  # shellcheck source=bin/fm-project-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+  # shellcheck source=bin/fm-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-capacity-lib.sh"
+  # shellcheck source=bin/fm-spawn-admission-lib.sh
+  . "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
+  # shellcheck source=bin/fm-config-inherit-lib.sh
+  . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+  # shellcheck source=bin/fm-cursor-lib.sh
+  . "$SCRIPT_DIR/fm-cursor-lib.sh"
+  # shellcheck source=bin/fm-dod-lib.sh
+  . "$SCRIPT_DIR/fm-dod-lib.sh"
+  # shellcheck source=bin/fm-operational-input.sh
+  . "$SCRIPT_DIR/fm-operational-input.sh"
+  "$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE" || return $?
+  fm_backend_validate_spawn "$BACKEND" || return $?
+  fm_spawn_launch_env_admit || return $?
+  fm_spawn_config_admit || return $?
+  fm_spawn_adapter_admit || return $?
+  state_real=$(cd "$STATE" && pwd -P) || return 1
+  fm_spawn_launch_files_admit "$state_real" "$WT" "$(fm_meta_get "$META" project)" || return $?
+  fm_spawn_backlog_admit || return $?
+  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
+  if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
+    echo "error: task $ID has a pending authoritative backlog close; finish or repair it before relaunch" >&2
+    return 1
+  fi
+  [ -n "$brief" ] || return 0
+  if [ -n "$NOTE" ]; then
+    scratch=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || return 1
+    brief="$scratch/brief.md"
+    { cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
+      fm_relaunch_note_append "$brief" "$STATE/$ID.inbox" "$scratch/note"; } || status=1
+  fi
+  [ "$status" != 0 ] || fm_spawn_brief_admit "$brief" || status=$?
+  [ -z "$scratch" ] || rm -rf -- "$scratch"
+  return "$status"
+}
+
 do_relaunch() {
   local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
@@ -1587,13 +1682,7 @@ do_relaunch() {
     return
   fi
   safe_checkpoint
-  spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
-  [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
-  [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
-  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
-  FM_CONTROL_RELAUNCH_NOTE="$NOTE" \
-    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
-    "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" --admission-only >/dev/null || exit $?
+  relaunch_admission_preflight || exit $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"
@@ -1610,6 +1699,10 @@ do_relaunch() {
   # per-task harness wiring before arming the new one, so nothing to do here.
   RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
   journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
+  spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
+  [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
+  [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1

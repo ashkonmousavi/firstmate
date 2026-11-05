@@ -1655,11 +1655,11 @@ Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchj
 Among eligible folders, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
 Under rank-only, exhausted folders remain eligible with a notice; weekly ranking, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation or stopping a live secondmate.
+Fresh and released copies resolve default models after allocation, and fresh secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
-Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+Control-plane relaunch of an existing copy, a secondmate's home included, resolves folder and model in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.
