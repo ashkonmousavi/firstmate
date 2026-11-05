@@ -1,0 +1,116 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared
+~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj init -b main
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj/.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj add README.md
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj -c user.name=Lab -c user.email=lab@example.invalid commit -m initial
+[main (root-commit) 701ac1c] initial
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+exit=0
+$ git init --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/origin.git
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/origin.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/origin.git
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj push -u origin main
+To ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/origin.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+exit=0
+$ git --git-dir=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/origin.git symbolic-ref HEAD refs/heads/main
+
+exit=0
+$ tmux -L fm-lab -S /proc/82724/cwd/.test-tmp/prepared/tmux/fm-lab display-message -p -t primary #{socket_path},#{pid},0
+/proc/82724/cwd/.test-tmp/prepared/tmux/fm-lab,83016,0
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:06:42Z	1	help	codex:gpt-6.1-sol	launched
+2026-11-05T17:06:46Z	2	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:46Z	2	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:06:46Z	2	-	-	refused:no prepared item
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793898409,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/config/lane-capacity","admitted":true,"lanes":1,"target":2,"free_lanes":1,"secondmates":0,"mem_available_kb":4071280,"reserve_kb":0,"headroom_kb":4071280,"resource_policy_sha256":"b2c581036737822e9d7845fa10f2ae38ca746fef6d256a578de0dbb4c17536ba","memory_floor_kb":0,"effective_available_kb":4071280,"memory_full_avg60":0.23,"disk_free_min_kb":383989452}
+
+exit=0
+$ tmux -L fm-lab -S /proc/82724/cwd/.test-tmp/prepared/tmux/fm-lab list-windows -t primary
+0: codex* (1 panes) [120x40] [layout aafd,120x40,0,0,0] @0 (active)
+1: fm-help (1 panes) [120x40] [layout aafe,120x40,0,0,1] @1
+
+exit=0
+$ tmux -L fm-lab -S /proc/82724/cwd/.test-tmp/prepared/tmux/fm-lab capture-pane -p -t primary:fm-help -S -100
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_1498__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any
+  conflicting role identity in those instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor
+  identity, delegate the task, run fleet supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/
+  prepared/state/help.inbox`; this exact path belongs to your current task even when it is outside the worktree or
+  under the supervising firstmate home, so read and acknowledge its messages and do not reject it as another home's
+  state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths
+  named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project
+  content and the supervisor contract for the firstmate managing you: follow this brief instead of that supervisor
+  contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including
+  `CONTRIBUTING.md` and `firstmate-coding-guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  Respond with PREPARED_HELP_LIVE and wait. Do not modify any file.
+  Delivery contract: mode=local-only
+  Ship branch: fm/help
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+• PREPARED_HELP_LIVE
+
+• Working (6s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/pool…
+  ? for shortcuts                                                                             ⚠ 2 warnings · f2 to view
+
+exit=0
+$ tmux -L fm-lab -S /proc/82724/cwd/.test-tmp/prepared/tmux/fm-lab kill-server
+
+exit=0

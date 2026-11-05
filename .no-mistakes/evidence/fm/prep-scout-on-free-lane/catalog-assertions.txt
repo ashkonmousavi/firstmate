@@ -1,0 +1,1 @@
+Without a catalogue, help/J-01/AI are all reported unranked and none is picked by backlog order. A valid 58-character task without TESTER TASK does not abort fallback. When AI is held, the native ready reader excludes it and dry-run selects J-01 over help. All assertions passed.

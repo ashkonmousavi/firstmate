@@ -1,0 +1,244 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live
+~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj init -b main
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj/.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj add README.md
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj -c user.name=Lab -c user.email=lab@example.invalid commit -m initial
+[main (root-commit) a530754] initial
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+exit=0
+$ git init --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/origin.git
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/origin.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/origin.git
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj push -u origin main
+To ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/origin.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+exit=0
+$ git --git-dir=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/origin.git symbolic-ref HEAD refs/heads/main
+
+exit=0
+$ tmux -L fm-lab -S /proc/74324/cwd/.test-tmp/live/tmux/fm-lab display-message -p -t primary #{socket_path},#{pid},0
+/proc/74324/cwd/.test-tmp/live/tmux/fm-lab,74500,0
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793898345,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/config/lane-capacity","admitted":true,"lanes":0,"target":1,"free_lanes":1,"secondmates":0,"mem_available_kb":6073004,"reserve_kb":0,"headroom_kb":6073004,"resource_policy_sha256":"62cba5252cf541b893fc7b1401ce5cff5e8a5575c507fef1506171cfb682992f","memory_floor_kb":0,"effective_available_kb":6073004,"memory_full_avg60":0.04,"disk_free_min_kb":384115500}
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-05T17:05:45Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+would-record: 2026-11-05T17:05:45Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+would-record: 2026-11-05T17:05:46Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-05T17:05:46Z	1	-	-	would-step: ai initial-prep:1:file would-prep ai
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --list-prepared
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --steps-only
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-tasks-axi.sh ready
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  help,queued,ship,proj,Help/UX
+  j01,queued,ship,proj,J-01
+  ai,queued,ship,proj,X AI
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:05:50Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:50Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:05:50Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:05:50Z	1	-	-	nothing-to-prep unranked=help,j01,ai
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:05:53Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:54Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:05:54Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:05:54Z	1	-	-	fm-autolaunch-steps: Expecting value: line 1 column 1 (char 0)
+
+exit=1
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:05:56Z	-	-	-	refused:no capacity: full; ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=6084972 pressure_full_avg60=0.03 floor_kb=0 reserve_kb=0 pressure_limit=100
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:05:59Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:59Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:00Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:06:08Z	1	-	-	prep-pending ai
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:06:10Z	1	help	-	refused:not prepared: record has unknown key unknown
+2026-11-05T17:06:11Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:11Z	1	ai	-	refused:not prepared: initial prep pending
+2026-11-05T17:06:11Z	1	-	-	refused:no prepared item
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --step-dispatch ai   ai:initial-prep:1
+refused:prepared-item-exists
+
+exit=1
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:06:14Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:06:14Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:14Z	1	ai	-	refused:not prepared: initial prep pending
+2026-11-05T17:06:47Z	1	-	-	already-prepping ai
+
+exit=0
+$ tmux -L fm-lab -S /proc/74324/cwd/.test-tmp/live/tmux/fm-lab list-windows -t primary
+0: codex* (1 panes) [120x40] [layout aafd,120x40,0,0,0] @0 (active)
+1: fm-ai (1 panes) [120x40] [layout aafe,120x40,0,0,1] @1
+
+exit=0
+$ tmux -L fm-lab -S /proc/74324/cwd/.test-tmp/live/tmux/fm-lab capture-pane -p -t primary -S -100
+
+  Hooks need review
+  5 hooks are new or changed.
+  Hooks can run outside the sandbox after you trust them.
+
+
+› 1. Review hooks
+  2. Trust all and continue
+  3. Continue without trusting (hooks won't run)
+
+  enter confirm · esc skip
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exit=0
+$ tmux -L fm-lab -S /proc/74324/cwd/.test-tmp/live/tmux/fm-lab capture-pane -p -t primary:fm-ai -S -100
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_31990__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+  # Definition of done
+  Write your findings to `~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/
+  data/ai/report.md`.
+  The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references),
+  and what you recommend.
+  If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your
+  board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm
+  with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox,
+  write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at
+  session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled
+  <source-id> <sequence> to conclude and retire your board.
+  Before reporting done, read and follow `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.agents/skills/captain-hold-lifecycle/SKILL.md` and pass its shared
+  completion gate for the report and any visual review.
+  Only when the reviewed inventory is empty, run `FM_HOME='~/.no-mistakes/
+  worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live' bash '~/.no-mistakes/
+  worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-captain-hold.sh' complete 'ai' --none`.
+  This exception permits only that command, not direct metadata edits, another task, or any backlog write.
+  If any captain call remains, ask firstmate to register the inventory and attest completion before you report done.
+  If the command refuses, report the refusal to firstmate and stop rather than bypassing the completion gate.
+  When the report is complete, append `done [at=<epoch>]: {one-line conclusion}` to the status file and stop.
+  If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report;
+  firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up
+  message.
+
+  # Slice
+  SLICE: main/ai
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+◦ Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/pool/.tr…
+  ? for shortcuts                                                                             ⚠ 2 warnings · f2 to view
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:06:50Z	-	-	-	refused:no capacity: full; ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/config/lane-capacity: lanes=1 target=1; no free machine lane; available_kb=4189896 pressure_full_avg60=0.23 floor_kb=0 reserve_kb=0 pressure_limit=100
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-tasks-axi.sh show ai --full
+task:
+  id: ai
+  title: X AI
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: main/ai"
+
+exit=0
+$ tmux -L fm-lab -S /proc/74324/cwd/.test-tmp/live/tmux/fm-lab kill-server
+
+exit=0

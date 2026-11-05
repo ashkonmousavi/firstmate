@@ -1,0 +1,88 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog
+~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj init -b main
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj/.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj add README.md
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj -c user.name=Lab -c user.email=lab@example.invalid commit -m initial
+[main (root-commit) eebf37a] initial
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+exit=0
+$ git init --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/origin.git
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/origin.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/origin.git
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/projects/proj push -u origin main
+To ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/origin.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+exit=0
+$ git --git-dir=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/catalog/origin.git symbolic-ref HEAD refs/heads/main
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh
+2026-11-05T17:08:31Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:08:31Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:08:32Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:08:32Z	1	-	-	nothing-to-prep unranked=help,j01,ai
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-05T17:08:34Z	1	hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh	-	refused:not prepared: no brief data/hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh/brief.md
+would-record: 2026-11-05T17:08:34Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+would-record: 2026-11-05T17:08:34Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-05T17:08:35Z	1	-	-	would-step: ai initial-prep:1:file would-prep ai
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-tasks-axi.sh hold ai --reason Disposable priority check --until 2099-12-31
+ok: hold ai -> held (until 2099-12-31)
+task:
+  id: ai
+  title: X AI
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: Disposable priority check
+  hold_kind: "-"
+  hold_until: 2099-12-31
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: main/ai"
+help[2]:
+  - Run `tasks-axi unhold ai` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-05T17:08:39Z	1	hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh	-	refused:not prepared: no brief data/hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh/brief.md
+would-record: 2026-11-05T17:08:39Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+would-record: 2026-11-05T17:08:39Z	1	-	-	would-step: j01 initial-prep:1:file would-prep j01
+
+exit=0

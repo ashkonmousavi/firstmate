@@ -1,0 +1,14 @@
+window=primary:fm-help
+endpoint_task_id=help
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/pool/.treehouse/proj-de5066/1/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/prepared/projects/proj
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/help
+tasktmp=/tmp/fm-help
+model=gpt-6.1-sol
+effort=low
+spawn_gen=s1793898380.1498.4277

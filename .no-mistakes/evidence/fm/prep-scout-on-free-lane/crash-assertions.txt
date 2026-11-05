@@ -1,0 +1,1 @@
+Real launcher SIGKILL before/after filing and before launch: new own prep retires receipts, restores original ship brief, and never spawns a scout. Empty ready queue reports nothing-to-prep. All assertions passed.

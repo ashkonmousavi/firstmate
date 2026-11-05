@@ -1,0 +1,4 @@
+project=proj
+kind=ship
+mode=local-only
+yolo=off

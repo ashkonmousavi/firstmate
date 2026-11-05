@@ -1,0 +1,4 @@
+2026-11-05T17:06:42Z	1	help	codex:gpt-6.1-sol	launched
+2026-11-05T17:06:46Z	2	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:46Z	2	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:06:46Z	2	-	-	refused:no prepared item

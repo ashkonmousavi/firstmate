@@ -1,0 +1,11 @@
+window=primary:fm-ai
+endpoint_task_id=ai
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/pool/.treehouse/proj-bd3018/1/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/projects/proj
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-ai
+model=gpt-6.1-sol
+effort=low
+spawn_gen=s1793898385.31990.25009

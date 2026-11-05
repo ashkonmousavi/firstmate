@@ -1,0 +1,53 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue
+~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj init -b main
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj/.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj add README.md
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj -c user.name=Lab -c user.email=lab@example.invalid commit -m initial
+[main (root-commit) 0e0287a] initial
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+exit=0
+$ git init --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/origin.git
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/origin.git/
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/origin.git
+
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj push -u origin main
+To ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/origin.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+exit=0
+$ git --git-dir=~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/origin.git symbolic-ref HEAD refs/heads/main
+
+exit=0
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-spawn.sh ai ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj --scout --harness codex --model gpt-6.1-sol
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=6097036 pressure_full_avg60=0.82 floor_kb=0 reserve_kb=0 pressure_limit=100; task ai stays queued
+
+exit=75
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/bin/fm-spawn.sh j01 ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/projects/proj --scout --no-defer-queue --harness codex --model gpt-6.1-sol
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/queue/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=6166092 pressure_full_avg60=0.74 floor_kb=0 reserve_kb=0 pressure_limit=100; task j01 stays queued
+
+exit=75

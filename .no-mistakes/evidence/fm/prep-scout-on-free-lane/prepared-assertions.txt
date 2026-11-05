@@ -1,0 +1,1 @@
+Two free lanes, prepared help plus unprepared AI/J-01: real launcher starts only help as ship, leaves one lane free, and creates no initial AI prep receipt. All assertions passed.

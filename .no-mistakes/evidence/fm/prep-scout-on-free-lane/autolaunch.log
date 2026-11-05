@@ -1,0 +1,22 @@
+2026-11-05T17:05:50Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:50Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:05:50Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:05:50Z	1	-	-	nothing-to-prep unranked=help,j01,ai
+2026-11-05T17:05:53Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:54Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:05:54Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:05:54Z	1	-	-	fm-autolaunch-steps: Expecting value: line 1 column 1 (char 0)
+2026-11-05T17:05:56Z	-	-	-	refused:no capacity: full; ~/.no-mistakes/worktrees/049a88734b0e/01M6P2F9E2VSTH4R8X14HYZXZV/.test-tmp/live/config/lane-capacity: lanes=0 target=0; no free machine lane; available_kb=6084972 pressure_full_avg60=0.03 floor_kb=0 reserve_kb=0 pressure_limit=100
+2026-11-05T17:05:59Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:05:59Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:00Z	1	ai	-	refused:not prepared: no prep file (data/ai/prep.md or a Prep: data/<path> line in the item)
+2026-11-05T17:06:08Z	1	-	-	prep-pending ai
+2026-11-05T17:06:10Z	1	help	-	refused:not prepared: record has unknown key unknown
+2026-11-05T17:06:11Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:11Z	1	ai	-	refused:not prepared: initial prep pending
+2026-11-05T17:06:11Z	1	-	-	refused:no prepared item
+2026-11-05T17:06:14Z	1	help	-	refused:not prepared: no brief data/help/brief.md
+2026-11-05T17:06:14Z	1	j01	-	refused:not prepared: no brief data/j01/brief.md
+2026-11-05T17:06:14Z	1	ai	-	refused:not prepared: initial prep pending
+1793898407	-	ai	-	launched|relaunched ai initial-prep:1
+2026-11-05T17:06:47Z	1	-	-	already-prepping ai

@@ -1,0 +1,4 @@
+## Captain's intent
+Prepare a plan to add a greeting to this disposable project.
+## Firstmate spec
+Preserve this outcome.

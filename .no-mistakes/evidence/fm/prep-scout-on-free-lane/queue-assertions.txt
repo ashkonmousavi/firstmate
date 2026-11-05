@@ -1,0 +1,1 @@
+Real fm-spawn with real capacity=0: ordinary scout returns 75 and records one deferred request; --no-defer-queue scout returns 75 and adds no queue record or task metadata. All assertions passed.

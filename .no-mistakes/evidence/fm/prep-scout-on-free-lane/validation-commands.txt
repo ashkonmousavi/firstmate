@@ -1,0 +1,9 @@
+python3 .test-tmp/live_driver.py
+python3 .test-tmp/prepared_driver.py
+python3 .test-tmp/negative_driver.py
+python3 .test-tmp/catalog_driver.py
+python3 .test-tmp/queue_driver.py
+TMPDIR="$PWD/.test-tmp" bash bin/fm-test-run.sh tests/fm-spawn-deferred.test.sh
+TMPDIR="$PWD/.test-tmp" python3 tests/autolaunch_steps_cases.py "$PWD" Steps.test_prep_fallback_g1_g10_highest_priority_and_g6_replay Steps.test_prep_fallback_g2_prepared_item_wins_even_with_spare_lane Steps.test_prep_fallback_refused_preparation_never_becomes_initial_prep Steps.test_prep_fallback_uses_first_nonfenced_markdown_slice Steps.test_prep_fallback_new_preparation_retires_pending_effects Steps.test_prep_fallback_ordinary_rows_without_owner_binding Steps.test_prep_fallback_unranked_items_are_never_picked_by_position Steps.test_prep_fallback_uses_autolaunch_prep_project_override Steps.test_prep_fallback_leased_replay_never_starts_prep_ahead_of_prepared_item Steps.test_prep_fallback_capacity_refusal_stays_with_receipt Steps.test_prep_fallback_filed_without_launch_is_retired_when_prep_arrives Steps.test_prep_fallback_long_task_id_without_tester_task_is_ranked Steps.test_prep_fallback_g9_empty_queue_is_nothing_to_prep Steps.test_prep_fallback_g3_unreadable_catalogue_never_reports_idle Steps.test_prep_fallback_no_capacity_has_no_effect Steps.test_prep_fallback_g5_existing_prep_is_skipped Steps.test_prep_fallback_dry_and_readers_never_start_scout Steps.test_prep_fallback_g5_pending_crash_preserves_contract_and_resumes
+
+All final driver and regression commands exited 0. Earlier socket-path, hold-setup and driver expectation failures were corrected and re-driven. Replay retained *_driver.py from the repository cwd; all fixture source/data is created below .test-tmp and removed. The live capacity race wrapper changes the lab lane ceiling then execs the actual fm-spawn.sh; no spawn, activity, task-store or CLI replacement is used.
