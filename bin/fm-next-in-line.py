@@ -29,7 +29,7 @@ publication coverage and conflicting ownership produce NO_PICK. Unknown takes
 precedence over deny. COMPLETE is eligibility information, never admission.
 No kick is written or interpreted as evidence of missing claims/writers.
 
-Producer read seam: the existing registered-home enumerator and tasks-axi
+Producer read seam: the existing registered-home parser/root resolver and tasks-axi
 ready/show preparation predicates, behind fm-autolaunch.sh --candidate-prep.
 Ready grammar/count must be complete; identified refused entries are retained.
 No catalogue adapter or accepted task/phase/claim mappings are supplied yet:
@@ -121,21 +121,75 @@ def homes(home):
     # Sourcing this existing library runs mkdir -p; never create missing state.
     state = home / "state"
     if not state.is_dir() or state.is_symlink():
-        raise ValueError(f"registered home state unavailable: {state}")
+        return {home: f"registered home state unavailable: {state}"}
     script = '''. "$1/fm-wake-lib.sh"
 . "$1/fm-secondmate-registry-lib.sh"
-if fm_local_firstmate_state_dirs "$2/state"; then
-  printf '%s\\0' "${FM_LOCAL_FIRSTMATE_STATES[@]}"
-else
-  printf '%s\\n' "$FM_LOCAL_FIRSTMATE_ERROR" >&2; exit 75
-fi'''
+root=$(fm_firstmate_root_home "$2") || {
+  printf '%s\\0%s\\0' "$2" 'cannot resolve the root Firstmate home'; exit 75
+}
+homes=("$2" "$root")
+seen=()
+i=0
+while [ "$i" -lt "${#homes[@]}" ]; do
+  member=${homes[$i]}
+  i=$((i + 1))
+  physical=$(CDPATH='' cd -- "$member" 2>/dev/null && pwd -P) || {
+    printf '%s\\0%s\\0' "$member" "registered local Firstmate home is unavailable: $member"
+    continue
+  }
+  known=0
+  for existing in "${seen[@]}"; do
+    [ "$existing" != "$physical" ] || known=1
+  done
+  [ "$known" = 0 ] || continue
+  seen+=("$physical")
+  member=$physical
+  reason=
+  reg="$member/data/secondmates.md"
+  if [ ! -r "$member" ] || [ ! -x "$member" ]; then
+    reason="local Firstmate registry parent is unreadable at $member"
+  elif { [ -e "$member/data" ] || [ -L "$member/data" ]; } &&
+       { [ ! -d "$member/data" ] || [ ! -r "$member/data" ] || [ ! -x "$member/data" ]; }; then
+    reason="local Firstmate registry parent is unreadable at $member/data"
+  elif [ -e "$reg" ] || [ -L "$reg" ]; then
+    if [ ! -f "$reg" ] || [ -L "$reg" ] || [ ! -r "$reg" ]; then
+      reason="local Firstmate registry is unsafe at $reg"
+    else
+      while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+          "- "*)
+            if ! secondmate_registry_parse_line "$line"; then
+              reason="malformed local Firstmate registry entry in $reg"
+              continue
+            fi
+            [ "$SECONDMATE_REGISTRY_REMOTE" -eq 0 ] || continue
+            homes+=("$SECONDMATE_REGISTRY_HOME")
+            ;;
+        esac
+      done < "$reg" || reason="cannot read local Firstmate registry at $reg"
+    fi
+  fi
+  printf '%s\\0%s\\0' "$member" "$reason"
+done'''
     result = command(["bash", "-c", script, "_", BIN, home], home)
+    fields = result.stdout.split("\0")
+    registered = {home: ""}
+    if len(fields) < 3 or fields[-1] or len(fields) % 2 != 1:
+        registered[home] = "registered home enumeration returned malformed records"
+    else:
+        for member, reason in zip(fields[:-1:2], fields[1:-1:2]):
+            if not member:
+                registered[home] = "registered home enumeration returned an empty home"
+                continue
+            try:
+                member = Path(member).resolve()
+            except (OSError, RuntimeError) as error:
+                member = Path(os.path.abspath(member))
+                reason = reason or str(error)
+            registered[member] = registered.get(member) or reason
     if result.returncode:
-        raise ValueError(result.stderr.strip() or "registered home enumeration failed")
-    states = result.stdout.rstrip("\0").split("\0")
-    if not states or any(not s or Path(s).name != "state" for s in states):
-        raise ValueError("registered home enumeration returned malformed state paths")
-    return sorted({Path(s).parent.resolve(strict=True) for s in states}, key=str)
+        registered[home] = registered[home] or result.stderr.strip() or "registered home enumeration failed"
+    return dict(sorted(registered.items(), key=lambda item: str(item[0])))
 
 
 def publication(home, clock):
@@ -252,10 +306,12 @@ def join(home):
     except (OSError, ValueError, subprocess.TimeoutExpired) as error:
         out.update(status="NO_PICK")
         out["reasons"].append(dict(scope="machine", code="enumeration", reason=str(error)))
-        return out
+        registered = {home: str(error)}
     seen = {}
-    for member in registered:
+    for member, error in registered.items():
         try:
+            if error:
+                raise ValueError(error)
             doc = publication(member, clock)
         except (OSError, ValueError, UnicodeError) as error:
             out["status"] = "NO_PICK"
