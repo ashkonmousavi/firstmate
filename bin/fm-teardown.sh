@@ -2237,7 +2237,7 @@ backlog_refresh_reminder() {
       printf '%s\n' "Backlog: $ID is also still held for the captain with its question preserved. Relay the question and close it only with bin/fm-captain-hold.sh answer."
     fi
   elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$TEARDOWN_SCOUT_PHASE" = 1 ]; then
-    printf '%s\n' "Backlog: $ID stays open in $backlog_display with its scout phase report and note recorded; the parent outcome is not accepted."
+    printf '%s\n' "Backlog: $ID scout phase report and note recorded in $backlog_display; parent completion state preserved."
   elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
     printf '%s\n' "Backlog: $ID stays open in $backlog_display, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer."
   elif [ "$BACKLOG_CLOSED" = 1 ]; then

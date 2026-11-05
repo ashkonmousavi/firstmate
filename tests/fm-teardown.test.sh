@@ -6210,6 +6210,10 @@ test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
       teardown_capture "$case_dir"
       expect_code 0 "$TEARDOWN_CAPTURE_RC" "scout phase cleanup must succeed: $(cat "$case_dir/stderr")"
       [ "$(backlog_row_state "$case_dir")" = "$expected" ] || fail "scout phase cleanup changed the expected $expected state"
+      assert_grep "Backlog: task-x1 scout phase report and note recorded in $case_dir/data/backlog.md; parent completion state preserved." \
+        "$case_dir/stdout" "phase cleanup did not report its deliverable and preserved parent completion state"
+      assert_no_grep 'stays open' "$case_dir/stdout" "phase cleanup claimed the parent stays open"
+      assert_no_grep 'parent outcome is not accepted' "$case_dir/stdout" "phase cleanup claimed the parent is unaccepted"
       assert_absent "$case_dir/state/task-x1.meta" "phase worker metadata survives cleanup"
       assert_absent "$case_dir/state/task-x1.backlog-close" "phase retain left a pending marker"
       assert_grep 'data/task-x1/report.md' "$case_dir/data/backlog.md" "phase report missing"
