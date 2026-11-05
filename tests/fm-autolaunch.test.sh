@@ -84,6 +84,191 @@ exit 0
 SH
 }
 
+controller_recurring_handoff_case() {
+  local kind=$1 route_home=$2 row token limit deadline request close_request body
+  k1_setup "recurring-handoff-$kind-$route_home" "$route_home"
+  printf '0\n' > "$KF/free"
+  case "$kind" in
+    step)
+      k1_ready k1-recurring
+      printf 'act k1-recurring\n' > "$H/config/autolaunch-steps"
+      ;;
+    ring) k1_inbox_due k1-recurring ;;
+    remote-inbox) printf 'kind=secondmate\nremote_host=fixture.invalid\n' > "$H/state/k1-recurring.meta" ;;
+  esac
+  cp "$KB/systemd-run" "$KB/systemd-run-original"
+  cat > "$KB/systemd-run" <<'SH'
+#!/usr/bin/env bash
+python3 - "$@" <<'PYCASE'
+import json,os,sys
+from pathlib import Path
+root=Path(os.environ['KF'])
+(root/'pending-unit.json').write_text(json.dumps(sys.argv[1:]))
+with (root/'requested-actions').open('a') as f: f.write(sys.argv[-1]+'\n')
+PYCASE
+SH
+  chmod +x "$KB/systemd-run"
+  k1_pass 0
+  IFS=$'\t' read -r row token limit deadline < <(python3 - "$H/state/autolaunch-controller" "$kind" <<'PYCASE'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+p=next(p for p in root.glob('ctl-*.json') if json.loads(p.read_text())['kind']==sys.argv[2])
+r=json.loads(p.read_text()); a=json.loads((root/r['attempt']).read_text())
+print(p,r['attempt'],a['deadline']-a['started'],a['deadline'],sep='\t')
+PYCASE
+  )
+  export FM_RECUR_KEY REAL_BASH
+  FM_RECUR_KEY=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["key"])' "$row")
+  REAL_BASH=$(command -v bash)
+  printf 'fail\n' > "$KF/opener-gate"
+  printf 'fail\n' > "$KF/closure-gate"
+  {
+    printf '#!%s\n' "$REAL_BASH"
+    cat <<'SH'
+if [ "${1:-}" = "$ROOT/bin/fm-autolaunch.sh" ]; then
+  case "${2:-}:${3:-}" in
+    --steps-only:*|--controller-ring:*|--controller-remote-inbox:run)
+      printf 'ready\n' > "$KF/action-entered"
+      while [ ! -e "$KF/action-finish" ]; do "$REAL_SLEEP" 0.02; done
+      exit 0 ;;
+  esac
+fi
+if [ "${1##*/}" = fm-status-append.sh ] && [ "${5:-}" = "$FM_RECUR_KEY" ]; then
+  gate=opener
+  [ "${3:-}" != resolved ] || gate=closure
+  mode=$(cat "$KF/$gate-gate")
+  [ "$mode" != fail ] || exit 1
+  "$REAL_BASH" "$@" || exit $?
+  if [ "$mode" = uncertain ]; then
+    printf 'ok\n' > "$KF/$gate-gate"
+    printf 'accepted\n' > "$KF/$gate-crashed"
+    kill -KILL "$PPID"
+  fi
+  exit 0
+fi
+exec "$REAL_BASH" "$@"
+SH
+  } > "$KB/bash"
+  chmod +x "$KB/bash"
+  cp "$KB/fm-send" "$KB/fm-send-original"
+  cat > "$KB/fm-send" <<'SH'
+#!/usr/bin/env bash
+case "${3:-}" in
+  "$FM_RECUR_KEY "*)
+    gate=opener
+    case "$3" in "$FM_RECUR_KEY resolved "*) gate=closure ;; esac
+    mode=$(cat "$KF/$gate-gate")
+    [ "$mode" != fail ] || exit 1
+    "$KB/fm-send-original" "$@" || exit $?
+    if [ "$mode" = uncertain ]; then
+      printf 'ok\n' > "$KF/$gate-gate"
+      printf 'accepted\n' > "$KF/$gate-crashed"
+      kill -KILL "$PPID"
+    fi
+    exit 0 ;;
+esac
+exec "$KB/fm-send-original" "$@"
+SH
+  chmod +x "$KB/fm-send"
+  printf '%s\n' $((deadline - 10)) > "$KF/clock"
+  PATH="$KB:$PATH" python3 - "$KB/systemd-run-original" "$KF/pending-unit.json" <<'PYCASE' || fail 'the delayed service must activate through the existing unit fixture'
+import json,subprocess,sys
+from pathlib import Path
+sys.exit(subprocess.run([sys.argv[1],*json.loads(Path(sys.argv[2]).read_text())]).returncode)
+PYCASE
+  k1_wait_file "$KF/action-entered" || fail 'the delayed action must execute and retain its real slot'
+  k1_wait_file "$H/state/autolaunch-controller/$token.identity" || fail 'the delayed action must publish its real identity'
+  assert_equals "$((deadline - 10))" "$(k1_units_max_start 1 "$limit")" 'runtime starts later than the original controller deadline origin'
+  k1_slot_locks_free && fail 'the running action must still occupy its slot'
+  deadline=$((deadline - K1_T0 + 5))
+  k1_pass "$deadline"
+  request=$(python3 - "$row" "$KF/retained-generation.json" <<'PYCASE'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+assert r['phase']=='running' and not r['handoff']['receipt'],r
+Path(sys.argv[2]).write_text(json.dumps(r))
+print(r['handoff']['request'])
+PYCASE
+  ) || fail 'controller expiry must preserve the surviving action and its failed handoff'
+  : > "$KF/action-finish"
+  k1_wait_file "$H/state/autolaunch-controller/$token.result" || fail 'the delayed action must publish its actual successful result'
+  python3 - "$H/state/autolaunch-controller/$token.result" <<'PYCASE' || fail 'the success receipt is the real action result'
+import json,sys
+from pathlib import Path
+assert json.loads(Path(sys.argv[1]).read_text())['rc']==0
+PYCASE
+  for body in 25 80 135; do
+    k1_pass $((deadline + body))
+    python3 - "$row" "$KF/retained-generation.json" <<'PYCASE' || fail 'success and restarted discovery must retain the pending generation and all dispatch metadata'
+import json,sys
+from pathlib import Path
+r,old=[json.loads(Path(p).read_text()) for p in sys.argv[1:]]
+for key in ('generation','attempt','argv','dispatch','handoff'):
+    assert r[key]==old[key],(key,r,old)
+assert r['phase']=='complete' and not r.get('closed') and 'close_handoff' in r,r
+PYCASE
+    assert_equals 1 "$(grep -c . "$KF/requested-actions")" 'pending ownership cannot start another recurring generation'
+  done
+  close_request=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["close_handoff"]["request"])' "$row")
+  printf 'uncertain\n' > "$KF/opener-gate"
+  k1_pass $((deadline + 190))
+  k1_wait_file "$KF/opener-crashed" || fail 'the opener must be accepted before its controller receipt can be saved'
+  k1_pass $((deadline + 245))
+  python3 - "$row" "$request" "$close_request" <<'PYCASE' || fail 'accepted opener replay must retain the unsettled closure and original identities'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+assert r['generation']==1 and r['handoff']['receipt'] and not r.get('closed'),r
+assert r['handoff']['request']==sys.argv[2] and r['close_handoff']['request']==sys.argv[3],r
+assert not r['close_handoff']['receipt'],r
+PYCASE
+  assert_equals 1 "$(grep -c . "$KF/requested-actions")" 'an accepted opener cannot recur before its closure settles'
+  printf 'uncertain\n' > "$KF/closure-gate"
+  k1_pass $((deadline + 300))
+  k1_wait_file "$KF/closure-crashed" || fail 'closure must be accepted before the receipt-saving process is lost'
+  k1_pass $((deadline + 355))
+  python3 - "$row" <<'PYCASE' || fail 'recurrence must resume with exactly the next generation after settlement'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['generation']==2 and r['phase']=='running' and 'handoff' not in r,r
+PYCASE
+  assert_equals 2 "$(grep -c . "$KF/requested-actions")" 'settled completion creates exactly one next recurring attempt'
+  k1_pass $((deadline + 380))
+  assert_equals 2 "$(grep -c . "$KF/requested-actions")" 'the pending next unit is not dispatched twice'
+  if [ "$route_home" = main ] && [ "$kind" != ring ]; then
+    assert_equals 1 "$(k1_count "$KF/accepted" "$request")" 'MAIN accepts the original opener once'
+    assert_equals 1 "$(k1_count "$KF/accepted" "$close_request")" 'MAIN accepts its stable closure once'
+    assert_equals 1 "$(k1_lines "$KF/send.log" "$FM_RECUR_KEY owned" | cut -f3 | sort -u | grep -c .)" 'uncertain opener retries keep one request identity'
+    assert_equals 1 "$(k1_lines "$KF/send.log" "$FM_RECUR_KEY resolved" | cut -f3 | sort -u | grep -c .)" 'uncertain closure retries keep one request identity'
+  else
+    body=autolaunch
+    [ "$kind" != ring ] || body=k1-recurring
+    assert_equals 1 "$(k1_count "$H/state/$body.status" blocked "$FM_RECUR_KEY" 'generation=1')" 'local status accepts the original generation opener once'
+    assert_equals 1 "$(k1_count "$H/state/$body.status" resolved "$FM_RECUR_KEY" 'generation=1')" 'local status accepts the original generation closure once'
+  fi
+  k1_teardown
+  unset FM_RECUR_KEY REAL_BASH
+}
+
+test_controller_step_handoff_survives_successful_recurrence() {
+  controller_recurring_handoff_case step mate
+  controller_recurring_handoff_case step main
+  pass 'delayed successful steps settle durable ownership and closure before recurring on both routes'
+}
+
+test_controller_ring_handoff_survives_successful_recurrence() {
+  controller_recurring_handoff_case ring mate
+  pass 'delayed successful rings preserve pending opener and closure through restart before recurring'
+}
+
+test_controller_remote_handoff_survives_successful_recurrence() {
+  controller_recurring_handoff_case remote-inbox mate
+  controller_recurring_handoff_case remote-inbox main
+  pass 'delayed successful remote inbox actions settle both routes before the next generation'
+}
+
 test_controller_busy_steps_reconcile_technical_decisions() {
   local n at
   k1_setup busy-technical mate
@@ -1261,6 +1446,9 @@ test_controller_remote_inbox_uses_existing_due_owner() {
   assert_present "$H/state/.remote-inbox-tick" 'the remote unit runs the existing inbox tick owner'
   k1_pass 110
   assert_equals 1 "$(k1_units_max_count 300)" 'the existing remote grace suppresses an unnecessary action'
+  rm "$H/state/.remote-inbox-tick"
+  k1_pass 165
+  assert_equals 2 "$(k1_units_max_count 300)" 'a newly owed remote tick recurs after normal unowned completion'
   k1_teardown
   pass 'remote inbox units exist only for an owed remote tick and reuse its owner'
 }
@@ -3098,7 +3286,10 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_busy_steps_reconcile_technical_decisions \
+k1_run test_controller_step_handoff_survives_successful_recurrence \
+  test_controller_ring_handoff_survives_successful_recurrence \
+  test_controller_remote_handoff_survives_successful_recurrence \
+  test_controller_busy_steps_reconcile_technical_decisions \
   test_controller_local_closure_retry_survives_busy_restart \
   test_controller_main_closure_retry_survives_busy_restart \
   test_controller_runtime_quota_falls_through_profiles \

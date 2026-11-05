@@ -1460,7 +1460,8 @@ class Controller:
     def create(self, key, task, kind, argv=None):
         old = self.load(self.path(key))
         if old and not (kind == "notice" and old.get("closed")
-                        or kind in ("ring", "step", "remote-inbox") and old["phase"] == "complete"):
+                        or kind in ("ring", "step", "remote-inbox") and old["phase"] == "complete"
+                        and ("handoff" not in old or old.get("closed"))):
             return old
         row = dict(key=key, task=task, kind=kind, argv=argv or [], phase="queued",
                    rung=0, opened=self.now(), overrun=0,
@@ -1621,6 +1622,8 @@ class Controller:
                 self.close(row, "launched-late")
                 if row["phase"] not in ("running", "diagnosing"):
                     continue
+            if row["phase"] == "complete" and "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox"):
+                self.close(row, "completed")
             if row["phase"] not in ("running", "diagnosing"):
                 continue
             diagnosis = row["phase"] == "diagnosing"
@@ -1659,6 +1662,8 @@ class Controller:
                 self.save(row)
                 self.event(row, "launched" if row["kind"] == "launch" else "completed",
                            "launched" if row["kind"] == "launch" else "completed")
+                if "handoff" in row and row["kind"] in ("ring", "step", "remote-inbox"):
+                    self.close(row, "completed")
             elif not result and alive:
                 # R9: deadline expiry is itself actionable even when KILL cannot
                 # remove the identity. The action keeps its slot and is not retried.
@@ -1754,7 +1759,7 @@ class Controller:
             self.reconcile()
         if leases():
             row = self.create("ctl-a-step", "", "step", ["bash", self.scheduler, "--steps-only"])
-            if row["phase"] == "wait":
+            if row["phase"] == "wait" and "handoff" not in row:
                 row["phase"] = "queued"
                 self.save(row)
         for row in self.rows(False):
@@ -1776,7 +1781,7 @@ class Controller:
             identity = self.task_key_identity(task, Path(record).name)
             key = f"ctl-c-ring-{identity}"
             row = self.create(key, task, "ring", ["bash", self.scheduler, "--controller-ring", task, record, verb])
-            if row["phase"] == "wait":
+            if row["phase"] == "wait" and "handoff" not in row:
                 row["phase"] = "queued"
                 self.save(row)
         if any(kv(p).get("kind") == "secondmate" and kv(p).get("remote_host")
@@ -1787,7 +1792,7 @@ class Controller:
                 return
             row = self.create("ctl-c-remote-inbox", "", "remote-inbox",
                               ["bash", self.scheduler, "--controller-remote-inbox", "run"])
-            if row["phase"] == "wait":
+            if row["phase"] == "wait" and "handoff" not in row:
                 row["phase"] = "queued"
                 self.save(row)
 
