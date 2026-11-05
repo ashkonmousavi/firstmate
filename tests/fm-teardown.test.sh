@@ -6182,6 +6182,40 @@ test_open_pr_keep_open_with_a_dependent_holds_and_names_it() {
   pass "--keep-open holds an open pull request and names the items that still list it"
 }
 
+test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
+  local case_dir kind accepted expected
+  for kind in ship owner; do
+    for accepted in no yes; do
+      case_dir=$(make_case "scout-phase-$kind-$accepted")
+      write_meta "$case_dir" no-mistakes scout
+      prepare_scout_teardown "$case_dir"
+      if [ "$kind" = ship ]; then seed_backlog_in_flight "$case_dir" ship;
+      else
+        seed_backlog_in_flight "$case_dir" scout
+        tasks-axi update task-x1 --body 'SLICE: main/example role=owner' --file "$case_dir/data/backlog.md" >/dev/null
+      fi
+      expected=in_flight
+      if [ "$accepted" = yes ]; then
+        tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+        expected=queued
+      fi
+      [ "$accepted" != no ] || add_blocked_by_child "$case_dir" child-one 'still needs the owner'
+      teardown_capture "$case_dir"
+      expect_code 0 "$TEARDOWN_CAPTURE_RC" "scout phase cleanup must succeed: $(cat "$case_dir/stderr")"
+      [ "$(backlog_row_state "$case_dir")" = "$expected" ] || fail "scout phase cleanup closed or moved its owner"
+      assert_absent "$case_dir/state/task-x1.meta" "phase worker metadata survives cleanup"
+      assert_absent "$case_dir/state/task-x1.backlog-close" "phase retain left a pending marker"
+      assert_grep 'data/task-x1/report.md' "$case_dir/data/backlog.md" "phase report missing"
+      assert_grep 'scout phase finished' "$case_dir/data/backlog.md" "phase note missing"
+      if [ "$accepted" = no ]; then
+        tasks-axi show child-one --file "$case_dir/data/backlog.md" | grep -F 'blocked_by: task-x1' >/dev/null \
+          || fail "phase cleanup changed the child's dependency"
+      fi
+    done
+  done
+  pass "scout phase cleanup retains ship/owner rows and dependent edges, including an erroneously accepted row"
+}
+
 test_scout_with_a_dependent_refuses() {
   local case_dir
   case_dir=$(make_case scout-blocked-by)
@@ -7192,6 +7226,7 @@ test_blocked_by_dependent_refuses_and_names_it
 test_blocked_by_names_every_dependent
 test_keep_open_with_a_dependent_cleans_and_leaves_it_blocked
 test_open_pr_keep_open_with_a_dependent_holds_and_names_it
+test_scout_phase_cleanup_retains_its_owner_and_dependencies
 test_scout_with_a_dependent_refuses
 test_escaped_title_retains_all_blockers
 test_malformed_dependency_rows_refuse_cleanup

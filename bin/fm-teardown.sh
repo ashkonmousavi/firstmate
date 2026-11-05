@@ -30,6 +30,8 @@
 # PR or an expired external hold never accepts pending work. A missing row may
 # already have been pruned or archived and does not require recreating it.
 # bin/fm-backlog-transition-lib.sh owns guarded close replay.
+# A scout phase on a ship or slice-owner row uses the library's retain path,
+# recording its report without accepting the parent outcome or moving an open row.
 # ship-landing owns the acceptance procedure and
 # pending-proof resource release through fm-control.sh exit.
 # None of this loosens the landed-work gates below or the retained-task paths.
@@ -871,7 +873,15 @@ fi
 # Cleanup never closes a captain call (see the header). Asked here, before any
 # destructive step, so "cannot tell" can refuse while everything is intact.
 TEARDOWN_BACKLOG_TRANSITION=close
+TEARDOWN_SCOUT_PHASE=0
 if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+  phase_status=0
+  fm_backlog_scout_phase "$DATA" "$ID" "$TEARDOWN_META_KIND" || phase_status=$?
+  case "$phase_status" in
+    0) TEARDOWN_BACKLOG_TRANSITION=retain; TEARDOWN_SCOUT_PHASE=1 ;;
+    1) ;;
+    *) echo "error: teardown refused: $FM_BACKLOG_TRANSITION_ERROR" >&2; exit 1 ;;
+  esac
   TEARDOWN_CAPTAIN_OPEN_STATUS=0
   TEARDOWN_CAPTAIN_OPEN_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
@@ -2133,7 +2143,7 @@ teardown_guard_unlanded_close() {
       ;;
   esac
 
-  if [ -n "$TEARDOWN_DEPENDENTS" ] && [ -z "$STEP_ACTION" ]; then
+  if [ -n "$TEARDOWN_DEPENDENTS" ] && [ -z "$STEP_ACTION" ] && [ "$TEARDOWN_SCOUT_PHASE" != 1 ]; then
     if [ "$KEEP_OPEN" = 1 ] && [ "$pr_refused" = 0 ]; then
       TEARDOWN_KEEP_OPEN=1
     else
@@ -2226,6 +2236,8 @@ backlog_refresh_reminder() {
     if [ "$TEARDOWN_CAPTAIN_OPEN_STATUS" = 0 ]; then
       printf '%s\n' "Backlog: $ID is also still held for the captain with its question preserved. Relay the question and close it only with bin/fm-captain-hold.sh answer."
     fi
+  elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$TEARDOWN_SCOUT_PHASE" = 1 ]; then
+    printf '%s\n' "Backlog: $ID stays open in $backlog_display with its scout phase report and note recorded; the parent outcome is not accepted."
   elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
     printf '%s\n' "Backlog: $ID stays open in $backlog_display, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer."
   elif [ "$BACKLOG_CLOSED" = 1 ]; then
@@ -4590,7 +4602,7 @@ elif [ "$BACKLOG_CLOSED" = 1 ]; then
     fm_lock_release "$META_LOCK"
     META_LOCK_HELD=0
     if [ "$BACKLOG_TRANSITION" = retain ]; then
-      echo "error: $ID's endpoint and local copy are cleaned up, but its captain-held backlog item could not be returned to Queued atomically ($FM_BACKLOG_TRANSITION_ERROR); the pending retention is recorded and the next session start retries it" >&2
+      echo "error: $ID's endpoint and local copy are cleaned up, but its backlog item could not be retained atomically ($FM_BACKLOG_TRANSITION_ERROR); the pending retention is recorded and the next session start retries it" >&2
     else
       echo "error: $ID's endpoint and local copy are cleaned up, but its backlog item could not be closed atomically ($FM_BACKLOG_TRANSITION_ERROR); the pending close is recorded and the next session start retries it" >&2
     fi

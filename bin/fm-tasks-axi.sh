@@ -315,6 +315,23 @@ if [ "$help_requested" = 1 ]; then
   exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
 fi
 
+# Completion of a scout phase must use the same parent-row guard as teardown.
+# Preserve tasks-axi's ordinary arguments/output for every other completion.
+case "$subcommand" in
+  done|close)
+    phase_status=0
+    fm_backlog_scout_phase "$DATA" "$first_positional" || phase_status=$?
+    case "$phase_status" in
+      0)
+        fm_backlog_done "$DATA" "${ARGS[@]:1}" || fail "$FM_BACKLOG_TRANSITION_ERROR"
+        exit 0
+        ;;
+      1) ;;
+      *) fail "$FM_BACKLOG_TRANSITION_ERROR" ;;
+    esac
+    ;;
+esac
+
 # Enforce the owner-origin preflight described in this script's header.
 if { [ "${1:-}" = add ] || [ "${1:-}" = create ]; } && [ -z "$OWNER_REQUEST_FILE" ]; then
   origin_rc=0
