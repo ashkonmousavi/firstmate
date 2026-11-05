@@ -8,18 +8,35 @@
 # backlog row, in backlog order:
 #   <row-id><TAB><closed 0|1><TAB><target><TAB><verdict><TAB><evidence>
 # where <target> is the edge exactly as written and <verdict> is one of:
-#   blocked    an open row with that id is in this home's backlog
+#   blocked    the fleet list (below) shows an open row with that id in another
+#              home, or an open row with that id is in this home's backlog
 #   satisfied  a done row with that id is in this home's backlog or its done
 #              archive (evidence names which, plus the first pull request URL the
 #              row cites), or a recorded mark cites the merged pull request
-#   unknown    none of those, or the edge names another home (<home>:<id>);
-#              unknown work blocks and is reported, never cleared
-# Checked in that order, so an open row beats a done row and a mark.
-# Only this home is read: a blocker that is open in another home is invisible
-# here, so its absence reads unknown and blocks. That is also why a merged pull
-# request is never looked up here: an id whose fm/<id> pull request merged can
-# still be open in another home (a contract row held there until it lands), and
-# reading the merge as satisfied would launch its dependents early.
+#   unknown    none of those; unknown work blocks and is reported, never cleared
+# Checked in that order, so an open row anywhere the list covers beats a done
+# row here and a mark.
+# A merged pull request is never looked up here and never clears an edge by
+# itself: an id whose fm/<id> pull request merged can still be an open row (a
+# contract row held open in another home until it lands), and reading the merge
+# as satisfied would launch its dependents early. A mark records that call.
+# An edge written <home>:<id> is decided from the fleet list's rows for that
+# home (open blocks, done or archive satisfies, no row is unknown), or as a
+# plain <id> when <home> is this home; with no fleet list it is unknown.
+#
+# FLEET LIST. <data>/blocked-by-fleet-rows.tsv is optional, copied into each home
+# by hand from the blocked-by census kit's `fleet-rows` output (nothing here
+# fetches it):
+#   self<TAB><this home's name>
+#   generated<TAB><epoch the rows were read>
+#   homes<TAB><comma-separated homes the rows cover>
+#   row<TAB><home><TAB><id><TAB><open|done|archive>
+# with `#` comment lines allowed. Rows for self are ignored, because this home's
+# own backlog and archive are read live. Without the list a blocker open only in
+# another home is invisible, so an edge whose id is done here still reads
+# satisfied; fm_blocked_by_fleet_note says so on every ready list. A list older
+# than FM_BLOCKED_BY_FLEET_MAX_AGE seconds (default 21600, six hours) is stale:
+# its open rows still block, its done rows satisfy nothing, and the note says so.
 # Edges come from bin/fm-tasks-axi-lib.sh fm_tasks_axi_dependency_edges and rows
 # from the same row grammar (`- [ ] <id> - ...`, `- [x] <id> - ...`,
 # `- **<id>** - ...`; a checked row or any row under `## Done` is done, and every
@@ -35,8 +52,9 @@
 # The last line for a row and target wins, so unmark reverses a mark and the
 # ledger keeps both. A mark never overrides an open row.
 #
-# Returns 2 with a diagnostic on stderr when the backlog, the archive, or the
-# ledger exists but cannot be read, so a caller refuses rather than clearing.
+# Returns 2 with a diagnostic on stderr when the backlog, the archive, the
+# ledger, or the fleet list exists but cannot be read, or the fleet list lacks
+# its self, generated, or homes line, so a caller refuses rather than clearing.
 
 fm_blocked_by_root() {  # <data-dir>
   local data=${1%/}
@@ -71,6 +89,52 @@ fm_blocked_by_marks_file() {  # <data-dir>
   printf '%s/blocked-by-marks.tsv\n' "${1%/}"
 }
 
+fm_blocked_by_fleet_file() {  # <data-dir>
+  printf '%s/blocked-by-fleet-rows.tsv\n' "${1%/}"
+}
+
+# fm_blocked_by_fleet_header <file>: "<self><TAB><generated><TAB><homes><TAB><fresh 0|1>",
+# or a diagnostic and 2 when a header line is missing or generated is not an epoch.
+fm_blocked_by_fleet_header() {
+  local file=$1 now max header
+  now=$(date +%s)
+  max=${FM_BLOCKED_BY_FLEET_MAX_AGE:-21600}
+  case "$max" in ''|*[!0-9]*) max=21600 ;; esac
+  header=$(awk -F '\t' -v now="$now" -v max="$max" '
+    $1 == "self" && NF >= 2 && $2 != "" { self = $2 }
+    $1 == "generated" && $2 ~ /^[0-9]+$/ { gen = $2 }
+    $1 == "homes" && NF >= 2 && $2 != "" { homes = $2 }
+    END {
+      if (self == "" || gen == "" || homes == "") exit 1
+      print self "\t" gen "\t" homes "\t" (now - gen <= max ? 1 : 0)
+    }' "$file") || {
+    printf 'blocked-by: the fleet list %s needs self, generated (epoch) and homes lines\n' "$file" >&2
+    return 2
+  }
+  printf '%s\n' "$header"
+}
+
+fm_blocked_by_iso() {  # <epoch>
+  date -u -d "@$1" +%Y-%m-%dT%H:%MZ 2>/dev/null || date -u -r "$1" +%Y-%m-%dT%H:%MZ 2>/dev/null || printf '%s\n' "$1"
+}
+
+# fm_blocked_by_fleet_note <data-dir>: one line saying the fleet list is absent
+# or stale, or nothing when a fresh list is present; 2 when it cannot be read.
+fm_blocked_by_fleet_note() {
+  local data=${1%/} fleet header gen homes
+  fleet=$(fm_blocked_by_fleet_file "$data")
+  fm_blocked_by_readable "$fleet" "fleet list" || return 2
+  if [ ! -f "$fleet" ]; then
+    printf 'fleet list absent: blocked-by edges are decided from this home only, so a blocker open only in another home is not seen\n'
+    return 0
+  fi
+  header=$(fm_blocked_by_fleet_header "$fleet") || return 2
+  [ "${header##*$'\t'}" = 1 ] && return 0
+  IFS=$'\t' read -r _ gen homes _ <<<"$header"
+  printf 'fleet list stale: generated %s (age %sh), covers %s; its open rows still block, its done rows satisfy nothing\n' \
+    "$(fm_blocked_by_iso "$gen")" "$(( ($(date +%s) - gen) / 3600 ))" "$homes"
+}
+
 # fm_blocked_by_row_states <file> <backlog|archive>: <id><TAB><open|done|archive><TAB><first PR URL or ->
 fm_blocked_by_row_states() {
   FM_BLOCKED_BY_SOURCE=$2 perl -ne '
@@ -98,13 +162,23 @@ fm_blocked_by_readable() {  # <file> <what>
 }
 
 fm_blocked_by_verdicts() {  # <data-dir>
-  local data=${1%/} backlog archive marks edges rows archived ledger
+  local data=${1%/} backlog archive marks fleet edges rows archived ledger listed header
+  local self='' gen='' homes='' fresh=0 when=''
   backlog=$data/backlog.md
   archive=$(fm_blocked_by_archive_file "$data")
   marks=$(fm_blocked_by_marks_file "$data")
+  fleet=$(fm_blocked_by_fleet_file "$data")
   fm_blocked_by_readable "$backlog" backlog || return 2
   fm_blocked_by_readable "$archive" archive || return 2
   fm_blocked_by_readable "$marks" "mark ledger" || return 2
+  fm_blocked_by_readable "$fleet" "fleet list" || return 2
+  listed=
+  if [ -f "$fleet" ]; then
+    header=$(fm_blocked_by_fleet_header "$fleet") || return 2
+    IFS=$'\t' read -r self gen homes fresh <<<"$header"
+    when=$(fm_blocked_by_iso "$gen")
+    listed=$(awk -F '\t' '$1 == "row" && NF >= 4' "$fleet") || return 2
+  fi
   [ -f "$backlog" ] || return 0
   edges=$(fm_tasks_axi_dependency_edges "$backlog") || return 2
   rows=$(fm_blocked_by_row_states "$backlog" backlog) || return 2
@@ -120,8 +194,10 @@ fm_blocked_by_verdicts() {  # <data-dir>
     [ -z "$rows" ] || printf '%s\n' "$rows" | sed 's/^/R\t/'
     [ -z "$archived" ] || printf '%s\n' "$archived" | sed 's/^/R\t/'
     [ -z "$ledger" ] || printf '%s\n' "$ledger" | sed 's/^/M\t/'
+    [ -z "$listed" ] || printf '%s\n' "$listed" | sed 's/^/L\t/'
     [ -z "$edges" ] || printf '%s\n' "$edges" | sed 's/^/E\t/'
-  } | awk -F '\t' '
+  } | awk -F '\t' -v self="$self" -v homes="$homes" -v fresh="$fresh" -v when="$when" '
+    BEGIN { n = split(homes, hs, ","); for (i = 1; i <= n; i++) covered[hs[i]] = 1; list = (self != "") }
     $1 == "R" {
       if ($3 == "open") open[$2] = 1
       else if (!($2 in done)) done[$2] = ($3 == "archive" ? "archive row" : "done row") ($4 != "-" ? " " $4 : "")
@@ -131,35 +207,63 @@ fm_blocked_by_verdicts() {  # <data-dir>
       mark[$4 SUBSEP $5] = ($2 == "mark" ? "marked " $6 " at " $3 : "")
       next
     }
+    $1 == "L" && $3 != self && ($5 == "open" || $5 == "done" || $5 == "archive") {
+      key = $3 SUBSEP $4
+      if (!(key in fl) || $5 == "open") fl[key] = $5
+      if ($5 == "open") openin[$4] = ($4 in openin ? openin[$4] "," : "") $3
+      else donein[$4] = ($4 in donein ? donein[$4] "," : "") $3
+      next
+    }
     $1 == "E" && $4 == "blocked-by" {
-      row = $2; closed = $3; target = $5; id = target
+      row = $2; closed = $3; target = $5; id = target; home = ""
       if (index(target, ":")) {
-        home = substr(target, 1, index(target, ":") - 1)
-        verdict = "unknown"; why = "names home " home ", which this home cannot read"
+        home = substr(target, 1, index(target, ":") - 1); id = substr(target, index(target, ":") + 1)
+        if (list && home == self) home = ""
+      }
+      if (home != "") {
+        if (!list) {
+          verdict = "unknown"; why = "names home " home "; this home has no fleet list"
+        } else if (!(home in covered)) {
+          verdict = "unknown"; why = "names home " home ", which the fleet list from " when " does not cover"
+        } else if (fl[home SUBSEP id] == "open") {
+          verdict = "blocked"; why = "open in " home " per fleet list " when
+        } else if (fl[home SUBSEP id] != "" && fresh) {
+          verdict = "satisfied"; why = (fl[home SUBSEP id] == "archive" ? "archive row" : "done row") " in " home " per fleet list " when
+        } else if (fl[home SUBSEP id] != "") {
+          verdict = "unknown"; why = "done in " home " per fleet list " when ", which is stale"
+        } else {
+          verdict = "unknown"; why = "no row in " home " per fleet list " when
+        }
       } else if (id in open) {
-        verdict = "blocked"; why = "open row"
+        verdict = "blocked"; why = "open row" (id in openin ? "; also open in " openin[id] " per fleet list " when : "")
+      } else if (id in openin) {
+        verdict = "blocked"; why = "open in " openin[id] " per fleet list " when
       } else if (id in done) {
         verdict = "satisfied"; why = done[id]
       } else if (mark[row SUBSEP target] != "") {
         verdict = "satisfied"; why = mark[row SUBSEP target]
       } else {
         verdict = "unknown"; why = "no row in this home backlog or archive and no recorded mark"
+        if (id in donein) why = why "; done in " donein[id] " per fleet list " when " (an edge on it is written <home>:" id ")"
       }
       print row "\t" closed "\t" target "\t" verdict "\t" why
     }'
 }
 
-# fm_blocked_by_filter_ready <verdicts>: filter `tasks-axi ready` output on
-# stdin. A ready row with any open edge whose verdict is not satisfied moves to
-# a ready_withheld[N]{id,target,verdict,evidence} group printed right after the
-# ready rows, one line per such edge; count: and ready[N] are rewritten to the
-# rows that remain, and every other line passes through unchanged.
+# fm_blocked_by_filter_ready <verdicts> [<fleet-note>]: filter `tasks-axi ready`
+# output on stdin. A ready row with any open edge whose verdict is not satisfied
+# moves to a ready_withheld[N]{id,target,verdict,evidence} group printed right
+# after the ready rows, one line per such edge; count: and ready[N] are rewritten
+# to the rows that remain, and every other line passes through unchanged. When
+# the home has an edge on an open row and fm_blocked_by_fleet_note printed a
+# note, a `blocked_by_fleet_list: "<note>"` line follows the ready rows too.
 fm_blocked_by_filter_ready() {
-  local verdicts=$1
-  awk -F '\t' -v verdicts="$verdicts" '
+  local verdicts=$1 note=${2:-}
+  awk -F '\t' -v verdicts="$verdicts" -v note="$note" '
     BEGIN {
       n = split(verdicts, lines, "\n")
       for (i = 1; i <= n; i++) {
+        if (split(lines[i], f, "\t") >= 5 && f[2] == "0") edged = 1
         if (split(lines[i], f, "\t") < 5 || f[2] != "0" || f[4] == "satisfied") continue
         held[f[1]] = held[f[1]] sprintf("  %s,%s,%s,%s\n", f[1], q(f[3]), f[4], q(f[5]))
       }
@@ -188,6 +292,7 @@ fm_blocked_by_filter_ready() {
             print "ready_withheld[" c "]{id,target,verdict,evidence}:"
             printf "%s", withheld
           }
+          if (edged && note != "") print "blocked_by_fleet_list: \"" note "\""
           i = stop - 1
           continue
         }

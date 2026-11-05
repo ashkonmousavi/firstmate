@@ -327,9 +327,12 @@ case "$hold_release_on" in
 esac
 
 BLOCKED_BY_VERDICTS=
+BLOCKED_BY_FLEET_NOTE=
 if [ "$subcommand" = ready ] && [ "$help_requested" != 1 ] && [ -n "$FM_BACKLOG_AXI_FILE" ]; then
   BLOCKED_BY_VERDICTS=$(fm_blocked_by_verdicts "${FM_BACKLOG_AXI_FILE%/*}") \
     || fail "cannot decide this home's blocked-by edges; the ready list is withheld"
+  BLOCKED_BY_FLEET_NOTE=$(fm_blocked_by_fleet_note "${FM_BACKLOG_AXI_FILE%/*}") \
+    || fail "cannot read this home's blocked-by fleet list; the ready list is withheld"
 fi
 
 cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI_ROOT"
@@ -565,7 +568,7 @@ case "$subcommand" in
         [ -z "$ready_out" ] || printf '%s\n' "$ready_out"
         exit "$ready_rc"
       fi
-      printf '%s\n' "$ready_out" | fm_blocked_by_filter_ready "$BLOCKED_BY_VERDICTS"
+      printf '%s\n' "$ready_out" | fm_blocked_by_filter_ready "$BLOCKED_BY_VERDICTS" "$BLOCKED_BY_FLEET_NOTE"
       exit $?
     fi
     ;;

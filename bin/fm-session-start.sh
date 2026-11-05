@@ -528,7 +528,7 @@ print_ready_queued_bounded() {
 }
 
 print_backlog_tasks_axi_compact() {
-  local path=$1 in_flight held blocked ready verdicts err
+  local path=$1 in_flight held blocked ready verdicts note err
   if ! in_flight=$(tasks-axi list --file "$path" --state in_flight --fields "$BACKLOG_FIELDS" 2>&1); then
     err=$in_flight
   elif ! held=$(tasks-axi list --file "$path" --state held --fields "$BACKLOG_FIELDS" 2>&1); then
@@ -539,8 +539,10 @@ print_backlog_tasks_axi_compact() {
     err=$ready
   elif ! verdicts=$(fm_blocked_by_verdicts "$(dirname "$path")" 2>&1); then
     err=$verdicts
+  elif ! note=$(fm_blocked_by_fleet_note "$(dirname "$path")" 2>&1); then
+    err=$note
   else
-    ready=$(printf '%s\n' "$ready" | fm_blocked_by_filter_ready "$verdicts")
+    ready=$(printf '%s\n' "$ready" | fm_blocked_by_filter_ready "$verdicts" "$note")
     printf 'compact backlog listing (tasks-axi; done rows omitted; every in-flight, held, and blocked row shown in full; ready queued bounded to %s; task bodies omitted)\n' \
       "$QUEUED_LIMIT"
     printf '\nin flight:\n'

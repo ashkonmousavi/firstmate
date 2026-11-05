@@ -404,11 +404,18 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
   fi
 
   set -o pipefail
-  local verdicts
-  verdicts=$(fm_blocked_by_verdicts "$(dirname "$backlog")") || return 1
+  local verdicts verdicts_error=
+  # An unreadable blocked-by input (archive, mark ledger, fleet list) leaves the
+  # snapshot standing: every blocker then reads unresolved and the reason is
+  # kept as blocked_by_error and printed on stderr.
+  if ! verdicts=$(fm_blocked_by_verdicts "$(dirname "$backlog")" 2>&1); then
+    verdicts_error=${verdicts:-blocked-by edges could not be decided}
+    verdicts=
+    printf 'fm-fleet-snapshot: %s; every blocker of %s reads unresolved\n' "$verdicts_error" "$backlog" >&2
+  fi
   # shellcheck disable=SC2094
   jq -Rn --arg path "$backlog" --arg today "$SNAPSHOT_TODAY" --arg now "$SNAPSHOT_NOW" \
-    --arg verdicts "$verdicts" \
+    --arg verdicts "$verdicts" --arg verdicts_error "$verdicts_error" \
     --argjson age_days "$FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS" '
     def trim: gsub("^[[:space:]]+|[[:space:]]+$"; "");
     def timestamp_epoch($d):
@@ -568,7 +575,8 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
           . as $record
           | .unresolved_blocker_ids = [
               $record.blocked_by_ids[] as $blocker
-              | select(($edge_verdicts[$record.id][$blocker] // "satisfied") != "satisfied")
+              | select($verdicts_error != ""
+                       or ($edge_verdicts[$record.id][$blocker] // "satisfied") != "satisfied")
               | $blocker
             ]
           | .current_role =
@@ -589,6 +597,7 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
           | .captain_actionable = (.hold_bucket == "live")
         else . end)
     | del(.section,.order)
+    | .blocked_by_error = (if $verdicts_error == "" then null else $verdicts_error end)
   ' < "$backlog" | fm_hold_reason_decode_stream json
 )
 

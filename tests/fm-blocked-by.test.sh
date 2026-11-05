@@ -12,6 +12,12 @@
 # 13 on 2026-11-05: a done row including the archive, or a merged pull request,
 # satisfies; an open row never does; an id with no row, no archive row and no
 # pull request is unknown, which blocks and is reported.
+# Fleet-list oracle: the four live edges of the 2026-11-05 census whose blocker
+# is done or archived in the edge's own home and open in the other one (q-server
+# x-j17-slice6, x-j09-basket-approval-build and x-feedback-apps-status, open on
+# the Zenbook; q-zenbook x-ai-s5b-sibling-skills, open on the server), and the
+# fleet-ops answer of 2026-11-05: open in any home the list covers blocks, and an
+# absent or six-hour-old list prints a visible line rather than staying silent.
 set -u
 
 # shellcheck source=tests/lib.sh disable=SC1091
@@ -30,6 +36,9 @@ AUTOLAUNCH="$ROOT/bin/fm-autolaunch.sh"
 PR_2978=https://github.com/ashkonmousavi/NOT_Q/pull/2978
 PR_2700=https://github.com/ashkonmousavi/NOT_Q/pull/2700
 PR_1218=https://github.com/ashkonmousavi/NOT_Q/pull/1218
+PR_1541=https://github.com/ashkonmousavi/NOT_Q/pull/1541
+PR_2691=https://github.com/ashkonmousavi/NOT_Q/pull/2691
+FLEET_HOMES=pc,x-ux,fleet-ops,q-server,q-zenbook
 
 make_home() {  # <name> <queued-lines> [<done-lines>]; prints the home
   local home=$TMP_ROOT/$1
@@ -50,6 +59,29 @@ ready_ids() {  # <home>: ids of the ready[N] group only
 
 withheld() {  # <home>: id,target,verdict lines of the ready_withheld group
   FM_HOME=$1 "$WRAPPER" ready | awk '/^ready_withheld\[/ { on = 1; next } on && /^  [^ ]/ { sub(/^  /, ""); print; next } { on = 0 }'
+}
+
+fleet_list() {  # <home> <self> <generated-epoch> <homes> <row lines as home:id:state ...>
+  local home=$1 self=$2 gen=$3 homes=$4 entry
+  shift 4
+  { printf '# blocked-by fleet rows v1\nself\t%s\ngenerated\t%s\nhomes\t%s\n' "$self" "$gen" "$homes"
+    for entry in "$@"; do
+      IFS=: read -r h i s <<<"$entry"
+      printf 'row\t%s\t%s\t%s\n' "$h" "$i" "$s"
+    done; } > "$home/data/blocked-by-fleet-rows.tsv"
+}
+
+autolaunch_dry() {  # <home>: autolaunch --dry-run output with fake capacity and spawn
+  local fake=$TMP_ROOT/${1##*/}-fake
+  mkdir -p "$fake" "$1/projects/proj"
+  printf '#!/usr/bin/env bash\nprintf "capacity: free_lanes=9 reason=ok lanes=1 target=9\\n"\n' > "$fake/capacity"
+  cat > "$fake/spawn" <<'SH'
+#!/usr/bin/env bash
+echo "spawned $1"
+SH
+  chmod +x "$fake/capacity" "$fake/spawn"
+  FM_HOME=$1 FM_AUTOLAUNCH_CAPACITY_BIN="$fake/capacity" FM_AUTOLAUNCH_SPAWN_BIN="$fake/spawn" \
+    bash "$AUTOLAUNCH" --dry-run 2>&1
 }
 
 snapshot_unresolved() {  # <home> <row-id>: that row's unresolved blocker ids, comma-joined
@@ -176,7 +208,7 @@ test_mark_records_the_merged_pr_and_unmark_reverses_it() {
 }
 
 test_ready_autolaunch_and_snapshot_agree() {
-  local home fake ready snap launch
+  local home ready snap launch
   home=$(make_home agree '- [ ] x-free - nothing to wait for (repo: proj) (kind: ship)
 - [ ] x-arch - waits on an archived blocker blocked-by: x-old (repo: proj) (kind: ship)
 - [ ] x-done - waits on a done row blocked-by: x-fin (repo: proj) (kind: ship)
@@ -184,21 +216,11 @@ test_ready_autolaunch_and_snapshot_agree() {
 - [ ] x-far - waits on another home blocked-by: pc:x-there (repo: proj) (kind: ship)
 - [ ] x-open - waits on an open row blocked-by: x-free (repo: proj) (kind: ship)' '- [x] x-fin - delivered (done 2026-11-01)')
   archive "$home" '- [x] x-old - archived (done 2026-10-20)'
-  mkdir -p "$home/projects/proj"
-  fake=$TMP_ROOT/agree-fake
-  mkdir -p "$fake"
-  printf '#!/usr/bin/env bash\nprintf "capacity: free_lanes=9 reason=ok lanes=1 target=9\\n"\n' > "$fake/capacity"
-  cat > "$fake/spawn" <<'SH'
-#!/usr/bin/env bash
-echo "spawned $1"
-SH
-  chmod +x "$fake/capacity" "$fake/spawn"
   ready=$(ready_ids "$home" | sort | tr '\n' ' ')
   [ "$ready" = 'x-arch x-done x-free ' ] || fail "ready list: '$ready'"
   snap=$(FM_HOME=$home "$SNAPSHOT" --json | jq -r '.backlog.records[] | select(.structured and .state == "queued" and (.unresolved_blocker_ids | length) == 0) | .id' | sort | tr '\n' ' ')
   [ "$snap" = "$ready" ] || fail "snapshot unblocked rows '$snap' differ from ready '$ready'"
-  launch=$(FM_HOME=$home FM_AUTOLAUNCH_CAPACITY_BIN="$fake/capacity" FM_AUTOLAUNCH_SPAWN_BIN="$fake/spawn" \
-    bash "$AUTOLAUNCH" --dry-run 2>&1)
+  launch=$(autolaunch_dry "$home")
   for id in x-ghost x-far x-open; do
     printf '%s\n' "$launch" | grep -Fq "$id" && fail "autolaunch considered $id, which still waits: $launch"
   done
@@ -235,7 +257,112 @@ test_an_unreadable_archive_withholds_the_whole_ready_list() {
   [ "$rc" = 2 ] || fail "ready exited $rc with an unreadable archive: $out"
   printf '%s' "$out" | grep -Fq 'x-free' && fail "ready listed rows while the archive was unreadable: $out"
   printf '%s' "$out" | grep -Fq 'cannot be read' || fail "the refusal does not name the archive: $out"
-  pass 'an unreadable archive withholds the whole ready list'
+  chmod 000 "$home/data/done-archive.md"
+  out=$(FM_HOME=$home "$SNAPSHOT" --json 2>"$TMP_ROOT/unreadable.err"); rc=$?
+  chmod 644 "$home/data/done-archive.md"
+  [ "$rc" = 0 ] || fail "the snapshot failed outright on an unreadable archive (exit $rc): $(cat "$TMP_ROOT/unreadable.err")"
+  [ "$(printf '%s' "$out" | jq -r '.backlog.records[] | select(.id == "x-a") | .unresolved_blocker_ids | join(",")')" = x-old ] \
+    || fail "the snapshot cleared a blocker it could not decide: $out"
+  printf '%s' "$out" | jq -e '.backlog.blocked_by_error | test("cannot be read")' >/dev/null \
+    || fail "the snapshot does not keep the reason: $(printf '%s' "$out" | jq -c .backlog.blocked_by_error)"
+  grep -Fq 'every blocker of' "$TMP_ROOT/unreadable.err" || fail 'the snapshot fallback printed no diagnostic'
+  pass 'an unreadable archive withholds the whole ready list; the snapshot stands with every blocker unresolved'
+}
+
+LIVE_SERVER_ROWS='- [ ] x-j17-slice6 - J-17 slice 6: first idea in Workshop and journey completion blocked-by: x-spine-workshop-contract (repo: proj) (priority: 2) (since 2026-10-14)
+- [ ] x-j09-basket-approval-build - j09 basket execution build: XAI executes one labelled test basket blocked-by: x-spine-cashier-contract (repo: proj) (kind: ship) (since 2026-10-18)
+- [ ] x-feedback-apps-status - Apps: connection details and a compact Desk status light blocked-by: x-j17-slice2 (repo: proj) (kind: ship) (since 2026-10-31)
+- [ ] x-j17-complete-walk - J-17 complete walk blocked-by: q-zenbook:x-j17-slice2 (repo: proj) (since 2026-10-15)
+- [ ] x-free - nothing to wait for (repo: proj) (kind: ship)'
+LIVE_SERVER_ARCHIVE="- [x] x-spine-workshop-contract - Spine adoption node workshop-contract (repo: proj) (reported 2026-10-18)
+- [x] x-spine-cashier-contract - Spine contract node S20 Cashier $PR_1541 (repo: proj) (merged 2026-10-19)
+- [x] x-j17-slice2 - J-17 slice 2: one working paper broker on Apps (repo: proj) (done 2026-10-22)"
+
+live_server() {  # <name>: the q-server fixture
+  local home
+  home=$(make_home "$1" "$LIVE_SERVER_ROWS")
+  archive "$home" "$LIVE_SERVER_ARCHIVE"
+  printf '%s\n' "$home"
+}
+
+test_the_fleet_list_blocks_the_four_live_cross_home_edges() {
+  local server zen id ready held snap launch
+  server=$(live_server fleet-server)
+  zen=$(make_home fleet-zen '- [ ] x-ai-s5b-sibling-skills - S5b: sibling skills publish from folders blocked-by: x-recipe-publish-from-folders (repo: proj) (kind: ship) (since 2026-10-31)' \
+    "- [x] x-recipe-publish-from-folders - Recipe publishes skills from openwebui/skills folders $PR_2691 (repo: proj) (kind: ship) (merged 2026-10-31)")
+  ready=$(ready_ids "$server" | tr '\n' ' ')
+  [ "$ready" = 'x-j17-slice6 x-j09-basket-approval-build x-feedback-apps-status x-free ' ] \
+    || fail "without a fleet list the own-home archive should decide (the red case): '$ready'"
+  FM_HOME=$server "$WRAPPER" ready | grep -Fqx 'blocked_by_fleet_list: "fleet list absent: blocked-by edges are decided from this home only, so a blocker open only in another home is not seen"' \
+    || fail "ready does not say the fleet list is absent: $(FM_HOME=$server "$WRAPPER" ready)"
+  ready_ids "$zen" | grep -Fqx x-ai-s5b-sibling-skills || fail 'without a fleet list the Zenbook done row should decide'
+
+  fleet_list "$server" q-server "$(date +%s)" "$FLEET_HOMES" q-zenbook:x-spine-workshop-contract:open \
+    q-zenbook:x-spine-cashier-contract:open q-zenbook:x-j17-slice2:open q-server:x-j17-slice6:open q-pc:x-stray:open
+  fleet_list "$zen" q-zenbook "$(date +%s)" "$FLEET_HOMES" q-server:x-recipe-publish-from-folders:open \
+    q-zenbook:x-recipe-publish-from-folders:done
+  ready=$(ready_ids "$server" | tr '\n' ' ')
+  [ "$ready" = 'x-free ' ] || fail "ready still lists a row whose blocker is open on the Zenbook: '$ready'"
+  ready_ids "$zen" | grep -Fqx x-ai-s5b-sibling-skills && fail 'x-ai-s5b-sibling-skills is ready while its blocker is open on the server'
+  held=$(withheld "$server")
+  for id in 'x-j17-slice6,x-spine-workshop-contract' 'x-j09-basket-approval-build,x-spine-cashier-contract' \
+            'x-feedback-apps-status,x-j17-slice2' 'x-j17-complete-walk,"q-zenbook:x-j17-slice2"'; do
+    printf '%s\n' "$held" | grep -Fq "$id,blocked,\"open in q-zenbook per fleet list " \
+      || fail "$id is not withheld as open in q-zenbook: $held"
+  done
+  withheld "$zen" | grep -Fq 'x-ai-s5b-sibling-skills,x-recipe-publish-from-folders,blocked,"open in q-server per fleet list ' \
+    || fail "the Zenbook row is not withheld as open on the server: $(withheld "$zen")"
+  FM_HOME=$server "$WRAPPER" ready | grep -Fq blocked_by_fleet_list && fail 'a fresh fleet list still prints the absent or stale line'
+  for id in x-j17-slice6 x-j09-basket-approval-build x-feedback-apps-status; do
+    snap=$(snapshot_unresolved "$server" "$id")
+    [ -n "$snap" ] || fail "the snapshot clears $id although its blocker is open on the Zenbook"
+  done
+  [ "$(snapshot_unresolved "$zen" x-ai-s5b-sibling-skills)" = x-recipe-publish-from-folders ] \
+    || fail 'the Zenbook snapshot clears a blocker open on the server'
+  launch=$(autolaunch_dry "$server")
+  for id in x-j17-slice6 x-j09-basket-approval-build x-feedback-apps-status x-j17-complete-walk; do
+    printf '%s\n' "$launch" | grep -Fq "$id" && fail "autolaunch considered $id while its blocker is open on the Zenbook: $launch"
+  done
+  printf '%s\n' "$launch" | grep -Fq x-free || fail "autolaunch skipped the ready row: $launch"
+  pass 'the fleet list holds the four live cross-home edges in ready, autolaunch and the snapshot; without it ready says so'
+}
+
+test_a_qualified_edge_resolves_from_the_named_home() {
+  local server
+  server=$(live_server qualified)
+  fleet_list "$server" q-server "$(date +%s)" "$FLEET_HOMES" q-zenbook:x-j17-slice2:done \
+    q-zenbook:x-spine-workshop-contract:open q-zenbook:x-spine-cashier-contract:open q-server:x-j17-slice2:open
+  ready_ids "$server" | grep -Fqx x-j17-complete-walk || fail 'a done row in the named home does not satisfy q-zenbook:x-j17-slice2'
+  ready_ids "$server" | grep -Fqx x-feedback-apps-status \
+    || fail "the list's own q-server rows were read over this home's live archive"
+  FM_HOME=$server "$TOOL" verdicts | grep -Fq 'x-j17-complete-walk	0	q-zenbook:x-j17-slice2	satisfied	done row in q-zenbook per fleet list ' \
+    || fail "the verdict does not cite the fleet list: $(FM_HOME=$server "$TOOL" verdicts)"
+  fleet_list "$server" q-server "$(date +%s)" pc,q-server q-zenbook:x-j17-slice2:done
+  withheld "$server" | grep -Fq 'x-j17-complete-walk,"q-zenbook:x-j17-slice2",unknown,"names home q-zenbook, which the fleet list from ' \
+    || fail "an uncovered home is not unknown: $(withheld "$server")"
+  fleet_list "$server" q-server "$(date +%s)" "$FLEET_HOMES" q-zenbook:x-other:open
+  withheld "$server" | grep -Fq 'x-j17-complete-walk,"q-zenbook:x-j17-slice2",unknown,"no row in q-zenbook per fleet list ' \
+    || fail "a qualified id absent from its home is not unknown: $(withheld "$server")"
+  pass 'a <home>:<id> edge resolves from that home: done satisfies, absent or uncovered is unknown'
+}
+
+test_a_stale_fleet_list_is_shown_and_never_reopens_an_edge() {
+  local server out
+  server=$(live_server stale)
+  fleet_list "$server" q-server "$(( $(date +%s) - 7 * 3600 ))" "$FLEET_HOMES" q-zenbook:x-spine-workshop-contract:open \
+    q-zenbook:x-spine-cashier-contract:open q-zenbook:x-j17-slice2:done
+  out=$(FM_HOME=$server "$WRAPPER" ready)
+  printf '%s\n' "$out" | grep -Eq '^blocked_by_fleet_list: "fleet list stale: generated [0-9T:-]+Z \(age 7h\), covers pc,x-ux,fleet-ops,q-server,q-zenbook; ' \
+    || fail "ready does not show the stale list with its age and homes: $out"
+  ready_ids "$server" | grep -Fqx x-j17-slice6 && fail 'a stale list let x-j17-slice6 launch while its blocker was open on the Zenbook'
+  withheld "$server" | grep -Fq 'x-j17-complete-walk,"q-zenbook:x-j17-slice2",unknown,"done in q-zenbook per fleet list ' \
+    || fail "a stale list's done row satisfied a qualified edge: $(withheld "$server")"
+  FM_BLOCKED_BY_FLEET_MAX_AGE=86400 ready_ids "$server" | grep -Fqx x-j17-complete-walk \
+    || fail 'FM_BLOCKED_BY_FLEET_MAX_AGE does not set the stale age'
+  printf 'self\tq-server\nrow\tq-zenbook\tx-j17-slice2\topen\n' > "$server/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_HOME=$server "$WRAPPER" ready 2>&1) && fail "ready accepted a fleet list with no generated or homes line: $out"
+  printf '%s' "$out" | grep -Fq 'needs self, generated (epoch) and homes lines' || fail "the malformed-list refusal does not say why: $out"
+  pass 'a stale list is shown with its age and homes, its open rows still block and its done rows clear nothing; a malformed one is refused'
 }
 
 test_the_archive_path_follows_tasks_toml() {
@@ -258,4 +385,7 @@ fm_test_run \
   test_ready_autolaunch_and_snapshot_agree \
   test_a_second_run_gives_the_same_result_and_reads_change_nothing \
   test_an_unreadable_archive_withholds_the_whole_ready_list \
-  test_the_archive_path_follows_tasks_toml
+  test_the_archive_path_follows_tasks_toml \
+  test_the_fleet_list_blocks_the_four_live_cross_home_edges \
+  test_a_qualified_edge_resolves_from_the_named_home \
+  test_a_stale_fleet_list_is_shown_and_never_reopens_an_edge

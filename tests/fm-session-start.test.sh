@@ -2178,13 +2178,26 @@ EOF
     "the ready listing kept a row whose blocker has no row in this home"
   assert_contains "$out" 'ready-2,archived-only,unknown,"no row in this home backlog or archive and no recorded mark"' \
     "the withheld row is not shown with its blocker and evidence"
+  assert_contains "$out" 'blocked_by_fleet_list: "fleet list absent: blocked-by edges are decided from this home only' \
+    "the digest does not say that this home has no fleet list"
+
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tother\tarchived-only\topen\n' "$(date +%s)" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  printf '# Done archive\n\n## Archived 2026-11-01\n- [x] archived-only - done long ago\n' > "$home/data/done-archive.md"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "the digest kept a row whose blocker is archived here but open in another home"
+  assert_contains "$out" 'ready-2,archived-only,blocked,"open in other per fleet list ' \
+    "the digest does not show the other home's open row as the reason"
+  assert_not_contains "$out" 'blocked_by_fleet_list:' "a fresh fleet list still prints the absent or stale line"
+  rm -f "$home/data/blocked-by-fleet-rows.tsv"
 
   printf '# Done archive\n\n## Archived 2026-11-01\n- [x] archived-only - done long ago\n' > "$home/data/done-archive.md"
   out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
   assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
     "an archived blocker still withholds the row"
 
-  pass "the startup ready listing withholds a row whose blocker is unknown here and keeps it once archived"
+  pass "the startup ready listing withholds a row whose blocker is unknown here or open in another home and keeps it once archived"
 }
 
 test_backlog_compact_manual_backend_skips_indented_bodies() {
