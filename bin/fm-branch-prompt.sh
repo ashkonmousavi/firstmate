@@ -72,7 +72,7 @@ Report the observed acceptance or pending-proof release outcome with the PR's UR
 
 For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures.
 For a scout row, after its completion gate passes, record accepted completion with `bin/fm-tasks-axi.sh done <task> --report <durable report path>`, claim the task's lease, and run `bin/fm-teardown.sh <task>` with no flags.
-A scout phase on a ship or slice owner row records its report and note and does NOT mark the row done; the owner row is done only after its green walk.
+A scout phase on a row that is not kind scout (a ship, task or other build row), or on a scout row whose SLICE line says role=owner, records its report and note and does NOT mark the row done; that row is done only through its own delivery.
 Use the same guarded completion command to retain that phase's report and note, then claim the task's lease and clean up the scout with `bin/fm-teardown.sh <task>` with no flags.
 Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand.
 Reporting a scout as finished and idle is not a substitute for that cleanup.

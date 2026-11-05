@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fm-autolaunch.sh - fill free machine lanes from this home's prepared backlog,
+# fm-autolaunch.sh - fill free machine lanes from this home's backlog,
 # with deterministic selection, and keep one record per decision.
 #
 # Usage:
@@ -80,7 +80,14 @@
 #        refused:spawn error: <line>   any other fm-spawn.sh failure
 #      A launch is one `launched` record, after which capacity is read again.
 #      When candidates run out with a lane still open, one
-#      `refused:no prepared item` record names the first open lane.
+#      `refused:no prepared item` record names the first open lane. If no
+#      prepared candidate existed anywhere in the pass, the existing step
+#      engine instead starts one initial prep scout for the highest-ranked
+#      unprepared item (or reports nothing-to-prep); unranked items are named,
+#      never picked. A pending initial prep refuses its item until its scout
+#      launches or, before any launch, prep arrives and a run pass retires it.
+#      Its --step-dispatch re-runs the shared prep admission and spawns with
+#      --no-defer-queue, so a capacity refusal stays with the receipt.
 #
 # PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
@@ -456,19 +463,10 @@ item_show() {
   ITEM_BODY=$(show_field "$out" body)
 }
 
-# prep_doc <id>: prints the item's prep file (home-relative), or returns 1.
+# prep_doc <id>: prints the item's prep file (home-relative), or returns nonzero.
 # Needs item_show first for the body.
 prep_doc() {
-  local id=$1 p
-  [ -s "$DATA/$id/prep.md" ] && { printf 'data/%s/prep.md\n' "$id"; return 0; }
-  while IFS= read -r p; do
-    case "/$p/" in */../*) continue ;; esac
-    [ -f "$DATA/${p#data/}" ] && [ -s "$DATA/${p#data/}" ] || continue
-    printf '%s\n' "$p"
-    return 0
-  done < <(printf '%s\n' "$ITEM_BODY" | awk '{ gsub(/\\n/, "\n"); print }' |
-    sed -n 's|^[[:space:]]*Prep: \(data/[^[:space:]]*[^[:space:]/]\).*|\1|p')
-  return 1
+  printf '%s\n' "$ITEM_BODY" | python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-doc "$1"
 }
 
 # brief_line <id> <sed-expression>: the first match from the item's brief.
@@ -481,11 +479,18 @@ brief_line() {
 prep_read() {
   local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
   local b_mode b_consent b_branch b_base prep_path
-  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
+  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR='' P_HAS_PREP=0
+  prep_path=$(prep_doc "$id") && P_HAS_PREP=1
+  local -a pending=(prep-pending "$id")
+  [ "$ACTION" != run ] || pending+=(--reconcile)
+  if [ -f "$DATA/$id/slice-steps.log" ] &&
+    printf '%s\n' "$ITEM_BODY" | python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" "${pending[@]}"; then
+    PREP_ERR="initial prep pending"; return 1
+  fi
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
-  prep_path=$(prep_doc "$id") || {
+  [ "$P_HAS_PREP" = 1 ] || {
     PREP_ERR="no prep file (data/$id/prep.md or a Prep: data/<path> line in the item)"; return 1
   }
   file="$DATA/$id/autolaunch-prep"
@@ -648,7 +653,7 @@ deferred_pending() {
 # check_item <id>: 0 when launchable; else CHECK_ERR holds the refusal.
 check_item() {
   local id=$1
-  CHECK_ERR=
+  CHECK_ERR='' P_HAS_PREP=0
   item_show "$id" || { CHECK_ERR="not prepared: backlog show failed"; return 1; }
   [ "$ITEM_HELD" != yes ] || { CHECK_ERR=held; return 1; }
   prep_read "$id" || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
@@ -672,6 +677,20 @@ if [ "$ACTION" = candidate-prep ]; then
     '{prep:{verdict:$verdict,reason:$reason},held:$held}'
   exit $?
 fi
+
+# No prepared candidate existed anywhere in this pass. The existing step
+# engine owns initial prep filing/launch receipts, ranking and duplicate checks.
+prep_fallback() {
+  local out candidate rc=0
+  local -a args=(prep)
+  [ "$ACTION" != dry ] || args+=(--dry-run)
+  while IFS= read -r candidate; do
+    [ -z "$candidate" ] || args+=("$candidate")
+  done <<< "$ids"
+  out=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" "${args[@]}" 2>&1) || rc=$?
+  [ -z "$out" ] || record "$LANE" - - "$out"
+  return "$rc"
+}
 
 # default_candidates <kind> <backend>: ranked default profiles as TSV
 # harness, model, effort; DEFAULT_REFUSAL names a refused default. The quota
@@ -1026,7 +1045,17 @@ if [ "$ACTION" = step-dispatch ]; then
   [ -n "$STEP_ACTION_ID" ] || exit 2
   capacity_read || true
   [ "$CAP_FREE" -gt 0 ] || exit 75
-  check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
+  prep_rc=0 STEP_PREP=0
+  context=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-context "$STEP_TARGET" "$STEP_ACTION_ID") || prep_rc=$?
+  case "$prep_rc" in
+    0)
+      P_PROJECT=$(jq -r '.project' <<<"$context")
+      P_BASE_BRANCH=$(jq -r '.base_branch' <<<"$context")
+      P_KIND=scout STEP_PREP=1
+      ;;
+    3) check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; } ;;
+    *) echo "refused:${context:-prep admission failed}" >&2; exit 1 ;;
+  esac
   dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
   if [ -n "$STEP_EXCLUDE" ] && [ -n "$STEP_FAMILY" ] && [ "$STEP_FAMILY" != unknown ]; then
     : > "$TMPD/preferred.tsv"
@@ -1047,6 +1076,7 @@ if [ "$ACTION" = step-dispatch ]; then
     m=${line%%$'\t'*} e=${line#*$'\t'}
     python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$STEP_TARGET" "$m" "$STEP_ACTION_ID" > "$TMPD/admission.out" || continue
     spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
+    [ "$STEP_PREP" = 0 ] || SPAWN_ARGV+=(--no-defer-queue)
     rc=0
     FM_SPAWN_STEP_ACTION="$STEP_ACTION_ID" "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if spawn_quota_refused "$rc"; then
@@ -1155,6 +1185,7 @@ fi
 
 LANE=1
 STOP=0
+HAD_PREPARED=0
 for id in $ids; do
   slot=$LANE
   if [ "$LANE" -gt "$FREE" ]; then
@@ -1162,9 +1193,11 @@ for id in $ids; do
     slot=-
   fi
   if ! check_item "$id"; then
+    [ "$P_HAS_PREP" = 0 ] || HAD_PREPARED=1
     record "$slot" "$id" - "refused:$CHECK_ERR"
     continue
   fi
+  HAD_PREPARED=1
   if [ "$ACTION" = dry ] && { [ "${FM_CONTROLLER_PREPARED:-}" = 1 ] || [ "${FM_CONTROLLER_PREPARED:-}" = all ]; }; then
     case ":${FM_CONTROLLER_PREPARED_SKIP:-}:" in
       *":$id:"*) record "$slot" "$id" - 'refused:controller action pending or settled'; continue ;;
@@ -1244,6 +1277,10 @@ for id in $ids; do
   esac
 done
 if [ "$STOP" = 0 ] && [ "$LANE" -le "$FREE" ]; then
-  record "$LANE" - - "refused:no prepared item"
+  if [ "$HAD_PREPARED" = 0 ]; then
+    prep_fallback || exit 1
+  else
+    record "$LANE" - - "refused:no prepared item"
+  fi
 fi
 exit 0

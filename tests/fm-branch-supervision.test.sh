@@ -83,7 +83,7 @@ test_branch_prompt_routes_completed_scouts_through_guarded_cleanup() {
     *) fail "branch prompt omits the completed-scout cleanup sequence or refusal reporting" ;;
   esac
   assert_contains "$prompt" \
-    "A scout phase on a ship or slice owner row records its report and note and does NOT mark the row done; the owner row is done only after its green walk." \
+    "A scout phase on a row that is not kind scout (a ship, task or other build row), or on a scout row whose SLICE line says role=owner, records its report and note and does NOT mark the row done; that row is done only through its own delivery." \
     "branch prompt closes a parent row when only its scout phase finished"
   assert_contains "$prompt" \
     "Reporting a scout as finished and idle is not a substitute for that cleanup." \

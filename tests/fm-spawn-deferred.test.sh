@@ -401,6 +401,7 @@ test_real_spawn_starts_after_a_lane_frees() {
   case "$variant" in
     ship) args=(retry-one "$project" --mode no-mistakes --yolo off) ;;
     scout) args=(--scout retry-one "$project"); expected_kind=scout ;;
+    no-queue) args=(--scout --no-defer-queue retry-one "$project") ;;
     flags) args=(--harness codex --mode=no-mistakes --yolo off --backend=tmux retry-one "$project") ;;
     pinned)
       mkdir -p "$home/projects"
@@ -417,6 +418,12 @@ test_real_spawn_starts_after_a_lane_frees() {
     PATH="$fakebin:$PATH" \
     "$SPAWN" "${args[@]}" 2>&1) || rc=$?
   [ "$rc" -eq 75 ] || fail "the occupied machine did not defer the spawn (exit $rc): $out"
+  if [ "$variant" = no-queue ]; then
+    queue_has "$home" retry-one && fail "--no-defer-queue recorded an automatic retry"
+    [ ! -f "$home/state/retry-one.meta" ] || fail "--no-defer-queue refusal created a worker"
+    pass "a full machine refuses --no-defer-queue with 75 and no retry record"
+    return 0
+  fi
   queue_has "$home" retry-one || fail "the real deferred spawn was not recorded"
   rm -f -- "$home/state/occupant.meta"
   began=$(date +%s)
@@ -774,5 +781,6 @@ test_seat_already_held_is_skipped
 test_busy_lock_starts_nothing
 test_real_spawn_starts_after_a_lane_frees ship
 test_real_spawn_starts_after_a_lane_frees scout
+test_real_spawn_starts_after_a_lane_frees no-queue
 test_real_spawn_starts_after_a_lane_frees flags
 test_real_spawn_starts_after_a_lane_frees pinned

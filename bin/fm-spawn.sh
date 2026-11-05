@@ -2,7 +2,7 @@
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
 # Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--continue-pr <N> | --no-forge-check <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait] [--no-defer-queue]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -245,7 +245,9 @@
 #   ceiling and memory check (fm-capacity-lib.sh). Refusal exits 75 without
 #   launching; persistent secondmate startup is exempt. No machine lock spans
 #   launch. bin/fm-spawn-deferred.sh owns automatic retry of fresh spawns
-#   refused with "no free machine lane".
+#   refused with "no free machine lane". --no-defer-queue (initial prep
+#   launches from bin/fm-autolaunch.sh only) refuses with 75 without recording
+#   that retry, so the caller's receipt keeps ownership.
 #   Project capacity remains a separate project-identity transaction.
 #   Project capacity: when this machine declares how many workers a project
 #   admits at once (config/project-capacity; bin/fm-project-capacity-lib.sh owns
@@ -931,6 +933,7 @@ RELAUNCH=0
 # Opt-in only: exact-resume presentation-order lock waits instead of refusing.
 # Absent/unset keeps upstream refuse-on-contention. See header.
 HERDR_RESUME_LOCK_WAIT=0
+NO_DEFER_QUEUE=0
 POS=()
 SPAWN_OPTIONS=()
 want_value=
@@ -1015,6 +1018,7 @@ for a in "$@"; do
     ;;
   --relaunch) RELAUNCH=1 ;;
   --herdr-resume-lock-wait) HERDR_RESUME_LOCK_WAIT=1 ;;
+  --no-defer-queue) NO_DEFER_QUEUE=1; continue ;;
   --harness) want_value=harness ;;
   --harness=*)
     HARNESS_ARG=${a#--harness=}
@@ -3917,7 +3921,7 @@ fi
 # No machine lock spans launch or publication (fm-capacity-lib.sh owns the rules).
 if [ "$KIND" != secondmate ]; then
   if ! fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND"; then
-    if [ "$RELAUNCH" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
+    if [ "$RELAUNCH" -eq 0 ] && [ "$NO_DEFER_QUEUE" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
       POS[1]=$PROJ_ABS
       if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
         "$SCRIPT_DIR/fm-spawn-deferred.sh" record "$ID" -- "$SCRIPT_DIR/fm-spawn.sh" "${POS[@]}" "${SPAWN_OPTIONS[@]+"${SPAWN_OPTIONS[@]}"}" --backend "$BACKEND"; then
