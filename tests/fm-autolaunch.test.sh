@@ -84,6 +84,174 @@ exit 0
 SH
 }
 
+test_controller_busy_steps_reconcile_technical_decisions() {
+  local n at
+  k1_setup busy-technical mate
+  k1_ready k1-slice
+  printf '0\n' > "$KF/free"
+  printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+  printf 'mode=no-mistakes\n' > "$H/state/k1-slice.meta"
+  cat > "$KB/step-nm" <<'SH'
+#!/usr/bin/env bash
+printf 'ready\n' > "$KF/step-reading"
+while [ ! -e "$KF/step-go" ]; do "$REAL_SLEEP" 0.02; done
+printf 'state: unknown\n'
+SH
+  chmod +x "$KB/step-nm"
+  export FM_AUTOLAUNCH_STEPS_NM_BIN="$KB/step-nm"
+  for n in 0 1 2 3 4 5 6 7 8 9; do
+    at=0; [ "$n" -lt 5 ] || at=40
+    printf 'needs-decision [key=api-shape] [at=%s]: choose interval\n' $((K1_T0 + at)) > "$H/state/k1-busy-key-$n.status"
+  done
+  k1_pass 165
+  k1_wait_file "$KF/step-reading" || fail 'the first legal step must hold the actual primary lock'
+  assert_equals "$((K1_T0 + 185))" "$(k1_units_max_start 1 120)" 'the concrete technical-key timeline starts its step at t185'
+  k1_pass 220
+  python3 - "$H/state/autolaunch-controller" "$K1_T0" <<'PYCASE' || fail 'all ten technical keys must be owned within their 255-second bound during a legal step'
+import json,sys
+from pathlib import Path
+root,zero=Path(sys.argv[1]),int(sys.argv[2])
+rows=[json.loads(p.read_text()) for p in root.glob('ctl-c-ask-*.json')]
+assert len(rows)==10,len(rows)
+for r in rows:
+    assert r['handoff']['receipt'] and r['owned_at']-r['source_at']<=255,r
+PYCASE
+  printf '%s\n' $((K1_T0 + 235)) > "$KF/clock"
+  for n in 0 1 2 3 4; do
+    printf 'resolved [key=api-shape] [at=%s]: answered\n' $((K1_T0 + 230)) >> "$H/state/k1-busy-key-$n.status"
+    if [ "$n" -lt 3 ]; then
+      printf 'needs-decision [key=api-shape] [at=%s]: choose replacement\n' $((K1_T0 + 235)) >> "$H/state/k1-busy-key-$n.status"
+    fi
+  done
+  k1_pass 275
+  for n in 0 1 2 3 4; do
+    assert_equals 1 "$(k1_count "$H/state/k1-busy-key-$n.status" resolved ctl-c-ask-)" 'answer and reopen must close the prior occurrence on a busy pass'
+  done
+  printf '%s\n' $((K1_T0 + 300)) > "$KF/clock"
+  : > "$KF/step-go"
+  controller_wait_action_receipt ctl-a-step || fail 'the first legal step must finish at t300'
+  rm "$KF/step-reading" "$KF/step-go"
+  k1_pass 330
+  k1_wait_file "$KF/step-reading" || fail 'the second legal step must hold the actual primary lock'
+  k1_pass 440
+  for n in 0 1 2 3 4 5 6 7 8 9; do
+    if [ "$n" -lt 3 ]; then at=2; else at=1; fi
+    assert_equals "$at" "$(k1_owned "k1-busy-key-$n" | grep -c .)" 'busy reconciliation must reopen only the changed source occurrences'
+  done
+  python3 - "$H/state/autolaunch-controller" "$K1_T0" <<'PYCASE' || fail 'reopened occurrences must keep their own age and one bounded handoff'
+import json,sys
+from pathlib import Path
+root,zero=Path(sys.argv[1]),int(sys.argv[2])
+for p in root.glob('ctl-c-ask-*.json'):
+    r=json.loads(p.read_text())
+    if r['task'] in ('k1-busy-key-0','k1-busy-key-1','k1-busy-key-2'):
+        assert r['generation']==2 and r['source_at']==zero+235,r
+        assert r['handoff']['receipt'] and r['owned_at']<=zero+490,r
+PYCASE
+  assert_equals 0 "$(k1_units_max_count 900)" 'unattended technical keys never start diagnosis'
+  printf '%s\n' $((K1_T0 + 465)) > "$KF/clock"
+  : > "$KF/step-go"
+  controller_wait_action_receipt ctl-a-step || fail 'the second legal step must finish before its deadline'
+  unset FM_AUTOLAUNCH_STEPS_NM_BIN
+  k1_teardown
+  pass 'legal busy steps preserve ten-key age, source closure and reopen bounds without diagnosis'
+}
+
+controller_lock_closure_restart_case() {
+  local kind=$1 mode row request
+  for mode in fail uncertain; do
+    k1_setup "closure-$kind-$mode" "$kind"
+    k1_pass_lock_holder
+    k1_pass 55; k1_pass 110; k1_pass 165
+    row=$(printf '%s\n' "$H"/state/autolaunch-controller/ctl-e-pass-lock-*.json)
+    kill "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null || true
+    K1_HOLDER=
+    rm -rf "$H/state/.autolaunch.lock"
+    if [ "$kind" = mate ]; then
+      if [ "$mode" = fail ]; then
+        mv "$H/state/autolaunch.status" "$KF/saved.status"
+        mkdir "$H/state/autolaunch.status"
+      else
+        export REAL_BASH
+        REAL_BASH=$(command -v bash)
+        {
+          printf '#!%s\n' "$REAL_BASH"
+          cat <<'SH'
+if [ "${1##*/}" = fm-status-append.sh ] && [ "${3:-}" = resolved ] && [ ! -e "$KF/closure-crashed" ]; then
+  "$REAL_BASH" "$@" || exit $?
+  : > "$KF/closure-crashed"
+  kill -KILL "$PPID"
+  exit 0
+fi
+exec "$REAL_BASH" "$@"
+SH
+        } > "$KB/bash"
+        chmod +x "$KB/bash"
+      fi
+    else
+      if [ "$mode" = fail ]; then printf 'fail\n' > "$KF/send-mode"; else printf 'crash\n' > "$KF/send-mode"; fi
+    fi
+    k1_pass 220
+    request=$(python3 - "$row" <<'PYCASE'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+assert 'close_handoff' in r and not r.get('closed'),r
+assert not r['close_handoff'].get('receipt',False),r
+print(r['close_handoff']['request'])
+PYCASE
+    ) || fail 'the first acquired pass must persist closure intent before failed or uncertain delivery'
+    if [ "$kind" = mate ] && [ "$mode" = fail ]; then
+      rmdir "$H/state/autolaunch.status"
+      mv "$KF/saved.status" "$H/state/autolaunch.status"
+    fi
+    k1_pass_lock_holder
+    printf '%s\n' $((K1_T0 + 275)) > "$H/state/.autolaunch.lock/at"
+    k1_inbox_due k1-rering
+    k1_pass 275
+    python3 - "$row" "$request" <<'PYCASE' || fail 'a restarted busy pass must finish the prior closure with the original identity'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+assert r['closed'] and r['close_handoff']['receipt'],r
+assert r['close_handoff']['request']==sys.argv[2],r
+PYCASE
+    assert_equals 1 "$(k1_units_max_count 60 k1-rering)" 'closure reconciliation cannot suppress another due re-ring'
+    if [ "$kind" = mate ]; then
+      assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'retrying closure cannot duplicate its accepted opener'
+      assert_equals 1 "$(k1_count "$H/state/autolaunch.status" resolved ctl-e-pass-lock-)" 'local closure is accepted exactly once for its generation'
+    else
+      assert_equals 2 "$(grep -c . "$KF/accepted")" 'MAIN accepts exactly one opener and one closure'
+      assert_equals 1 "$(k1_lines "$KF/send.log" "${request}" | cut -f3 | sort -u | grep -c .)" 'MAIN retries retain the persisted closure identity'
+    fi
+    k1_pass 330; k1_pass 385
+    python3 - "$row" <<'PYCASE' || fail 'the different verified live holder must open a fresh incident generation'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text()); assert r['generation']==2 and r['handoff']['receipt'] and not r.get('closed'),r
+PYCASE
+    assert_equals 2 "$(k1_count "$LOG" ctl-e-pass-lock- ' owned ')" 'there is one accepted ownership event per incident generation'
+    k1_alive "$K1_HOLDER" || fail 'closure retry cannot steal or kill the next live holder'
+    if [ "$kind" = mate ]; then
+      assert_equals 1 "$(k1_count "$H/state/autolaunch.status" resolved ctl-e-pass-lock-)" 'the first generation closure cannot replay into the next incident'
+    else
+      assert_equals 3 "$(grep -c . "$KF/accepted")" 'a new MAIN incident adds one fresh opener without replaying the prior closure'
+    fi
+    k1_teardown
+    unset REAL_BASH
+  done
+}
+
+test_controller_local_closure_retry_survives_busy_restart() {
+  controller_lock_closure_restart_case mate
+  pass 'local closure intent survives failure, uncertain append, restart and a different busy holder'
+}
+
+test_controller_main_closure_retry_survives_busy_restart() {
+  controller_lock_closure_restart_case main
+  pass 'MAIN closure keeps its request identity through failure, uncertainty, restart and a new incident'
+}
+
 test_controller_runtime_quota_falls_through_profiles() {
   local mode token rc
   for mode in normal saved all retry; do
@@ -2930,7 +3098,10 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_runtime_quota_falls_through_profiles \
+k1_run test_controller_busy_steps_reconcile_technical_decisions \
+  test_controller_local_closure_retry_survives_busy_restart \
+  test_controller_main_closure_retry_survives_busy_restart \
+  test_controller_runtime_quota_falls_through_profiles \
   test_controller_busy_step_preserves_launch_deadline \
   test_controller_busy_pass_reconciles_receipt_siblings \
   test_controller_lock_recovery_uses_actual_acquisition \

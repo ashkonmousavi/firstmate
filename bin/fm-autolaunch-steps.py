@@ -1542,37 +1542,39 @@ class Controller:
         self.save(row)
         self.event(row, "owned", f"owned {row['evidence']} overrun={row.get('overrun', 0)}")
 
-    def close(self, row, reason):
+    def close(self, row, reason=None):
         if row.get("closed"):
             return
         if "handoff" in row:
-            # Do not close an opener whose durable delivery has not converged.
+            h = row.setdefault("close_handoff", dict(payload=f"{row['key']} resolved {reason}",
+                request=hashlib.sha256((row['handoff']['request'] + ':close').encode()).hexdigest()[:32],
+                receipt=False))
+            self.save(row)
+            reason = h["payload"][len(f"{row['key']} resolved "):]
             self.deliver(row)
             if not row["handoff"]["receipt"]:
                 return
-            task = row.get("task")
-            if (HOME / ".fm-secondmate-home").exists() or task:
-                status = STATE / f"{task or 'autolaunch'}.status"
-                marker = f"[key={row['key']}]"
-                generation = f"generation={row.get('generation', 1)}"
-                if not any(line.startswith("resolved ") and marker in line and generation in line
-                           for line in read(status).splitlines()):
-                    if not self.append_status(status, "resolved", row["key"], f"{row['key']} {reason} {generation}"):
+            if not h.get("receipt"):
+                task = row.get("task")
+                if (HOME / ".fm-secondmate-home").exists() or task:
+                    status = STATE / f"{task or 'autolaunch'}.status"
+                    marker = f"[key={row['key']}]"
+                    generation = f"generation={row.get('generation', 1)}"
+                    if not any(line.startswith("resolved ") and marker in line and generation in line
+                               for line in read(status).splitlines()):
+                        if not self.append_status(status, "resolved", row["key"], f"{row['key']} {reason} {generation}"):
+                            return
+                else:
+                    send = os.environ.get("FM_AUTOLAUNCH_SEND_BIN", str(BIN / "fm-send.sh")) if TEST else str(BIN / "fm-send.sh")
+                    try:
+                        r = subprocess.run([send, "fleet-ops", "--one-way", h["payload"]],
+                                           env=dict(os.environ, FM_SEND_REQUEST_ID=h["request"]),
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                    except subprocess.TimeoutExpired:
                         return
-            else:
-                row.setdefault("close_handoff", dict(payload=f"{row['key']} resolved {reason}",
-                    request=hashlib.sha256((row['handoff']['request'] + ':close').encode()).hexdigest()[:32]))
-                self.save(row)
-                h = row['close_handoff']
-                send = os.environ.get("FM_AUTOLAUNCH_SEND_BIN", str(BIN / "fm-send.sh")) if TEST else str(BIN / "fm-send.sh")
-                try:
-                    r = subprocess.run([send, "fleet-ops", "--one-way", h["payload"]],
-                                       env=dict(os.environ, FM_SEND_REQUEST_ID=h["request"]),
-                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-                except subprocess.TimeoutExpired:
-                    return
-                if r.returncode:
-                    return
+                    if r.returncode:
+                        return
+                h["receipt"] = True
         row.update(closed=True, phase=row["phase"] if row["phase"] in ("running", "diagnosing") else "complete")
         self.save(row)
         self.event(row, "resolved", f"resolved {reason}")
@@ -1806,10 +1808,12 @@ class Controller:
 
     def effects(self, rc, acquired=False):
         p = self.load(self.passfile)
+        for row in self.rows(True):
+            if row.get("close_handoff"):
+                self.close(row)
+            elif acquired and row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
+                self.close(row, "pass lock acquired")
         if acquired:
-            for row in self.rows(True):
-                if row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
-                    self.close(row, "pass lock acquired")
             p.pop("holder", None)
         if rc in (124, 137):
             p.update(cuts=p.get("cuts", 0) + 1, overrun=1)
@@ -1881,6 +1885,17 @@ class Controller:
             if row["phase"] == "queued" and rc == 0:
                 self.start(row)
         self.diagnoses(rc == 0)
+        for row in self.rows(False):
+            if row.get("close_handoff"):
+                self.close(row)
+        if rc != 0:
+            try:
+                self.technical_decisions()
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                self.emit(dict(key="pass"), f"decision inventory failed: {error}")
+            for row in self.rows(False):
+                if row.get("source_key"):
+                    self.deliver(row)
 
     def start(self, row, diagnosis=False):
         # A wait may redispatch the same rung; it is still a new attempt with
