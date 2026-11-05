@@ -1,0 +1,24 @@
+$ ['bash', 'bin/fm-lab-home.sh', 'create', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v']
+~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v
+EXIT 0
+$ ['git', '-C', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/repo', 'init', '-q', '-b', 'main']
+EXIT 0
+$ ['tmux', '-L', 'fm-lab', '-f', '/dev/null', 'new-session', '-d', '-x', '120', '-y', '40', '-s', 'recovery', '-n', 'shell', 'bash --noprofile --norc']
+EXIT 0
+$ ['tmux', '-L', 'fm-lab', 'display-message', '-p', '#{pid}']
+20730
+EXIT 0
+$ ['tmux', '-L', 'fm-lab', 'display-message', '-p', '#{socket_path}']
+~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/tmux/tmux-1000/fm-lab
+EXIT 0
+$ ['bash', 'bin/fm-control.sh', 'a-first', 'relaunch', '--if-recoverable']
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v
+another lifecycle action is already running for task a-first
+EXIT 75
+$ ['bash', '-c', '. bin/fm-crew-recovery-lib.sh\nfm_crew_recovery_sweep']
+CREW_RECOVERY: a-first: relaunch deferred after dead: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v
+EXIT 0
+{"result": "pass", "elapsed_seconds": 0.623, "first_task": "a-first", "deferred": true, "later_tasks_untouched": true, "excluded_released_secondmate_symlink": true, "unlanded_work_preserved": true}
+$ ['tmux', '-L', 'fm-lab', 'kill-server']
+EXIT 0
+CLEANUP: owned lifecycle-lock holder exited; private tmux stopped; disposable lab removed.

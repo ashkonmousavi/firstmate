@@ -1,0 +1,25 @@
+[
+  {
+    "name": "69 real shell endpoints: deferred stage finishes on one CPU with crew-recovery timing",
+    "elapsed_seconds": 28.373,
+    "cpu": 0,
+    "records": 69,
+    "stage_status": "done",
+    "metadata_preserved": true
+  },
+  {
+    "name": "Unresponsive real backend read becomes unreadable in bounded time",
+    "elapsed_seconds": 3.021,
+    "output": "unreadable"
+  },
+  {
+    "name": "All 69 real backend reads hang: sweep finishes without recovery or metadata changes",
+    "elapsed_seconds": 29.524,
+    "records": 69
+  },
+  {
+    "name": "Fresh direct eligibility accepts a dead dirty task and refuses its busy replacement",
+    "elapsed_seconds": 0.602,
+    "unlanded_file_preserved": true
+  }
+]

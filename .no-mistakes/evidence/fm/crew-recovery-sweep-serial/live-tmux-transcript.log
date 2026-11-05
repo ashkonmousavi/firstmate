@@ -1,0 +1,285 @@
+$ ['bash', 'bin/fm-lab-home.sh', 'create', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v']
+~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v
+EXIT=0 ELAPSED=0.008s
+$ ['git', '-C', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/repo', 'init', '-q', '-b', 'main']
+EXIT=0 ELAPSED=0.003s
+$ ['git', '-C', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/repo', 'add', 'README']
+EXIT=0 ELAPSED=0.002s
+$ ['git', '-C', '~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/repo', '-c', 'user.name=Phase Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'initial']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', '-f', '/dev/null', 'new-session', '-d', '-x', '120', '-y', '40', '-s', 'recovery', '-n', 'task-00', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.008s
+$ ['tmux', '-L', 'fm-lab', 'display-message', '-p', '#{pid}']
+97315
+EXIT=0 ELAPSED=0.002s
+$ ['tmux', '-L', 'fm-lab', 'display-message', '-p', '#{socket_path}']
+~/.no-mistakes/worktrees/049a88734b0e/01M6NB5GZ0JJXHQ1W6PXYBHV7C/.v/tmux/tmux-1000/fm-lab
+EXIT=0 ELAPSED=0.002s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-01', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-02', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-03', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-04', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-05', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-06', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.005s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-07', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-08', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.005s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-09', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-10', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.006s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-11', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-12', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-13', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-14', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-15', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-16', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-17', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.005s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-18', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-19', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-20', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-21', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-22', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-23', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-24', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.005s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-25', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-26', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-27', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-28', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-29', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-30', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-31', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-32', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-33', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-34', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-35', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-36', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-37', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-38', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-39', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-40', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-41', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-42', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-43', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-44', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-45', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-46', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-47', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-48', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-49', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-50', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-51', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-52', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-53', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-54', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-55', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-56', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-57', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-58', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-59', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-60', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-61', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-62', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-63', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-64', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-65', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.003s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-66', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-67', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'task-68', 'bash --noprofile --norc']
+EXIT=0 ELAPSED=0.004s
+$ ['tmux', '-L', 'fm-lab', 'list-windows', '-t', 'recovery', '-F', '#{window_name}']
+task-00
+task-01
+task-02
+task-03
+task-04
+task-05
+task-06
+task-07
+task-08
+task-09
+task-10
+task-11
+task-12
+task-13
+task-14
+task-15
+task-16
+task-17
+task-18
+task-19
+task-20
+task-21
+task-22
+task-23
+task-24
+task-25
+task-26
+task-27
+task-28
+task-29
+task-30
+task-31
+task-32
+task-33
+task-34
+task-35
+task-36
+task-37
+task-38
+task-39
+task-40
+task-41
+task-42
+task-43
+task-44
+task-45
+task-46
+task-47
+task-48
+task-49
+task-50
+task-51
+task-52
+task-53
+task-54
+task-55
+task-56
+task-57
+task-58
+task-59
+task-60
+task-61
+task-62
+task-63
+task-64
+task-65
+task-66
+task-67
+task-68
+EXIT=0 ELAPSED=0.003s
+$ ['bash', '-c', '. bin/fm-crew-recovery-lib.sh\nprintf "shell="\nfm_crew_recovery_read_agent_state tmux recovery:task-00\nprintf "absent="\nfm_crew_recovery_read_agent_state tmux recovery:absent']
+shell=dead
+absent=missing
+EXIT=0 ELAPSED=0.159s
+$ ['bash', 'bin/fm-lock.sh']
+lock acquired: harness pid 85187
+EXIT=0 ELAPSED=0.235s
+$ ['taskset', '-c', '0', 'bash', 'bin/fm-startup-network.sh', 'run', '--locked', '1']
+EXIT=0 ELAPSED=28.343s
+$ ['bash', 'bin/fm-startup-network.sh', 'report']
+completed off the startup path in 26s: GitHub authentication, dead-secondmate relaunch, dead-crewmate relaunch, secondmate convergence, pending handoff delivery, project clone refresh with its drift reporting, and inactive terminal-outcome reconciliation.
+NEEDS_GH_AUTH
+These ran AFTER the sections above were composed, so re-read any record a line here names.
+TIMINGS - where the deferred network checks spent their time (ms):
+  phase       gh-auth                                    start=+4250    elapsed=51
+  phase       secondmate-liveness                        start=+4314    elapsed=578
+  phase       secondmate-sync                            start=+4983    elapsed=1740
+  phase       handoff-delivery                           start=+6777    elapsed=3
+  phase       fleet-sync                                 start=+4306    elapsed=6353
+  phase       crew-recovery                              start=+4310    elapsed=21305
+  stage       network-checks probe_sweeps                start=+310     elapsed=25326
+  slowest: stage network-checks probe_sweeps 25326ms, phase crew-recovery 21305ms, phase fleet-sync 6353ms
+EXIT=0 ELAPSED=0.030s
+PERSISTED STATUS
+state=done
+pid=99315
+started=1793865665
+finished=1793865691
+rc=0
+locked=1
+phases=probe,sweeps
+generation=1793865665.99315.manual
+lock_pid=85187
+report_published=1
+PERSISTED TIMINGS
+v1	phase	gh-auth	4250	51	
+v1	phase	secondmate-liveness	4314	578	
+v1	phase	secondmate-sync	4983	1740	
+v1	phase	handoff-delivery	6777	3	
+v1	phase	fleet-sync	4306	6353	
+v1	phase	crew-recovery	4310	21305	
+v1	stage	network-checks	310	25326	probe_sweeps
+{"name": "69 real shell endpoints: deferred stage finishes on one CPU with crew-recovery timing", "elapsed_seconds": 28.373, "cpu": 0, "records": 69, "stage_status": "done", "metadata_preserved": true}
+$ ['bash', '-c', '. bin/fm-crew-recovery-lib.sh\nfm_crew_recovery_read_agent_state tmux recovery:task-00']
+unreadable
+EXIT=0 ELAPSED=3.021s
+{"name": "Unresponsive real backend read becomes unreadable in bounded time", "elapsed_seconds": 3.021, "output": "unreadable"}
+$ ['taskset', '-c', '0', 'bash', '-c', '. bin/fm-crew-recovery-lib.sh\nfm_crew_recovery_sweep']
+EXIT=0 ELAPSED=29.524s
+{"name": "All 69 real backend reads hang: sweep finishes without recovery or metadata changes", "elapsed_seconds": 29.524, "records": 69}
+$ ['tmux', '-L', 'fm-lab', 'new-window', '-d', '-t', 'recovery', '-n', 'busy', 'sleep 300']
+EXIT=0 ELAPSED=0.027s
+$ ['bash', '-c', '. bin/fm-crew-recovery-lib.sh\nfm_crew_recovery_agent_state "$FM_HOME/state" candidate']
+dead
+EXIT=0 ELAPSED=0.374s
+$ ['bash', '-c', '. bin/fm-crew-recovery-lib.sh\nfm_crew_recovery_agent_state "$FM_HOME/state" candidate']
+EXIT=1 ELAPSED=0.228s
+{"name": "Fresh direct eligibility accepts a dead dirty task and refuses its busy replacement", "elapsed_seconds": 0.602, "unlanded_file_preserved": true}
+$ ['tmux', '-L', 'fm-lab', 'kill-server']
+EXIT=0 ELAPSED=0.004s
+CLEANUP: private tmux stopped; disposable lab removed.

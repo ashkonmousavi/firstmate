@@ -1,0 +1,23 @@
+FM_TEST_BEGIN 2026-11-05T07:59:40Z tests/fm-crew-recovery.test.sh family=session-bootstrap expected_gate_skip=none
+ok - dead ship and scout with unlanded work are relaunched in place
+ok - a missing endpoint with unlanded work is relaunched
+ok - startup recovery never relaunches a released worker, and ignores a stale marker
+ok - unlanded work must be shown in the recorded copy itself
+ok - clean recovery checks both base refs and still recovers work ahead of both
+ok - unowned done and failed work recover while captain-held work stays held
+ok - an absent record and a worker wait stay eligible
+ok - only a dead or missing ship or scout endpoint is recovery-grade
+ok - recovery stays inside this home and ignores records it cannot trust
+ok - serial recovery stops at failure or deferral and leaves work for the next pass
+slow backend sweep: 4 s (40 reads)
+hung backend sweep: 8 s
+ok - bounded concurrent reads preserve output and serial relaunch order
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ok - bootstrap runs crew recovery only on the authorized deferred pass
+FM_TEST_END 2026-11-05T08:00:02Z tests/fm-crew-recovery.test.sh exit=0 duration_ms=22314 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=22365
+FM_TEST_SUMMARY_FAMILY family=session-bootstrap count=1 duration_ms=22314 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-crew-recovery.test.sh duration_ms=22314
