@@ -167,6 +167,25 @@ test_no_result_preserves_listed_and_unreadable_policy_refusals() {
   pass "fm-spawn: listed projects and unreadable project lists retain their no-result mode behavior"
 }
 
+# A relaunch recovers running work and never re-enters admission (vertical-slicing
+# "Migrating existing work"): an enforce home relaunching a ship whose brief has no
+# SLICE line must not consult the gate.
+test_relaunch_does_not_consult_the_gate() {
+  local id=slice-relaunch out status
+  make_case relaunch "$id" enforce 'SLICE: ops/demo | demo outcome | role=owner'
+  out=$(run_spawn "$id"); status=$?
+  expect_code 0 "$status" "the fresh spawn before the relaunch should launch"$'\n'"$out"
+  [ -s "$CASE_DIR/argv.log" ] || fail "the fresh spawn did not consult the gate"
+  fm_test_spawn_brief "$HOME_DIR" "$id" "Build the slice-gated change."
+  ! grep -q '^SLICE:' "$HOME_DIR/data/$id/brief.md" || fail "the relaunch brief still carries a SLICE line"
+  : > "$CASE_DIR/argv.log"
+  out=$(FM_FAKE_PANE_COMMAND=bash FM_SLICE_VALIDATOR=$STUB FM_TEST_SLICE_ARGV="$CASE_DIR/argv.log" \
+    fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" "$id" --relaunch); status=$?
+  [ ! -s "$CASE_DIR/argv.log" ] || fail "a relaunch consulted the slice gate"$'\n'"$out"
+  case $out in *"slice admission"*) fail "a relaunch reported slice admission"$'\n'"$out" ;; esac
+  pass "fm-spawn: a relaunch in an enforce home does not consult the slice gate (relaunch exit $status)"
+}
+
 # The installed vertical-slicing validator, when present: the same refusal and
 # the malformed-policy refusal its contract defines (FM_TEST_SLICE_VALIDATOR
 # overrides the path; an absent validator is reported, never a silent pass).
@@ -195,7 +214,13 @@ test_installed_validator() {
   out=$(VALIDATOR=$real run_spawn "$id"); status=$?
   expect_code 0 "$status" "the installed validator stopped a spawn in observe mode"$'\n'"$out"
   assert_contains "$out" "missing-slice" "observe mode with the installed validator did not report missing-slice"
-  pass "fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, and only reports in observe"
+  id=slice-real-unlisted
+  make_case real-unlisted "$id" enforce '' other
+  out=$(VALIDATOR=$real run_spawn "$id"); status=$?
+  expect_code 0 "$status" "the installed validator refused a project its enforce policy does not list"$'\n'"$out"
+  [ -s "$HOME_DIR/state/$id.meta" ] || fail "the unlisted project's spawn did not publish its record"
+  case $out in *"spawn refused"*) fail "an unlisted project was refused"$'\n'"$out" ;; esac
+  pass "fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, only reports in observe, and lets a project the enforce policy does not list launch"
 }
 
 FM_TEST_REAL_HOME=$HOME
@@ -205,6 +230,7 @@ test_observe_reports_and_launches
 test_unconfigured_scout_and_missing_validator
 test_unlisted_projects_bypass_without_a_validator_result
 test_no_result_preserves_listed_and_unreadable_policy_refusals
+test_relaunch_does_not_consult_the_gate
 test_installed_validator
 
 echo "# all fm-spawn-slice-gate tests passed"
