@@ -3,6 +3,16 @@
 # data/<task-id>/brief.md under the active firstmate home.
 # Ship and scout scaffolds also write data/<task-id>/autolaunch-prep, the launch
 # record whose format and derivation bin/fm-autolaunch.sh owns.
+# They read the task body through bin/fm-tasks-axi.sh show <task-id> --full and
+# copy its first SLICE: declaration outside backtick or tilde fences under
+# "# Slice", before any home brief additions, trimming surrounding whitespace.
+# Declarations may use Markdown headings, dash or star bullets, and bold labels.
+# A closing fence must match the opening marker, be at least as long, and have
+# only whitespace after it; an unclosed fence keeps subsequent examples excluded.
+# Without a declaration, scaffolding succeeds with no Slice section and one
+# stderr note: "note: no SLICE line in <task-id>'s task body".
+# This copy leaves the author-filled intent and spec sections unchanged;
+# secondmate charters do not perform the lookup.
 # For ordinary tasks, the standard Setup/Rules/Definition-of-done contract is
 # filled in. Ship and scout `# Task` sections have two subsections Firstmate
 # fills before dispatch: `{TASK}` under `## Captain's intent` (the captain's
@@ -466,6 +476,24 @@ write_autolaunch_record() {
   fi
 }
 
+# Copy the task body's first SLICE line outside fences into the brief, for the spawn gate.
+append_slice_identity() {
+  local line
+  line=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" --full 2>/dev/null | python3 -c '
+import json,re,sys
+m=re.search(r"(?m)^  body: (.*)$",sys.stdin.read());b=(m[1] if m else "").strip();b=json.loads(b) if b[:1]=="\"" else b;f=""
+for l in b.splitlines():
+  fence=re.match(r" {0,3}(`{3,}|~{3,})(.*)$",l)
+  if fence:
+    marker,rest=fence.groups()
+    if not f:f=marker
+    elif marker[0]==f[0] and len(marker)>=len(f) and not rest.strip():f=""
+  elif not f and re.match(r"\s*(#{1,6}\s+)?([-*]\s+)?(\*\*)?SLICE(\*\*)?:",l):print(l.strip());break
+') || line=
+  [ -n "$line" ] || { echo "note: no SLICE line in $ID's task body" >&2; return 0; }
+  printf '\n# Slice\n%s\n' "$line" >> "$BRIEF"
+}
+
 # Append the include as the last section of a ship or scout scaffold.
 append_brief_include() {
   [ -n "$BRIEF_INCLUDE_BODY" ] || return 0
@@ -796,6 +824,7 @@ If the command refuses, report the refusal to firstmate and stop rather than byp
 When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
+append_slice_identity
 append_brief_include
 write_autolaunch_record
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
@@ -879,6 +908,7 @@ A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agen
 
 $DOD
 EOF
+append_slice_identity
 append_brief_include
 write_autolaunch_record
 if [ "$PR_TEXT" = manual ]; then
