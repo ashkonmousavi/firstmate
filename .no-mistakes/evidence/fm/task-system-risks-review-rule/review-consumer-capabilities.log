@@ -1,0 +1,108 @@
+$ no-mistakes --version
+no-mistakes version 1.100.1+fleet.r10.1 (8a2f3de47b9a6494309f15209f834519a9724bb2) 2026-10-26T16:00:28Z
+
+Exit status: 0
+
+$ no-mistakes --help
+[33mA new version of no-mistakes is available: 1.100.1+fleet.r10.1 -> v1.106.1
+Run "no-mistakes update" to update[0m
+Local Git proxy that validates code before pushing to the configured target
+
+Usage:
+  no-mistakes [flags]
+  no-mistakes [command]
+
+Available Commands:
+  attach      Attach to the active pipeline run
+  axi         Agent interface: drive no-mistakes from an autonomous agent
+  ci-workflow Generate .github/workflows/ci.yml from .no-mistakes.yaml commands
+  completion  Generate the autocompletion script for the specified shell
+  daemon      Manage the no-mistakes daemon
+  doctor      Check system health and dependencies
+  eject       Remove no-mistakes gate from the current repository
+  eval        Inspect and locally replay review evaluation cases
+  help        Help about any command
+  init        Initialize no-mistakes gate for the current repository
+  rerun       Rerun the pipeline for the current branch
+  runs        List pipeline runs for the current repository
+  stats       Show historical no-mistakes usage stats
+  status      Show status of the current repository
+  sync        Safely move the current branch to an exact pipeline-pushed head
+  update      Update no-mistakes and reset the daemon
+
+Flags:
+  -h, --help          help for no-mistakes
+      --skip string   comma-separated pipeline steps to skip for a new run
+  -v, --version       version for no-mistakes
+  -y, --yes           run setup wizard and accept defaults automatically
+
+Use "no-mistakes [command] --help" for more information about a command.
+
+Exit status: 0
+
+$ no-mistakes axi --help
+[33mA new version of no-mistakes is available: 1.100.1+fleet.r10.1 -> v1.106.1
+Run "no-mistakes update" to update[0m
+Agent eXperience Interface for no-mistakes. Prints token-efficient TOON
+to stdout and is driven entirely by flags (no interactive prompts).
+Running `no-mistakes axi` with no subcommand shows the current state.
+
+Usage:
+  no-mistakes axi [flags]
+  no-mistakes axi [command]
+
+Available Commands:
+  abort       Cancel the active pipeline run
+  answer      Answer a question the reviewer asked while reviewing
+  logs        Show one pipeline step's recorded findings and log output
+  respond     Answer the current approval gate and continue the run
+  retry       Continue a run that failed on an agent invocation error
+  run         Validate your code changes, blocking until a decision point or the outcome
+  status      Show a current-branch or explicitly selected run in detail
+  sync        Check or apply guarded current-branch synchronization
+
+Flags:
+  -h, --help   help for axi
+
+Use "no-mistakes axi [command] --help" for more information about a command.
+
+Exit status: 0
+
+$ no-mistakes eval --help
+[33mA new version of no-mistakes is available: 1.100.1+fleet.r10.1 -> v1.106.1
+Run "no-mistakes update" to update[0m
+Inspect automatically collected review cases, capture runs on demand, ingest confirmed post-PR misses as false-negative gold, and compare agent candidates pinned to an explicit model and reasoning effort. Eval never starts or uses the shared daemon.
+
+Usage:
+  no-mistakes eval [command]
+
+Available Commands:
+  capture     Capture every review pass from a run into local cases
+  miss        Ingest confirmed post-PR review misses as false-negative gold
+  relabel     Refresh gold labels when a source PR has merged after capture
+  report      Report local true-positive / false-negative scores, tokens, and cost
+  run         Replay captured review passes and score findings against gold
+  sets        Inspect local case-set size, finding-level gold, and composition
+
+Flags:
+  -h, --help   help for eval
+
+Use "no-mistakes eval [command] --help" for more information about a command.
+
+Exit status: 0
+
+$ no-mistakes eval run --help
+[33mA new version of no-mistakes is available: 1.100.1+fleet.r10.1 -> v1.106.1
+Run "no-mistakes update" to update[0m
+Replay captured review passes and score findings against gold
+
+Usage:
+  no-mistakes eval run --cases <all|labeled|diversified|tune> --candidate <agent,model=...[,effort=...]> [flags]
+
+Flags:
+      --candidate string   candidate must be agent,model=<model>[,effort=<minimal|low|medium|high|xhigh|max>] (for example codex,model=gpt-5.4,effort=low)
+      --cases string       case set: all, labeled (finding-level gold), diversified (official gold-only holdout), or tune
+  -h, --help               help for run
+      --repeats int        replays per case (minimum 1) (default 3)
+
+Exit status: 0
