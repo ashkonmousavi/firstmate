@@ -2713,7 +2713,10 @@ SH
 }
 
 egm1_publish() {  # <home> [PATH-prefix]: run the producer for <home>
-  ( export FM_HOME="$1"; [ -z "${2:-}" ] || PATH="$2:$PATH"; timeout -k 5 "$EGM1_BOUND" bash "$AL" --publish-candidates ) >"$E/publish.out" 2>&1
+  # Command-local FM_HOME and PATH: nothing leaks into the caller's shell.
+  local path=$PATH
+  [ -z "${2:-}" ] || path="$2:$PATH"
+  FM_HOME="$1" PATH="$path" timeout -k 5 "$EGM1_BOUND" bash "$AL" --publish-candidates >"$E/publish.out" 2>&1
   EGM1_PUB_RC=$?
 }
 
@@ -2776,6 +2779,277 @@ if [ -n "${FM_AUTOLAUNCH_EGM1_ONLY:-}" ]; then
   exit 0
 fi
 # === END tester-owned EGM1 (definitions; the full run calls egm1_run egm1 last) ===
+
+# === BEGIN tester-owned: lc-core-scheduler EGM1-R2 join validation oracles ==
+# Round 2 of the independent EGM point 1 tests: three validation gaps the
+# round-1 cases above did not catch, found by the final read-only advice on
+# the hermetic join. Expected results come from that advice and from the
+# round-1 seam frozen in the EGM1 block header, never from the code under
+# test. The builder runs these and never edits this region; a disputed case
+# goes back to the tester. The cases reuse the round-1 fixture helpers
+# (egm1_setup, egm1_entry, egm1_pub, egm1_publish and the join assertions)
+# and change nothing in that block.
+#   R2-1  every consumed authority's revision is validated: a missing claim
+#         revision or reference never compares equal as absent.
+#   R2-2  the producer never records malformed ready output as a successful
+#         tasks read.
+#   R2-3  contradictory or unscoped task detail never clears a hold.
+# Run alone: FM_AUTOLAUNCH_EGM1R2_ONLY='<case>...' (or egm1r2 for all).
+EGM1R2_TESTS='test_egm1r2_missing_claim_references_are_never_eligible
+test_egm1r2_malformed_ready_is_not_a_successful_read
+test_egm1r2_contradictory_task_detail_never_clears_a_hold
+test_egm1r2_stray_top_level_held_is_unknown'
+
+egm1r2_entry_result() {  # <label> <task> <expected>: the entry is listed once with <expected>
+  assert_equals "$3" "$(egm1_result "$R" "$2")" "$1: entry $2 is listed once as $3"
+}
+
+# R2-1: missing or malformed claim evidence is entry UNKNOWN, never ELIGIBLE.
+test_egm1r2_missing_claim_references_are_never_eligible() {
+  local variant filter src facts
+  egm1_setup r2-claims
+  egm1_pub "$B" "[]"
+  egm1_pub "$R" "[$(egm1_entry "$R" target),$(egm1_entry "$R" sibling)]"
+  egm1_complete 'EGM1-R2 claims baseline: explicit matching claim revisions'
+  egm1r2_entry_result 'EGM1-R2 claims baseline' target ELIGIBLE
+  egm1r2_entry_result 'EGM1-R2 claims baseline' sibling ELIGIBLE
+  # Entry-side removals and malformed values: only the target entry changes.
+  for variant in no-entry-ref no-fact-ref both-entry-refs empty-fact-ref null-fact-ref numeric-entry-ref fact-not-object; do
+    case "$variant" in
+      no-entry-ref) filter='del(.source_refs.claims)' ;;
+      no-fact-ref) filter='del(.facts.claim.source_ref)' ;;
+      both-entry-refs) filter='del(.source_refs.claims) | del(.facts.claim.source_ref)' ;;
+      empty-fact-ref) filter='.facts.claim.source_ref = ""' ;;
+      null-fact-ref) filter='.facts.claim.source_ref = null' ;;
+      numeric-entry-ref) filter='.source_refs.claims = 1' ;;
+      fact-not-object) filter='.facts.claim = "allow"' ;;
+    esac
+    egm1_pub "$R" "[$(egm1_entry "$R" target | jq -c "$filter"),$(egm1_entry "$R" sibling)]"
+    egm1_complete "EGM1-R2 claims $variant: a bounded entry-side claim defect"
+    egm1r2_entry_result "EGM1-R2 claims $variant: missing or malformed claim evidence" target UNKNOWN
+    egm1r2_entry_result "EGM1-R2 claims $variant: the sibling with explicit claim evidence" sibling ELIGIBLE
+  done
+  # Source-side removals: the claims source publishes no revision.
+  for variant in no-source-revision source-and-target-refs all-claim-refs; do
+    case "$variant" in
+      no-source-revision) filter='.' ;;
+      source-and-target-refs) filter='del(.source_refs.claims) | del(.facts.claim.source_ref)' ;;
+      all-claim-refs) filter='del(.source_refs.claims) | del(.facts.claim.source_ref)' ;;
+    esac
+    if [ "$variant" = all-claim-refs ]; then
+      egm1_pub "$R" "[$(egm1_entry "$R" target | jq -c "$filter"),$(egm1_entry "$R" sibling | jq -c "$filter")]" \
+        '.sources.claims = {status: "ok"}'
+    else
+      egm1_pub "$R" "[$(egm1_entry "$R" target | jq -c "$filter"),$(egm1_entry "$R" sibling)]" \
+        '.sources.claims = {status: "ok"}'
+    fi
+    # The contract fixes only the entry result here, not the top-level status.
+    egm1_join
+    egm1_doc "EGM1-R2 claims $variant: the optional claims source has no revision"
+    [ -z "$(printf '%s\n' "$EGM1_OUT" | jq -r '.entries[] | select(.result == "ELIGIBLE") | .owner.task')" ] ||
+      fail "EGM1-R2 claims $variant: an entry is ELIGIBLE against a claims source with no revision"
+    if [ "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" = COMPLETE ]; then
+      egm1r2_entry_result "EGM1-R2 claims $variant: a claim reference that matches no published revision" target UNKNOWN
+      egm1r2_entry_result "EGM1-R2 claims $variant: the sibling consumes the same unrevisioned claims source" sibling UNKNOWN
+    fi
+  done
+  # Every consumed authority, the required ones included: with the source
+  # revision and every reference to it removed together, nothing is eligible.
+  for src in tasks:task,dependencies prep:prep slice:phase catalogue:placement claims:claim; do
+    facts=${src#*:} src=${src%%:*}
+    filter="del(.source_refs.$src)"
+    for variant in ${facts//,/ }; do filter="$filter | del(.facts.$variant.source_ref)"; done
+    egm1_pub "$R" "[$(egm1_entry "$R" target | jq -c "$filter"),$(egm1_entry "$R" sibling | jq -c "$filter")]" \
+      ".sources.$src |= del(.revision)"
+    egm1_join
+    egm1_doc "EGM1-R2 authority $src: revision and references absent together"
+    [ -z "$(printf '%s\n' "$EGM1_OUT" | jq -r '.entries[] | select(.result == "ELIGIBLE") | .owner.task')" ] ||
+      fail "EGM1-R2 authority $src: an entry with no $src revision on either side is ELIGIBLE"
+    if [ "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" = COMPLETE ]; then
+      egm1r2_entry_result "EGM1-R2 authority $src: a COMPLETE join keeps the unrevisioned entry" target UNKNOWN
+    fi
+  done
+  pass 'EGM1-R2 test_egm1r2_missing_claim_references_are_never_eligible: absent or malformed authority revisions never compare equal'
+}
+
+egm1r2_ready_stub() {  # <file>: tasks-axi on PATH prints <file> for `ready` (exit 0), else the real tool
+  local real
+  real=$(command -v tasks-axi)
+  cat > "$E/bin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = ready ]; then cat '$1'; exit 0; fi
+exec '$real' "\$@"
+SH
+  chmod +x "$E/bin/tasks-axi"
+}
+
+# R2-2: malformed successful ready output is never a successful tasks read.
+test_egm1r2_malformed_ready_is_not_a_successful_read() {
+  local p variant real tasks
+  egm1_setup r2-ready
+  p="$R/state/autolaunch-steps.candidates"
+  mkdir -p "$R/projects/proj"
+  printf '## In flight\n## Queued\n- [ ] work - a ready item, "quoted, title" (repo: proj) (kind: scout)\n## Done\n' > "$R/data/backlog.md"
+  egm1_entry "$R" work >/dev/null
+  egm1_pub "$B" "[]"
+  # Positive control: the real tool's own output, replayed through the stub.
+  real=$( (cd "$R" && tasks-axi ready) ) || fail 'EGM1-R2 ready fixture: the real ready read failed'
+  case "$real" in *'ready[1]{'*) : ;; *) fail "EGM1-R2 ready fixture: the real ready output lists no row: $real" ;; esac
+  printf '%s\n' "$real" > "$E/ready.out"
+  egm1r2_ready_stub "$E/ready.out"
+  egm1_publish "$R" "$E/bin"
+  jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+    fail "EGM1-R2 ready replay: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+  assert_equals ok "$(jq -r '.sources.tasks.status' "$p")" 'EGM1-R2 ready replay: the real one-row output is a complete tasks read'
+  assert_equals work "$(jq -r --arg h "$R" '[.entries[] | select(.owner.home == $h) | .owner.task] | join(",")' "$p")" \
+    'EGM1-R2 ready replay: the quoted-title row is published'
+  for variant in advisor-empty-with-row empty-with-row advisor-truncated truncated-row wide-row unterminated-quote count-mismatch; do
+    case "$variant" in
+      advisor-empty-with-row) printf 'ready: 0\n  lost-task,ship,demo\ncount: 0\n' ;;
+      empty-with-row) printf 'count: 0\nready: 0 unblocked queued tasks\n  work,queued,scout,proj,"t"\n' ;;
+      advisor-truncated) printf 'ready[1]{id,kind,repo}:\n  lost-task\ncount: 1\n' ;;
+      truncated-row) printf 'count: 1\nready[1]{id,state,kind,repo,title}:\n  work,queued\n' ;;
+      wide-row) printf 'count: 1\nready[1]{id,state,kind,repo,title}:\n  work,queued,scout,proj,"t",extra\n' ;;
+      unterminated-quote) printf 'count: 1\nready[1]{id,state,kind,repo,title}:\n  work,queued,scout,proj,"unterminated title\n' ;;
+      count-mismatch) printf 'count: 2\nready[2]{id,state,kind,repo,title}:\n  work,queued,scout,proj,"t"\n' ;;
+    esac > "$E/ready.out"
+    rm -f "$p"
+    egm1_publish "$R" "$E/bin"
+    if [ -e "$p" ]; then
+      tasks=$(jq -r '.sources.tasks.status // "absent"' "$p" 2>/dev/null)
+      case "$tasks" in ok|not_applicable) fail "EGM1-R2 ready $variant: malformed ready output was recorded as tasks status $tasks" ;; esac
+      [ "$(jq -r '.complete' "$p" 2>/dev/null)" != true ] ||
+        fail "EGM1-R2 ready $variant: malformed ready output was published as complete"
+    fi
+    egm1_no_pick "EGM1-R2 ready $variant: the join after a malformed ready read"
+  done
+  pass 'EGM1-R2 test_egm1r2_malformed_ready_is_not_a_successful_read: contradictory, truncated or malformed ready output is never a successful read'
+}
+
+egm1r2_show_stub() {  # <file>: tasks-axi on PATH prints <file> for `show` (exit 0), else the real tool
+  local real
+  real=$(command -v tasks-axi)
+  cat > "$E/bin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = show ]; then cat '$1'; exit 0; fi
+exec '$real' "\$@"
+SH
+  chmod +x "$E/bin/tasks-axi"
+}
+
+egm1r2_detail() {  # <variant>: one exit-zero task detail response for the ready item work
+  local held_a='  held: no' tail=''
+  case "$1" in
+    held-no) : ;;
+    held-yes) held_a='  held: yes' ;;
+    held-no-then-yes) held_a=$'  held: no\n  held: yes' ;;
+    held-yes-then-no) held_a=$'  held: yes\n  held: no' ;;
+    held-outside-block) held_a='' tail='held: no' ;;
+    held-also-outside) tail='held: yes' ;;
+  esac
+  printf 'task:\n'
+  case "$1" in
+    id-duplicate) printf '  id: work\n  id: other\n' ;;
+    id-outside-block) : ;;
+    *) printf '  id: work\n' ;;
+  esac
+  printf '  title: "a ready item"\n  state: queued\n  blocked: no\n'
+  [ -z "$held_a" ] || printf '%s\n' "$held_a"
+  case "$1" in
+    kind-duplicate) printf '  kind: scout\n  kind: ship\n' ;;
+    *) printf '  kind: scout\n' ;;
+  esac
+  case "$1" in
+    repo-duplicate) printf '  repo: proj\n  repo: other\n' ;;
+    *) printf '  repo: proj\n' ;;
+  esac
+  printf '  body: ""\n'
+  [ "$1" != id-outside-block ] || printf 'id: work\n'
+  [ -z "$tail" ] || printf '%s\n' "$tail"
+}
+
+egm1r2_fact() {  # <fact>: the published work entry's <fact> verdicts, comma-joined
+  jq -r --arg h "$R" --arg f "$1" '[.entries[] | select(.owner.home == $h and .owner.task == "work") | .facts[$f].verdict // "absent"] | join(",")' \
+    "$R/state/autolaunch-steps.candidates" 2>/dev/null
+}
+
+# R2-3: contradictory or unscoped task detail stays unknown and never clears a hold.
+test_egm1r2_contradictory_task_detail_never_clears_a_hold() {
+  local p variant
+  egm1_setup r2-detail
+  p="$R/state/autolaunch-steps.candidates"
+  mkdir -p "$R/projects/proj"
+  printf '## In flight\n## Queued\n- [ ] work - a ready item (repo: proj) (kind: scout)\n## Done\n' > "$R/data/backlog.md"
+  egm1_entry "$R" work >/dev/null
+  # Positive controls: one correctly scoped held field is authoritative.
+  for variant in held-no held-yes; do
+    egm1r2_detail "$variant" > "$E/show.out"
+    egm1r2_show_stub "$E/show.out"
+    rm -f "$p"
+    egm1_publish "$R" "$E/bin"
+    jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+      fail "EGM1-R2 detail $variant: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+    case "$variant" in
+      held-no)
+        assert_equals allow "$(egm1r2_fact task)" 'EGM1-R2 detail held-no: a scoped held: no task is published as allowed'
+        assert_equals allow "$(egm1r2_fact prep)" 'EGM1-R2 detail held-no: the prepared scout stays prepared' ;;
+      held-yes)
+        assert_equals deny "$(egm1r2_fact task)" 'EGM1-R2 detail held-yes: an authoritative hold is a denial' ;;
+    esac
+  done
+  for variant in held-no-then-yes held-yes-then-no held-outside-block id-duplicate id-outside-block kind-duplicate repo-duplicate; do
+    egm1r2_detail "$variant" > "$E/show.out"
+    rm -f "$p"
+    egm1_publish "$R" "$E/bin"
+    jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+      fail "EGM1-R2 detail $variant: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+    assert_equals unknown "$(egm1r2_fact task)" "EGM1-R2 detail $variant: contradictory or unscoped task detail stays unknown"
+    [ "$(egm1r2_fact prep)" != allow ] ||
+      fail "EGM1-R2 detail $variant: contradictory or unscoped task detail produced an allowing prep fact"
+  done
+  pass 'EGM1-R2 test_egm1r2_contradictory_task_detail_never_clears_a_hold: duplicate, contradictory or unscoped detail never clears a hold'
+}
+
+# R2-3 (scope): a held field outside the task: block contradicts the scoped one.
+test_egm1r2_stray_top_level_held_is_unknown() {
+  local p
+  egm1_setup r2-stray-held
+  p="$R/state/autolaunch-steps.candidates"
+  mkdir -p "$R/projects/proj"
+  printf '## In flight\n## Queued\n- [ ] work - a ready item (repo: proj) (kind: scout)\n## Done\n' > "$R/data/backlog.md"
+  egm1_entry "$R" work >/dev/null
+  egm1r2_detail held-no > "$E/show.out"
+  egm1r2_show_stub "$E/show.out"
+  egm1_publish "$R" "$E/bin"
+  jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+    fail "EGM1-R2 stray held baseline: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+  assert_equals allow "$(egm1r2_fact task)" 'EGM1-R2 stray held baseline: a scoped held: no task is published as allowed'
+  egm1r2_detail held-also-outside > "$E/show.out"
+  rm -f "$p"
+  egm1_publish "$R" "$E/bin"
+  jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+    fail "EGM1-R2 detail held-also-outside: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+  assert_equals unknown "$(egm1r2_fact task)" 'EGM1-R2 detail held-also-outside: a held: yes outside the task: block leaves the hold unknown'
+  [ "$(egm1r2_fact prep)" != allow ] ||
+    fail 'EGM1-R2 detail held-also-outside: contradictory or unscoped task detail produced an allowing prep fact'
+  pass 'EGM1-R2 test_egm1r2_stray_top_level_held_is_unknown: a hold field outside the task block never clears a hold'
+}
+
+egm1r2_run() {  # <case>... (egm1r2 = all)
+  local name
+  # shellcheck disable=SC2086 # one test name per word
+  [ "$*" != egm1r2 ] || set -- $EGM1R2_TESTS
+  for name in "$@"; do
+    [ "$(type -t "$name")" = function ] || fail "unknown EGM1-R2 case $name"
+    "$name"
+  done
+}
+if [ -n "${FM_AUTOLAUNCH_EGM1R2_ONLY:-}" ]; then
+  # shellcheck disable=SC2086 # one test name per word
+  egm1r2_run $FM_AUTOLAUNCH_EGM1R2_ONLY
+  exit 0
+fi
+# === END tester-owned EGM1-R2 (definitions; the full run calls egm1r2_run egm1r2 last) ===
 
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
@@ -4470,3 +4744,7 @@ k1_run k1
 # Tester-owned (lc-core-scheduler EGM1 input-join oracles, defined above the
 # K1 block): they run after every earlier case so those keep their coverage.
 egm1_run egm1
+
+# Tester-owned (lc-core-scheduler EGM1-R2 join validation oracles, defined
+# after the EGM1 block): they run last so every earlier case keeps its coverage.
+egm1r2_run egm1r2
