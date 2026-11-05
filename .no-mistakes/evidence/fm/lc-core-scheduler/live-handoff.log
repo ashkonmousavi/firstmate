@@ -1,0 +1,17 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/r11 exit= 0 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/r11
+ 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0 exit= 0  
+Unresolved lab recipient: send refused and durable pending request retained: 1234567890abcdef1234567890abcdef
+Caller exit= -9 killed-after-real-enqueue= True  
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0 exit= 0  
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0 exit= 0  
+Exactly one real accepted inbox record after refused send, killed caller and restarted retries:
+schema=fm-task-inbox.v1
+at=2026-11-05T13:47:18Z
+body-terminator=1
+request-id=1234567890abcdef1234567890abcdef
+--
+disposable controller MAIN acceptance test generation=1
+
+PASS: real MAIN one-way pending delivery survives failed resolution and accepted-send/pre-receipt caller death, deduplicates by stable request id, and leaves no MAIN wake.
+Disposable MAIN inbox lab removed.

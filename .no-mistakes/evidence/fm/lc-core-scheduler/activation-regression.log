@@ -1,0 +1,89 @@
+FM_TEST_BEGIN 2026-11-05T13:44:24Z tests/fm-autolaunch.test.sh family=unclassified expected_gate_skip=none
+ok - controller activation preserves legacy until rollout and protects outstanding work
+tests/fm-autolaunch.test.sh: line 2702: /proc/1/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/114/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/116/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/125/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/131/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/139/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/143/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/147/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/15249/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/15269/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/155/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/162/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/168/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/174/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/179/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/185/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/189/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/197/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/19965/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/19968/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/2/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/201/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/205/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/21552/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22017/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22023/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22032/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22034/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22046/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22047/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22048/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22049/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22050/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/22051/environ: No such file or directory
+tests/fm-autolaunch.test.sh: line 2702: /proc/26053/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/27355/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32746/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32749/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32907/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32909/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32916/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32929/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32939/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32946/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32953/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32967/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32976/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32978/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32980/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/32990/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33035/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33074/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33079/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33091/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33092/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33155/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33236/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33238/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33316/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33816/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33841/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/33984/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34007/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34267/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34370/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34542/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34586/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34588/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/34589/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/423/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/424/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/426/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/429/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/430/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/44042/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/52206/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/53/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/6/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/9/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/940/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/971/environ: Permission denied
+tests/fm-autolaunch.test.sh: line 2702: /proc/98/environ: Permission denied
+FM_TEST_END 2026-11-05T13:44:30Z tests/fm-autolaunch.test.sh exit=0 duration_ms=6036 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=6081
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=6036 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-autolaunch.test.sh duration_ms=6036
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6N0T000GXJ1HKTQYRAEEG4N/activation-regression.json

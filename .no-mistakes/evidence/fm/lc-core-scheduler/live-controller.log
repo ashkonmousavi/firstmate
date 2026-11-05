@@ -1,0 +1,69 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home
+exit= 0 stdout= ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home stderr= 
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh
+exit= 1 stdout=  stderr= fm-autolaunch: user service manager unavailable; controller obligations preserved
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh
+exit= 1 stdout=  stderr= fm-autolaunch: user service manager unavailable; controller obligations preserved
+PASS: Activated home refuses an unavailable manager and preserves custody after marker removal Both public launcher invocations exited 1; the saved journal survived unchanged.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh --controller-spawn-lock live-probe
+exit= 0 stdout= 92582 stderr= 
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh --controller-spawn-lock live-probe
+exit= 0 stdout=  stderr= 
+PASS: Spawn-lock probe returns the live holder without waiting or disturbing it The real lock library reported its matching holder; after release a probe acquired and released the lock.
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh --run-action ctl-b-recovery-live-g1-r0-a1
+exit= 75 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+blocked [key=ctl-b-recovery-live] [at=1793886126]: ctl-b-recovery-live owned ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home/state/autolaunch-diag/ctl-b-recovery-live-summary.md generation=1 overrun=1
+resolved [key=ctl-b-recovery-live] [at=1793886127]: ctl-b-recovery-live launched-late generation=1
+
+PASS: Restore an overdue recovery with a living main: own once, retain its slot, and close only for matching current identity Real callbacks preserved the running attempt and occupied flock; stale start metadata did not close it; a current PID/start/boot did. No kernel KILL or harness launch is claimed.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh --run-action ctl-a-descriptor-live-g1-r0-a1
+exit= 0 stdout=  stderr= 
+PASS: An action descendant survives wrapper exit without retaining its slot descriptor The real action callback returned rc=0 and released the flock while its spawned descendant was still alive.
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-status-append.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home/state/live-ask.status resolved --key retry-policy
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+needs-decision [key=retry-policy] [at=1793885937]: choose retry interval
+blocked [key=ctl-c-ask-8.live-ask-retry-policy] [at=1793886127]: ctl-c-ask-8.live-ask-retry-policy owned ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home/state/autolaunch-diag/ctl-c-ask-8.live-ask-retry-policy-summary.md generation=1 unanswered key=retry-policy overrun=1
+resolved [key=retry-policy] [at=1793886127]: chosen 60 seconds
+resolved [key=ctl-c-ask-8.live-ask-retry-policy] [at=1793886127]: ctl-c-ask-8.live-ask-retry-policy source decision answered generation=1
+
+PASS: Restore an overdue technical key: publish one durable ownership receipt and close after the answer Fresh callback processes produced one ownership record with no diagnosis, then consumed the real status writer’s answer. Cadence bounds are not claimed.
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+Three burst observations: no incident. Waiting for 61 real seconds of lock tenure.
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 0
+exit= 0 stdout=  stderr= 
+$ bash -c source "$1/bin/fm-wake-lib.sh"; fm_lock_try_acquire "$2" && fm_lock_release "$2" lab ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home/state/.autolaunch.lock
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 1
+exit= 0 stdout=  stderr= 
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch-steps.py controller-effects ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/bin/fm-autolaunch.sh 73 1
+exit= 0 stdout=  stderr= 
+blocked [key=ctl-e-pass-lock-742da96f0454] [at=1793886189]: ctl-e-pass-lock-742da96f0454 owned ~/.no-mistakes/worktrees/049a88734b0e/01M6N0T000GXJ1HKTQYRAEEG4N/.gate-live/home/state/autolaunch-diag/ctl-e-pass-lock-742da96f0454-summary.md generation=1 overrun=1
+resolved [key=ctl-e-pass-lock-742da96f0454] [at=1793886189]: ctl-e-pass-lock-742da96f0454 pass lock acquired generation=1
+
+PASS: Rapid lock observations do not escalate; a persistent live lock owns once and closes on verified acquisition Three burst observations created no incident; one appeared after 61s of real tenure without killing or stealing the holder. Recovery closed it once.
+Disposable lab removed; retained results: 6

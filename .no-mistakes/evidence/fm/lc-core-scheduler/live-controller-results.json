@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Activated home refuses an unavailable manager and preserves custody after marker removal",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "Both public launcher invocations exited 1; the saved journal survived unchanged."
+  },
+  {
+    "name": "Spawn-lock probe returns the live holder without waiting or disturbing it",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "The real lock library reported its matching holder; after release a probe acquired and released the lock."
+  },
+  {
+    "name": "Restore an overdue recovery with a living main: own once, retain its slot, and close only for matching current identity",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "Real callbacks preserved the running attempt and occupied flock; stale start metadata did not close it; a current PID/start/boot did. No kernel KILL or harness launch is claimed."
+  },
+  {
+    "name": "An action descendant survives wrapper exit without retaining its slot descriptor",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "The real action callback returned rc=0 and released the flock while its spawned descendant was still alive."
+  },
+  {
+    "name": "Restore an overdue technical key: publish one durable ownership receipt and close after the answer",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "Fresh callback processes produced one ownership record with no diagnosis, then consumed the real status writer\u2019s answer. Cadence bounds are not claimed."
+  },
+  {
+    "name": "Rapid lock observations do not escalate; a persistent live lock owns once and closes on verified acquisition",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-controller.log",
+    "reason": "",
+    "detail": "Three burst observations created no incident; one appeared after 61s of real tenure without killing or stealing the holder. Recovery closed it once."
+  }
+]
