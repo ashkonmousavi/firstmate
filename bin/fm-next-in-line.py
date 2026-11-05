@@ -29,7 +29,7 @@ publication coverage and conflicting ownership produce NO_PICK. Unknown takes
 precedence over deny. COMPLETE is eligibility information, never admission.
 No kick is written or interpreted as evidence of missing claims/writers.
 
-Producer read seam: the existing registered-home parser/root resolver and tasks-axi
+Producer read seam: the existing registered-home/parent parsers and tasks-axi
 ready/show preparation predicates, behind fm-autolaunch.sh --candidate-prep.
 Ready grammar/count must be complete; identified refused entries are retained.
 No catalogue adapter or accepted task/phase/claim mappings are supplied yet:
@@ -118,16 +118,34 @@ def command(argv, home):
 
 
 def homes(home):
-    # Sourcing this existing library runs mkdir -p; never create missing state.
-    state = home / "state"
-    if not state.is_dir() or state.is_symlink():
-        return {home: f"registered home state unavailable: {state}"}
-    script = '''. "$1/fm-wake-lib.sh"
+    script = '''. "$1/fm-secondmate-parent-lib.sh"
 . "$1/fm-secondmate-registry-lib.sh"
-root=$(fm_firstmate_root_home "$2") || {
-  printf '%s\\0%s\\0' "$2" 'cannot resolve the root Firstmate home'; exit 75
-}
-homes=("$2" "$root")
+homes=("$2")
+ancestor=$2
+depth=0
+while [ -e "$ancestor/.fm-secondmate-parent" ] || [ -L "$ancestor/.fm-secondmate-parent" ]; do
+  if ! fm_secondmate_parent_record_parse "$ancestor/.fm-secondmate-parent"; then
+    printf '%s\\0%s\\0' "$ancestor" 'cannot resolve the root Firstmate home: invalid parent record'
+    break
+  fi
+  [ "$FM_SECONDMATE_PARENT_ROUTE" = local ] || break
+  parent=$FM_SECONDMATE_PARENT_HOME
+  physical=$(CDPATH='' cd -- "$parent" 2>/dev/null && pwd -P) || {
+    homes+=("$parent")
+    break
+  }
+  known=0
+  for existing in "${homes[@]}"; do
+    [ "$existing" != "$physical" ] || known=1
+  done
+  homes+=("$physical")
+  depth=$((depth + 1))
+  if [ "$known" = 1 ] || [ "$depth" -gt 64 ]; then
+    printf '%s\\0%s\\0' "$ancestor" 'cannot resolve the root Firstmate home: parent cycle or depth exceeded'
+    break
+  fi
+  ancestor=$physical
+done
 seen=()
 i=0
 while [ "$i" -lt "${#homes[@]}" ]; do
@@ -312,6 +330,9 @@ def join(home):
         try:
             if error:
                 raise ValueError(error)
+            state = member / "state"
+            if not state.is_dir() or state.is_symlink():
+                raise ValueError(f"registered home state unavailable: {state}")
             doc = publication(member, clock)
         except (OSError, ValueError, UnicodeError) as error:
             out["status"] = "NO_PICK"
