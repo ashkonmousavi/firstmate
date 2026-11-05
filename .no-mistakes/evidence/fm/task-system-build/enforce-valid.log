@@ -1,0 +1,93 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-valid-55/launch-brief.md records no ship branch; defaulting to legacy branch fm/enforce-valid-55
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-valid-55/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj' to release it.
+spawned enforce-valid-55 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-enforce-valid-55 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "enforce-valid-55"}
+task:
+  id: enforce-valid-55
+  title: enforce-valid
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96315__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Nov  5 03:20:31 MST 2026
+
+  System load:  9.59                 Processes:             327
+  Usage of /:   58.2% of 1006.85GB   Users logged in:       1
+  Memory usage: 67%                  IPv4 address for eth0: 172.18.215.162
+  Swap usage:   49%
+
+  => There are 4 zombie processes.
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+This message is shown once a day. To disable it please create the
+~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/user-home/.hushlogin file
+.
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96315__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/1/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/1/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export GOTMPDIR=/tmp/fm-enforce-valid-55/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export FM_TASK_ID=enforce-valid-55
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ . '/tmp/fm-enforce-valid-55+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/lau
+nch.s1793874034.96315.15649.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+PERSISTED TASK METADATA
+window=primary:fm-enforce-valid-55
+endpoint_task_id=enforce-valid-55
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/enforce-valid-55
+tasktmp=/tmp/fm-enforce-valid-55
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874034.96315.15649

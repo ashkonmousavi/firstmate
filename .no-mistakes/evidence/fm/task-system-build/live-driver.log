@@ -1,0 +1,32 @@
+{"name": "enforce-missing", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-missing.log", "reason": ""}
+{"name": "enforce-valid", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-valid.log", "reason": ""}
+{"name": "observe-missing", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/observe-missing.log", "reason": ""}
+{"name": "enforce-unknown-slice", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-unknown-slice.log", "reason": ""}
+{"name": "enforce-conflicting-prep", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-conflicting-prep.log", "reason": ""}
+{"name": "enforce-missing-task-line", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-missing-task-line.log", "reason": ""}
+{"name": "enforce-revision-mismatch", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-revision-mismatch.log", "reason": ""}
+{"name": "enforce-malformed-policy", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/enforce-malformed-policy.log", "reason": ""}
+{"name": "unconfigured-home", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unconfigured-home.log", "reason": ""}
+{"name": "unlisted-project", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-project.log", "reason": ""}
+{"name": "scout-bypass", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/scout-bypass.log", "reason": ""}
+{"name": "listed-missing-validator", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/listed-missing-validator.log", "reason": ""}
+{"name": "observe-missing-validator", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/observe-missing-validator.log", "reason": ""}
+{"name": "unlisted-missing-observe", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-observe.log", "reason": ""}
+{"name": "unlisted-missing-enforce", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-enforce.log", "reason": ""}
+{"name": "unlisted-missing-invalid", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-missing-invalid.log", "reason": ""}
+{"name": "unlisted-no-result", "result": "pass", "live": true, "evidence": "~/.no-mistakes/evidence/01M6NJNWM2YZHE7J8AAMK0ZD4F/unlisted-no-result.log", "reason": ""}
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-slice.py", line 100, in <module>
+    if teardown.returncode==0: shutil.rmtree(lab)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/shutil.py", line 785, in rmtree
+    _rmtree_safe_fd(fd, path, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 717, in _rmtree_safe_fd
+    onexc(os.unlink, fullname, err)
+  File "/usr/lib/python3.12/shutil.py", line 715, in _rmtree_safe_fd
+    os.unlink(entry.name, dir_fd=topfd)
+PermissionError: [Errno 13] Permission denied: 'pre-auto-gc'

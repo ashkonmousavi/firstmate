@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "action": "add",
+  "task": {
+    "id": "listed-missing-validator-23",
+    "title": "listed-missing-validator",
+    "state": "queued",
+    "kind": "ship",
+    "repo": "proj",
+    "priority": null,
+    "created": "2026-11-05",
+    "closed": null,
+    "deps": [],
+    "hold": null,
+    "links": [],
+    "body": "Disposable task.\nSLICE: ops/demo | demo outcome",
+    "blocked": false,
+    "blocked_by": [],
+    "held": false
+  }
+}

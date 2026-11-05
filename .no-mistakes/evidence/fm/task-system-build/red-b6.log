@@ -1,0 +1,7 @@
+Historical production revision d23d07ade96bf4ccfae4275e4d4c63b673462c33; behavioral test test_enforce_refuses_a_ship_without_a_slice_line
+not ok - an enforce home launched a ship whose brief has no SLICE line
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/fm-spawn-slice-gate.XHob1O/enforce-missing/home/data/slice-enforce-missing/launch-brief.md records no ship branch; defaulting to legacy branch fm/slice-enforce-missing
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/fm-spawn-slice-gate.XHob1O/enforce-missing/home/data/slice-enforce-missing/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode direct-PR - confirm its definition of done matches
+spawned slice-enforce-missing harness=codex kind=ship mode=direct-PR yolo=off window=firstmate:fm-slice-enforce-missing worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/fm-spawn-slice-gate.XHob1O/enforce-missing/pool
+
+Actual exit status: 1 (expected nonzero: historical bug reproduced)

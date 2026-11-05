@@ -1,0 +1,26 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 16s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-revision-mismatch-9e: unknown: revision-mismatch (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/catalog.json); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-revision-mismatch-9e"}
+task:
+  id: enforce-revision-mismatch-9e
+  title: enforce-revision-mismatch
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL

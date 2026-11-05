@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "action": "add",
+  "task": {
+    "id": "enforce-valid-55",
+    "title": "enforce-valid",
+    "state": "queued",
+    "kind": "ship",
+    "repo": "proj",
+    "priority": null,
+    "created": "2026-11-05",
+    "closed": null,
+    "deps": [],
+    "hold": null,
+    "links": [],
+    "body": "Disposable task.\nSLICE: ops/demo | demo outcome",
+    "blocked": false,
+    "blocked_by": [],
+    "held": false
+  }
+}

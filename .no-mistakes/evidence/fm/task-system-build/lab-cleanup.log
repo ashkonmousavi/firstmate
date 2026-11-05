@@ -1,0 +1,3 @@
+tmux kill-server exit=0
+lab teardown exit=0
+lab home removed=True

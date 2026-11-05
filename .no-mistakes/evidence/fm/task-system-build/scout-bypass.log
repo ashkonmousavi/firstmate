@@ -1,0 +1,80 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 29s ago, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj' to release it.
+spawned scout-bypass-60 harness=printf kind=scout window=primary:fm-scout-bypass-60 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "scout-bypass-60"}
+task:
+  id: scout-bypass-60
+  title: scout-bypass
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_95336__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_95336__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/4/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/4/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export GOTMPDIR=/tmp/fm-scout-bypass-60/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export FM_TASK_ID=scout-bypass-60
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ . '/tmp/fm-scout-bypass-60+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/laun
+ch.s1793874060.95336.5819.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-scout-bypass-60
+endpoint_task_id=scout-bypass-60
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=scout
+tasktmp=/tmp/fm-scout-bypass-60
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874060.95336.5819

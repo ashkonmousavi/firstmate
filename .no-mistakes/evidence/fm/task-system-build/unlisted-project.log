@@ -1,0 +1,85 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 24s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-project-c9/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-project-c9
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-project-c9/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other' to release it.
+spawned unlisted-project-c9 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-project-c9 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-project-c9"}
+task:
+  id: unlisted-project-c9
+  title: unlisted-project
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_74615__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_74615__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/1/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/1/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export GOTMPDIR=/tmp/fm-unlisted-project-c9/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export FM_TASK_ID=unlisted-project-c9
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ . '/tmp/fm-unlisted-project-c9+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc36716
+2/launch.s1793874055.74615.12929.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-project-c9
+endpoint_task_id=unlisted-project-c9
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-project-c9
+tasktmp=/tmp/fm-unlisted-project-c9
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874055.74615.12929

@@ -1,0 +1,8 @@
+ok - fm-spawn: an enforce home refuses a fresh ship with no SLICE line before any record exists
+ok - fm-spawn: an enforce home launches a ship whose brief and prep declare its slice
+ok - fm-spawn: an observe home reports a missing SLICE line and launches
+ok - fm-spawn: no policy and scouts bypass; a missing validator refuses in enforce and is reported in observe
+ok - fm-spawn: unlisted projects launch in every mode when validation yields no result
+ok - fm-spawn: listed projects and unreadable project lists retain their no-result mode behavior
+ok - fm-spawn: the installed slice validator refuses a missing SLICE line and a malformed policy in enforce, and only reports in observe
+# all fm-spawn-slice-gate tests passed

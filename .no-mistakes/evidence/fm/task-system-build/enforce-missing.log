@@ -1,0 +1,25 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-missing-fb: fail: missing-slice (task:enforce-missing-fb); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-missing-fb/brief.md); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-missing-fb"}
+task:
+  id: enforce-missing-fb
+  title: enforce-missing
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL

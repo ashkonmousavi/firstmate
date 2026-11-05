@@ -1,0 +1,5 @@
+Historical production revision 8d1292ad; behavioral test test_unlisted_projects_bypass_without_a_validator_result
+not ok - an unlisted project must bypass enforce admission with missing validator
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/fm-spawn-slice-gate.w3uOy9/unlisted-missing-enforce/home/config/slicing.json, mode enforce) could not check slice-unlisted-missing-enforce: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/fm-spawn-slice-gate.w3uOy9/unlisted-missing-enforce/validator.py is not readable: expected exit 0, got 1
+
+Actual exit status: 1 (expected nonzero: historical bug reproduced)

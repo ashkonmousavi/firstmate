@@ -1,0 +1,1480 @@
+
+===== enforce-missing =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-missing-fb: fail: missing-slice (task:enforce-missing-fb); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-missing-fb/brief.md); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-missing-fb"}
+task:
+  id: enforce-missing-fb
+  title: enforce-missing
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+
+===== enforce-valid =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-valid-55/launch-brief.md records no ship branch; defaulting to legacy branch fm/enforce-valid-55
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-valid-55/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj' to release it.
+spawned enforce-valid-55 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-enforce-valid-55 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "enforce-valid-55"}
+task:
+  id: enforce-valid-55
+  title: enforce-valid
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96315__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Nov  5 03:20:31 MST 2026
+
+  System load:  9.59                 Processes:             327
+  Usage of /:   58.2% of 1006.85GB   Users logged in:       1
+  Memory usage: 67%                  IPv4 address for eth0: 172.18.215.162
+  Swap usage:   49%
+
+  => There are 4 zombie processes.
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+This message is shown once a day. To disable it please create the
+~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/user-home/.hushlogin file
+.
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96315__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/1/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/1/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export GOTMPDIR=/tmp/fm-enforce-valid-55/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export FM_TASK_ID=enforce-valid-55
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ . '/tmp/fm-enforce-valid-55+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/lau
+nch.s1793874034.96315.15649.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+PERSISTED TASK METADATA
+window=primary:fm-enforce-valid-55
+endpoint_task_id=enforce-valid-55
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/enforce-valid-55
+tasktmp=/tmp/fm-enforce-valid-55
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874034.96315.15649
+
+===== observe-missing =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 7s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+notice: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, observe) would refuse observe-missing-40: fail: missing-slice (task:observe-missing-40); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/observe-missing-40/brief.md); launching
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/observe-missing-40/launch-brief.md records no ship branch; defaulting to legacy branch fm/observe-missing-40
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/observe-missing-40/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj' to release it.
+spawned observe-missing-40 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-observe-missing-40 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "observe-missing-40"}
+task:
+  id: observe-missing-40
+  title: observe-missing
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_15053__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_15053__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/2/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/2/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export GOTMPDIR=/tmp/fm-observe-missing-40/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export FM_TASK_ID=observe-missing-40
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ . '/tmp/fm-observe-missing-40+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/l
+aunch.s1793874039.15053.32450.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-observe-missing-40
+endpoint_task_id=observe-missing-40
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/observe-missing-40
+tasktmp=/tmp/fm-observe-missing-40
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874039.15053.32450
+
+===== enforce-unknown-slice =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 13s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-unknown-slice-ac: fail: dangling-slice (task:enforce-unknown-slice-ac); dangling-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/enforce-unknown-slice-ac/brief.md); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-unknown-slice-ac"}
+task:
+  id: enforce-unknown-slice-ac
+  title: enforce-unknown-slice
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/absent | unknown"
+
+WORKER TERMINAL
+
+===== enforce-conflicting-prep =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 14s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-conflicting-prep-b0: fail: conflicting-slice (documents); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-conflicting-prep-b0"}
+task:
+  id: enforce-conflicting-prep-b0
+  title: enforce-conflicting-prep
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+
+===== enforce-missing-task-line =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 15s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-missing-task-line-fb: fail: missing-slice (task:enforce-missing-task-line-fb); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-missing-task-line-fb"}
+task:
+  id: enforce-missing-task-line-fb
+  title: enforce-missing-task-line
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task without a slice.
+
+WORKER TERMINAL
+
+===== enforce-revision-mismatch =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 16s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-revision-mismatch-9e: unknown: revision-mismatch (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/catalog.json); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-revision-mismatch-9e"}
+task:
+  id: enforce-revision-mismatch-9e
+  title: enforce-revision-mismatch
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+
+===== enforce-malformed-policy =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 18s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json) refuses enforce-malformed-policy-bd: unknown: policy-unavailable (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json); give the task, brief and prep one SLICE: <home>/<id> | <outcome> line from the accepted catalogue
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "enforce-malformed-policy-bd"}
+task:
+  id: enforce-malformed-policy-bd
+  title: enforce-malformed-policy
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+
+===== unconfigured-home =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 17s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unconfigured-home-2b/launch-brief.md records no ship branch; defaulting to legacy branch fm/unconfigured-home-2b
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unconfigured-home-2b/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj' to release it.
+spawned unconfigured-home-2b harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unconfigured-home-2b worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unconfigured-home-2b"}
+task:
+  id: unconfigured-home-2b
+  title: unconfigured-home
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_49766__=1\n'
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_49766__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/3/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/3/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export GOTMPDIR=/tmp/fm-unconfigured-home-2b/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export FM_TASK_ID=unconfigured-home-2b
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ . '/tmp/fm-unconfigured-home-2b+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162
+/launch.s1793874050.49766.6183.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unconfigured-home-2b
+endpoint_task_id=unconfigured-home-2b
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unconfigured-home-2b
+tasktmp=/tmp/fm-unconfigured-home-2b
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874050.49766.6183
+
+===== unlisted-project =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 24s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-project-c9/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-project-c9
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-project-c9/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other' to release it.
+spawned unlisted-project-c9 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-project-c9 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-project-c9"}
+task:
+  id: unlisted-project-c9
+  title: unlisted-project
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_74615__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_74615__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/1/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/1/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export GOTMPDIR=/tmp/fm-unlisted-project-c9/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ export FM_TASK_ID=unlisted-project-c9
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/1/other$ . '/tmp/fm-unlisted-project-c9+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc36716
+2/launch.s1793874055.74615.12929.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-project-c9
+endpoint_task_id=unlisted-project-c9
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/1/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-project-c9
+tasktmp=/tmp/fm-unlisted-project-c9
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874055.74615.12929
+
+===== scout-bypass =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 29s ago, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj' to release it.
+spawned scout-bypass-60 harness=printf kind=scout window=primary:fm-scout-bypass-60 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "scout-bypass-60"}
+task:
+  id: scout-bypass-60
+  title: scout-bypass
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_95336__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_95336__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/4/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/4/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export GOTMPDIR=/tmp/fm-scout-bypass-60/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ export FM_TASK_ID=scout-bypass-60
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/4/proj$ . '/tmp/fm-scout-bypass-60+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/laun
+ch.s1793874060.95336.5819.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-scout-bypass-60
+endpoint_task_id=scout-bypass-60
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/4/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=scout
+tasktmp=/tmp/fm-scout-bypass-60
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874060.95336.5819
+
+===== listed-missing-validator =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 34s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, mode enforce) could not check listed-missing-validator-23: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/absent.py is not readable
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "listed-missing-validator-23"}
+task:
+  id: listed-missing-validator-23
+  title: listed-missing-validator
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "Disposable task.\nSLICE: ops/demo | demo outcome"
+
+WORKER TERMINAL
+
+===== observe-missing-validator =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 35s ago, grace 300s) - full banner already printed this episode.
+notice: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, observe) could not check observe-missing-validator-6d: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/absent.py is not readable; launching
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/observe-missing-validator-6d/launch-brief.md records no ship branch; defaulting to legacy branch fm/observe-missing-validator-6d
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/observe-missing-validator-6d/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 5 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/5/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/5/proj' to release it.
+spawned observe-missing-validator-6d harness=printf kind=ship mode=local-only yolo=off window=primary:fm-observe-missing-validator-6d worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/5/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "observe-missing-validator-6d"}
+task:
+  id: observe-missing-validator-6d
+  title: observe-missing-validator
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_10549__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_10549__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/5/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/5/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/5/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/5/proj$ export GOTMPDIR=/tmp/fm-observe-missing-validator-6d/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/5/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/5/proj$ export FM_TASK_ID=observe-missing-validator-6d
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/5/proj$ . '/tmp/fm-observe-missing-validator-6d+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913
+bc367162/launch.s1793874067.10549.16009.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-observe-missing-validator-6d
+endpoint_task_id=observe-missing-validator-6d
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/5/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/observe-missing-validator-6d
+tasktmp=/tmp/fm-observe-missing-validator-6d
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874067.10549.16009
+
+===== unlisted-missing-observe =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 41s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-observe-37/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-missing-observe-37
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-observe-37/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/2/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/2/other' to release it.
+spawned unlisted-missing-observe-37 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-missing-observe-37 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/2/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-missing-observe-37"}
+task:
+  id: unlisted-missing-observe-37
+  title: unlisted-missing-observe
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_28185__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_28185__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/2/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/2/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/2/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/2/other$ export GOTMPDIR=/tmp/fm-unlisted-missing-observe-37/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/2/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/2/other$ export FM_TASK_ID=unlisted-missing-observe-37
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/2/other$ . '/tmp/fm-unlisted-missing-observe-37+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad291
+3bc367162/launch.s1793874073.28185.26066.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-missing-observe-37
+endpoint_task_id=unlisted-missing-observe-37
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/2/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-missing-observe-37
+tasktmp=/tmp/fm-unlisted-missing-observe-37
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874073.28185.26066
+
+===== unlisted-missing-enforce =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 45s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-enforce-c3/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-missing-enforce-c3
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-enforce-c3/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/3/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/3/other' to release it.
+spawned unlisted-missing-enforce-c3 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-missing-enforce-c3 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/3/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-missing-enforce-c3"}
+task:
+  id: unlisted-missing-enforce-c3
+  title: unlisted-missing-enforce
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_41986__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_41986__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/3/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/3/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/3/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/3/other$ export GOTMPDIR=/tmp/fm-unlisted-missing-enforce-c3/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/3/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/3/other$ export FM_TASK_ID=unlisted-missing-enforce-c3
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/3/other$ . '/tmp/fm-unlisted-missing-enforce-c3+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad291
+3bc367162/launch.s1793874076.41986.10355.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-missing-enforce-c3
+endpoint_task_id=unlisted-missing-enforce-c3
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/3/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-missing-enforce-c3
+tasktmp=/tmp/fm-unlisted-missing-enforce-c3
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874076.41986.10355
+
+===== unlisted-missing-invalid =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 51s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-invalid-e1/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-missing-invalid-e1
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-missing-invalid-e1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/4/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/4/other' to release it.
+spawned unlisted-missing-invalid-e1 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-missing-invalid-e1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/4/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-missing-invalid-e1"}
+task:
+  id: unlisted-missing-invalid-e1
+  title: unlisted-missing-invalid
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55438__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55438__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/4/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/4/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/4/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/4/other$ export GOTMPDIR=/tmp/fm-unlisted-missing-invalid-e1/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/4/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/4/other$ export FM_TASK_ID=unlisted-missing-invalid-e1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/4/other$ . '/tmp/fm-unlisted-missing-invalid-e1+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad291
+3bc367162/launch.s1793874083.55438.24497.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-missing-invalid-e1
+endpoint_task_id=unlisted-missing-invalid-e1
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/4/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-missing-invalid-e1
+tasktmp=/tmp/fm-unlisted-missing-invalid-e1
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874083.55438.24497
+
+===== unlisted-no-result =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 57s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-no-result-0b/launch-brief.md records no ship branch; defaulting to legacy branch fm/unlisted-no-result-0b
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unlisted-no-result-0b/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 5 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/5/other. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/5/other' to release it.
+spawned unlisted-no-result-0b harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unlisted-no-result-0b worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/5/other
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unlisted-no-result-0b"}
+task:
+  id: unlisted-no-result-0b
+  title: unlisted-no-result
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: other
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_76022__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/oth
+er$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_76022__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/other-3421f0/5/other. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/5/other$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/l
+ive-lab/pool/.treehouse/other-3421f0/5/other'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/5/other$ export GOTMPDIR=/tmp/fm-unlisted-no-result-0b/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/5/other$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/5/other$ export FM_TASK_ID=unlisted-no-result-0b
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/other-3421f0/5/other$ . '/tmp/fm-unlisted-no-result-0b+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367
+162/launch.s1793874090.76022.14885.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unlisted-no-result-0b
+endpoint_task_id=unlisted-no-result-0b
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/other-3421f0/5/other
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/other
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unlisted-no-result-0b
+tasktmp=/tmp/fm-unlisted-no-result-0b
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874090.76022.14885
+
+===== recovery-setup-observe =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+notice: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, observe) would refuse recovery-setup-observe-f8: fail: missing-slice (task:recovery-setup-observe-f8); missing-slice (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/recovery-setup-observe-f8/brief.md); launching
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/recovery-setup-observe-f8/launch-brief.md records no ship branch; defaulting to legacy branch fm/recovery-setup-observe-f8
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/recovery-setup-observe-f8/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj' to release it.
+spawned recovery-setup-observe-f8 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-recovery-setup-observe-f8 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "recovery-setup-observe-f8"}
+task:
+  id: recovery-setup-observe-f8
+  title: recovery-setup-observe
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55335__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Nov  5 03:23:33 MST 2026
+
+  System load:  6.1                  Processes:             328
+  Usage of /:   58.2% of 1006.85GB   Users logged in:       1
+  Memory usage: 63%                  IPv4 address for eth0: 172.18.215.162
+  Swap usage:   49%
+
+  => There are 4 zombie processes.
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+This message is shown once a day. To disable it please create the
+~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/user-home/.hushlogin file
+.
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55335__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/1/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/1/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export GOTMPDIR=/tmp/fm-recovery-setup-observe-f8/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export FM_TASK_ID=recovery-setup-observe-f8
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ . '/tmp/fm-recovery-setup-observe-f8+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc3
+67162/launch.s1793874215.55335.7629.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+PERSISTED TASK METADATA
+window=primary:fm-recovery-setup-observe-f8
+endpoint_task_id=recovery-setup-observe-f8
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/recovery-setup-observe-f8
+tasktmp=/tmp/fm-recovery-setup-observe-f8
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874215.55335.7629
+
+===== recovery-relaunch =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/recovery-setup-observe-f8/launch-brief.md records no ship branch; defaulting to legacy branch fm/recovery-setup-observe-f8
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/recovery-setup-observe-f8/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+spawned recovery-setup-observe-f8 harness=printf kind=ship mode=local-only yolo=off window=primary:fm-recovery-setup-observe-f8 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj
+
+BEFORE METADATA
+{"window": "primary:fm-recovery-setup-observe-f8", "endpoint_task_id": "recovery-setup-observe-f8", "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj", "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj", "harness": "printf", "kind": "ship", "mode": "local-only", "yolo": "off", "branch": "fm/recovery-setup-observe-f8", "tasktmp": "/tmp/fm-recovery-setup-observe-f8", "model": "default", "effort": "default", "claude_config_dir": "", "spawn_gen": "s1793874215.55335.7629"}
+AFTER METADATA
+{"window": "primary:fm-recovery-setup-observe-f8", "endpoint_task_id": "recovery-setup-observe-f8", "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/1/proj", "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj", "harness": "printf", "kind": "ship", "mode": "local-only", "yolo": "off", "branch": "fm/recovery-setup-observe-f8", "tasktmp": "/tmp/fm-recovery-setup-observe-f8", "model": "default", "effort": "default", "claude_config_dir": "", "spawn_gen": "s1793874218.66276.8924"}
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55335__=1\n'
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.6.114.1-microsoft-standard-WSL2 x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Thu Nov  5 03:23:33 MST 2026
+
+  System load:  6.1                  Processes:             328
+  Usage of /:   58.2% of 1006.85GB   Users logged in:       1
+  Memory usage: 63%                  IPv4 address for eth0: 172.18.215.162
+  Swap usage:   49%
+
+  => There are 4 zombie processes.
+
+ * Canonical Workshop gives developers fast, composable, reproducible, and
+   secure developer environments that are perfect for agentic workflows.
+
+   https://ubuntu.com/workshop
+
+This message is shown once a day. To disable it please create the
+~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/user-home/.hushlogin file
+.
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_55335__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/1/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/1/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export GOTMPDIR=/tmp/fm-recovery-setup-observe-f8/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ export FM_TASK_ID=recovery-setup-observe-f8
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/1/proj$ . '/tmp/fm-recovery-setup-observe-f8+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc3
+67162/launch.s1793874215.55335.7629.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.tr
+eehouse/proj-bdc5a3/1/proj'
+bash-5.2$ export GOTMPDIR=/tmp/fm-recovery-setup-observe-f8/gotmp
+bash-5.2$ export COMPACT_ADVISER_DISABLE=1
+bash-5.2$ export FM_TASK_ID=recovery-setup-observe-f8
+bash-5.2$ . '/tmp/fm-recovery-setup-observe-f8+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913bc367162/launch.s
+1793874218.66276.8924.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+===== listed-no-result-enforce =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 8s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, mode enforce) could not check listed-no-result-enforce-06: 
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "listed-no-result-enforce-06"}
+task:
+  id: listed-no-result-enforce-06
+  title: listed-no-result-enforce
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+
+===== unreadable-project-list-enforce =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 9s ago, grace 300s) - full banner already printed this episode.
+error: spawn refused: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, mode enforce) could not check unreadable-project-list-enforce-e0: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/absent.py is not readable
+
+OBSERVABLE STATE
+{"exit_status": 1, "task_record": false, "task_id": "unreadable-project-list-enforce-e0"}
+task:
+  id: unreadable-project-list-enforce-e0
+  title: unreadable-project-list-enforce
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+
+===== listed-no-result-observe =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode.
+notice: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, observe) could not check listed-no-result-observe-7f: ; launching
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/listed-no-result-observe-7f/launch-brief.md records no ship branch; defaulting to legacy branch fm/listed-no-result-observe-7f
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/listed-no-result-observe-7f/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj' to release it.
+spawned listed-no-result-observe-7f harness=printf kind=ship mode=local-only yolo=off window=primary:fm-listed-no-result-observe-7f worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "listed-no-result-observe-7f"}
+task:
+  id: listed-no-result-observe-7f
+  title: listed-no-result-observe
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_82010__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_82010__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/2/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/2/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export GOTMPDIR=/tmp/fm-listed-no-result-observe-7f/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ export FM_TASK_ID=listed-no-result-observe-7f
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/2/proj$ . '/tmp/fm-listed-no-result-observe-7f+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75ad2913b
+c367162/launch.s1793874225.82010.371.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-listed-no-result-observe-7f
+endpoint_task_id=listed-no-result-observe-7f
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/2/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/listed-no-result-observe-7f
+tasktmp=/tmp/fm-listed-no-result-observe-7f
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874225.82010.371
+
+===== unreadable-project-list-observe =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 15s ago, grace 300s) - full banner already printed this episode.
+notice: slice admission (~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/config/slicing.json, observe) could not check unreadable-project-list-observe-dc: validator ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/absent.py is not readable; launching
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unreadable-project-list-observe-dc/launch-brief.md records no ship branch; defaulting to legacy branch fm/unreadable-project-list-observe-dc
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/data/unreadable-project-list-observe-dc/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj' to release it.
+spawned unreadable-project-list-observe-dc harness=printf kind=ship mode=local-only yolo=off window=primary:fm-unreadable-project-list-observe-dc worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj
+
+OBSERVABLE STATE
+{"exit_status": 0, "task_record": true, "task_id": "unreadable-project-list-observe-dc"}
+task:
+  id: unreadable-project-list-observe-dc
+  title: unreadable-project-list-observe
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: proj
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: Disposable task.
+
+WORKER TERMINAL
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96050__=1\n'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/pro
+j$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_96050__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/po
+ol/.treehouse/proj-bdc5a3/3/proj. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/liv
+e-lab/pool/.treehouse/proj-bdc5a3/3/proj'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export GOTMPDIR=/tmp/fm-unreadable-project-list-observe-dc/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ export FM_TASK_ID=unreadable-project-list-observe-dc
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treeho
+use/proj-bdc5a3/3/proj$ . '/tmp/fm-unreadable-project-list-observe-dc+a6c81506e5b291cbd5eaaa0ffd40d770107d101311ba490d75
+ad2913bc367162/launch.s1793874230.96050.21322.sh'
+LIVE_SLICE_WORKER_READY
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERSISTED TASK METADATA
+window=primary:fm-unreadable-project-list-observe-dc
+endpoint_task_id=unreadable-project-list-observe-dc
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/pool/.treehouse/proj-bdc5a3/3/proj
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6NJNWM2YZHE7J8AAMK0ZD4F/.test-tmp/live-lab/projects/proj
+harness=printf
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/unreadable-project-list-observe-dc
+tasktmp=/tmp/fm-unreadable-project-list-observe-dc
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793874230.96050.21322

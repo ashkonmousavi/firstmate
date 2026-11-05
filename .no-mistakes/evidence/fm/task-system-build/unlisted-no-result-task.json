@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "action": "add",
+  "task": {
+    "id": "unlisted-no-result-0b",
+    "title": "unlisted-no-result",
+    "state": "queued",
+    "kind": "ship",
+    "repo": "other",
+    "priority": null,
+    "created": "2026-11-05",
+    "closed": null,
+    "deps": [],
+    "hold": null,
+    "links": [],
+    "body": "Disposable task.\n",
+    "blocked": false,
+    "blocked_by": [],
+    "held": false
+  }
+}

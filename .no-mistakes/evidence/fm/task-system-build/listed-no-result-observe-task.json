@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "action": "add",
+  "task": {
+    "id": "listed-no-result-observe-7f",
+    "title": "listed-no-result-observe",
+    "state": "queued",
+    "kind": "ship",
+    "repo": "proj",
+    "priority": null,
+    "created": "2026-11-05",
+    "closed": null,
+    "deps": [],
+    "hold": null,
+    "links": [],
+    "body": "Disposable task.\n",
+    "blocked": false,
+    "blocked_by": [],
+    "held": false
+  }
+}
