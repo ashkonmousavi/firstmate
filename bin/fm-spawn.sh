@@ -2772,11 +2772,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     FIRSTMATE_HOME=$(fm_meta_get "$RELAUNCH_META" home)
     [ -n "$FIRSTMATE_HOME" ] || FIRSTMATE_HOME=$RELAUNCH_WT
   else
-    PROJ=$(fm_meta_get "$RELAUNCH_META" project)
-    [ -n "$PROJ" ] || {
-      echo "error: task $ID has no recorded project; refusing to relaunch" >&2
-      exit 1
-    }
+    fm_spawn_relaunch_project_admit "$RELAUNCH_META" || exit 1
   fi
   if [ "$BACKEND" = herdr ]; then
     # fm-spawn uses HERDR_PANE_ID for the TASK's pane, while the herdr adapter
@@ -3835,11 +3831,7 @@ if [ "$KIND" = secondmate ]; then
       propagate_secondmate_inheritance "$FM_HOME" "$PROJ_ABS" "$CONFIG" "$DATA" ||
       echo "warning: secondmate $ID inheritance failed for $PROJ_ABS" >&2
   fi
-  if [ -f "$PROJ_ABS/data/charter.md" ]; then
-    BRIEF="$PROJ_ABS/data/charter.md"
-  else
-    BRIEF="$DATA/$ID/brief.md"
-  fi
+  fm_spawn_secondmate_brief_select "$PROJ_ABS"
 else
   PROJ_ABS="$(cd "$(resolve_project_dir_arg "$PROJ")" && pwd)"
   WT=""
@@ -3931,10 +3923,7 @@ if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
     exit "$FM_PROJECT_CAPACITY_DEFER_EXIT"
   fi
 fi
-[ -f "$BRIEF" ] || {
-  echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2
-  exit 1
-}
+fm_spawn_brief_present_admit || exit 1
 fm_spawn_brief_admit "$BRIEF" || exit 1
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ "$RELAUNCH" -eq 1 ]; then
@@ -3998,143 +3987,7 @@ delivery_rigor_rank() { # <mode> -> 3 (most rigor) .. 1 (least); 0 = not a task 
 # would launch a worker whose instructions and whose recorded task delivery
 # differ, which is the exact drift this contract prevents.
 if [ "$KIND" = ship ]; then
-  PROJ_NAME=$(basename "$PROJ_ABS")
-  # The parser's own refusal reaches the operator here rather than being
-  # discarded: an entry it refuses (an unknown forge token, or a forge on
-  # local-only) resolves to no posture at all, and launching on the silent
-  # default is how a mistyped forge would hand a Gerrit project the
-  # pull-request contract.
-  if ! STANDING_FORGE=$("$FM_ROOT/bin/fm-project-mode.sh" --forge "$PROJ_NAME" 2>/dev/null); then
-    "$FM_ROOT/bin/fm-project-mode.sh" --forge "$PROJ_NAME" >/dev/null || true
-    echo "error: $ID cannot launch: the registry entry for $PROJ_NAME does not resolve to a delivery posture (see the refusal above); correct data/projects.md and spawn again" >&2
-    exit 1
-  fi
-  [ -n "$STANDING_FORGE" ] || STANDING_FORGE=none
-  STANDING_MODE=$("$FM_ROOT/bin/fm-project-mode.sh" --raw "$PROJ_NAME" 2>/dev/null | cut -d' ' -f1) || STANDING_MODE=
-  BRIEF_MODE=$(sed -n 's/^Delivery contract: mode=\([^ ]*\).*$/\1/p' "$BRIEF" | head -n 1)
-  BRIEF_FORGE=$(sed -n 's/^Delivery contract: mode=[^ ]*.*[[:space:]]forge=\([^ ]*\).*$/\1/p' "$BRIEF" | head -n 1)
-  [ -n "$BRIEF_FORGE" ] || BRIEF_FORGE=none
-  BRIEF_BRANCH=$(sed -n 's/^Ship branch: //p' "$BRIEF" | head -n 1)
-  if [ -n "$BRIEF_BRANCH" ]; then
-    [ "$BRIEF_BRANCH" = "$BRANCH" ] || {
-      echo "error: branch mismatch for $ID: the brief says branch=$BRIEF_BRANCH but this spawn selected branch=$BRANCH" >&2
-      exit 1
-    }
-  elif [ "$BRANCH" != "fm/$ID" ]; then
-    # A relaunch's branch comes from the meta record (--branch-prefix is refused
-    # there), so a promoted scout whose brief never carried a Ship branch line
-    # must relaunch on that recorded branch rather than be refused.
-    if [ "$RELAUNCH" -eq 1 ]; then
-      echo "warning: $BRIEF records no ship branch; relaunching on the task's recorded branch $BRANCH" >&2
-    else
-      echo "error: $BRIEF records no ship branch; regenerate it with --branch-prefix before spawning $BRANCH" >&2
-      exit 1
-    fi
-  else
-    echo "warning: $BRIEF records no ship branch; defaulting to legacy branch $BRANCH" >&2
-  fi
-  if [ -z "$BRIEF_MODE" ]; then
-    echo "warning: $BRIEF records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode $MODE - confirm its definition of done matches" >&2
-  elif [ "$BRIEF_MODE" != "$MODE" ]; then
-    echo "error: delivery mismatch for $ID: the brief says mode=$BRIEF_MODE but this spawn passed --mode $MODE; correct the flag or re-scaffold the brief so the worker's instructions and the task record agree" >&2
-    exit 1
-  fi
-  # A firstmate-repository contribution records its one-task publication consent
-  # as an upstream-consent= token on that same line; like mode and forge, the
-  # brief and the spawn flag must agree so the worker's contract and the task
-  # record carry the same authority.
-  BRIEF_CONSENT=$(sed -n 's/^Delivery contract: mode=[^ ]*.*[[:space:]]upstream-consent=\([^ ]*\).*$/\1/p' "$BRIEF" | head -n 1)
-  if [ "$BRIEF_CONSENT" != "$UPSTREAM_CONSENT" ]; then
-    echo "error: upstream-consent mismatch for $ID: $BRIEF records upstream-consent=${BRIEF_CONSENT:-none} but this spawn passed ${UPSTREAM_CONSENT:-none}; correct the flag or re-scaffold the brief so the worker's contract and the task record agree" >&2
-    exit 1
-  fi
-  # The registered forge is the captain's confirmed binding (bin/fm-project-mode.sh)
-  # and is never inferred here from a remote, host, or protocol. A brief that
-  # disagrees with it would tell the worker to open a pull request a Gerrit
-  # server does not have, or to publish a change to a forge that is not Gerrit.
-  if [ "$BRIEF_FORGE" != "$STANDING_FORGE" ]; then
-    if [ "$STANDING_FORGE" = none ]; then
-      forge_scaffold="fm-brief.sh $ID $PROJ_NAME --mode $MODE"
-    else
-      forge_scaffold="fm-brief.sh $ID $PROJ_NAME --mode $MODE --forge $STANDING_FORGE"
-    fi
-    echo "error: forge mismatch for $ID: $PROJ_NAME is registered forge=$STANDING_FORGE but $SOURCE_BRIEF records forge=$BRIEF_FORGE; keep the filled ## Captain's intent and ## Firstmate spec bodies, remove $SOURCE_BRIEF, re-scaffold it with $forge_scaffold, then re-fill those two subsections, so the worker's publication matches the project's forge" >&2
-    exit 1
-  fi
-  # The registered PR-text binding is read the same way: a brief that disagrees
-  # would hand the pipeline's pr step the text a person owns, or the worker text
-  # the pipeline owns. direct-PR already leaves the text to the worker, so a
-  # conditional-policy project's direct-PR task expects none.
-  if ! STANDING_PR=$("$FM_ROOT/bin/fm-project-mode.sh" --pr "$PROJ_NAME" 2>/dev/null); then
-    "$FM_ROOT/bin/fm-project-mode.sh" --pr "$PROJ_NAME" >/dev/null || true
-    echo "error: $ID cannot launch: the registry entry for $PROJ_NAME does not resolve to a delivery posture (see the refusal above); correct data/projects.md and spawn again" >&2
-    exit 1
-  fi
-  [ -n "$STANDING_PR" ] || STANDING_PR=auto
-  [ "$MODE" = no-mistakes ] || STANDING_PR=auto
-  BRIEF_PR=$(sed -n 's/^Delivery contract: mode=[^ ]*.*[[:space:]]pr=\([^ ]*\).*$/\1/p' "$BRIEF" | head -n 1)
-  [ -n "$BRIEF_PR" ] || BRIEF_PR=auto
-  if [ "$BRIEF_PR" != "$STANDING_PR" ]; then
-    pr_scaffold="fm-brief.sh $ID $PROJ_NAME --mode $MODE"
-    [ "$STANDING_FORGE" = none ] || pr_scaffold="$pr_scaffold --forge $STANDING_FORGE"
-    [ "$STANDING_PR" = auto ] || pr_scaffold="$pr_scaffold --pr $STANDING_PR"
-    echo "error: PR-text mismatch for $ID: $PROJ_NAME is registered pr=$STANDING_PR but $SOURCE_BRIEF records pr=$BRIEF_PR; keep the filled ## Captain's intent and ## Firstmate spec bodies, remove $SOURCE_BRIEF, re-scaffold it with $pr_scaffold, then re-fill those two subsections, so the worker owns the PR text exactly when the project says so" >&2
-    exit 1
-  fi
-  # Merge authority on a Gerrit forge is refused rather than quietly dropped, on
-  # the captain's decision of 2026-09-15: a Code-Review+2 is a positive
-  # attributed claim that a named human approved, and firstmate must not
-  # manufacture one.
-  if [ "$STANDING_FORGE" = gerrit ] && [ "$YOLO" = on ]; then
-    echo "error: --yolo on is refused for $ID: $PROJ_NAME is registered forge=gerrit, where yolo is inactive because a Code-Review+2 is a positive attributed claim that a named human approved and firstmate must not manufacture one (captain's decision 2026-09-15); spawn with --yolo off" >&2
-    exit 1
-  fi
-  # An external review tool uploads its own snapshot, so this task must never
-  # push a task branch to the shared origin (docs/external-review-forge.md).
-  # Every protection the captain configured is validated before any endpoint
-  # exists, so a worker never launches without it.
-  if [ "$STANDING_FORGE" = external ]; then
-    if [ "$YOLO" = on ]; then
-      echo "error: --yolo on is refused for $ID: $PROJ_NAME is registered forge=external, where firstmate can neither observe nor perform the review tool's approval or merge; spawn with --yolo off" >&2
-      exit 1
-    fi
-    fm_external_review_adapter_body "$CONFIG" >/dev/null || exit 1
-    fm_external_review_backup "$CONFIG" || exit 1
-    EXTERNAL_REVIEW=1
-    EXTERNAL_BACKUP_REMOTE=$FM_REVIEW_BACKUP_REMOTE
-    EXTERNAL_BACKUP_PREFIX=$FM_REVIEW_BACKUP_PREFIX
-    if [ -n "$EXTERNAL_BACKUP_REMOTE" ]; then
-      fm_external_review_prefix_disjoint "$EXTERNAL_BACKUP_PREFIX" "$(fm_ship_branch_prefix "$BRANCH" "$ID")" || exit 1
-      backup_urls=$(fm_external_review_remote_urls "$PROJ_ABS" "$EXTERNAL_BACKUP_REMOTE")
-      if [ -z "$backup_urls" ]; then
-        echo "error: $ID cannot launch: config/external-review-backup names the remote $EXTERNAL_BACKUP_REMOTE, which $PROJ_ABS does not have; add it with git remote add, or remove the file to ship without a backup" >&2
-        exit 1
-      fi
-      shared_urls=$(fm_external_review_remote_urls "$PROJ_ABS" origin)
-      if [ -n "$shared_urls" ] && printf '%s\n' "$backup_urls" | grep -Fqx -f <(printf '%s\n' "$shared_urls"); then
-        echo "error: $ID cannot launch: the backup remote $EXTERNAL_BACKUP_REMOTE points at the project's shared origin; a durable copy must go to storage only the captain controls" >&2
-        exit 1
-      fi
-    fi
-  fi
-  # Self-repository publication gate (bin/fm-role-lib.sh): a ship task whose
-  # project is firstmate's own repository may launch a publishing contract only
-  # under an explicit grant - this home's maintainer scope in
-  # config/firstmate-role, or this one task's recorded upstream consent. Every
-  # other project passes through unchanged; local-only publishes nothing and
-  # never reaches this gate.
-  if [ "$MODE" != local-only ]; then
-    gate_rc=0
-    fm_role_gate_self_publish "$FM_HOME" "$CONFIG" "$PROJ_ABS" "$FM_ROOT" "$UPSTREAM_CONSENT" || gate_rc=$?
-    case $gate_rc in
-    0 | 2) ;;
-    *)
-      echo "error: spawn refused for $ID: $FM_ROLE_PUB_DENIAL" >&2
-      echo "error: to let this home publish to ${FM_ROLE_PUB_TARGET:-that repository}, write 'maintainer ${FM_ROLE_PUB_TARGET:-<host>/<owner>/<repo>}' into $CONFIG/firstmate-role (docs/configuration.md \"Firstmate role\"), or pass --upstream-consent ${FM_ROLE_PUB_TARGET:-<host>/<owner>/<repo>} for this one task with the captain's explicit approval" >&2
-      exit 1
-      ;;
-    esac
-  fi
+  fm_spawn_delivery_admit "$BRIEF" "$SOURCE_BRIEF" || exit 1
   # The registry holds the captain's standing posture, so dropping below it is
   # allowed (a current explicit captain instruction wins) but never silent. An
   # unregistered project resolves to the same no-mistakes standing default, which

@@ -1592,10 +1592,15 @@ relaunch_admission_preflight() {
   local CODEX_APPROVAL_PRESENT CODEX_APPROVAL_MODE CODEX_APPROVAL_FLAG
   local CODEX_PERM_PRESENT CODEX_PERMISSION_MODE LAVISH_AXI_HOST_CONFIG_PRESENT LAVISH_AXI_HOST
   local KEEP_AI_TRAILERS HERDR_LIFECYCLE_BRIEF_GUARD HERDR_LIFECYCLE_COMMAND
-  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE BRANCH PROJ_ABS SECONDMATE_PROJECTS
+  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE BRANCH PROJ PROJ_ABS SECONDMATE_PROJECTS BRIEF
+  local YOLO UPSTREAM_CONSENT PROJ_NAME STANDING_MODE EXTERNAL_REVIEW EXTERNAL_BACKUP_REMOTE EXTERNAL_BACKUP_PREFIX
+  local FM_REVIEW_URL FM_REVIEW_BACKUP_REMOTE FM_REVIEW_BACKUP_PREFIX
+  local FM_ROLE_DIAG FM_ROLE_PUB_AUTHORITY FM_ROLE_PUB_DENIAL FM_ROLE_PUB_TARGET FM_ROLE_SCOPE FM_ROLE_SOURCE
   local WORKER_ACCOUNT=$TARGET_WORKER_ACCOUNT WORKER_ACCOUNT_ROOT
   local scratch brief err status=0 state_real proj home
   MODE=$(fm_meta_get "$META" mode)
+  YOLO=$(fm_meta_get "$META" yolo)
+  UPSTREAM_CONSENT=$(fm_meta_get "$META" upstream_consent)
   WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
   WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
   # shellcheck source=bin/fm-tasks-axi-lib.sh
@@ -1618,18 +1623,28 @@ relaunch_admission_preflight() {
   . "$SCRIPT_DIR/fm-operational-input.sh"
   # shellcheck source=bin/fm-ff-lib.sh
   . "$SCRIPT_DIR/fm-ff-lib.sh"
+  # shellcheck source=bin/fm-treehouse-lib.sh
+  . "$SCRIPT_DIR/fm-treehouse-lib.sh"
+  # shellcheck source=bin/fm-role-lib.sh
+  . "$SCRIPT_DIR/fm-role-lib.sh"
   "$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE" || return $?
   fm_backend_validate_spawn "$BACKEND" || return $?
   fm_spawn_launch_env_admit || return $?
   fm_spawn_config_admit || return $?
   fm_spawn_ship_branch_admit "$META" || return $?
   fm_spawn_adapter_admit || return $?
-  proj=$(fm_meta_get "$META" project)
   if [ "$KIND" = secondmate ]; then
     home=$(fm_meta_get "$META" home)
     fm_spawn_secondmate_home_admit "$ID" "${home:-$WT}" || return $?
+    fm_worktree_require_exclusive_record "$STATE" "$PROJ_ABS" "$STATE/$ID.meta" || return $?
     fm_spawn_secondmate_registry_admit "$ID" "${home:-$WT}" || return $?
     proj=$PROJ_ABS
+    fm_spawn_secondmate_brief_select "$PROJ_ABS"
+    fm_spawn_brief_present_admit || return $?
+  else
+    fm_spawn_relaunch_project_admit "$META" || return $?
+    proj=$PROJ
+    PROJ_ABS=$(cd "$PROJ" && pwd) || return 1
   fi
   state_real=$(cd "$STATE" && pwd -P) || return 1
   fm_spawn_launch_files_admit "$state_real" "$WT" "$proj" || return $?
@@ -1637,14 +1652,15 @@ relaunch_admission_preflight() {
   fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
   fm_spawn_backlog_close_admit || return $?
   [ -n "$RELAUNCH_BRIEF" ] || return 0
-  fm_spawn_brief_admit "$RELAUNCH_BRIEF" || return $?
-  [ -n "$NOTE" ] || return 0
   scratch=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || return 1
   brief="$scratch/brief.md"
-  if cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
+  if ! { fm_spawn_brief_admit "$RELAUNCH_BRIEF" && fm_spawn_delivery_admit "$RELAUNCH_BRIEF" "$RELAUNCH_BRIEF"; } 2>"$scratch/err"; then
+    status=1
+    cat "$scratch/err" >&2
+  elif cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
     fm_relaunch_note_append "$brief" "$STATE/$ID.inbox" "$scratch/note"; then
-    fm_spawn_brief_admit "$brief" 2>"$scratch/err" || status=$?
-    if [ "$status" != 0 ]; then
+    if ! { fm_spawn_brief_admit "$brief" && fm_spawn_delivery_admit "$brief" "$RELAUNCH_BRIEF"; } 2>"$scratch/err"; then
+      status=1
       err=$(cat "$scratch/err")
       [ -z "$err" ] || printf '%s\n' "${err//"$brief"/"$RELAUNCH_BRIEF"}" >&2
       echo "error: task $ID's pending progress note caused this refusal: $RELAUNCH_BRIEF is admitted alone but not with the note appended; revise the note and re-run" >&2

@@ -114,10 +114,10 @@ For a secondmate, relaunch first honors the [owner-park contract](configuration.
    - watcher continuity, the backend, the launch environment, and launch configuration such as permission and approval modes;
    - a ship task's recorded branch name;
    - adapter and executable checks, including the Kimi turn-end hook configuration;
-   - for a secondmate, its home's shape and its registry binding;
+   - for a secondmate, its home's shape, that no other task record claims that home, its registry binding, and an instruction source (its charter, or else its task brief); for a ship or scout, its recorded project;
    - the per-task launch files, each through its owner's check mode: Claude workspace trust (in the store of the selected [worker account](configuration.md#worker-account-pin-configclaude-account-configpi-account)), the Claude operational-inbox path, the Devin config and the Polytoken config mirror;
    - the backlog row, one capacity read, and a pending authoritative backlog close;
-   - for a ship or scout, the instructions, then the instructions with the pending progress note appended to a scratch copy, including the Herdr lifecycle guard.
+   - for a ship or scout, the instructions, then the instructions with the pending progress note appended to a scratch copy, each checked by the brief validators (including the Herdr lifecycle guard) and, for a ship, by the delivery-contract agreement with the [project registry](configuration.md): registry posture, ship branch, mode, upstream consent, forge, PR-text policy, `--yolo` compatibility, external-review protections and the self-repository publication gate.
    A refusal caused only by the pending note names the real instructions file and says the note caused it.
    Any refusal here leaves the old agent running and the task unchanged.
    Runtime failures after the stop are not part of this check; a secondmate's home synchronization and configuration inheritance run after it, at launch.

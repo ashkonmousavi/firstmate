@@ -4725,7 +4725,7 @@ test_configuration_admission_preserves_running_agent() {
   local -a args
   control_path=$CONTROL
   real_perl=$(command -v perl)
-  for scenario in claude-permission codex-approval codex-permission lavish-host keep-ai-trailers watcher kimi-missing kimi-malformed claude-trust devin-config polytoken-config operational-path ship-branch backlog-close secondmate-home secondmate-registry; do
+  for scenario in claude-permission codex-approval codex-permission lavish-host keep-ai-trailers watcher kimi-missing kimi-malformed claude-trust devin-config polytoken-config operational-path ship-branch backlog-close secondmate-home secondmate-registry secondmate-duplicate-home secondmate-charter; do
     CONTROL=$control_path
     dir=$(new_case "configuration-admission-$scenario" cp1)
     add_ship_task "$dir" cp1 claude
@@ -4815,6 +4815,14 @@ POLYTOKEN
         printf -- '- cp1 - Registered elsewhere (home: %s; scope: test; projects: ; added 2026-11-04)\n' \
           "$dir/other-home" > "$dir/home/data/secondmates.md"
         expected='error: ' ;;
+      secondmate-duplicate-home)
+        make_secondmate_record "$dir" cp1 claude
+        printf 'worktree=%s\nkind=secondmate\nharness=claude\n' "$dir/wt" > "$dir/home/state/other-mate.meta"
+        expected="is also task other-mate's recorded worktree" ;;
+      secondmate-charter)
+        make_secondmate_record "$dir" cp1 claude
+        rm "$dir/wt/data/charter.md" "$dir/home/data/cp1/brief.md"
+        expected="task cp1 has no brief at inaccessible data path $dir/home/data/cp1/brief.md" ;;
       kimi-missing|kimi-malformed)
         harness=kimi
         printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/kimi"
@@ -5049,6 +5057,32 @@ test_claude_trust_check_uses_the_selected_account_store() {
   done
 }
 
+# A registry change after launch, from [no-mistakes] to [no-mistakes pr=manual],
+# makes the recorded brief's PR-text contract disagree with the project; the
+# relaunch must refuse while the old agent still runs (docs/configuration.md
+# registry pr=manual binding).
+test_registry_pr_policy_change_refuses_before_stop() {
+  local dir out rc before id=rp1
+  dir=$(new_case registry-pr "$id")
+  add_ship_task "$dir" "$id" claude
+  mkdir -p "$dir/user-home"
+  printf -- '- proj [no-mistakes] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+  out=$(run_control "$dir" "$id" relaunch --note 'baseline under the launch policy'); rc=$?
+  expect_code 0 "$rc" "relaunch under the launch-time registry policy must be admitted: $out"
+  printf -- '- proj [no-mistakes pr=manual] - Relaunch fixture (added 2026-11-04)\n' > "$dir/home/data/projects.md"
+  : > "$dir/fake/literal"
+  before=$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")
+  out=$(run_control "$dir" "$id" relaunch --note continue); rc=$?
+  expect_code 1 "$rc" "a PR-text policy change must refuse the relaunch: $out"
+  assert_contains "$out" "PR-text mismatch for $id: proj is registered pr=manual but $dir/home/data/$id/brief.md records pr=auto" \
+    'refusal must name the registry policy and the real brief'
+  assert_equals claude "$(cat "$dir/fake/command")" 'registry policy refusal stopped the old agent'
+  assert_equals '' "$(cat "$dir/fake/literal")" 'registry policy refusal sent lifecycle input'
+  assert_equals "$before" "$(admission_snapshot "$dir/home" "$dir/proj" "$dir/wt" "$dir/fake" "$dir/user-home")" \
+    'registry policy refusal changed the record, brief, backlog or worktree'
+  pass 'a registry PR-text policy change refuses relaunch before stopping the agent'
+}
+
 test_relaunch_admission_refusal_preserves_running_agent() {
   local dir out rc why meta brief backlog before
   for why in backlog capacity; do
@@ -5091,6 +5125,7 @@ test_configuration_admission_preserves_running_agent
 test_pending_note_admission_preserves_running_agent
 test_secondmate_codex_relaunch_refuses_unusable_folders_before_stop
 test_claude_trust_check_uses_the_selected_account_store
+test_registry_pr_policy_change_refuses_before_stop
 test_fresh_spawn_guard_records_and_clears_warning_episodes
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
