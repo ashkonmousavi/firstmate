@@ -1717,6 +1717,84 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   pass "fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool"
 }
 
+# Keep task lookup local to the fixture; the real task store is never consulted.
+make_slice_brief_fixture() {
+  local fixture=$1
+  mkdir -p "$fixture/bin" "$fixture/home/config"
+  ln -s "$ROOT/bin/"*.sh "$fixture/bin/"
+  rm "$fixture/bin/fm-brief.sh" "$fixture/bin/fm-tasks-axi.sh"
+  cp "$ROOT/bin/fm-brief.sh" "$fixture/bin/fm-brief.sh"
+  cat > "$fixture/bin/fm-tasks-axi.sh" <<'EOF'
+#!/usr/bin/env bash
+[ "$#" -eq 3 ] && [ "$1" = show ] && [ "$3" = --full ] || exit 64
+case "$2" in
+  stamped-*)
+    printf '%s\n' '  body: "```text\nSLICE: example/ignored | Example | role=owner\n```\nSLICE: main/main-model | First chat | role=owner\nRULES: owner\nSCOPE: First chat\nORACLE: brief-slice\nSLICE: later/ignored | Later | role=owner"'
+    ;;
+  missing-*) printf '%s\n' '  body: "A task without a slice declaration."' ;;
+  fenced-*)
+    printf '%s\n' '  body: "An example only:\n```text\nSLICE: example/ignored | Example | role=owner\n```\n~~~text\nSLICE: another/ignored | Example | role=owner\n~~~"'
+    ;;
+  *) exit 64 ;;
+esac
+EOF
+  chmod +x "$fixture/bin/fm-tasks-axi.sh"
+  printf '%s\n' 'Keep the home additions last.' > "$fixture/home/config/brief-include.md"
+}
+
+test_task_slice_is_copied_into_ship_and_scout() {
+  local fixture kind id brief out rc section
+  fixture="$TMP_ROOT/slice-present"
+  make_slice_brief_fixture "$fixture"
+  for kind in ship scout; do
+    id="stamped-$kind"
+    if [ "$kind" = scout ]; then
+      out=$(FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --scout 2>&1); rc=$?
+    else
+      out=$(FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --mode no-mistakes 2>&1); rc=$?
+    fi
+    expect_code 0 "$rc" "$kind scaffold failed: $out"
+    brief="$fixture/home/data/$id/brief.md"
+    assert_grep '# Slice' "$brief" "$kind brief is missing its Slice section"
+    section=$(sed -n '/^# Slice$/,/^# Home brief additions$/p' "$brief")
+    [ "$section" = "$(printf '%s\n' '# Slice' 'SLICE: main/main-model | First chat | role=owner' '' '# Home brief additions')" ] \
+      || fail "$kind brief did not copy only the first unfenced declaration before home additions"
+    assert_no_grep 'example/ignored' "$brief" "$kind brief copied a fenced declaration"
+    assert_no_grep 'later/ignored' "$brief" "$kind brief copied a later declaration"
+    section=$(sed -n "/^## Captain's intent$/,/^## Firstmate spec$/p" "$brief")
+    [ "$section" = "$(printf '%s\n' "## Captain's intent" '{TASK}' '' '## Firstmate spec')" ] \
+      || fail "$kind scaffold changed the intent placeholder while copying Slice identity"
+    assert_not_contains "$out" 'note: no SLICE line' "$kind stamped task unexpectedly reported a missing declaration"
+  done
+  pass "fm-brief.sh: ship and scout copy the first unfenced task Slice before home additions"
+}
+
+test_missing_or_fenced_task_slice_is_not_copied() {
+  local fixture kind task id brief stderr rc
+  fixture="$TMP_ROOT/slice-missing"
+  make_slice_brief_fixture "$fixture"
+  for task in missing fenced; do
+    for kind in ship scout; do
+      id="$task-$kind"
+      stderr="$fixture/$id.stderr"
+      if [ "$kind" = scout ]; then
+        FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --scout >/dev/null 2>"$stderr"; rc=$?
+      else
+        FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --mode no-mistakes >/dev/null 2>"$stderr"; rc=$?
+      fi
+      expect_code 0 "$rc" "$id scaffold must still succeed without a declaration"
+      brief="$fixture/home/data/$id/brief.md"
+      assert_no_grep '# Slice' "$brief" "$id brief invented a Slice section"
+      [ "$(cat "$stderr")" = "note: no SLICE line in $id's task body" ] \
+        && [ "$(wc -l < "$stderr" | tr -d ' ')" = 1 ] \
+        || fail "$id must emit exactly one missing-SLICE stderr note"
+    done
+  done
+  pass "fm-brief.sh: absent and fenced-only Slice declarations add no section and emit one note"
+}
+
+test_task_slice_is_copied_into_ship_and_scout
+test_missing_or_fenced_task_slice_is_not_copied
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header

@@ -466,6 +466,20 @@ write_autolaunch_record() {
   fi
 }
 
+# Copy the task body's first SLICE line outside fences into the brief, for the spawn gate.
+append_slice_identity() {
+  local line
+  line=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" --full 2>/dev/null | python3 -c '
+import json,re,sys
+m=re.search(r"(?m)^  body: (.*)$",sys.stdin.read());b=(m[1] if m else "").strip();b=json.loads(b) if b[:1]=="\"" else b;f=0
+for l in b.splitlines():
+  if re.match(r"\s*(```|~~~)",l):f=not f
+  elif not f and re.match(r"\s*(#{1,6}\s+)?([-*]\s+)?(\*\*)?SLICE(\*\*)?:",l):print(l.strip());break
+') || line=
+  [ -n "$line" ] || { echo "note: no SLICE line in $ID's task body" >&2; return 0; }
+  printf '\n# Slice\n%s\n' "$line" >> "$BRIEF"
+}
+
 # Append the include as the last section of a ship or scout scaffold.
 append_brief_include() {
   [ -n "$BRIEF_INCLUDE_BODY" ] || return 0
@@ -796,6 +810,7 @@ If the command refuses, report the refusal to firstmate and stop rather than byp
 When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
+append_slice_identity
 append_brief_include
 write_autolaunch_record
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
@@ -879,6 +894,7 @@ A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agen
 
 $DOD
 EOF
+append_slice_identity
 append_brief_include
 write_autolaunch_record
 if [ "$PR_TEXT" = manual ]; then
