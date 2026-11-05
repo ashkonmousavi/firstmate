@@ -712,7 +712,7 @@ FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited
 # noun alone is not a directive. Classification sets one_way=1 at creation;
 # the record schema above owns its resolution semantics.
 FM_PENDING_REPLY_NOTICE_BODY_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)no[[:space:]]+(reply|action)([[:space:]]+is)?[[:space:]]+needed([[:space:]]+on[[:space:]]+your[[:space:]]+side)?[[:space:]]*([.!]([[:space:]]|$)|\n|$)'
-FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+updated[[:space:]]+to[[:space:]])'
+FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+(was[[:space:]]+)?updated[[:space:]]+to[[:space:]])'
 FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[[:punct:]][[:space:]]*|\n[[:space:]]*)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[^[:alnum:]_])((please|and|then)[[:space:]]+(report|reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(report|reply|respond)|(when[[:space:]]+ready|you[[:space:]]+should|after[[:space:]]+the[[:space:]]+check)[[:space:]]+report|report[[:space:]]+back|reply[[:space:]]+with|send[[:space:]]+me)([[:space:][:punct:]]|$)'
 fm_pending_reply_text_is_notice() {  # <request-text>
   local text=$1
