@@ -2059,6 +2059,16 @@ The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master
 When it yields no result, the admission library reads the policy's `projects` array: an unlisted project bypasses in every mode, while a listed project or an unreadable projects list launches with a notice in `observe` and refuses in any other mode.
 `fm_spawn_slice_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns this admission step.
 
+## Duplicate-builder admission
+
+Before any worktree, task record or lease exists, a fresh ship spawn reads the project's forge and refuses when an open pull request already carries the task, printing each such pull request's URL.
+A pull request carries the task when its head is the task's branch, or when its body names the task id on a `SLICE:` or `Task:` line outside fenced blocks; a prose mention does not count, and closed or merged pull requests never count.
+A forge that cannot be read, answers too slowly (`FM_SPAWN_FORGE_TIMEOUT`, 30 seconds by default) or returns a list that may be incomplete refuses the spawn as UNKNOWN rather than launching a second builder blind.
+`--continue-pr <N>` attaches the fresh spawn to open pull request N on the task's branch instead of refusing: the worker's copy starts at that pull request's head, and `continue_pr=` is recorded in the task record.
+`--no-forge-check <reason>` skips the read, and the reason is recorded as `forge_check_skipped=`.
+Relaunches, scouts, secondmates and `local-only` ships do not read the forge; a `forge=gerrit` or `forge=external` project skips the read with a notice, and a project with no forge origin skips it silently.
+[`bin/fm-open-pr-lookup.py`](../bin/fm-open-pr-lookup.py) owns which forge is read and what counts as carrying the task, and `fm_spawn_duplicate_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns the refusal.
+
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
@@ -3590,6 +3600,8 @@ FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
+FM_SPAWN_FORGE_TIMEOUT=30 # duplicate-builder admission: seconds each forge read may take before a fresh ship spawn refuses as UNKNOWN
+FM_OPEN_PR_LOOKUP=        # duplicate-builder admission lookup program (test seam); unset means bin/fm-open-pr-lookup.py
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds

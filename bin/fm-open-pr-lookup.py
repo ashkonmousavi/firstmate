@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""List the open pull requests that already carry a ship task, for bin/fm-spawn.sh.
+
+usage: fm-open-pr-lookup.py --forge <none|forgejo|gerrit|external> --origin <url>
+                            --branch <branch> --task-id <id>
+                            [--timeout <seconds>] [--github-hosts <file>]
+
+Prints one JSON object on stdout and exits 0 when the answer is known, 3 when
+it is not, and 2 on a usage error:
+  {"state": "ok", "provider": P, "prs": [{"number", "url", "branch", "head", "why"}]}
+  {"state": "skip", "reason": R, "notice": N}      no forge can hold a pull request here
+  {"state": "unknown", "provider": P, "error": E}  the forge could not be read
+
+A pull request carries the task when it is open and either its head branch is
+<branch> ("why" holds "branch") or its body names <id> on a SLICE line
+(SLICE: <home>/<id> | ...) or a Task line (Task:, Task-ID:, Task id:), outside
+fenced code blocks ("why" holds "body"). Any other mention of the id, such as
+"blocked by <id>" in prose, does not count. Closed and merged pull requests
+never count.
+
+Which forge is read comes from the project's registered binding
+(bin/fm-project-mode.sh --forge) and its origin URL:
+  forge=none     origin host github.com or a host listed in config/github-hosts
+                 reads GitHub through gh; host gitlab.com or a host with a
+                 "gitlab" label reads GitLab through glab; any other host is
+                 unknown, because nothing says which forge serves it.
+  forge=forgejo  reads Forgejo through "tea api" with the one tea login
+                 registered for the origin host (bin/fm-pr-lib.sh fm_pr_forgejo_login).
+  forge=gerrit, forge=external
+                 skip with a notice: neither publishes a pull request a second
+                 builder would push to.
+  no origin, or a local-path or file: origin
+                 skip with no notice: there is no forge to hold a pull request.
+Every forge call runs under --timeout (default 30 s). A missing tool, a
+timeout, a nonzero exit, output that is not the expected JSON, and a list that
+reaches its page limit are all unknown, never an empty list.
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+
+UNKNOWN_EXIT = 3
+LIST_LIMIT = 100
+FORGEJO_PAGE = 50
+FORGEJO_PAGES = 20
+SCP_ORIGIN = re.compile(r'^(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+):(?!//)(.+)$')
+URL_ORIGIN = re.compile(r'^(https?|ssh|git)://(?:[^@/\s]+@)?(\[[^\]]+\]|[^:/\s]+)(?::\d+)?/(.+)$')
+FENCE = re.compile(r'^\s*(```|~~~)')
+DECOR = re.compile(r'^\s*(?:#{1,6}\s+)?(?:[-*+]\s+)?(?:\*\*|__)?')
+SLICE_LINE = re.compile(r'SLICE(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|]+)')
+TASK_LINE = re.compile(r'(?i)task(?:[- ]id)?(?:\*\*|__)?:(?:\*\*|__)?\s*`?([^\s`|,;]+)')
+
+
+class Unknown(Exception):
+    pass
+
+
+def emit(obj, code=0):
+    print(json.dumps(obj, sort_keys=True))
+    sys.exit(code)
+
+
+def parse_origin(origin):
+    """(host, path) of a forge origin, or None for no origin or a local one."""
+    origin = origin.strip()
+    if not origin or origin.startswith(('/', 'file:')):
+        return None
+    match = URL_ORIGIN.match(origin) or SCP_ORIGIN.match(origin)
+    if not match:
+        return None
+    host, path = match.groups()[-2:]
+    path = path.strip('/')
+    if path.endswith('.git'):
+        path = path[:-4]
+    return host.lower(), path
+
+
+def github_hosts(path):
+    try:
+        with open(path) as handle:
+            return {line.strip().lower() for line in handle if line.strip()}
+    except OSError:
+        return set()
+
+
+def names_task(body, task_id):
+    """True when a SLICE or Task line outside fences names task_id."""
+    fenced = False
+    for raw in (body or '').splitlines():
+        if FENCE.match(raw):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        line = DECOR.sub('', raw)
+        for pattern in (SLICE_LINE, TASK_LINE):
+            match = pattern.match(line)
+            if match:
+                value = match.group(1).rstrip('.,;:')
+                value = value.rsplit('/', 1)[-1].rsplit(':', 1)[-1]
+                if value == task_id:
+                    return True
+    return False
+
+
+def run(cmd, timeout, env=None):
+    try:
+        done = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                              env=env, stdin=subprocess.DEVNULL)
+    except FileNotFoundError:
+        raise Unknown(f'{cmd[0]} is not on PATH')
+    except subprocess.TimeoutExpired:
+        raise Unknown(f'{cmd[0]} did not answer within {timeout} s')
+    if done.returncode != 0:
+        tail = (done.stderr or done.stdout).strip().splitlines()
+        raise Unknown(f'{cmd[0]} exited {done.returncode}' + (f': {tail[-1][:200]}' if tail else ''))
+    try:
+        return json.loads(done.stdout)
+    except ValueError:
+        raise Unknown(f'{cmd[0]} did not print JSON')
+
+
+def records(value, cmd, fields):
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise Unknown(f'{cmd} did not print a list of pull requests')
+    for item in value:
+        for field, kind in fields:
+            if not isinstance(item.get(field), kind):
+                raise Unknown(f'{cmd} printed a pull request without {field}')
+    return value
+
+
+def github(host, path, branch, task_id, timeout):
+    env = dict(os.environ)
+    repo = path if host == 'github.com' else f'{host}/{path}'
+    if host != 'github.com':
+        env['GH_HOST'] = host
+    fields = 'number,url,headRefName,headRefOid,body,state'
+    found = []
+    for extra in (['--head', branch], ['--search', f'"{task_id}" in:body']):
+        cmd = ['gh', 'pr', 'list', '-R', repo, '--state', 'open', *extra, '--json', fields, '-L', str(LIST_LIMIT)]
+        items = records(run(cmd, timeout, env), 'gh pr list',
+                        [('number', int), ('url', str), ('headRefName', str)])
+        if len(items) >= LIST_LIMIT:
+            raise Unknown(f'gh pr list reached its limit of {LIST_LIMIT}; the list may be incomplete')
+        for item in items:
+            if str(item.get('state', 'OPEN')).upper() != 'OPEN':
+                continue
+            found.append((item['number'], item['url'], item['headRefName'],
+                          item.get('headRefOid') or '', item.get('body') or ''))
+    return found
+
+
+def gitlab(host, path, branch, task_id, timeout):
+    env = dict(os.environ, GITLAB_HOST=host)
+    repo = f'https://{host}/{path}'
+    found = []
+    for extra in (['--source-branch', branch], ['--search', task_id]):
+        cmd = ['glab', 'mr', 'list', '-R', repo, *extra, '-F', 'json', '-P', str(LIST_LIMIT)]
+        items = records(run(cmd, timeout, env), 'glab mr list',
+                        [('iid', int), ('web_url', str), ('source_branch', str)])
+        if len(items) >= LIST_LIMIT:
+            raise Unknown(f'glab mr list reached its limit of {LIST_LIMIT}; the list may be incomplete')
+        for item in items:
+            if str(item.get('state', 'opened')) != 'opened':
+                continue
+            found.append((item['iid'], item['web_url'], item['source_branch'],
+                          item.get('sha') or '', item.get('description') or ''))
+    return found
+
+
+def forgejo_login(host, timeout):
+    logins = run(['tea', 'login', 'list', '--output', 'json'], timeout)
+    if not isinstance(logins, list):
+        raise Unknown('tea login list did not print a list')
+    names = []
+    for login in logins:
+        if not isinstance(login, dict) or not isinstance(login.get('name'), str) or not login['name']:
+            continue
+        url = login.get('url') if isinstance(login.get('url'), str) else ''
+        bare = re.sub(r':[0-9]+$', '', re.sub(r'^.*@', '', re.sub(r'[/?#].*$', '', re.sub(r'^[A-Za-z][A-Za-z0-9+.-]*://', '', url))))
+        if bare.lower() == host:
+            names.append(login['name'])
+    if len(names) != 1:
+        raise Unknown(f'tea has {len(names)} logins for {host}; exactly one is needed')
+    return names[0]
+
+
+def forgejo(host, path, branch, task_id, timeout):
+    login = forgejo_login(host, timeout)
+    found = []
+    for page in range(1, FORGEJO_PAGES + 1):
+        cmd = ['tea', 'api', '--login', login, '--repo', path,
+               f'/repos/{{owner}}/{{repo}}/pulls?state=open&limit={FORGEJO_PAGE}&page={page}']
+        items = run(cmd, timeout)
+        if not isinstance(items, list):
+            raise Unknown('tea api did not print a list of pull requests')
+        for item in items:
+            head = item.get('head') if isinstance(item, dict) else None
+            if not isinstance(item, dict) or not isinstance(item.get('number'), int) \
+                    or not isinstance(item.get('html_url'), str) or not isinstance(head, dict) \
+                    or not isinstance(head.get('ref'), str):
+                raise Unknown('tea api printed a pull request without number, html_url or head.ref')
+            if item.get('state', 'open') != 'open':
+                continue
+            found.append((item['number'], item['html_url'], head['ref'], head.get('sha') or '', item.get('body') or ''))
+        if len(items) < FORGEJO_PAGE:
+            return found
+    raise Unknown(f'more than {FORGEJO_PAGE * FORGEJO_PAGES} open pull requests; the list may be incomplete')
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument('--forge', required=True, choices=('none', 'forgejo', 'gerrit', 'external'))
+    parser.add_argument('--origin', required=True)
+    parser.add_argument('--branch', required=True)
+    parser.add_argument('--task-id', required=True)
+    parser.add_argument('--timeout', type=float, default=30.0)
+    parser.add_argument('--github-hosts', default='')
+    args = parser.parse_args(argv)
+    if args.forge in ('gerrit', 'external'):
+        emit({'state': 'skip', 'reason': f'forge={args.forge}',
+              'notice': f'forge={args.forge} publishes no pull request a second builder would push to'})
+    origin = parse_origin(args.origin)
+    if origin is None:
+        emit({'state': 'skip', 'reason': 'no forge origin', 'notice': ''})
+    host, path = origin
+    if args.forge == 'forgejo':
+        provider, reader = 'forgejo', forgejo
+    elif host == 'github.com' or host in github_hosts(args.github_hosts):
+        provider, reader = 'github', github
+    elif host == 'gitlab.com' or 'gitlab' in host.split('.'):
+        provider, reader = 'gitlab', gitlab
+    else:
+        emit({'state': 'unknown', 'provider': '',
+              'error': f'origin host {host} is neither github.com, a config/github-hosts host, nor a GitLab host'},
+             UNKNOWN_EXIT)
+    try:
+        rows = reader(host, path, args.branch, args.task_id, args.timeout)
+    except Unknown as err:
+        emit({'state': 'unknown', 'provider': provider, 'error': str(err)}, UNKNOWN_EXIT)
+    prs = {}
+    for number, url, head_branch, head, body in rows:
+        why = []
+        if head_branch == args.branch:
+            why.append('branch')
+        if names_task(body, args.task_id):
+            why.append('body')
+        if not why:
+            continue
+        entry = prs.setdefault(number, {'number': number, 'url': url, 'branch': head_branch, 'head': head, 'why': []})
+        entry['why'] = sorted(set(entry['why']) | set(why))
+    emit({'state': 'ok', 'provider': provider, 'prs': [prs[n] for n in sorted(prs)]})
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

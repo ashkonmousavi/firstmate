@@ -132,6 +132,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # protocol stub. Capacity regressions supply their own explicit activity facts.
 export FM_ACTIVITY_READER="$ROOT/tests/fixtures/activity.sh"
 
+# Duplicate-builder admission never reaches a real forge from the suite; its own
+# regression points this back at bin/fm-open-pr-lookup.py with a fake gh.
+export FM_OPEN_PR_LOOKUP="$ROOT/tests/fixtures/open-pr-lookup.sh"
+
 # Spawn fixtures use deterministic Linux memory facts, including on macOS.
 # Admission regressions explicitly override this test-only reader input.
 export FM_CAPACITY_MEMINFO=${FM_CAPACITY_MEMINFO:-$ROOT/tests/captures/capacity-meminfo}

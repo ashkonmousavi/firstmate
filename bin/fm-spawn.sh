@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--continue-pr <N> | --no-forge-check <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
@@ -62,6 +62,15 @@
 #   base_branch= in state/<id>.meta, which a relaunch reuses and later review and
 #   cleanup read; it is refused on secondmates and relaunches, and without it
 #   nothing changes.
+#   A fresh ship spawn first reads the project's forge and refuses, naming each
+#   URL, when an open pull request already carries the task (its head is the
+#   task's branch, or its body names the task on a SLICE or Task line); a forge
+#   it cannot read refuses as UNKNOWN. --continue-pr <N> attaches to open pull
+#   request N on the task's branch instead, starting the copy at its head and
+#   recording continue_pr=; --no-forge-check <reason> skips the read and
+#   records forge_check_skipped=. Both are refused on relaunches, scouts,
+#   secondmates and batches (docs/configuration.md "Duplicate-builder
+#   admission"; bin/fm-open-pr-lookup.py owns the read).
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -914,6 +923,9 @@ UPSTREAM_CONSENT_SET=0
 TRACEPARENT_SET=0
 QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
+SPAWN_CONTINUE_PR=
+SPAWN_NO_FORGE_CHECK=
+DUPLICATE_FLAG_SET=0
 RELAUNCH=0
 # Opt-in only: exact-resume presentation-order lock waits instead of refusing.
 # Absent/unset keeps upstream refuse-on-contention. See header.
@@ -973,6 +985,14 @@ for a in "$@"; do
     quota-override)
       QUOTA_OVERRIDE=$a
       QUOTA_OVERRIDE_SET=1
+      ;;
+    continue-pr)
+      SPAWN_CONTINUE_PR=$a
+      DUPLICATE_FLAG_SET=1
+      ;;
+    no-forge-check)
+      SPAWN_NO_FORGE_CHECK=$a
+      DUPLICATE_FLAG_SET=1
       ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
@@ -1050,6 +1070,16 @@ for a in "$@"; do
     QUOTA_OVERRIDE=${a#--quota-override=}
     QUOTA_OVERRIDE_SET=1
     ;;
+  --continue-pr) want_value=continue-pr ;;
+  --continue-pr=*)
+    SPAWN_CONTINUE_PR=${a#--continue-pr=}
+    DUPLICATE_FLAG_SET=1
+    ;;
+  --no-forge-check) want_value=no-forge-check ;;
+  --no-forge-check=*)
+    SPAWN_NO_FORGE_CHECK=${a#--no-forge-check=}
+    DUPLICATE_FLAG_SET=1
+    ;;
   *) POS+=("$a"); continue ;;
   esac
   SPAWN_OPTIONS+=("$a")
@@ -1058,6 +1088,38 @@ done
   echo "error: --$want_value requires a value" >&2
   exit 1
 }
+# --continue-pr and --no-forge-check answer the duplicate-builder check of one
+# fresh ship spawn (fm_spawn_duplicate_admit), so each is refused anywhere that
+# check does not run and the two are exclusive.
+if [ "$DUPLICATE_FLAG_SET" -eq 1 ]; then
+  if [ -n "$SPAWN_CONTINUE_PR" ] && [ -n "$SPAWN_NO_FORGE_CHECK" ]; then
+    echo "error: --continue-pr and --no-forge-check are exclusive: attach to the open pull request, or skip the check with a reason" >&2
+    exit 1
+  fi
+  case $SPAWN_CONTINUE_PR in
+  '') ;;
+  0 | *[!0-9]*)
+    echo "error: --continue-pr takes a pull request number (got '$SPAWN_CONTINUE_PR')" >&2
+    exit 1
+    ;;
+  esac
+  if [ -z "$SPAWN_CONTINUE_PR" ]; then
+    case $SPAWN_NO_FORGE_CHECK in
+    *[[:cntrl:]]* | '' | *[![:print:]]*)
+      echo "error: --no-forge-check needs a one-line reason; it is recorded in the task record" >&2
+      exit 1
+      ;;
+    esac
+    [ -n "$(printf '%s' "$SPAWN_NO_FORGE_CHECK" | tr -d '[:space:]')" ] || {
+      echo "error: --no-forge-check needs a one-line reason; it is recorded in the task record" >&2
+      exit 1
+    }
+  fi
+  if [ "$RELAUNCH" -eq 1 ] || [ "$KIND" != ship ]; then
+    echo "error: --continue-pr and --no-forge-check apply only to a fresh ship spawn; a relaunch keeps its own pull request, and scouts and secondmates open none" >&2
+    exit 1
+  fi
+fi
 [ "$HARNESS_SET" -eq 0 ] || [ -n "$HARNESS_ARG" ] || {
   echo "error: --harness requires a non-empty value" >&2
   exit 1
@@ -2334,6 +2396,10 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   [ "$BRANCH_PREFIX_SET" -eq 0 ] || shared_args+=(--branch-prefix "$BRANCH_PREFIX")
   [ "$BASE_BRANCH_SET" -eq 0 ] || shared_args+=(--base-branch "$BASE_BRANCH")
   [ "$HERDR_RESUME_LOCK_WAIT" -eq 0 ] || shared_args+=(--herdr-resume-lock-wait)
+  if [ "$DUPLICATE_FLAG_SET" -eq 1 ]; then
+    echo "error: --continue-pr and --no-forge-check name one task's pull request; spawn that task explicitly, not in a batch" >&2
+    exit 2
+  fi
   for pair in "${POS[@]}"; do
     case "$pair" in
     *=*) : ;;
@@ -3864,6 +3930,7 @@ fi
 # any brief render, endpoint, worktree, record, or backlog move exists, so the
 # deferral leaves the task exactly as queued as it was. A relaunch replaces a
 # worker that already holds a place, and a secondmate is not a worker.
+fm_spawn_duplicate_admit || exit 1
 SPAWN_PROJECT_CAPACITY=
 SPAWN_PROJECT_CAPACITY_ANY=
 # A released relaunch allocates a new copy, so it is admitted exactly like a
@@ -4269,6 +4336,32 @@ freshen_spawn_worktree_base() { # <worktree> <base-branch> <project> <mode>; 2 w
     echo "error: pooled worktree '$worktree' is at '${actual:-unknown}', not current '$target' ('$expected'); refusing to launch" >&2
     return 1
   fi
+  [ -z "${SPAWN_CONTINUE_PR:-}" ] || spawn_attach_continue_pr "$worktree"
+}
+
+# --continue-pr (fm_spawn_duplicate_admit): start the fresh copy at the open
+# pull request's head instead of the base, so the worker's branch continues it
+# and its push is a fast-forward. The forge-reported head, when known, must be
+# what origin's branch holds.
+spawn_attach_continue_pr() { # <worktree>
+  local worktree=$1 tip
+  if ! git -C "$worktree" fetch --quiet origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"; then
+    echo "error: could not fetch origin/$BRANCH for --continue-pr $SPAWN_CONTINUE_PR; refusing to launch" >&2
+    return 1
+  fi
+  tip=$(git -C "$worktree" rev-parse --verify --quiet "refs/remotes/origin/$BRANCH^{commit}" 2>/dev/null) || {
+    echo "error: origin/$BRANCH is not a commit for --continue-pr $SPAWN_CONTINUE_PR; refusing to launch" >&2
+    return 1
+  }
+  if [ -n "$SPAWN_CONTINUE_PR_HEAD" ] && [ "$tip" != "$SPAWN_CONTINUE_PR_HEAD" ]; then
+    echo "error: pull request $SPAWN_CONTINUE_PR_URL has head $SPAWN_CONTINUE_PR_HEAD on the forge but origin/$BRANCH is at $tip; retry once they agree" >&2
+    return 1
+  fi
+  if ! git -C "$worktree" reset --hard "$tip" >/dev/null; then
+    echo "error: could not reset pooled worktree '$worktree' to origin/$BRANCH for --continue-pr $SPAWN_CONTINUE_PR" >&2
+    return 1
+  fi
+  echo "notice: $ID continues pull request ${SPAWN_CONTINUE_PR_URL:-$SPAWN_CONTINUE_PR}: its copy starts at $tip, the head of origin/$BRANCH" >&2
 }
 
 herdr_projection_meta_field_exact() { # <meta> <key>
@@ -7125,6 +7218,8 @@ preserve_relaunch_meta() {
   echo "tasktmp=$TASK_TMP"
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   [ -z "$UPSTREAM_CONSENT" ] || echo "upstream_consent=$UPSTREAM_CONSENT"
+  [ -z "$SPAWN_CONTINUE_PR" ] || echo "continue_pr=${SPAWN_CONTINUE_PR_URL:-$SPAWN_CONTINUE_PR}"
+  [ -z "$SPAWN_NO_FORGE_CHECK" ] || echo "forge_check_skipped=$SPAWN_NO_FORGE_CHECK"
   # Read by bin/fm-dod-lib.sh's ready-report gate; absent on every other forge.
   [ "$EXTERNAL_REVIEW" = 0 ] || echo "forge=external"
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_remote=$EXTERNAL_BACKUP_REMOTE"
