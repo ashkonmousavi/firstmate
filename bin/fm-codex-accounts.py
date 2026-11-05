@@ -2,19 +2,23 @@
 """Opt-in Codex folders: selection, quota, duplicate guard and watcher checks.
 
 Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register,preflight} --help
-The config is one literal absolute folder per line, no comments or empty lines.
+The config is one literal absolute folder per line, in preference order, with
+no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
 and auth symlinks/hardlinks refuse. The guard compares file metadata and the
 runner's reported account identity, never reading credential contents itself.
-Missing auth is allowed in the list but cannot win. The runner's local status
+Missing auth is allowed in the list but requires repair unless quota authorizes
+skipping that folder. The runner's local status
 is not a network validation.
 
 quota-axi >=0.1.66 --profile-only supplies one redacted reading per folder without
-refresh, cache or fallback. Unless config/quota-gate selects rank-only,
-applicable exhausted quota excludes a folder before
-fresh main weekly ranking; unknown ranks below measured, with lexical folder
-order breaking ties. All vendor output is
-captured; only allowlisted quota fields escape this process.
+refresh, cache or fallback. Applicable exhausted quota or measured runway below
+10800 seconds authorizes skipping a folder. The first quota-eligible folder must
+be launch-ready or selection refuses with a repair message, irrespective of percentage.
+Unknown/unavailable quota stays unknown and does not authorize fallback.
+Under config/quota-gate=rank-only, exhausted or short-runway folders remain
+eligible with a notice; configured preference and repair refusals still apply.
+All vendor output is captured; only allowlisted quota fields escape this process.
 
 check is silent when healthy; six days since the newer of the sign-in file's
 write and the last successful maintain is a maintenance warning, not an expiry
@@ -27,6 +31,7 @@ it refuses conflicting destinations and never overwrites them.
 """
 
 import argparse
+from datetime import datetime
 from contextlib import contextmanager, suppress
 import hashlib
 import json
@@ -68,7 +73,7 @@ def folders(config):
         resolved.append(str(p.resolve()))
     if len(set(resolved)) != len(roots):
         raise ValueError("codex-accounts contains duplicate folders or aliases")
-    return sorted(resolved)
+    return resolved
 
 
 def guard(roots, codex):
@@ -281,48 +286,83 @@ def quota_usable(row, model, rank_only=False):
     scopes = {"all_models", "all_products"}
     if bare:
         scopes.update(("model:" + bare, "product:" + bare))
-    usable = not any(b["scope"] in scopes and (
-        b.get("runway", {}).get("status") == "exhausted_now" or
-        (b.get("status") == "known" and b.get("effectivePercentRemaining") == 0))
-        for b in row["quotaSemantics"]["effectiveAvailability"])
+    usable = True
+    for bound in row["quotaSemantics"]["effectiveAvailability"]:
+        if bound["scope"] not in scopes:
+            continue
+        runway = bound.get("runway", {})
+        if runway.get("status") == "exhausted_now":
+            usable = False
+            break
+        if bound.get("status") != "known":
+            continue
+        if bound.get("effectivePercentRemaining") == 0:
+            usable = False
+            break
+        if runway.get("status") == "projected_exhaustion":
+            # Match the native launch gate: prefer an absolute end, otherwise
+            # anchor relative seconds to this folder's own reading clock.
+            end = timestamp(runway.get("projectedExhaustedAt"))
+            seconds = runway.get("usableRunwaySeconds")
+            generated = timestamp(row.get("generatedAt"))
+            if (end is None and generated is not None and type(seconds) in (int, float)
+                    and math.isfinite(seconds) and seconds >= 0):
+                end = generated + seconds
+            if end is not None and end - time.time() < 10800:
+                usable = False
+                break
     if not usable and rank_only:
-        print("notice: Codex account quota is exhausted; proceeding under config/quota-gate=rank-only", file=sys.stderr)
+        print("notice: Codex account quota is exhausted or below the three-hour runway horizon; proceeding under config/quota-gate=rank-only", file=sys.stderr)
     return usable or rank_only
 
 
+def timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.timestamp() if parsed.tzinfo is not None else None
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
 def preflight(roots, codex, rank_only=False):
-    guard(roots, codex)
-    if not any(signed_in(root, codex) and shared_ready(root) and quota_usable(reading(root), "", rank_only)
-               for root in roots):
-        raise ValueError("codex-accounts has no usable signed-in folder with shared configuration")
+    # Before a released copy/secondmate has its actual launch cwd, only universal
+    # quota can authorize skipping a folder. Do not guess its future model.
+    require_winner(snapshot(roots, codex, "", os.getcwd(), rank_only, defer_model=True))
 
 
-def snapshot(roots, codex, model, cwd, rank_only=False):
+def snapshot(roots, codex, model, cwd, rank_only=False, defer_model=False):
     guard(roots, codex)
     rows = []
+    candidate = None
     for root in roots:
         ready = signed_in(root, codex)
-        configured = ready and shared_ready(root)
-        launch_model = effective_model(root, codex, model, cwd) if configured else ""
-        row = reading(root) if ready else {"state": {"status": "unavailable"}, "windows": [],
-                                           "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
+        configured = shared_ready(root)
+        launch_model = (model or "") if defer_model or not (ready and configured) else effective_model(root, codex, model, cwd)
+        # A failed login/status/config check is not quota evidence. Read quota
+        # independently; missing/unavailable evidence cannot authorize fallback.
+        row = reading(root)
+        usable = quota_usable(row, launch_model, rank_only)
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
-                   model=launch_model, launchReady=configured and quota_usable(row, launch_model, rank_only))
+                   model=launch_model, launchReady=ready and configured and usable)
         rows.append(row)
-    usable = [r for r in rows if r["launchReady"]]
-    def rank(row):
-        weekly = row["windows"]
-        return weekly[0]["percentRemaining"] if len(weekly) == 1 else -1
-    # rows already have deterministic lexical order, including for equal room.
-    winner = max(usable, key=rank) if usable else None
-    return {"schemaVersion": 6, "providers": rows,
+        if candidate is None and usable:
+            candidate = row
+    winner = candidate if candidate and candidate["launchReady"] else None
+    repair = None
+    if candidate and not winner:
+        repair = ("codex-accounts preferred quota-eligible folder requires repair of sign-in, "
+                  "login-status read or shared configuration: " + candidate["accountLocator"]["path"] +
+                  "; no default fallback or account switch without quota authorization")
+    return {"schemaVersion": 6, "providers": rows, "selectionError": repair,
             "selectedRoot": winner["accountLocator"]["path"] if winner else None}
 
 
 def require_winner(data):
     if not data["selectedRoot"]:
-        raise ValueError("codex-accounts has no usable signed-in folder with config.toml, AGENTS.md and rules; no default fallback")
+        raise ValueError(data.get("selectionError") or "codex-accounts has no usable signed-in folder with config.toml, AGENTS.md and rules; no default fallback")
     return data["selectedRoot"]
 
 
@@ -406,6 +446,7 @@ def main():
             raise ValueError(f"Codex launch directory is unavailable: {cwd}")
         data = snapshot(roots, args.codex, args.model, cwd, rank_only(args.config))
         if args.folder:
+            require_winner(data)
             root = str(Path(args.folder).resolve())
             if not any(r["launchReady"] and r["accountLocator"]["path"] == root for r in data["providers"]):
                 raise ValueError("codex-accounts preselected folder is no longer usable; no fallback")

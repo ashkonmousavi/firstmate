@@ -88,15 +88,22 @@ fm_worktree_require_recorded_branch() { # <meta> <worktree>
 # Upgrade a process reservation to Treehouse's state-only durable lease. Unlike
 # interactive get, it survives shell exit without detaching/resetting the copy.
 # Existing durable leases are already protective and are never replaced.
-fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
-  local project=$1 worktree=$2 id=$3 slot pool root entry status leased lease
+# The check mode runs every refusal up to the lease without taking it.
+# A supplied status snapshot must belong to this root and the current protected
+# operation under the project lock; omitting it reads fresh status.
+fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id> [check] [status-json]
+  local project=$1 worktree=$2 id=$3 mode=${4:-} slot pool root entry status leased lease
   FM_TREEHOUSE_NEW_LEASE_ID=
   fm_treehouse_pool_slot "$project" "$worktree" || return 0
   slot=$(CDPATH='' cd -- "$worktree" && pwd -P) || return 1
   pool=$(dirname "$(dirname "$slot")")
   # --root is the parent of .treehouse; Treehouse appends that component.
   root=$(dirname "$(dirname "$pool")")
-  status=$(cd "$project" && treehouse --root "$root" status --json) || return 1
+  if [ "$#" -ge 5 ]; then
+    status=$5
+  else
+    status=$(cd "$project" && treehouse --root "$root" status --json) || return 1
+  fi
   entry=$(printf '%s\n' "$status" | jq -ce --arg path "$slot" '
     [.[] | select(.path == $path)] |
     if length == 1 then .[0] else error("slot identity unavailable") end') || return 1
@@ -107,6 +114,7 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
     echo "REFUSED: Treehouse v$FM_TREEHOUSE_VERSION with durable leases is required" >&2
     return 1
   }
+  [ "$mode" != check ] || return 0
   lease=$(cd "$project" && treehouse --root "$root" lease "$(basename "$(dirname "$slot")")" --lease-holder "$id" --json) || return 1
   [ "$(printf '%s\n' "$lease" | jq -er '.path')" = "$slot" ] || return 1
   # shellcheck disable=SC2034 # The allocating caller owns conditional rollback.
@@ -116,9 +124,14 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
 # Protect old process-only records BEFORE get can reset/reuse their slots.
 # The project lock serializes Firstmate allocation, promotion and cleanup.
 # No status word exempts a retained meta. Collisions refuse for reconciliation.
-fm_treehouse_protect_recorded_copies() { # <state> <project>
-  local state=$1 project=$2 state_dir meta path
-  local -a states
+# The check mode runs the same refusals without holding any copy.
+# Read one snapshot per root per invocation, selecting each slot by exact path.
+# Read every root before changing leases, so any status command failure holds
+# nothing; snapshots must never survive into a later invocation.
+fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
+  local state=$1 project=$2 mode=${3:-} state_dir meta path root index copy_index
+  local -a states roots snapshots metas paths snapshot_indexes
+  roots=() snapshots=() metas=() paths=() snapshot_indexes=()
   fm_local_firstmate_state_dirs "$state" || {
     echo "REFUSED: $FM_LOCAL_FIRSTMATE_ERROR; cannot protect retained copies" >&2
     return 1
@@ -136,10 +149,34 @@ fm_treehouse_protect_recorded_copies() { # <state> <project>
       path=$(fm_meta_get "$meta" worktree)
       fm_treehouse_pool_slot "$project" "$path" || continue
       fm_worktree_require_exclusive_record "$state" "$path" "$meta" || return 1
-      fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" || {
-        echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
-        return 1
-      }
+      path=$(CDPATH='' cd -- "$path" && pwd -P) || return 1
+      root=$(dirname "$(dirname "$(dirname "$(dirname "$path")")")")
+      index=0
+      while [ "$index" -lt "${#roots[@]}" ]; do
+        [ "${roots[$index]}" != "$root" ] || break
+        index=$((index + 1))
+      done
+      if [ "$index" -eq "${#roots[@]}" ]; then
+        roots[index]=$root
+        snapshots[index]=$(cd "$project" && treehouse --root "$root" status --json) || {
+          echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
+          return 1
+        }
+      fi
+      metas+=("$meta")
+      paths+=("$path")
+      snapshot_indexes+=("$index")
     done
+  done
+  copy_index=0
+  while [ "$copy_index" -lt "${#metas[@]}" ]; do
+    meta=${metas[$copy_index]}
+    path=${paths[$copy_index]}
+    index=${snapshot_indexes[$copy_index]}
+    fm_treehouse_hold_recorded_copy "$project" "$path" "$(basename "$meta" .meta)" "$mode" "${snapshots[$index]}" || {
+      echo "REFUSED: cannot durably protect retained copy $path ($meta); no new copy was acquired" >&2
+      return 1
+    }
+    copy_index=$((copy_index + 1))
   done
 }

@@ -7,7 +7,7 @@
 # safeguards: PR runs supersede within one PR while close main pushes keep only
 # the newest run, and every CI job carries a finite hang tripwire drawn from the
 # three-tier timeout policy that docs/fm-test-portable-shards.md "Timeouts"
-# owns (fast, normal, heavy) plus the named portable shard exception, so no job drifts back to a one-off number.
+# owns (fast, normal, heavy) plus the named parallel and serial shard exceptions, so no job drifts back to a one-off number.
 #
 # They also hold the outside pull request gate the maintainer approved in
 # DOP-167 (keep public CI within GitHub's 40-job limit): a PR from an author
@@ -334,7 +334,8 @@ puts YAML.load_file(ARGV[0]).fetch("jobs").fetch(ARGV[1]).fetch("timeout-minutes
 # one-off number the policy removed.
 FAST_TIER_JOBS='test-coverage invariants tests-timing-aggregate full-suite'
 NORMAL_TIER_JOBS='lint macos-stock-bash'
-SHARD_EXCEPTION_JOBS='tests-portable-parallel-1 tests-portable-parallel-2 tests-portable-serial'
+SHARD_EXCEPTION_JOBS='tests-portable-parallel-1 tests-portable-parallel-2'
+SERIAL_EXCEPTION_JOBS='tests-portable-serial'
 HEAVY_TIER_JOBS='tests-herdr tests-hc'
 
 # Print the one timeout every listed job shares; fail on any disagreement.
@@ -568,20 +569,20 @@ end
   pass "every ci.yml job carries a finite timeout"
 }
 
-# Every job sits in exactly one tier, and the workflow carries exactly four
-# distinct job-level timeouts: one per tier plus the named portable shard exception.
+# Every job sits in exactly one tier, and the workflow carries exactly five
+# distinct job-level timeouts: one per tier plus parallel and serial exceptions.
 test_every_job_belongs_to_exactly_one_timeout_tier() {
   local expected actual distinct
   # shellcheck disable=SC2086
-  expected=$(printf '%s\n' $FAST_TIER_JOBS $NORMAL_TIER_JOBS $SHARD_EXCEPTION_JOBS $HEAVY_TIER_JOBS | LC_ALL=C sort)
+  expected=$(printf '%s\n' $FAST_TIER_JOBS $NORMAL_TIER_JOBS $SHARD_EXCEPTION_JOBS $SERIAL_EXCEPTION_JOBS $HEAVY_TIER_JOBS | LC_ALL=C sort)
   [ "$(printf '%s\n' "$expected" | LC_ALL=C sort -u)" = "$expected" ] \
     || fail "a job is listed in more than one timeout tier:"$'\n'"$expected"
   actual=$(workflow_jobs | LC_ALL=C sort) || fail "could not list ci.yml jobs"
   [ "$actual" = "$expected" ] \
     || fail "ci.yml jobs and the timeout tiers disagree; every job must join one tier"$'\n'"workflow: $(printf '%s' "$actual" | tr '\n' ' ')"$'\n'"tiers: $(printf '%s' "$expected" | tr '\n' ' ')"
   distinct=$(for job in $expected; do job_timeout "$job"; done | LC_ALL=C sort -u | wc -l | tr -d ' ')
-  [ "$distinct" = 4 ] \
-    || fail "ci.yml must carry exactly four distinct job timeouts (fast, normal, portable shard exception, heavy), got $distinct"
+  [ "$distinct" = 5 ] \
+    || fail "ci.yml must carry exactly five distinct job timeouts (fast, normal, parallel shard, serial shard, heavy), got $distinct"
   pass "every ci.yml job belongs to one of the timeout tiers"
 }
 
@@ -610,7 +611,7 @@ test_normal_tier_shares_one_budget() {
   pass "normal tier jobs share one $normal minute budget"
 }
 
-# Portable shard exception: the portable parallel and serial test shards alone
+# Parallel shard exception: the portable parallel test shards alone
 # carry a 45-minute hang tripwire, because the fleet's measured shards outgrow
 # the normal tier.
 test_portable_shard_exception_is_45_minutes() {
@@ -620,6 +621,39 @@ test_portable_shard_exception_is_45_minutes() {
   [ "$shard" = 45 ] \
     || fail "the portable test shard jobs must be the 45-minute exception, got $shard"
   pass "portable test shard jobs carry the $shard minute exception"
+}
+
+# Replay the measured job wall times, including setup, from curated run
+# https://github.com/ashkonmousavi/firstmate/actions/runs/42006800062
+# on 2026-11-05 (Actions jobs API started_at/completed_at).
+# Shard 10's per-file log includes control-relaunch=900481ms,
+# teardown=719521ms and supervision-host-park=261858ms.
+# These independent measurements catch an undersized limit even when the
+# packing hints still predict less than twenty minutes.
+test_serial_shards_keep_fifteen_minutes_of_measured_margin() {
+  local timeout shard seconds margin
+  timeout=$(job_timeout tests-portable-serial) || fail "could not read serial job timeout"
+  case "$timeout" in ''|*[!0-9]*) fail "serial job timeout must be an integer" ;; esac
+  while read -r shard seconds; do
+    margin=$((timeout * 60 - seconds))
+    [ "$margin" -ge 900 ] \
+      || fail "serial shard $shard measured ${seconds}s leaves only ${margin}s; require 900s margin"
+  done <<'TIMINGS'
+1 1244
+2 2046
+3 1347
+4 2021
+5 1028
+6 1403
+7 2255
+8 1920
+9 1995
+10 2636
+11 1772
+12 1603
+TIMINGS
+  [ "$timeout" = 60 ] || fail "serial shard exception must stay bounded at 60 minutes, got $timeout"
+  pass "all twelve measured serial jobs retain at least fifteen minutes under a $timeout minute limit"
 }
 
 # Heavy tier: Herdr alone carries a job-level last-resort backstop above the
@@ -767,6 +801,7 @@ test_unrelated_label_never_masks_an_earlier_failure
 test_fork_skip_variables_are_opt_in
 test_timing_aggregate_still_runs_after_a_failed_lane
 test_every_job_has_a_finite_timeout
+test_serial_shards_keep_fifteen_minutes_of_measured_margin
 test_every_job_belongs_to_exactly_one_timeout_tier
 test_fast_tier_shares_one_short_tripwire
 test_normal_tier_shares_one_budget

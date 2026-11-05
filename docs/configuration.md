@@ -509,7 +509,7 @@ A pull-request lookup that fails is never met: the condition simply retries on t
 ### Dispatch, acceptance and cleanup
 
 When the automatic transition gate applies, dispatch pairs the In flight transition with creation of the task record ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
-Acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
+Ship acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion); [scout-completion](../.agents/skills/scout-completion/SKILL.md) owns standalone scout acceptance and scout-phase completion on parent rows.
 Under that gate, dispatch accepts only an unheld, unblocked Queued or In flight item in this home; a missing, Done, held, or dependency-blocked item is refused before any endpoint or local copy is created.
 
 [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) refuses `add --start` and its `create --start` alias.
@@ -943,6 +943,7 @@ The ordinary ready queue uses the same tester model admission and leaves step-ow
 For step-owned fresh launches, spawn records the action witness at its verified commit boundary before honoring deferred signals, including a preserved interrupted launch.
 An owned tester or reviewer without a runtime receives its saved current brief and prep before fresh dispatch of the same task, reopening its completed native record when needed.
 Required-check and review progression follows product work after the latest merge independently of walk bookkeeping.
+A PR response that cannot be decoded supplies no new facts and leaves any matching cached facts in place, allowing the rest of the step pass to continue.
 Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.
 Finding delivery requires the destination owner's active lease; observation leaves that delivery pending with its route recorded.
 
@@ -1174,7 +1175,7 @@ The [`fm-spawn.sh` header](../bin/fm-spawn.sh) owns the exact base rule, and the
 ## Gate defaults (.no-mistakes.yaml)
 
 The tracked [`.no-mistakes.yaml`](../.no-mistakes.yaml) sets `test.evidence.store_in_repo: true` and skips duplicate local lint with an explicit successful `commands.lint` command.
-Its `review.path_instructions` block owns finding deduplication, the report's conclusion on what named checks would miss, and the scope of later review rounds.
+Its `review.path_instructions` block owns finding deduplication, the report's conclusion on what named checks would miss, the scope of later review rounds, and the informational `RISKS:` policy for governance PR bodies.
 Hosted CI Lint 1, Lint 2, Lint 3, and Lint 4 run `bin/fm-lint.sh`, and the required Behavior portable parallel 1 check retains `tests/fm-pi-primary-types.test.sh`.
 Storing evidence in the repo publishes each run's test artifacts to the orphan `no-mistakes/evidence` branch and links them from the PR body, instead of keeping them on local disk under the no-mistakes home.
 
@@ -1657,24 +1658,31 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
 For T3 Code's account-selection limits, see [its backend contract](t3code-backend.md#active-limits).
 Without that file, existing ambient Codex behavior is unchanged.
-Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
+Each line names one literal absolute existing folder in preference order, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
 Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
 Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
-Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it excludes locally signed-in folders with shared configuration whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, including exhausted runway with an unknown remaining percentage.
-Among eligible folders, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
-Under rank-only, exhausted folders remain eligible with a notice; weekly ranking, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
+Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it may skip a folder only when applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now.
+The first folder not skipped must be locally signed in with required shared configuration present; otherwise launch refuses with a repair message instead of switching accounts.
+Weekly percentages do not change that preference.
+The horizon uses the absolute projected exhaustion time when available, otherwise the usable runway seconds anchored to that folder's reading time; exactly three hours remains eligible.
+A through-reset reading stays eligible, while missing, stale, unavailable or unknown quota remains unmeasured and does not by itself authorize switching to another account.
+An unavailable sign-in or missing required shared configuration cannot launch.
+If no folder is eligible, launch refuses.
+Under rank-only, exhausted and below-horizon folders remain eligible with a notice; configured preference, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
+Under quota enforcement, exhausted runway excludes an account even when its remaining percentage is unknown.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation or stopping a live secondmate.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion or below-horizon runway before allocation or stopping a live secondmate.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
-Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+Control-plane relaunch of an existing copy, a secondmate's home included, resolves folder and model in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.
 This is a home-wide Codex list, separate from the Claude and Pi pins below; it has no per-secondmate list override.
+It governs tasks launched through Firstmate, including advisor or review tasks dispatched as workers; an external review tool such as a separately running no-mistakes daemon owns its own account environment and does not consume this list.
 
 Use the `prepare` command in [`bin/fm-codex-accounts.py`](../bin/fm-codex-accounts.py) to link shared non-auth configuration into an existing folder before enabling it.
 Its help owns the exact commands and allowlist: configuration (including MCP definitions and project trust), instructions, rules and optional skills are shared; credentials, sessions, logs and caches remain account-local.
@@ -1974,7 +1982,7 @@ Install that reader before updating; missing or invalid activity evidence refuse
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
-Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 when full; the [relaunch transaction](agent-control.md#transactional-relaunch) owns refusal ordering and state preservation.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
@@ -1994,7 +2002,7 @@ The shared [`bin/fm-machine-resources.py`](../bin/fm-machine-resources.py) reade
 The capacity report's `headroom_kb` subtracts the fixed reserve from that same effective reading.
 Resource refusals retain physical free-seat counts, so free seats alone do not establish admission.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
-Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
+Resource verdict logging is best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns sampling exceptions, columns and the size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
@@ -2049,6 +2057,34 @@ When every place is held, `bin/fm-spawn.sh` launches nothing, creates no record,
 A malformed or unreadable file refuses every fresh ship or scout spawn until it is fixed, rather than guessing the intended limit, and so does a local home's state directory or task record that cannot be read while counting a capped project's holders.
 Firstmate cannot see which part of a worker's life uses the resource, so the limit applies to whole workers rather than individual resource operations, and the tightest resource every worker needs should decide it.
 [`bin/fm-project-capacity-lib.sh`](../bin/fm-project-capacity-lib.sh) owns the file format, what holds a place, and why concurrent spawns cannot both take the last one.
+
+## Slice admission (config/slicing.json)
+
+The optional local, gitignored `config/slicing.json` in a home turns on slice admission for fresh ship spawns of the projects it names.
+Its format, its `observe` and `enforce` modes, the catalogue it points at and the rollout order belong to the vertical-slicing skill's slice metadata contract (`references/contract.md`, "Activation and migration"), not to Firstmate.
+Before any worktree, task record or backlog move exists, `bin/fm-spawn.sh` runs that skill's validator `gate` on the task body, `data/<id>/brief.md` and, when present, `data/<id>/prep.md`.
+In `observe` mode a missing, invalid, unknown or conflicting `SLICE:` line prints a `notice:` naming the validator's reasons, and the ship launches.
+In `enforce` mode any nonzero gate result refuses the spawn with those reasons, including a malformed policy.
+A home without the file, scouts, secondmates and `--relaunch` recovery are not checked.
+The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master copy at `~/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py`.
+When it yields no result, the admission library reads the policy's `projects` array: an unlisted project bypasses in every mode, while a listed project or an unreadable projects list launches with a notice in `observe` and refuses in any other mode.
+`fm_spawn_slice_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns this admission step.
+
+## Duplicate-builder admission
+
+Before any worktree, task record or lease exists, a fresh ship spawn reads the project's forge and refuses when an open pull request already carries the task, printing each such pull request's URL.
+A pull request carries the task when its head is the task's branch, or when its body names the task id on a `SLICE:` or `Task:` line anywhere, including fenced code examples; a prose mention does not count, and closed or merged pull requests never count.
+A forge that cannot be read, answers too slowly (`FM_SPAWN_FORGE_TIMEOUT`, 30 seconds per call by default) or returns a list that may be incomplete refuses the spawn as UNKNOWN unless an explicit override below applies.
+`--continue-pr <N>` attaches the fresh spawn to open pull request N on the task's branch instead of refusing: the worker's copy starts at that pull request's head, and `continue_pr=` is recorded in the task record.
+When the forge is UNKNOWN, this option proceeds with a notice and fetches the task's branch without verifying the pull request or its head against the forge.
+It is refused in `local-only` mode and whenever the lookup reports no pull request forge to read.
+`--no-forge-check <reason>` skips the read, and the reason is recorded as `forge_check_skipped=`.
+An example that declares this exact task id can therefore refuse a spawn; review the printed pull request URL and use `--no-forge-check <reason>` when the declaration is only an example.
+Relaunches, scouts, secondmates and `local-only` ships do not read the forge; a `forge=gerrit` or `forge=external` project skips the read with a notice, and a project with no forge origin skips it silently.
+Scout promotion through [`bin/fm-promote.sh`](../bin/fm-promote.sh) does not run this check.
+The check runs after machine admission, so a deferred launch reads the forge only when retried with room available; a duplicate-builder refusal exits 1 rather than the deferral exit 75.
+The [`fm-spawn.sh` header](../bin/fm-spawn.sh) owns override argument requirements and restrictions, with regression coverage in [`tests/fm-spawn-duplicate-builder.test.sh`](../tests/fm-spawn-duplicate-builder.test.sh).
+[`bin/fm-open-pr-lookup.py`](../bin/fm-open-pr-lookup.py) owns which forge is read and what counts as carrying the task, and `fm_spawn_duplicate_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns the refusal.
 
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
@@ -2570,7 +2606,8 @@ The token is the thin registry form of no-mistakes' own keep-text option, [kunch
 The PR library reads `github-hosts` from `FM_CONFIG_OVERRIDE` when nonempty, otherwise from `$FM_HOME/config`, falling back when `FM_HOME` is unset or empty to `config/` under the library's own code root, captured when the library is sourced.
 `github.com` needs no line and is always accepted.
 Blank lines, `#` comments, and any other line authorize nothing: only a line equal to the host is a match, so the file cannot be made to allow more than it spells out.
-An absent, unreadable, or symlinked file authorizes no Enterprise hosts.
+For PR URL acceptance, an absent, unreadable, or symlinked file authorizes no Enterprise hosts.
+The [duplicate-builder lookup](../bin/fm-open-pr-lookup.py) also reads this list to select the GitHub reader for an origin host.
 
 GitHub pull request URLs are otherwise identical on every GitHub host, so a hostname's shape cannot show whether it is a GitHub host or a look-alike such as `github.com.evil`, and [`bin/fm-pr-lib.sh`](../bin/fm-pr-lib.sh)'s `fm_github_host_allowed` accepts an Enterprise host only when this file names it.
 That covers registration through `bin/fm-pr-check.sh`, the merge poll, `bin/fm-pr-merge.sh`, and the merge-outcome and teardown reads, which all carry the parsed host through `gh` and `gh-axi` via `GH_HOST`.
@@ -3580,6 +3617,8 @@ FM_ROOT_OVERRIDE=        # override firstmate repo root, tangle-guard target, an
 FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
+FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
+FM_SPAWN_FORGE_TIMEOUT=30 # duplicate-builder admission: seconds each forge read may take before a fresh ship spawn refuses as UNKNOWN
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds

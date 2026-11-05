@@ -1,0 +1,152 @@
+{
+  "scope": {
+    "base": "b438816c069315af6c555a23cd95f62426c01508",
+    "reviewed_head": "e62599c9bbf1c2ccf1c075185f63f46724c91d02",
+    "inspected_date": "2026-11-05",
+    "purpose": "S1 class-inventory handoff for fresh-ship slice admission; evidence only, with no runtime or rollout change.",
+    "requirement": "bin/fm-dod-lib.sh:465",
+    "contract_owner": "Installed vertical-slicing skill, references/contract.md, Activation and migration; docs/configuration.md, Slice admission, identifies that owner.",
+    "retained_output": "tests/captures/fm-spawn-slice-gate-review-output.txt"
+  },
+  "finding": {
+    "id": "S1",
+    "classification": "Validation handoff coverage gap, not a substantiated runtime defect.",
+    "invariant": "Every affected call path and compatibility axis has an executable regression or an inspected unaffected reason, with evidence limits retained for the next phase.",
+    "cause": "The branch added admission and regressions without retaining the required class inventory.",
+    "resolution": "Map the shared admission boundary, sibling paths, input and output representations, lifecycle transitions and compatibility axes here using the existing tests/captures inventory convention."
+  },
+  "regressions": {
+    "command": "FM_TEST_SLICE_VALIDATOR=/mnt/c/Users/Tegri/.codex/skills/vertical-slicing/scripts/slicing.py bash tests/fm-spawn-slice-gate.test.sh",
+    "interface": "bin/fm-spawn.sh with real fixture Git repositories, temporary home policy and catalogue, and a fake terminal/Treehouse boundary; no live agent launch.",
+    "oracle": "The accepted cut-3 intent and vertical-slicing Activation and migration contract require enforce refusal for configured fresh ships without a slice, observe delivery, and recovery/knowledge/supervisor/unconfigured bypasses; the recorded R1 decision preserves unlisted-project bypass even without a validator result.",
+    "cases": [
+      {
+        "test": "test_enforce_refuses_a_ship_without_a_slice_line",
+        "proves": "A listed fresh ship is refused with the validator reason, receives its home/project/kind/task/brief arguments, and publishes no task record.",
+        "rejects": "Admission omitted or refusal ignored at the real spawn caller."
+      },
+      {
+        "test": "test_enforce_admits_a_ship_with_a_slice_line_and_reads_its_prep",
+        "proves": "A declared slice launches and the executable validator receives the existing prep file as a second text input.",
+        "rejects": "Unconditional refusal or dropping the prep argument.",
+        "limit": "The stub accepts a declaration in either text; this is argument-wiring evidence, not proof of catalogue semantics or conflicting declarations."
+      },
+      {
+        "test": "test_observe_reports_and_launches",
+        "proves": "Missing-slice findings produce a notice and successful launch in observe.",
+        "rejects": "Enforcing an observe policy or silently skipping its validator."
+      },
+      {
+        "test": "test_unconfigured_scout_and_missing_validator",
+        "proves": "No policy and scout launches bypass the validator; a missing validator refuses a listed enforce ship and reports while launching in observe.",
+        "rejects": "Gating a scout/unconfigured home or silently admitting a listed enforce ship without its validator."
+      },
+      {
+        "test": "test_unlisted_projects_bypass_without_a_validator_result",
+        "proves": "For both absent validators and validators exiting 2 without JSON, project other launches and publishes a record under enforce, observe and invalid modes while projects lists only proj.",
+        "rejects": "The original R1 unconditional dependency-failure refusal for unlisted projects."
+      },
+      {
+        "test": "test_no_result_preserves_listed_and_unreadable_policy_refusals",
+        "proves": "A no-result validator reports in both modes; listed projects and null, string or non-string-member projects lists refuse enforce without a record and launch observe.",
+        "rejects": "Treating unreadable membership as an unconfigured bypass or weakening listed-project enforcement."
+      },
+      {
+        "test": "test_relaunch_does_not_consult_the_gate",
+        "proves": "After a fresh admitted ship establishes a nonempty validator invocation log, a relaunch with a rewritten brief lacking SLICE leaves the cleared invocation log empty and emits no slice-admission message.",
+        "rejects": "The reported surviving mutant that invokes slice admission during relaunch.",
+        "limit": "The relaunch exit is deliberately unconstrained; this proves no gate consultation, not successful endpoint recovery. The brief is generated fixture input, not implementation-source inspection."
+      },
+      {
+        "test": "test_installed_validator",
+        "proves": "The actual installed Python validator refuses missing-slice and malformed-policy enforce spawns, reports and launches observe, and launches an unlisted enforce project with a task record.",
+        "rejects": "Stub-only agreement masking an incompatible installed validator or a broken real-validator R1 bypass.",
+        "limit": "The suite capability-skips an unreadable validator; only the explicit installed-validator pass in the retained output counts as real-validator evidence."
+      }
+    ]
+  },
+  "axes": {
+    "call_paths": [
+      {
+        "paths": ["bin/fm-spawn.sh:3917", "bin/fm-spawn-admission-lib.sh:179"],
+        "inspection": "The single fm_spawn_slice_admit call follows brief admission and precedes launch-brief rendering, backend allocation, worktree acquisition, branch setup, record publication and backlog commit. Both refusal and success return to this caller; no harness/backend-specific slice caller exists.",
+        "regressions": ["test_enforce_refuses_a_ship_without_a_slice_line", "test_enforce_admits_a_ship_with_a_slice_line_and_reads_its_prep", "test_observe_reports_and_launches"],
+        "gap": "Refusal asserts no record; absence of branch/worktree/backlog mutation is established by inspected ordering, not separate side-effect assertions. Pre-existing admission locks and other admission checks are outside the slice guarantee."
+      },
+      {
+        "paths": ["bin/fm-spawn-admission-lib.sh:202 no-summary fallback"],
+        "inspection": "Missing/unreadable validators and unparseable/missing summaries converge on one fallback. It reads projects independently, bypasses only confirmed non-members, and otherwise applies observe versus non-observe behavior.",
+        "regressions": ["test_unconfigured_scout_and_missing_validator", "test_unlisted_projects_bypass_without_a_validator_result", "test_no_result_preserves_listed_and_unreadable_policy_refusals"],
+        "gap": "No-result fixtures use empty output/exit 2. Malformed JSON, malformed result objects and permission-denied validator files reach the same inspected boundary but are not separately exercised."
+      },
+      {
+        "paths": ["bin/fm-spawn.sh batch id=repo dispatch", "bin/fm-spawn-deferred.sh recorded-command retry"],
+        "inspection": "Batch dispatch re-executes fm-spawn.sh once per pair. Deferred retry executes the saved spawn argv; neither caches a slice verdict. A subsequent fresh attempt therefore rereads the current policy through the same admission boundary.",
+        "gap": "Batch aggregation and deferred scheduling are inspected, not executed by this focused suite."
+      },
+      {
+        "paths": ["bin/fm-spawn.sh --relaunch", "bin/fm-control.sh relaunch_admission_preflight", "bin/fm-control.sh retained and released-copy relaunch"],
+        "inspection": "The admission function returns before reading policy when RELAUNCH is 1. Control preflight sets RELAUNCH=1 and does not call slice admission; replacement spawn is passed --relaunch. Released-copy recovery uses the same relaunch flag.",
+        "regressions": ["test_relaunch_does_not_consult_the_gate"],
+        "gap": "Only direct retained relaunch is executed; control and released-copy routing are inspected. No claim of full relaunch success is made."
+      },
+      {
+        "paths": ["bin/fm-promote.sh existing scout-to-ship promotion"],
+        "inspection": "Promotion updates an existing worker and sends its ship instructions; it does not enter the fresh-spawn caller added here. This cut changes fresh spawn admission only.",
+        "gap": "Promotion is not exercised and gains no admission guarantee from these tests."
+      }
+    ],
+    "representations": {
+      "classes": ["home config/slicing.json", "exact project basename", "brief.md", "optional prep.md", "validator gate argv", "validator JSON state and reasons", "validator exit status", "notice/error stderr", "state/<id>.meta"],
+      "inspection": "Policy is always FM_HOME/config/slicing.json. PROJ_ABS basename is passed both to the gate and the fallback membership check. The original brief carries the task body; prep is appended only when it is a file. FM_SLICE_VALIDATOR overrides the installed skills-master default. JSON summary and exit status determine reporting/refusal; no backlog or record schema is changed.",
+      "gap": "Default validator-path resolution is inspected; the focused installed case uses an explicit path. Full SLICE grammar, role rules, conflicts, revision skew and catalogue validation belong to the external validator and are not exhaustively tested here."
+    },
+    "task_kinds_and_delivery": {
+      "classes": ["ship", "scout", "secondmate", "no-mistakes", "direct-PR", "local-only", "raw launch command"],
+      "inspection": "The shared boundary checks KIND=ship and RELAUNCH=0 only. Scouts and secondmates return before policy or validator access. Delivery mode and raw-command selection do not add a slice bypass for a fresh ship.",
+      "regressions": ["fresh direct-PR ship cases", "test_unconfigured_scout_and_missing_validator"],
+      "gap": "Secondmate, no-mistakes, local-only and raw launches are inspected at the shared guard, not separately executed."
+    },
+    "harnesses": {
+      "classes": ["claude", "codex", "opencode", "pi", "pi-signed", "grok", "kimi", "cursor", "gemini", "muse", "rovo", "omp", "agy", "devin", "commandcode", "polytoken", "cortex", "kiro"],
+      "inspection": "The harness surface is bin/fm-harness.sh and spawn launch selection. fm_spawn_slice_admit reads no HARNESS, vendor output or process identity and receives no harness-specific arguments; every selected fresh-ship launch reaches the same call before agent delivery.",
+      "gap": "Portable fixtures select codex but launch no real vendor agent. No per-vendor version or real-harness compatibility claim is made."
+    },
+    "backends": {
+      "classes": ["tmux", "herdr", "zellij", "orca", "cmux", "paseo", "rex", "t3code", "tern", "hc"],
+      "inspection": "FM_BACKEND_KNOWN and FM_BACKEND_SPAWN in bin/fm-backend.sh list these ten. Shared slice admission precedes their backend-specific endpoint/worktree allocation, including Orca-owned allocation. The function has no backend branch. codex-app is outside the known/spawn sets and gains no path here.",
+      "gap": "Only the fake tmux terminal and fake Treehouse boundary execute; no live endpoint or non-tmux launch is proved."
+    },
+    "platforms": {
+      "classes": ["Linux", "WSL Linux runtime", "macOS", "native Windows"],
+      "inspection": "Slice admission uses Bash, python3, basename and tail without a platform branch. Platform-dependent launch and terminal work remains downstream and unchanged. This cut adds no native Windows execution path.",
+      "gap": "The retained output identifies the local execution platform. macOS and separate-host parity are unexecuted; no native Windows proof is claimed."
+    },
+    "account_selection": {
+      "classes": ["ordinary account", "explicit worker-account pin", "provider/model/profile selection", "credential/quota refusal"],
+      "inspection": "Spawn resolves worker accounts before admission; slice admission reads no account, provider, model, credential or quota field. HOME affects only the default installed-validator path, while FM_HOME owns the policy and explicit FM_SLICE_VALIDATOR selects the tested installed validator. Every account that passes existing launch checks reaches the same admission call.",
+      "gap": "Fixtures isolate HOME and use ordinary selection. No login, credential, quota, alternate-account validator installation or provider call is exercised."
+    },
+    "lifecycle_transitions": {
+      "classes": ["queued to fresh dispatch", "fresh refusal remains undispatched", "observe notice to launch", "enforce success to launch", "unconfigured home/project to launch", "existing in-flight recovery", "released-copy recovery", "new follow-up task", "later enforce activation"],
+      "inspection": "Fresh retries and follow-up task IDs remain RELAUNCH=0 and receive current policy admission; retained/released recovery preserves RELAUNCH=1. A refused slice check exits before task publication/backlog commit. No home policy is edited or switched to enforce by this branch.",
+      "regressions": ["all fresh-spawn cases", "test_relaunch_does_not_consult_the_gate"],
+      "gap": "Backlog queue retention, concurrent policy changes, private rollout receipts and other homes are not executed here; enforcement activation remains a separate per-home decision."
+    }
+  },
+  "live_validation_handoff": {
+    "owner": "Outer executor's designated validation phase; this review neither controls a pipeline nor runs other phases.",
+    "guards": [
+      {
+        "command": "FM_HARNESS_LIVENESS_DRIFT=1 bash tests/fm-harness-liveness-drift-live-e2e.test.sh",
+        "scope": "Existing real installed-harness identity/liveness guard; unchanged and not required to interpret the slice validator protocol."
+      },
+      {
+        "command": "bash tests/fm-control-herdr-smoke.test.sh",
+        "scope": "Existing real Herdr lifecycle guard; unchanged and not proof of slice admission or a real vendor agent launch."
+      }
+    ],
+    "status": "Live guards were inspected, not run in this review. No new vendor-dependent classifier is introduced. Fresh live claims require the designated phase to retain date, versions, output and skips in docs/verification/runtime-backends.md.",
+    "evidence_limits": "The retained focused transcript proves only the cases that actually report pass. A capability skip is an open evidence gap, not installed-validator or live-runtime proof. No historical mutation run or red-before-fix execution is claimed by this evidence-only correction."
+  }
+}

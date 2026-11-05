@@ -480,6 +480,72 @@ test_first_failure_stops_serial_recovery() {
   pass "serial recovery stops at failure or deferral and leaves work for the next pass"
 }
 
+# Each inventory is one slow backend read. Vary completion order and include
+# both recoverable states so output must still follow the metadata file order.
+test_slow_backend_reads_are_bounded_and_ordered() {
+  local home fakebin out start elapsed i id expected order
+  home=$(new_home slow-reads)
+  plant_copy dirty "$TMP_ROOT/slow-reads/wt"
+  fakebin=$(fm_fakebin "$TMP_ROOT/slow-reads")
+  cat > "$fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  list-windows)
+    printf '%s\n' "$3" >> "$FM_RECOVERY_READ_LOG"
+    case "$3" in
+      hang) printf dead; sleep 30; exit 0 ;;
+      task-02) sleep 0.4 ;;
+      *) sleep 0.3 ;;
+    esac
+    case "$3" in
+      task-02|task-17) printf '%s\n' win ;;
+      task-31) printf '%s\n' other ;;
+      *) printf '%s\n' 'permission denied' >&2; exit 1 ;;
+    esac
+    ;;
+  display-message) printf '%s\n' bash ;;
+esac
+SH
+  chmod +x "$fakebin/tmux"
+  for ((i=0; i<40; i++)); do
+    printf -v id 'task-%02d' "$i"
+    write_task "$home/state/$id.meta" ship "$TMP_ROOT/slow-reads/wt/wt" "$id:win"
+  done
+  write_task "$home/state/skip-kind.meta" secondmate "$TMP_ROOT/slow-reads/wt/wt" skip-kind:win
+  write_task "$home/state/skip-release.meta" scout "$TMP_ROOT/slow-reads/wt/wt" skip-release:win
+  printf 'spawn_gen=s1000.1.1\n' >> "$home/state/skip-release.meta"
+  printf 'fm-lane-release-v1\ntask=skip-release\nspawn_gen=s1000.1.1\nresult=released\n' \
+    > "$home/state/skip-release.released"
+  export FM_RECOVERY_READ_LOG="$TMP_ROOT/slow-reads/reads.log"
+  : > "$FM_RECOVERY_READ_LOG"
+  reset_log
+  start=$(date +%s)
+  out=$(run_sweep "$home" "$fakebin")
+  elapsed=$(( $(date +%s) - start ))
+  expected=$'CREW_RECOVERY: relaunched task-02 after dead\nCREW_RECOVERY: relaunched task-17 after dead\nCREW_RECOVERY: relaunched task-31 after missing'
+  [ "$out" = "$expected" ] || fail "parallel reads changed recovery output: $out"
+  order=$(awk 'NR % 5 == 1' "$LOG")
+  [ "$order" = $'task-02\ntask-17\ntask-31' ] || fail "relaunch order changed: $order"
+  assert_not_contains "$(cat "$FM_RECOVERY_READ_LOG")" skip- "ineligible records started backend reads"
+  printf 'slow backend sweep: %s s (40 reads)\n' "$elapsed"
+  # Leave room for the real eligibility/control checks on a loaded host.
+  # Serial traversal of forty 0.3 s reads cannot meet this budget.
+  [ "$elapsed" -lt 8 ] || fail "40 backend reads took $elapsed s; expected under 8 s"
+
+  # A stuck read must neither authorize recovery nor prevent later recovery.
+  write_task "$home/state/a-hang.meta" ship "$TMP_ROOT/slow-reads/wt/wt" hang:win
+  reset_log
+  start=$(date +%s)
+  out=$(run_sweep "$home" "$fakebin")
+  elapsed=$(( $(date +%s) - start ))
+  [ "$out" = "$expected" ] || fail "a hung backend changed recovery output: $out"
+  [ "$(awk 'NR % 5 == 1' "$LOG")" = "$order" ] || fail "hung read changed relaunch order"
+  printf 'hung backend sweep: %s s\n' "$elapsed"
+  [ "$elapsed" -lt 10 ] || fail "a hung backend held the sweep for $elapsed s"
+  unset FM_RECOVERY_READ_LOG
+  pass "bounded concurrent reads preserve output and serial relaunch order"
+}
+
 test_bootstrap_network_phase_runs_the_sweep() {
   local home fakebin fake_root out timing
   home=$(new_home compose)
@@ -562,4 +628,5 @@ test_in_flight_records_are_relaunched
 test_inconclusive_endpoints_are_not_relaunched
 test_foreign_and_unreadable_records_are_not_relaunched
 test_first_failure_stops_serial_recovery
+test_slow_backend_reads_are_bounded_and_ordered
 test_bootstrap_network_phase_runs_the_sweep

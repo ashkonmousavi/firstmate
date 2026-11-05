@@ -79,9 +79,12 @@ test_branch_prompt_routes_completed_scouts_through_guarded_cleanup() {
   # The emitted system prompt is the contract, not the generator's source or
   # proof that a model will obey it. No live agent or endpoint is involved.
   case "$prompt" in
-    *"For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures."*"After their completion gate passes, retain the report, record accepted completion with \`bin/fm-tasks-axi.sh done <task> --report <durable report path>\`, claim the task's lease, and run \`bin/fm-teardown.sh <task>\` with no flags."*"Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand."*) ;;
+    *"For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures."*"For a scout row, after its completion gate passes, record accepted completion with \`bin/fm-tasks-axi.sh done <task> --report <durable report path>\`, claim the task's lease, and run \`bin/fm-teardown.sh <task>\` with no flags."*"Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand."*) ;;
     *) fail "branch prompt omits the completed-scout cleanup sequence or refusal reporting" ;;
   esac
+  assert_contains "$prompt" \
+    "A scout phase on a ship or slice owner row records its report and note and does NOT mark the row done; the owner row is done only after its green walk." \
+    "branch prompt closes a parent row when only its scout phase finished"
   assert_contains "$prompt" \
     "Reporting a scout as finished and idle is not a substitute for that cleanup." \
     "branch prompt permits stopping after an idle assessment of a completed scout"

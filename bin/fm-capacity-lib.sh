@@ -18,9 +18,10 @@
 # pressure_limit, using explicit unknowns for readings not yet available.
 # Independent resource floors and pressure/disk admission are owned by
 # fm-machine-resources.py and require config/machine-admission.json in that root.
-# Every resource verdict is also appended, best effort, to
-# <state>/machine-admission.log by fm_capacity_sample below; a failed write never
-# changes the verdict.
+# Resource verdicts are appended, best effort, to <state>/machine-admission.log
+# by fm_capacity_sample below; a failed write never changes the verdict.
+# fm_capacity_read's optional fifth argument, sample=0, skips that write for
+# mutation-free replacement preparation; the launch itself samples normally.
 # Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.
@@ -51,7 +52,7 @@ fm_capacity_sample() { # <state> <reader-json> <reader-status>
   return 0
 }
 
-fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
+fm_capacity_read() { # <home> <config> <state> [replaced-task-id] [sample=1]
   local rc=0 measurements='available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown'
   _fm_capacity_read "$@" || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -88,7 +89,7 @@ _fm_capacity_read() {
   FM_CAPACITY_RESERVE_KB=$((10#$reserve * 1048576))
   measurements="available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=$FM_CAPACITY_RESERVE_KB pressure_limit=unknown"
   resources=$(python3 "${BASH_SOURCE[0]%/*}/fm-machine-resources.py" --policy "$config_dir/machine-admission.json") || resource_status=$?
-  fm_capacity_sample "$state" "$resources" "$resource_status"
+  [ "${5:-1}" = 0 ] || fm_capacity_sample "$state" "$resources" "$resource_status"
   if [ "$resource_status" -ne 0 ] && [ "$resource_status" -ne 75 ]; then
     FM_CAPACITY_ERROR="resource reader failed for $config_dir/machine-admission.json"; return 75
   fi

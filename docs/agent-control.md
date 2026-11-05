@@ -105,10 +105,22 @@ For a secondmate, relaunch first honors the [owner-park contract](configuration.
    An omp secondmate replacement likewise passes its [per-secondmate omp profile](configuration.md#per-secondmate-omp-profile) file check before the old agent stops.
    Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
    An explicit `--harness` also passes the [explicit-harness quota gate](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) here; that contract owns home-level admission policy and per-launch overrides.
-2. **Safe checkpoint.**
+   A Codex replacement, a secondmate's included, resolves its [account folder and model](configuration.md#codex-account-folders-configcodex-accounts) in the recorded worktree here, so no usable folder refuses before the old agent stops.
+2. **Safe checkpoint and launch admission.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.
    A secondmate's own crewmates run in their own endpoints and outlive its relaunch; the relaunched secondmate reconciles them from its home's durable records at startup.
+   Then the replacement's deterministic launch admission runs through the functions `bin/fm-spawn.sh` itself uses (`bin/fm-spawn-admission-lib.sh` and the watcher-continuity admission), in this order:
+   - watcher continuity, the backend, the launch environment, and launch configuration such as permission and approval modes;
+   - a ship task's recorded branch name;
+   - adapter and executable checks, including the Kimi turn-end hook configuration;
+   - for a secondmate, its home's shape, that no other task record claims that home, its registry binding, and an instruction source (its charter, or else its task brief); for a ship or scout, its recorded project, that no other spawn or cleanup holds or is reclaiming that project's shared Treehouse lock (a retryable deferral, exit 75), and that every retained copy of that project is claimed by exactly one task record and can be protected - a readable Treehouse status with exactly one entry for the copy, and either an existing durable lease or a Treehouse that can grant one (checked without taking any lease);
+   - the per-task launch files, each through its owner's check mode: Claude workspace trust (in the store of the selected [worker account](configuration.md#worker-account-pin-configclaude-account-configpi-account)), the Claude operational-inbox path, the Devin config and the Polytoken config mirror;
+   - the backlog row, one capacity read, and a pending authoritative backlog close;
+   - for a ship or scout, the instructions, then the instructions with the pending progress note appended to a scratch copy, each checked by the brief validators (including the Herdr lifecycle guard) and, for a ship, by the delivery-contract agreement with the [project registry](configuration.md): registry posture, ship branch, mode, upstream consent, forge, PR-text policy, `--yolo` compatibility, external-review protections and the self-repository publication gate.
+   A refusal caused only by the pending note names the real instructions file and says the note caused it.
+   Any refusal here leaves the old agent running and the task unchanged.
+   Runtime failures after the stop are not part of this check; a secondmate's home synchronization and configuration inheritance run after it, at launch.
 3. **Record the note.**
    A ship or scout relaunch requires `--note`, because the replacement inherits the local copy but none of the conversation; the note is appended to the instructions it reads.
    A secondmate relaunch does not require one and never rewrites its standing charter.
@@ -223,7 +235,7 @@ A relaunch of such a record recreates the copy instead of reusing one.
 The following applies to relaunches that reuse an existing copy; released-copy rollback is owned by the section above.
 
 - A refusal **before** the agent is stopped leaves the durable record and the instructions byte-identical.
-- A launch failure **after** the agent is stopped restores the prior durable record, keeps the progress note so a later recovery still has it, marks the journal `failed:launching`, and reports plainly that no agent is running and where the work is preserved.
+- A launch failure **after** the agent is stopped is reported as a `commit-phase failure`, restores the prior durable record, keeps the progress note so a later recovery still has it, marks the journal `failed:launching`, and reports plainly that no agent is running and where the work is preserved.
 - If the launch owner already published the new record but no running agent can be confirmed, the new record is kept: the task is recorded on the new harness with no agent confirmed, which is exactly what recovery reconciles.
   Rewriting it back to the old harness would be a second, worse inaccuracy.
 
@@ -268,7 +280,7 @@ The empirical basis for each adapter's value is the `harness-adapters` skill's v
 - `tests/fm-control.test.sh` - the adapter contract for its verified-harness lane (adapters outside the lane pin their control mechanics in their own harness suites), the backend capability matrix, exact-id scoping, the closed verb list, the busy, idle, dead, and idempotent lifecycle cases, and marker non-regression, all against a stubbed session provider.
 - `tests/fm-control-relaunch.test.sh` - the relaunch transaction: identity preservation, harness switching, the progress note, checkpoint refusals, rollback after a failed launch, and the endpoint-absence proof both verbs share - Herdr reclaim, tmux reboot recovery, and refusal when absence remains unproven - plus the recreation of a released copy and its refusals.
   Startup cases also exercise eligibility rechecks under the lifecycle lock, attributed run ownership, the prevalidation handoff, and capacity through the real control and spawn paths with a stubbed backend.
-- `tests/fm-crew-recovery.test.sh` - the startup sweep's home scoping, worktree evidence, serial failure and deferral handling, and deferred-bootstrap composition.
+- `tests/fm-crew-recovery.test.sh` - the startup sweep's home scoping, worktree evidence, bounded concurrent backend reads, ordered serial relaunches, failure and deferral handling, and deferred-bootstrap composition.
 - `tests/fm-control-herdr-smoke.test.sh` - the second state-verified backend against the real herdr binary, on an isolated throwaway lab session.
 - `tests/fm-backend-rex.test.sh` and `tests/fm-backend-rex-smoke.test.sh` - the Rex classifier and absence proof against a stateful fake CLI and a private test server; [`docs/verification/runtime-backends.md`](verification/runtime-backends.md#rex) records the live `interrupt`, `exit`, endpoint-gone, and reclaim runs.
 - `tests/fm-backend-t3code.test.sh` - the t3code exit and relaunch refusals and the native interrupt against a fake T3 server.

@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: ${{ !(github.event.action == 'labeled' && github.event.label.name != 'full-ci') }}
 
 # Timeout policy: docs/fm-test-portable-shards.md "Timeouts" owns the three
-# tiers and their rationale; tests/fm-ci-workflow.test.sh guards this workflow.
+# tiers, shard exceptions and rationale; tests/fm-ci-workflow.test.sh guards this workflow.
 # Each job comment identifies the tier implemented by its executable value.
 
 # Fork opt-out: a fork sets the repository variable FM_CI_SKIP_PUSH to 1 to
@@ -122,9 +122,7 @@ jobs:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'full-ci') && 'Not run for label - ' || '' }}Behavior portable parallel 1
     runs-on: ubuntu-24.04
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') && !(github.event.action == 'labeled' && github.event.label.name != 'full-ci') && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR' || contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
-    # Portable shard exception (see the timeout policy above): the fleet's
-    # heavier suites outgrow the 30-minute Normal tier, so the portable test
-    # shards keep a 45-minute hang tripwire.
+    # Parallel shard exception; see the timeout policy above for rationale.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
@@ -170,9 +168,7 @@ jobs:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'full-ci') && 'Not run for label - ' || '' }}Behavior portable parallel 2
     runs-on: ubuntu-24.04
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') && !(github.event.action == 'labeled' && github.event.label.name != 'full-ci') && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR' || contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
-    # Portable shard exception (see the timeout policy above): the fleet's
-    # heavier suites outgrow the 30-minute Normal tier, so the portable test
-    # shards keep a 45-minute hang tripwire.
+    # Parallel shard exception; see the timeout policy above for rationale.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
@@ -218,10 +214,8 @@ jobs:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'full-ci') && 'Not run for label - ' || '' }}Behavior portable serial ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') && !(github.event.action == 'labeled' && github.event.label.name != 'full-ci') && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR' || contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
-    # Portable shard exception (see the timeout policy above): the fleet's
-    # heavier suites outgrow the 30-minute Normal tier, so the portable test
-    # shards keep a 45-minute hang tripwire.
-    timeout-minutes: 45
+    # Serial shard exception; see the timeout policy above for measured margin.
+    timeout-minutes: 60
     strategy:
       # Every shard reports so one failure never hides another shard's result.
       fail-fast: false

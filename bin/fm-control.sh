@@ -338,6 +338,7 @@ QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
 TARGET_CODEX_ROOT=
+TARGET_WORKER_ACCOUNT=
 RECOVER_ONLY=0
 STEP_ACTION=
 IF_IDLE=0
@@ -1395,7 +1396,7 @@ resolve_relaunch_profile() {
   [ "$KIND" != secondmate ] || account_mate=$ID
   local account_selection='' account_cwd='' codex_defer_default=0
   [ "$RELEASED" = 1 ] || account_cwd=$WT
-  if [ "$TARGET_HARNESS" = codex ] && { [ "$RELEASED" = 1 ] || [ "$KIND" = secondmate ]; } && [ -z "$account_model" ] &&
+  if [ "$TARGET_HARNESS" = codex ] && [ "$RELEASED" = 1 ] && [ -z "$account_model" ] &&
     { [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ] || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ]; }; then
     python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" || return 1
     codex_defer_default=1
@@ -1404,6 +1405,7 @@ resolve_relaunch_profile() {
       "$account_model" "$TARGET_HARNESS" "" "$account_mate" "" "$account_cwd") || return 1
   fi
   TARGET_CODEX_ROOT=
+  TARGET_WORKER_ACCOUNT=$account_selection
   if [ "$TARGET_HARNESS" = codex ] && [ -n "$account_selection" ]; then
     TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
     account_model=${account_selection##*$'\t'}
@@ -1479,7 +1481,7 @@ safe_checkpoint() {
   else
     die "task $ID's worktree HEAD cannot be inspected; refusing to relaunch from an unreadable checkout"
   fi
-  status_output=$(git -C "$WT" status --porcelain 2>/dev/null) \
+  status_output=$(GIT_OPTIONAL_LOCKS=0 git -C "$WT" status --porcelain 2>/dev/null) \
     || die "task $ID's worktree status cannot be inspected; refusing to relaunch without accounting for local changes"
   if [ -n "$status_output" ]; then
     dirty=yes
@@ -1569,6 +1571,110 @@ record_note() {
   esac
 }
 
+# Dynamic-scope locals preserve control's resolved context while the shared
+# admission readers use their ordinary globals, without a subshell boundary.
+# shellcheck disable=SC2034 # Locals scope the shared readers' outputs.
+relaunch_admission_preflight() {
+  local STATE=$STATE FM_HOME=$FM_HOME DATA=$DATA ID=$ID KIND=$KIND BACKEND=$BACKEND
+  local CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
+  local RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+  local HARNESS=$TARGET_HARNESS MODEL=$TARGET_MODEL EFFORT=$TARGET_EFFORT
+  local RAW_LAUNCH=0 ARG3='' LAUNCH='' EXCLUDE_TOOLS=''
+  local DEVIN_BIN COMMANDCODE_BIN CORTEX_BIN PI_BIN CURSOR_BIN CURSOR_MODELS
+  local OMP_BIN OMP_WORKER_CFG AGY_BIN KIRO_BIN POLYTOKEN_BIN POLYTOKEN_MODEL_REF
+  local OMP_PROFILE_MATE OMP_PROFILE_RAW OMP_PROFILE_PIN
+  local MUSE_BIN MUSE_CONFIG_HOME MUSE_DATA_HOME MUSE_AUTH_FILE KIMI_BIN ROVO_BIN
+  local LAUNCH_ENV_ENABLED LAUNCH_ENV_NAMES
+  local BACKLOG_TRANSITION BACKLOG_ROW_STATE BACKLOG_GATE_STATUS spawn_preflight_actor
+  local FM_BACKLOG_TRANSITION_SKIP FM_BACKLOG_TRANSITION_ERROR FM_BACKLOG_ROW_RESULT
+  local FM_BACKLOG_ROW_STATE FM_BACKLOG_ROW_ERROR FM_BACKLOG_ROW_HOLD_KIND
+  local CLAUDE_PERM_PRESENT CLAUDE_PERMISSION_MODE CLAUDE_PERM_FLAG
+  local CODEX_APPROVAL_PRESENT CODEX_APPROVAL_MODE CODEX_APPROVAL_FLAG
+  local CODEX_PERM_PRESENT CODEX_PERMISSION_MODE LAVISH_AXI_HOST_CONFIG_PRESENT LAVISH_AXI_HOST
+  local KEEP_AI_TRAILERS HERDR_LIFECYCLE_BRIEF_GUARD HERDR_LIFECYCLE_COMMAND
+  local ADDRESS_LINE CAPTAIN_INTENT LEGACY_TASK_BODY MODE BRANCH PROJ PROJ_ABS SECONDMATE_PROJECTS BRIEF
+  local SPAWN_TREEHOUSE_PROJECT_LOCK SPAWN_PROJECT_CAPACITY_ANY=''
+  local YOLO UPSTREAM_CONSENT PROJ_NAME STANDING_MODE EXTERNAL_REVIEW EXTERNAL_BACKUP_REMOTE EXTERNAL_BACKUP_PREFIX
+  local FM_REVIEW_URL FM_REVIEW_BACKUP_REMOTE FM_REVIEW_BACKUP_PREFIX
+  local FM_ROLE_DIAG FM_ROLE_PUB_AUTHORITY FM_ROLE_PUB_DENIAL FM_ROLE_PUB_TARGET FM_ROLE_SCOPE FM_ROLE_SOURCE
+  local WORKER_ACCOUNT=$TARGET_WORKER_ACCOUNT WORKER_ACCOUNT_ROOT
+  local scratch brief err status=0 state_real proj home
+  MODE=$(fm_meta_get "$META" mode)
+  YOLO=$(fm_meta_get "$META" yolo)
+  UPSTREAM_CONSENT=$(fm_meta_get "$META" upstream_consent)
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
+  # shellcheck source=bin/fm-tasks-axi-lib.sh
+  . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+  # shellcheck source=bin/fm-backlog-transition-lib.sh
+  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  # shellcheck source=bin/fm-project-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+  # shellcheck source=bin/fm-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-capacity-lib.sh"
+  # shellcheck source=bin/fm-spawn-admission-lib.sh
+  . "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
+  # shellcheck source=bin/fm-config-inherit-lib.sh
+  . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+  # shellcheck source=bin/fm-cursor-lib.sh
+  . "$SCRIPT_DIR/fm-cursor-lib.sh"
+  # shellcheck source=bin/fm-dod-lib.sh
+  . "$SCRIPT_DIR/fm-dod-lib.sh"
+  # shellcheck source=bin/fm-operational-input.sh
+  . "$SCRIPT_DIR/fm-operational-input.sh"
+  # shellcheck source=bin/fm-ff-lib.sh
+  . "$SCRIPT_DIR/fm-ff-lib.sh"
+  # shellcheck source=bin/fm-treehouse-lib.sh
+  . "$SCRIPT_DIR/fm-treehouse-lib.sh"
+  # shellcheck source=bin/fm-role-lib.sh
+  . "$SCRIPT_DIR/fm-role-lib.sh"
+  "$SCRIPT_DIR/fm-claude-watch-admission.sh" admit "$FM_ROOT" "$FM_HOME" "$STATE" || return $?
+  fm_backend_validate_spawn "$BACKEND" || return $?
+  fm_spawn_launch_env_admit || return $?
+  fm_spawn_config_admit || return $?
+  fm_spawn_ship_branch_admit "$META" || return $?
+  fm_spawn_adapter_admit || return $?
+  if [ "$KIND" = secondmate ]; then
+    home=$(fm_meta_get "$META" home)
+    fm_spawn_secondmate_home_admit "$ID" "${home:-$WT}" || return $?
+    fm_worktree_require_exclusive_record "$STATE" "$PROJ_ABS" "$STATE/$ID.meta" || return $?
+    fm_spawn_secondmate_registry_admit "$ID" "${home:-$WT}" || return $?
+    proj=$PROJ_ABS
+    fm_spawn_secondmate_brief_select "$PROJ_ABS"
+    fm_spawn_brief_present_admit || return $?
+  else
+    fm_spawn_relaunch_project_admit "$META" || return $?
+    proj=$PROJ
+    PROJ_ABS=$(cd "$PROJ" && pwd) || return 1
+    fm_spawn_project_lock_admit "$PROJ_ABS" || return $?
+    fm_spawn_retained_copies_admit check || return $?
+  fi
+  state_real=$(cd "$STATE" && pwd -P) || return 1
+  fm_spawn_launch_files_admit "$state_real" "$WT" "$proj" || return $?
+  fm_spawn_backlog_admit || return $?
+  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" 0 || return $?
+  fm_spawn_backlog_close_admit || return $?
+  [ -n "$RELAUNCH_BRIEF" ] || return 0
+  scratch=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-relaunch-brief.XXXXXX") || return 1
+  brief="$scratch/brief.md"
+  if ! { fm_spawn_brief_admit "$RELAUNCH_BRIEF" && fm_spawn_delivery_admit "$RELAUNCH_BRIEF" "$RELAUNCH_BRIEF"; } 2>"$scratch/err"; then
+    status=1
+    cat "$scratch/err" >&2
+  elif cp -p "$RELAUNCH_BRIEF" "$brief" && printf '%s\n' "$NOTE" > "$scratch/note" &&
+    fm_relaunch_note_append "$brief" "$STATE/$ID.inbox" "$scratch/note"; then
+    if ! { fm_spawn_brief_admit "$brief" && fm_spawn_delivery_admit "$brief" "$RELAUNCH_BRIEF"; } 2>"$scratch/err"; then
+      status=1
+      err=$(cat "$scratch/err")
+      [ -z "$err" ] || printf '%s\n' "${err//"$brief"/"$RELAUNCH_BRIEF"}" >&2
+      echo "error: task $ID's pending progress note caused this refusal: $RELAUNCH_BRIEF is admitted alone but not with the note appended; revise the note and re-run" >&2
+    fi
+  else
+    status=1
+  fi
+  rm -rf -- "$scratch"
+  return "$status"
+}
+
 do_relaunch() {
   local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
@@ -1616,6 +1722,7 @@ do_relaunch() {
     return
   fi
   safe_checkpoint
+  relaunch_admission_preflight || exit $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"
@@ -1654,18 +1761,21 @@ do_relaunch() {
        && [ -n "$FM_BACKEND_VALIDATED_TARGET" ]; then
       T=$FM_BACKEND_VALIDATED_TARGET
     else
-      die "the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row), so this transaction cannot say which endpoint to confirm it on; reconcile $META before any further control action"
+      die "commit-phase failure: the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row), so this transaction cannot say which endpoint to confirm it on; reconcile $META before any further control action"
     fi
   else
     spawn_status=$?
     [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ] \
       || RELAUNCH_META_PUBLISHED=1
-    [ "$spawn_status" -ne 75 ] || exit 75
-    die "the replacement agent for $ID could not be launched on $TARGET_HARNESS"
+    if [ "$spawn_status" = 75 ]; then
+      echo "error: commit-phase failure: replacement spawn for $ID was deferred after its old agent stopped" >&2
+      exit 75
+    fi
+    die "commit-phase failure: the replacement agent for $ID could not be launched on $TARGET_HARNESS"
   fi
 
   state=$(wait_agent_state "$LAUNCH_WAIT" alive) || {
-    die "the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
+    die "commit-phase failure: the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
   }
   RELAUNCH_AGENT_CONFIRMED=1
 

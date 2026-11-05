@@ -823,6 +823,12 @@ fm_lock_mid_acquire_is_fresh() {
   return 1
 }
 
+# True when <pid>, recorded in <lockdir>, is a live holder or a fresh
+# mid-acquire one; fm_lock_try_acquire refuses on exactly this answer.
+fm_lock_holder_busy() { # <lockdir> <pid>
+  fm_lock_holder_alive "$1" "$2" || fm_lock_mid_acquire_is_fresh "$1" "$2"
+}
+
 fm_lock_recheck_stale_owner() {
   local lockdir=$1 expected_owner=$2 expected_pid=$3 actual_pid
   if [ -n "$expected_owner" ]; then
@@ -832,13 +838,7 @@ fm_lock_recheck_stale_owner() {
   fi
   actual_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
   [ "$actual_pid" = "$expected_pid" ] || return 1
-  if fm_lock_holder_alive "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$actual_pid"; then
-    return 1
-  fi
-  return 0
+  ! fm_lock_holder_busy "$lockdir" "$actual_pid"
 }
 
 FM_RECOVERY_MARKER_TOKEN=
@@ -1456,8 +1456,9 @@ fm_recovery_marker_handover_clear_stale() {
 # than the dead holder's pid-start inside the directory. Hex keeps the same
 # start-time identity portable in filenames. Legacy names and unavailable
 # probes keep the PID-only answer; only a proven mismatch permits takeover.
-fm_lock_reap_dead_link() {
-  local lockdir=$1 owner pid token tomb current reaper recorded start
+# The check mode returns that answer before electing or removing anything.
+fm_lock_reap_dead_link() { # <lockdir> [check]
+  local lockdir=$1 mode=${2:-} owner pid token tomb current reaper recorded start
   [ -L "$lockdir" ] || return 1
   owner=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || return 1
   fm_current_pid current || return 1
@@ -1486,6 +1487,7 @@ fm_lock_reap_dead_link() {
     done
     [ -n "$token" ] || return 1
   fi
+  [ "$mode" != check ] || return 0
   tomb="$owner.reaped.$current"
   start=$(fm_pid_start_time "$current" 2>/dev/null || true)
   if [ -n "$start" ]; then
@@ -1520,6 +1522,27 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
   fm_lock_try_create "$lockdir"
 }
 
+# Read-only: 0 when another process could take <lockdir> through
+# fm_lock_try_acquire now, answered by the predicates that acquisition and its
+# steal mutex refuse on, before any of their mutations; 1 when it would refuse.
+fm_lock_acquire_check() { # <lockdir>
+  local lockdir=$1 steal="$1.steal" pid='' owner=''
+  if [ -e "$lockdir" ] || [ -L "$lockdir" ]; then
+    pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+    ! fm_lock_holder_busy "$lockdir" "$pid" || return 1
+  elif ! fm_lock_claim_blocked_by_steal "$lockdir"; then
+    return 0
+  fi
+  if fm_lock_claim_blocked_by_steal "$steal"; then
+    fm_lock_reap_dead_link "$steal.steal" check || return 1
+  fi
+  if [ -e "$steal" ] || [ -L "$steal" ]; then
+    fm_lock_reap_dead_link "$steal" check || return 1
+  fi
+  [ ! -L "$lockdir" ] || owner=$(fm_lock_link_owner "$lockdir" 2>/dev/null || true)
+  fm_lock_recheck_stale_owner "$lockdir" "$owner" "$pid"
+}
+
 fm_lock_try_acquire() {
   local lockdir=$1 marker_publish_bound=${2:-} pid steal cur rc steal_owner primary_owner current
   FM_LOCK_HELD_PID=
@@ -1549,11 +1572,7 @@ fm_lock_try_acquire() {
     FM_LOCK_HELD_PID=$(cat "$lockdir/pid" 2>/dev/null || true)
     return 1
   fi
-  if fm_lock_holder_alive "$lockdir" "$pid"; then
-    FM_LOCK_HELD_PID=$pid
-    return 1
-  fi
-  if fm_lock_mid_acquire_is_fresh "$lockdir" "$pid"; then
+  if fm_lock_holder_busy "$lockdir" "$pid"; then
     FM_LOCK_HELD_PID=$pid
     return 1
   fi
