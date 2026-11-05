@@ -1,0 +1,861 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-session -d -s fm-lab -n anchor -x 100 -y 30 sleep 600
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock display-message -p -t fm-lab #{pid}
+11
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start legacy-build
+ok: start legacy-build -> In flight
+help[1]:
+  - Run `tasks-axi done legacy-build --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-legacy-build sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show legacy-build --full
+task:
+  id: legacy-build
+  title: legacy BUILD data/legacy-build/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: "blocked-by:dep-a,blocked-by:dep-b"
+  links: "report:data/legacy-build/report.md"
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done legacy-build --report data/legacy-build/report.md
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show legacy-build --full
+task:
+  id: legacy-build
+  title: legacy BUILD data/legacy-build/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: "blocked-by:dep-a,blocked-by:dep-b"
+  links: "report:data/legacy-build/report.md"
+  body: "Deliverable of the finished work: report data/legacy-build/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim legacy-build
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh legacy-build
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown legacy-build complete (window fm-lab:fm-legacy-build, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-legacy-build)
+Backlog: legacy-build scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md; parent completion state preserved.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show legacy-build --full
+task:
+  id: legacy-build
+  title: legacy BUILD data/legacy-build/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: "blocked-by:dep-a,blocked-by:dep-b"
+  links: "report:data/legacy-build/report.md"
+  body: "Deliverable of the finished work: report data/legacy-build/report.md; scout phase finished"
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "legacy-build", "result": "pass", "completion_state": "in_flight", "cleanup_state": "queued", "dependencies": "  deps: \"blocked-by:dep-a,blocked-by:dep-b\"", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add task-build Disposable row --kind task
+ok: added task-build (task) -> Queued
+task:
+  id: task-build
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start task-build` to move it to in flight
+  - Run `tasks-axi block task-build --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start task-build
+ok: start task-build -> In flight
+help[1]:
+  - Run `tasks-axi done task-build --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-task-build sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show task-build --full
+task:
+  id: task-build
+  title: Disposable row
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done task-build --report data/task-build/report.md
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show task-build --full
+task:
+  id: task-build
+  title: Disposable row data/task-build/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/task-build/report.md"
+  body: "Deliverable of the finished work: report data/task-build/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim task-build
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh task-build
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown task-build complete (window fm-lab:fm-task-build, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-task-build)
+Backlog: task-build scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md; parent completion state preserved.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show task-build --full
+task:
+  id: task-build
+  title: Disposable row data/task-build/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/task-build/report.md"
+  body: "Deliverable of the finished work: report data/task-build/report.md; scout phase finished"
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "task-build", "result": "pass", "completion_state": "in_flight", "cleanup_state": "queued", "dependencies": "  deps: none", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add ship-build Disposable row --kind ship
+ok: added ship-build (ship) -> Queued
+task:
+  id: ship-build
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start ship-build` to move it to in flight
+  - Run `tasks-axi block ship-build --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start ship-build
+ok: start ship-build -> In flight
+help[1]:
+  - Run `tasks-axi done ship-build --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-ship-build sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show ship-build --full
+task:
+  id: ship-build
+  title: Disposable row
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done ship-build --report data/ship-build/report.md
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show ship-build --full
+task:
+  id: ship-build
+  title: Disposable row data/ship-build/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/ship-build/report.md"
+  body: "Deliverable of the finished work: report data/ship-build/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim ship-build
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh ship-build
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown ship-build complete (window fm-lab:fm-ship-build, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-ship-build)
+Backlog: ship-build scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md; parent completion state preserved.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show ship-build --full
+task:
+  id: ship-build
+  title: Disposable row data/ship-build/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/ship-build/report.md"
+  body: "Deliverable of the finished work: report data/ship-build/report.md; scout phase finished"
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "ship-build", "result": "pass", "completion_state": "in_flight", "cleanup_state": "queued", "dependencies": "  deps: none", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add owner-scout Disposable row --kind scout
+ok: added owner-scout (scout) -> Queued
+task:
+  id: owner-scout
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start owner-scout` to move it to in flight
+  - Run `tasks-axi block owner-scout --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh update owner-scout --body SLICE: main/owner | role=owner
+ok: updated owner-scout (body)
+task:
+  id: owner-scout
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: main/owner | role=owner"
+help[1]:
+  - Run `tasks-axi show owner-scout --full` to see the result
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start owner-scout
+ok: start owner-scout -> In flight
+help[1]:
+  - Run `tasks-axi done owner-scout --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-owner-scout sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show owner-scout --full
+task:
+  id: owner-scout
+  title: Disposable row
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: main/owner | role=owner"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done owner-scout --report data/owner-scout/report.md
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show owner-scout --full
+task:
+  id: owner-scout
+  title: Disposable row data/owner-scout/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/owner-scout/report.md"
+  body: "SLICE: main/owner | role=owner\n\nDeliverable of the finished work: report data/owner-scout/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim owner-scout
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh owner-scout
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown owner-scout complete (window fm-lab:fm-owner-scout, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-owner-scout)
+Backlog: owner-scout scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md; parent completion state preserved.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show owner-scout --full
+task:
+  id: owner-scout
+  title: Disposable row data/owner-scout/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/owner-scout/report.md"
+  body: "SLICE: main/owner | role=owner\n\nDeliverable of the finished work: report data/owner-scout/report.md; scout phase finished"
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "owner-scout", "result": "pass", "completion_state": "in_flight", "cleanup_state": "queued", "dependencies": "  deps: none", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add plain-scout Disposable row --kind scout
+ok: added plain-scout (scout) -> Queued
+task:
+  id: plain-scout
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start plain-scout` to move it to in flight
+  - Run `tasks-axi block plain-scout --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start plain-scout
+ok: start plain-scout -> In flight
+help[1]:
+  - Run `tasks-axi done plain-scout --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-plain-scout sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show plain-scout --full
+task:
+  id: plain-scout
+  title: Disposable row
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done plain-scout --report data/plain-scout/report.md
+ok: done plain-scout -> Done (report data/plain-scout/report.md)
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show plain-scout --full
+task:
+  id: plain-scout
+  title: Disposable row data/plain-scout/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-11-05
+  deps: none
+  links: "report:data/plain-scout/report.md"
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim plain-scout
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh plain-scout
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown plain-scout complete (window fm-lab:fm-plain-scout, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-plain-scout)
+Backlog: plain-scout is closed in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show plain-scout --full
+task:
+  id: plain-scout
+  title: Disposable row data/plain-scout/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-11-05
+  deps: none
+  links: "report:data/plain-scout/report.md"
+  body: ""
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "plain-scout", "result": "pass", "completion_state": "done", "cleanup_state": "done", "dependencies": "  deps: none", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add other-row Disposable row --kind bug
+ok: added other-row (bug) -> Queued
+task:
+  id: other-row
+  title: Disposable row
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: bug
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start other-row` to move it to in flight
+  - Run `tasks-axi block other-row --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start other-row
+ok: start other-row -> In flight
+help[1]:
+  - Run `tasks-axi done other-row --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-other-row sleep 600
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show other-row --full
+task:
+  id: other-row
+  title: Disposable row
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: bug
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done other-row --report data/other-row/report.md
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show other-row --full
+task:
+  id: other-row
+  title: Disposable row data/other-row/report.md
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: bug
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/other-row/report.md"
+  body: "Deliverable of the finished work: report data/other-row/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lease.sh claim other-row
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh other-row
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown other-row complete (window fm-lab:fm-other-row, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/absent-other-row)
+Backlog: other-row scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md; parent completion state preserved.
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show other-row --full
+task:
+  id: other-row
+  title: Disposable row data/other-row/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: bug
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/other-row/report.md"
+  body: "Deliverable of the finished work: report data/other-row/report.md; scout phase finished"
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+[exit 0]
+OBSERVED {"name": "other-row", "result": "pass", "completion_state": "in_flight", "cleanup_state": "queued", "dependencies": "  deps: none", "report_retained": true, "endpoint_removed": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add interrupted-build Interrupted BUILD --kind task
+ok: added interrupted-build (task) -> Queued
+task:
+  id: interrupted-build
+  title: Interrupted BUILD
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start interrupted-build` to move it to in flight
+  - Run `tasks-axi block interrupted-build --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start interrupted-build
+ok: start interrupted-build -> In flight
+help[1]:
+  - Run `tasks-axi done interrupted-build --pr <url>` when it ships
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-interrupted-build sleep 600
+[exit 0]
+$ fm-teardown.sh interrupted-build [SIGKILL after pending-close publication]
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+[interrupted cleanup exit -9]
+id=interrupted-build
+data=~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data
+spawn_gen=lab-interrupted-build
+cleanup_incomplete=0
+mode=retain
+arg=--report
+arg=data/interrupted-build/report.md
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show interrupted-build --full
+task:
+  id: interrupted-build
+  title: Interrupted BUILD
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"
+. "$1/bin/fm-backlog-transition-lib.sh"
+fm_backlog_close_marker_replay "$2/state" "$2/state/$3.backlog-close" "$2/data" || { echo "$FM_BACKLOG_TRANSITION_ERROR"; exit 1; }
+printf 'Replay result: %s\n' "$FM_BACKLOG_CLOSE_REPLAY_RESULT"
+ _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home interrupted-build
+Replay result: retained_incomplete
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show interrupted-build --full
+task:
+  id: interrupted-build
+  title: Interrupted BUILD data/interrupted-build/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/interrupted-build/report.md"
+  body: "Deliverable of the finished work: report data/interrupted-build/report.md; scout phase finished"
+[exit 0]
+OBSERVED {"name": "interrupted-build", "result": "pass", "interrupted_exit": -9, "state_before_replay": "in_flight", "state_after_replay": "queued", "marker_retired": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add report-replay-build Report replay BUILD --kind task
+ok: added report-replay-build (task) -> Queued
+task:
+  id: report-replay-build
+  title: Report replay BUILD
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start report-replay-build` to move it to in flight
+  - Run `tasks-axi block report-replay-build --by <other>` to record a dependency
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh start report-replay-build
+ok: start report-replay-build -> In flight
+help[1]:
+  - Run `tasks-axi done report-replay-build --pr <url>` when it ships
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"
+. "$1/bin/fm-backlog-transition-lib.sh"
+fm_backlog_close_marker_stage "$2/state/$3.backlog-close" "$3" "$2/data" "lab-$3" "$2/state" 0 --report "data/$3/report.md"
+ _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home report-replay-build
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"
+. "$1/bin/fm-backlog-transition-lib.sh"
+fm_backlog_close_marker_replay "$2/state" "$2/state/$3.backlog-close" "$2/data" || { echo "$FM_BACKLOG_TRANSITION_ERROR"; exit 1; }
+printf 'Replay result: %s\n' "$FM_BACKLOG_CLOSE_REPLAY_RESULT"
+ _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home report-replay-build
+Replay result: retained
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show report-replay-build --full
+task:
+  id: report-replay-build
+  title: Report replay BUILD data/report-replay-build/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: "report:data/report-replay-build/report.md"
+  body: "Deliverable of the finished work: report data/report-replay-build/report.md; scout phase finished"
+[exit 0]
+OBSERVED {"name": "report-replay-build", "result": "pass", "state_after_replay": "queued", "metadata_absent": true, "report_retained": true}
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh add unreadable-build Unreadable outcome --kind task
+ok: added unreadable-build (task) -> Queued
+task:
+  id: unreadable-build
+  title: Unreadable outcome
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start unreadable-build` to move it to in flight
+  - Run `tasks-axi block unreadable-build --by <other>` to record a dependency
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock new-window -d -t fm-lab -n fm-unreadable-build sleep 600
+[exit 0]
+$ setpriv --bounding-set=-dac_override,-dac_read_search bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh done unreadable-build --report data/unreadable-build/report.md
+fm-tasks-axi: cannot read unreadable-build's backlog outcome: error: "EACCES: permission denied, open '~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md'"
+code: UNKNOWN
+[exit 2]
+$ setpriv --bounding-set=-dac_override,-dac_read_search bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-teardown.sh unreadable-build
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home
+error: teardown refused: cannot read unreadable-build's backlog outcome: error: "EACCES: permission denied, open '~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/live-home/data/backlog.md'"
+code: UNKNOWN
+[exit 1]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-tasks-axi.sh show unreadable-build --full
+task:
+  id: unreadable-build
+  title: Unreadable outcome
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+$ tmux -S /proc/1/fd/4/sock list-windows -t fm-lab -F #{window_name}
+anchor
+fm-interrupted-build
+fm-unreadable-build
+[exit 0]
+OBSERVED {"name": "unreadable-build", "result": "pass", "done_exit": 2, "cleanup_exit": 1, "state": "queued", "backlog_unchanged": true, "endpoint_preserved": true}
+$ tmux -S /proc/1/fd/4/sock kill-server
+[exit 0]

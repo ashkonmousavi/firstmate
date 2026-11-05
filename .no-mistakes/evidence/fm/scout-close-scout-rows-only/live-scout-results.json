@@ -1,0 +1,80 @@
+[
+  {
+    "name": "legacy-build",
+    "result": "pass",
+    "completion_state": "in_flight",
+    "cleanup_state": "queued",
+    "dependencies": "  deps: \"blocked-by:dep-a,blocked-by:dep-b\"",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "task-build",
+    "result": "pass",
+    "completion_state": "in_flight",
+    "cleanup_state": "queued",
+    "dependencies": "  deps: none",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "ship-build",
+    "result": "pass",
+    "completion_state": "in_flight",
+    "cleanup_state": "queued",
+    "dependencies": "  deps: none",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "owner-scout",
+    "result": "pass",
+    "completion_state": "in_flight",
+    "cleanup_state": "queued",
+    "dependencies": "  deps: none",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "plain-scout",
+    "result": "pass",
+    "completion_state": "done",
+    "cleanup_state": "done",
+    "dependencies": "  deps: none",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "other-row",
+    "result": "pass",
+    "completion_state": "in_flight",
+    "cleanup_state": "queued",
+    "dependencies": "  deps: none",
+    "report_retained": true,
+    "endpoint_removed": true
+  },
+  {
+    "name": "interrupted-build",
+    "result": "pass",
+    "interrupted_exit": -9,
+    "state_before_replay": "in_flight",
+    "state_after_replay": "queued",
+    "marker_retired": true
+  },
+  {
+    "name": "report-replay-build",
+    "result": "pass",
+    "state_after_replay": "queued",
+    "metadata_absent": true,
+    "report_retained": true
+  },
+  {
+    "name": "unreadable-build",
+    "result": "pass",
+    "done_exit": 2,
+    "cleanup_exit": 1,
+    "state": "queued",
+    "backlog_unchanged": true,
+    "endpoint_preserved": true
+  }
+]

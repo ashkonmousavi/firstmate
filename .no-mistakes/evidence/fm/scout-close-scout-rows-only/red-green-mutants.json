@@ -1,0 +1,30 @@
+[
+  {
+    "variant": "base-ship-owner-only",
+    "show_kind_removed": false,
+    "state": "done",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "target",
+    "show_kind_removed": false,
+    "state": "queued",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "target",
+    "show_kind_removed": true,
+    "state": "queued",
+    "completion_exit": 1,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "mutant-close-on-missing-kind",
+    "show_kind_removed": true,
+    "state": "done",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  }
+]

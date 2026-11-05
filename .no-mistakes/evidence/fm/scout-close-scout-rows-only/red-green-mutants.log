@@ -1,0 +1,130 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/base-ship-owner-only-legacy
+~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/base-ship-owner-only-legacy
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"; . "$2/fm-backlog-transition-lib.sh"; fm_backlog_done "$3/data" build-row --report data/build-row/report.md _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/base-ship-owner-only ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/base-ship-owner-only-legacy
+[exit 0]
+$ tasks-axi show build-row --full --file ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/base-ship-owner-only-legacy/data/backlog.md
+task:
+  id: build-row
+  title: legacy BUILD data/build-row/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-11-05
+  deps: "blocked-by:test-row,blocked-by:refresh-row"
+  links: "report:data/build-row/report.md"
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-legacy
+~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-legacy
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"; . "$2/fm-backlog-transition-lib.sh"; fm_backlog_done "$3/data" build-row --report data/build-row/report.md _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-legacy
+[exit 0]
+$ tasks-axi show build-row --full --file ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-legacy/data/backlog.md
+task:
+  id: build-row
+  title: legacy BUILD data/build-row/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: "blocked-by:test-row,blocked-by:refresh-row"
+  links: "report:data/build-row/report.md"
+  body: "Deliverable of the finished work: report data/build-row/report.md; scout phase finished"
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-unreadable
+~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-unreadable
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"; . "$2/fm-backlog-transition-lib.sh"; fm_backlog_done "$3/data" build-row --report data/build-row/report.md _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-unreadable
+[exit 1]
+$ tasks-axi show build-row --full --file ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/target-unreadable/data/backlog.md
+task:
+  id: build-row
+  title: legacy BUILD data/build-row/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: "blocked-by:test-row,blocked-by:refresh-row"
+  links: "report:data/build-row/report.md"
+  body: ""
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/mutant-close-on-missing-kind-unreadable
+~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/mutant-close-on-missing-kind-unreadable
+[exit 0]
+$ bash -c . "$1/bin/fm-tasks-axi-lib.sh"; . "$2/fm-backlog-transition-lib.sh"; fm_backlog_done "$3/data" build-row --report data/build-row/report.md _ ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57 ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/mutant-close-on-missing-kind ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/mutant-close-on-missing-kind-unreadable
+[exit 0]
+$ tasks-axi show build-row --full --file ~/.no-mistakes/worktrees/049a88734b0e/01M6PMP5XS3RS0RTB7NANXCK57/.gate-test-tmp/mutation/mutant-close-on-missing-kind-unreadable/data/backlog.md
+task:
+  id: build-row
+  title: legacy BUILD data/build-row/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-11-05
+  deps: "blocked-by:test-row,blocked-by:refresh-row"
+  links: "report:data/build-row/report.md"
+  body: ""
+[exit 0]
+[
+  {
+    "variant": "base-ship-owner-only",
+    "show_kind_removed": false,
+    "state": "done",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "target",
+    "show_kind_removed": false,
+    "state": "queued",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "target",
+    "show_kind_removed": true,
+    "state": "queued",
+    "completion_exit": 1,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  },
+  {
+    "variant": "mutant-close-on-missing-kind",
+    "show_kind_removed": true,
+    "state": "done",
+    "completion_exit": 0,
+    "oracle": "Only a readable standalone kind-scout row may close (Cut 16)"
+  }
+]

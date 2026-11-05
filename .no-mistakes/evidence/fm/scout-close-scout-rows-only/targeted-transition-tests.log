@@ -1,0 +1,4 @@
+ok - done, close and library completion retain ship, owner, task and legacy build rows in their existing state with their edges; scout rows close
+ok - a scout completion never closes a row whose kind cannot be read
+ok - phase replay queues unfinished ship, owner, task and legacy build rows without relaunching prep and preserves settled answers
+ok - restart recovers closes recorded before destructive cleanup
