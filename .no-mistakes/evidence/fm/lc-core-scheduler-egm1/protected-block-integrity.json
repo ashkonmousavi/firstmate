@@ -1,0 +1,11 @@
+{
+  "contract": "Tester-owned byte integrity, including closing newline; not a behavioral proof",
+  "blocks": {
+    "# === BEGIN tester-owned: lc-core-scheduler EGM1 input-join oracles =========": "5bc94248e14b8508d035a13b337eaad3d7457f1b11beace12186276dc9ad5d0a",
+    "# === BEGIN tester-owned: lc-core-scheduler EGM1-R2 join validation oracles ==": "9c52b8f132a9890c509d2203ae4a1a5554162ed5cf6574bebea9db79ecb9cde2",
+    "# === BEGIN tester-owned: lc-core-scheduler EGM1-R3 unavailable-home oracles =": "0b9ff9d8845f56d0995f3b7cb58fec6b5b441af279ca3371e34d59fa3ba12bf4",
+    "# === BEGIN tester-owned: lc-core-scheduler EGM1-R4 sibling unavailable-home oracles =": "c14f028c157332396705dd5ce100ac032a4d2bd39b4cf7b42936bccdfefc1796",
+    "# === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========": "c307f9e7f8d2088b174593e44fa83e1dc4d8de2a017978b9a5e96b6a7375bf60"
+  },
+  "all_match_approved": true
+}

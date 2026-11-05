@@ -1,0 +1,12 @@
+Namespace isolation probe (no shared-manager commands):
+unshare_exit=0
+Kernel cgroup mount:
+0::/user.slice/user-1000.slice/user@1000.service/app.slice/no-mistakes-daemon-3b6858c4.service/init.scope
+cgroup2 /sys/fs/cgroup cgroup2 rw,nosuid,nodev,noexec,relatime 0 0
+qemu-system-x86_64: absent from PATH
+qemu-img: absent from PATH
+podman: absent from PATH
+/usr/bin/docker
+systemd-nspawn: absent from PATH
+cloud-localds: absent from PATH
+KVM unavailable to this process

@@ -1,0 +1,294 @@
+[
+  {
+    "name": "Complete empty home allows eligible sibling; join is read-only",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.0343338240054436,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed claims missing_digest stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.035407818999374285,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"claim fact authority/revision conflict\", \"source claims lacks evidence digest\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed claims missing_reason stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.032813187019200996,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"claim fact authority/revision conflict\", \"source claims lacks not_applicable evidence\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed claims empty_revision stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.035265958023956046,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"claim fact authority/revision conflict\", \"source claims lacks revision\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed additional missing_digest stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.034919955010991544,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"extra fact authority/revision conflict\", \"source additional lacks evidence digest\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed additional missing_reason stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.034650574991246685,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"extra fact authority/revision conflict\", \"source additional lacks not_applicable evidence\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Consumed additional empty_revision stays UNKNOWN, eligible sibling survives",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.035059554007602856,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"extra fact authority/revision conflict\", \"source additional lacks revision\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Valid authoritative not_applicable permits eligibility",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.03277675897697918,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Authoritative deny yields INELIGIBLE",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.03489342000102624,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"task: authoritative denial\"], \"result\": \"INELIGIBLE\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Unknown claim takes precedence over deny",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.033443911001086235,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"claim: unknown evidence\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Changed accepted prep is UNKNOWN",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.03600768599426374,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"prep.md changed since publication\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Conflicting source revision is UNKNOWN",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.04086513398215175,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"conflicting slice source revision\", \"phase fact authority/revision conflict\", \"stale slice source revision\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [], \"schema\": \"join/v1\", \"status\": \"COMPLETE\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Cross-home conflicting ownership picks no side",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03645116402185522,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"ownership conflict\"], \"result\": \"UNKNOWN\"}, {\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [\"actor identity missing or conflicting\", \"brief.md evidence unavailable\", \"prep.md evidence unavailable\", \"publication does not own this entry\", \"ownership conflict\"], \"result\": \"UNKNOWN\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [{\"code\": \"ownership-conflict\", \"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reason\": \"owner identity published more than once or by another home\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Expired sibling publication blocks machine completeness",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03526921401498839,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"candidate publication is expired or has invalid times\", \"status\": \"unavailable\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"candidate publication is expired or has invalid times\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "FIFO publication is rejected without blocking",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03788977602380328,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"not a regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b/state/autolaunch-steps.candidates\", \"status\": \"unavailable\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"not a regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b/state/autolaunch-steps.candidates\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Symlink publication is unavailable without following it",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03361857798881829,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"[Errno 40] Too many levels of symbolic links: '~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b/state/autolaunch-steps.candidates'\", \"status\": \"unavailable\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"[Errno 40] Too many levels of symbolic links: '~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b/state/autolaunch-steps.candidates'\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Removed registered home retains unavailable disposition",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03570470600971021,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"candidate-a\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"publication_id\": \"a-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"status\": \"unavailable\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Missing entry home retains identity and disposition",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b",
+    "exit": 75,
+    "elapsed_seconds": 0.0352664869860746,
+    "stdout": "{\"entries\": [], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"status\": \"unavailable\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"reason\": \"registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Missing current state preserves readable registered child",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03557997100870125,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"reason\": \"registered home state unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a/state\", \"status\": \"unavailable\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"reason\": \"registered home state unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a/state\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Real empty native backlog publishes honestly incomplete coverage",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.8401730010227766,
+    "stdout": "{\"complete\": false, \"completed_at\": 1793915216, \"entries\": [], \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"machine\": \"Pulse\", \"publication_id\": \"0a0a8d96-8809-4d04-bb5a-14653a554ce7\", \"schema\": \"fm-seat-candidates/v1\", \"sources\": {\"catalogue\": {\"evidence_digest\": null, \"reason\": \"catalogue producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"claims\": {\"evidence_digest\": null, \"reason\": \"claims producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"prep\": {\"evidence_digest\": \"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\", \"reason\": \"preparation evidence attempts retained\", \"revision\": \"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\", \"status\": \"ok\"}, \"slice\": {\"evidence_digest\": null, \"reason\": \"slice producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"tasks\": {\"evidence_digest\": \"sha256:5165fa8f847eb4bec45e09495ea1b8d7c6069d2114c8d6e3b85f9a98b6d3114b\", \"reason\": \"ready membership read completely\", \"revision\": \"sha256:5165fa8f847eb4bec45e09495ea1b8d7c6069d2114c8d6e3b85f9a98b6d3114b\", \"status\": \"ok\"}}, \"valid_until\": 1793915216}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Incomplete production publication cannot be treated as valid empty",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 75,
+    "elapsed_seconds": 0.03307397899334319,
+    "stdout": "{\"entries\": [{\"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"task\": \"candidate-b\"}, \"reasons\": [], \"result\": \"ELIGIBLE\"}], \"homes\": [{\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"reason\": \"candidate publication is incomplete\", \"status\": \"unavailable\"}, {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/b\", \"publication_id\": \"b-publication\", \"reason\": \"complete publication\", \"status\": \"available\"}], \"reasons\": [{\"code\": \"home-unavailable\", \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"owner\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"reason\": \"candidate publication is incomplete\", \"retry\": \"fresh complete publication\", \"scope\": \"machine\"}], \"schema\": \"join/v1\", \"status\": \"NO_PICK\"}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Real producer retains identified unprepared native task",
+    "argv": [
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a",
+    "exit": 0,
+    "elapsed_seconds": 0.8032030620088335,
+    "stdout": "{\"complete\": false, \"completed_at\": 1793915217, \"entries\": [{\"actor\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"kind\": \"unknown\", \"task\": \"unprepared\"}, \"cut\": null, \"facts\": {\"claim\": {\"authority\": \"claims\", \"reason\": \"claim producer evidence not supplied\", \"source_ref\": null, \"verdict\": \"unknown\"}, \"dependencies\": {\"authority\": \"tasks\", \"reason\": \"dependencies producer evidence not supplied\", \"source_ref\": \"sha256:a26d7a0b9817cdb9a399ccfaf35072c2c0682e90f4f4b9352014dcf0463557da\", \"verdict\": \"unknown\"}, \"phase\": {\"authority\": \"slice\", \"reason\": \"phase producer evidence not supplied\", \"source_ref\": null, \"verdict\": \"unknown\"}, \"placement\": {\"authority\": \"catalogue\", \"reason\": \"placement producer evidence not supplied\", \"source_ref\": null, \"verdict\": \"unknown\"}, \"prep\": {\"authority\": \"prep\", \"reason\": \"no brief data/unprepared/brief.md\", \"source_ref\": \"sha256:a370b38643f83e1da00836c040a246dee0b5c708ba7455cb256ce7b67967ef5b\", \"verdict\": \"unknown\"}, \"task\": {\"authority\": \"tasks\", \"reason\": \"task detail read\", \"source_ref\": \"sha256:a26d7a0b9817cdb9a399ccfaf35072c2c0682e90f4f4b9352014dcf0463557da\", \"verdict\": \"allow\"}}, \"owner\": {\"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"task\": \"unprepared\"}, \"owner_generation\": null, \"phase\": \"unknown\", \"prep\": {\"brief_digest\": null, \"digest\": null, \"revision\": null}, \"slice_id\": null, \"source_refs\": {\"catalogue\": null, \"claims\": null, \"prep\": \"sha256:a370b38643f83e1da00836c040a246dee0b5c708ba7455cb256ce7b67967ef5b\", \"slice\": null, \"tasks\": \"sha256:a26d7a0b9817cdb9a399ccfaf35072c2c0682e90f4f4b9352014dcf0463557da\"}}], \"home\": \"~/.no-mistakes/worktrees/049a88734b0e/01M6PQME4YX4EXPVGXDT30GMFT/.test-live/join/a\", \"machine\": \"Pulse\", \"publication_id\": \"1e0120ca-53ca-46fc-94f3-1d80264d2c79\", \"schema\": \"fm-seat-candidates/v1\", \"sources\": {\"catalogue\": {\"evidence_digest\": null, \"reason\": \"catalogue producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"claims\": {\"evidence_digest\": null, \"reason\": \"claims producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"prep\": {\"evidence_digest\": \"sha256:a370b38643f83e1da00836c040a246dee0b5c708ba7455cb256ce7b67967ef5b\", \"reason\": \"preparation evidence attempts retained\", \"revision\": \"sha256:a370b38643f83e1da00836c040a246dee0b5c708ba7455cb256ce7b67967ef5b\", \"status\": \"ok\"}, \"slice\": {\"evidence_digest\": null, \"reason\": \"slice producer contract not supplied\", \"revision\": null, \"status\": \"missing\"}, \"tasks\": {\"evidence_digest\": \"sha256:a26d7a0b9817cdb9a399ccfaf35072c2c0682e90f4f4b9352014dcf0463557da\", \"reason\": \"ready membership read completely\", \"revision\": \"sha256:a26d7a0b9817cdb9a399ccfaf35072c2c0682e90f4f4b9352014dcf0463557da\", \"status\": \"ok\"}}, \"valid_until\": 1793915217}\n",
+    "stderr": "",
+    "assertions": "pass"
+  },
+  {
+    "name": "Activated controller refuses unavailable private manager",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-autolaunch: user service manager unavailable; controller obligations preserved\n"
+  }
+]

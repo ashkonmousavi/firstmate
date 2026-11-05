@@ -1,0 +1,11 @@
+Can't run system mode unless PID 1.
+private_manager_exit=1
+corrected_pid1_manager_exit=255
+console_manager_exit=255
+root_pid1_manager_exit=255
+Sandbox identity:
+uid=0(root) gid=0(root) groups=0(root),65534(nogroup)
+PID=1, proc1=sh
+cgroup mount:
+cgroup2 /sys/fs/cgroup cgroup2 ro,nosuid,nodev,noexec,relatime 0 0
+clean_environment_manager_exit=255

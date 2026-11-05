@@ -1,0 +1,45 @@
+ok - K1-R1 test_actions_start_as_transient_units: one unit per due obligation, 600 s launch, 60 s re-ring, TimeoutStopSec=5
+ok - K1-R1/R3 test_hung_action_times_out_and_reaches_responder_once: deadline, free slot, failed:timeout, one owned spawn_lock_holder hand-off by 680 s
+ok - K1-R2 delivery variant: rungs 1-2 on timeout, one owned record, unrelated re-ring on time
+ok - K1-R2 diagnosis variant: 900 s rung-3 unit, diagnosis=failed:timeout, rung 4, no new owned record
+ok - K1-R3 child exited: lock taken and released, one owned hand-off
+ok - K1-R3 late start: one launch, launched, resolved: launched-late
+ok - K1-R3 started before hang: launched, no owned record
+ok - K1-R4 term-ignored main: gone by the KILL, hand-off by 680 s
+ok - K1-R4 recording pass cut: pass killed=1, hand-off by 735 s marked overrun=1
+ok - K1-R5 test_dropped_event_repaired_after_killed_pass: pass killed=1, repaired by 130 s, overrun=1
+ok - K1-R5 (K2c case) dropped event repaired within 75 s when step (1) completes
+ok - K1-R6 test_persistent_pass_lock_holder_opens_one_responder_key: overrun per pass, re-ring on time, pass-lock-held, one key by 165 s, closed after release
+ok - K1-R7 test_unknown_failure_escalation_is_bounded: 2 retries, responder within 75 s of failed rung 2, rungs 3-5 after
+ok - K1-R7 ten keys: every responder within 75 s, every queued key skipped-capacity within 315 s
+ok - K1-R8 test_repeated_cut_passes_reach_responder: one incident within 165 s, re-rings continue, work unresolved
+ok - K1-R9 test_action_alive_after_kill_deadline: one hand-off by 680 s, slot and identity kept, no duplicate launch
+ok - K1-R10 test_event_burst_does_not_escalate_normal_lock: no key on a burst, one key by 165 s when persistent
+ok - K1-R11 test_responder_handoff_survives_failed_send_and_restart: one accepted hand-off, same identity, no MAIN wake
+ok - K1-R7/R12 test_unanswered_technical_key_goes_to_responder_without_diagnosis: one ctl-c-ask within 255 s, no diagnosis
+ok - K1-R12 interrupted recording pass: one ctl-c-ask within 310 s, overrun=1, no diagnosis
+ok - EGM1 G1 test_egm1_g1_unreadable_home_is_no_pick: an unreadable home is NO_PICK with an explicit unavailable disposition
+ok - EGM1 G1 test_egm1_g1_missing_registered_home_is_no_pick: a failed home enumeration never returns success
+ok - EGM1 G1 test_egm1_g1_stale_prep_or_phase_is_not_eligible: stale prep or phase gives no eligible entry
+ok - EGM1 G2 test_egm1_g2_valid_empty_home_permits_other_home: valid-empty A plus eligible B permits B
+ok - EGM1 G2 test_egm1_g2_bounded_unknown_does_not_block_other_home: a bounded unknown stays entry-scoped
+ok - EGM1 G3 test_egm1_g3_missing_garbage_timeout_are_no_pick: missing, garbage, timed-out, expired and blocking input are NO_PICK naming the home
+ok - EGM1 G3 test_egm1_g3_unavailable_home_disposition_survives_kick: a kicked, expired or unkicked home without input stays unavailable and NO_PICK
+ok - EGM1 G3 test_egm1_g3_uncertain_claim_stays_reserved_through_kick: an uncertain claim stays reserved with or without a kick
+ok - EGM1 G7 test_egm1_g7_unsupported_or_skewed_publication_is_no_pick: unsupported schema, duplicate members and a copied publication are NO_PICK
+ok - EGM1 G7 test_egm1_g7_conflicting_revisions_stay_entry_scoped: a revision conflict makes only its entry UNKNOWN
+ok - EGM1 G7 test_egm1_g7_conflicting_ownership_picks_no_side: conflicting ownership is NO_PICK and no side is eligible
+ok - EGM1 G9 test_egm1_g9_complete_zero_rows_is_valid_empty: a complete zero-row publication succeeds
+ok - EGM1 G9 test_egm1_g9_missing_completion_evidence_is_never_empty: incomplete, skipped, absent or blank evidence is never valid-empty
+ok - EGM1 G9 test_egm1_g9_producer_unrecognized_ready_is_not_empty: blank or garbage ready output never publishes a complete empty home
+ok - EGM1 G1 test_egm1_g1_producer_retains_unprepared_entries: a completed scan retains refused entries
+ok - EGM1-R2 test_egm1r2_missing_claim_references_are_never_eligible: absent or malformed authority revisions never compare equal
+ok - EGM1-R2 test_egm1r2_malformed_ready_is_not_a_successful_read: contradictory, truncated or malformed ready output is never a successful read
+ok - EGM1-R2 test_egm1r2_contradictory_task_detail_never_clears_a_hold: duplicate, contradictory or unscoped detail never clears a hold
+ok - EGM1-R2 test_egm1r2_stray_top_level_held_is_unknown: a hold field outside the task block never clears a hold
+ok - EGM1-R3 test_egm1r3_removed_home_keeps_membership_and_typed_record: a removed registered home is NO_PICK, typed unavailable, and R stays a member
+ok - EGM1-R3 test_egm1r3_unreadable_home_keeps_membership_and_typed_record: an unreadable registered home is NO_PICK, typed unavailable, and R stays a member
+ok - EGM1-R3 test_egm1r3_readable_valid_empty_homes_are_complete: two readable valid-empty homes are COMPLETE with both listed
+ok - EGM1-R4 test_egm1r4_missing_own_state_keeps_registered_sibling: a home without state is NO_PICK and typed unavailable, and its registered sibling stays a member
+ok - EGM1-R4 test_egm1r4_unresolvable_parent_keeps_parent_and_children: an unresolvable recorded parent is NO_PICK and typed unavailable, and the readable children stay members
+ok - EGM1-R4 test_egm1r4_readable_parent_chain_is_complete: a readable valid-empty parent chain is COMPLETE with every home listed
