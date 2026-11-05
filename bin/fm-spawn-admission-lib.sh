@@ -148,6 +148,7 @@ fm_spawn_brief_admit() { # <brief>
     echo "error: $brief ## Captain's intent has an operator-address line: $ADDRESS_LINE; write the captain's actual words without a Captain label or address before spawn, since the heading already records provenance" >&2
     return 1
   fi
+  # shellcheck disable=SC2153 # MODE is supplied by spawn or relaunch preparation.
   if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
     if fm_brief_task_heading_present "$brief" "## Captain's intent"; then
       CAPTAIN_INTENT=$(fm_brief_task_heading_body "$brief" "## Captain's intent") || return 1
@@ -183,6 +184,7 @@ fm_spawn_launch_files_admit() { # <state-real> <worktree> <project-or-mate-home>
     fm_polytoken_write_config "$(fm_polytoken_config_dir "$state_real" "$ID")" check || return 1
     ;;
   claude*)
+    # shellcheck disable=SC2153 # STATE is supplied by relaunch preparation.
     opstate=$STATE trust_args=("$wt" "$proj")
     if [ "$KIND" = secondmate ]; then
       opstate="$proj/state" trust_args=(--secondmate-home "$proj" "$ID")

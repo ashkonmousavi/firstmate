@@ -5243,6 +5243,7 @@ case $3 in
 esac
 SH
         FM_HOME="$dir/home" bash "$dir/hold" "$ROOT" "$dir" "$scenario" >/dev/null 2>&1 &
+        # shellcheck disable=SC2031 # $! is set by the background launch in this shell.
         holder=$!
         for ((i = 0; i < 200; i++)); do
           [ ! -f "$dir/holder.ready" ] || break
