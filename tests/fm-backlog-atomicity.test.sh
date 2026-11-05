@@ -1714,7 +1714,7 @@ test_scout_phase_retention_replays_without_worker_metadata() {
 
 test_scout_phase_declaration_grammar() {
   local case_dir home id label body expected out rc
-  id=phase-declaration
+  id='phase-declaration'
   case_dir=$(make_home "$id")
   home=$(home_of "$case_dir")
   add_item "$case_dir" "$id" scout
