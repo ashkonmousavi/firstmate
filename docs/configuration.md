@@ -932,6 +932,7 @@ The ordinary ready queue uses the same tester model admission and leaves step-ow
 For step-owned fresh launches, spawn records the action witness at its verified commit boundary before honoring deferred signals, including a preserved interrupted launch.
 An owned tester or reviewer without a runtime receives its saved current brief and prep before fresh dispatch of the same task, reopening its completed native record when needed.
 Required-check and review progression follows product work after the latest merge independently of walk bookkeeping.
+A PR response that cannot be decoded supplies no new facts and leaves any matching cached facts in place, allowing the rest of the step pass to continue.
 Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.
 Finding delivery requires the destination owner's active lease; observation leaves that delivery pending with its route recorded.
 

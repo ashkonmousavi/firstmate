@@ -70,6 +70,7 @@ The stop seam sends SIGKILL to this engine, leaving the durable receipt.
 
 import datetime as dt
 import base64
+import binascii
 import csv
 from fnmatch import fnmatchcase
 import hashlib
@@ -396,12 +397,16 @@ class Slice:
         query = '''query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){headRefOid isDraft state mergeCommit{oid} commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename ... on CheckRun{isRequired(pullRequestNumber:$number) status conclusion} ... on StatusContext{isRequired(pullRequestNumber:$number) state}}}}}}}}}}'''
         # --input preserves typed GraphQL variables. Base64 preserves the JSON
         # value across gh-axi's normal TOON presentation of object results.
+        # --full prevents long encoded values from being presentation-truncated.
         payload = json.dumps(dict(query=query, variables=dict(owner=owner, repo=repo, number=int(number))))
         result = invoke([tool("PR", "gh-axi"), "api", "POST", "/graphql", "--input", "-",
-                         "--jq", ".data.repository.pullRequest | @base64"], input=payload)
+                         "--jq", ".data.repository.pullRequest | @base64", "--full"], input=payload)
         if result.returncode:
             return {}
-        value = json.loads(base64.b64decode(result.stdout.strip().strip('"'), validate=True))
+        try:
+            value = json.loads(base64.b64decode(result.stdout.strip().strip('"'), validate=True))
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            return {}
         if not isinstance(value, dict):
             return {}
         checks = []

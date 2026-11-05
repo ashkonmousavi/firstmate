@@ -1507,6 +1507,49 @@ done
         self.assertEqual(retry["revision"], "r1")
         self.assertEqual(retry["walk_list"], "screen-a,screen-b")
 
+    def test_long_pr_read_requests_full_value(self):
+        self.seed("build", "tests-ready:none@r1", revision="r1")
+        with (self.home / "state/builder.meta").open("a") as f:
+            f.write("pr=https://github.com/example/proj/pull/1\npr_head=old\n")
+        value = dict(headRefOid="abc", isDraft=False, state="OPEN", mergeCommit=None,
+                     commits=dict(nodes=[dict(commit=dict(statusCheckRollup=dict(contexts=dict(nodes=[
+                         dict(__typename="CheckRun", isRequired=True, status="COMPLETED", conclusion="SUCCESS")
+                         for _ in range(34)
+                     ]))))]))
+        encoded = base64.b64encode(json.dumps(value).encode()).decode()
+        self.assertGreater(len(encoded), 4000)
+        self.write("fake/pr.json", encoded)
+        self.write("fake/pr-truncated", encoded[:4000] + "... (truncated)")
+        self.tool("pr", '''for arg in "$@"; do
+  if [ "$arg" = --full ]; then cat "$FM_HOME/fake/pr.json"; exit 0; fi
+done
+cat "$FM_HOME/fake/pr-truncated"
+''')
+        self.env["FM_AUTOLAUNCH_STEPS_PR_BIN"] = str(self.home / "fake/pr")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        cached = json.loads((self.home / "state/builder.step-pr").read_text())
+        self.assertEqual(cached["facts"]["head"], "abc")
+        self.assertEqual(len(self.effects("spawn builder-review-1-1")), 1)
+
+    def test_unreadable_pr_result_does_not_abort_step_pass(self):
+        for output in ("A" * 4000 + "... (truncated)",
+                       base64.b64encode(b"not JSON").decode(),
+                       base64.b64encode(b"\xff").decode(), "non-ASCII: \u00e9"):
+            with self.subTest(output=output[-30:]):
+                self.setUp()
+                self.prepare_effect("walk-request")
+                with (self.home / "state/builder.meta").open("a") as f:
+                    f.write("pr=https://github.com/example/proj/pull/1\n")
+                self.tool("pr", 'cat "$FM_HOME/fake/pr.json"\n')
+                self.write("fake/pr.json", output)
+                self.env["FM_AUTOLAUNCH_STEPS_PR_BIN"] = str(self.home / "fake/pr")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertFalse((self.home / "state/builder.step-pr").exists())
+                self.assertTrue((self.home / "state/autolaunch-steps.pass").exists())
+                self.assertEqual(self.effects("walk "), ["walk demo@abc.a1"])
+
     def test_recorded_pr_uses_required_checks_and_merge_facts_without_status_phrase(self):
         for required, conclusion in ((True, "FAILURE"), (False, "FAILURE"), (True, "SUCCESS")):
             with self.subTest(required=required, conclusion=conclusion):
