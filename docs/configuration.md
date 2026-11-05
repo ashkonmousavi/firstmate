@@ -882,7 +882,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 ## Auto-launch
 
 `bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
-Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
+Each pass launches prepared items in the order returned by `bin/fm-tasks-axi.sh ready` through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
 Preparation admission, including X persona/Doctor/XAI-surface fields and legacy grace, is owned by the [launcher header's PREP section](../bin/fm-autolaunch.sh).
@@ -895,7 +895,9 @@ On the other homes the commands are documented here only, and run there once the
 | Laptop zb-crew | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 | Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 
-Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+Held, parked, and blocked items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+When a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority ranked unprepared item's own task row.
+The [step engine header](../bin/fm-autolaunch-steps.py) owns catalogue ranking, unranked-item refusal, admission, preservation, retirement and receipt-owned retry without deferred queueing.
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 Nothing enables a schedule automatically.
@@ -906,10 +908,10 @@ The check prints one red line, and in a secondmate home also reports it on the p
 The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
 The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
-Slice progression is independently opt-in through `config/autolaunch-steps`.
-An absent file or `off` disables step transitions.
+Leased slice progression is independently opt-in through `config/autolaunch-steps`.
+An absent file or `off` disables these leased transitions.
 Each line grants a lease with `act <owner-id> ...`, or leaves the named owners under the mate with `observe <owner-id> ...`; bare `observe` inspects recorded slices without granting a lease.
-Only the leased pass writes an owner's step log and performs its transitions; a mate that needs to act manually first returns that owner to `observe`.
+Only an `act` lease permits the tester, review and owner transitions below; a mate that needs to act manually first returns that owner to `observe`.
 `bin/fm-autolaunch.sh --steps-only` advances those slices and launches their tester and review tasks using the ordinary admission and default-profile selection, without launching unrelated ready items.
 `--steps-only --dry-run` prints the next transitions and reconciliations without writing or launching.
 The ordinary scheduled pass also advances leased slices when the file is present.
@@ -936,7 +938,7 @@ A PR response that cannot be decoded supplies no new facts and leaves any matchi
 Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.
 Finding delivery requires the destination owner's active lease; observation leaves that delivery pending with its route recorded.
 
-The same armed throttle check also evaluates C2 after a completed step pass: a pending receipt without a recorded wait reason, or a fired trigger left without a receipt.
+The same armed throttle check also evaluates C2 for leased slice progression after a completed step pass: a pending transition receipt without a recorded wait reason, or a fired trigger left without a receipt.
 It reuses `state/.autolaunch-check.red` and the parent-channel report, emits once per C2 episode, and clears when the condition clears.
 Admission waits and open walk obligations remain pending for the next pass.
 Process release at a recorded owner wait follows the [lane-release contract](#lane-release-configlane-release).
