@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # fm-autolaunch.sh - fill free machine lanes from this home's prepared backlog,
-# with no model in the loop, and keep one record per decision.
+# with deterministic selection, and keep one record per decision.
 #
 # Usage:
 #   fm-autolaunch.sh                 one pass: launch or refuse, one record each
@@ -14,6 +14,9 @@
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
 #   fm-autolaunch.sh --explain        prepared entries and current wait reasons
+#   fm-autolaunch.sh --join | --publish-candidates
+#                                    staged evidence interfaces; contract in
+#                                    bin/fm-next-in-line.py's header
 #   fm-autolaunch.sh --help
 #
 # Timer proposals capture the caller's PATH and resolved FM_HOME for both
@@ -35,6 +38,8 @@
 # -k 5 20. Busy or killed plans still run non-seat delivery reconciliation;
 # action units run separately, with non-inherited per-key slot descriptors.
 # bin/fm-autolaunch-steps.py Controller owns journal, deadlines and ladder.
+# Optional model diagnosis follows responder ownership; docs/configuration.md
+# "Auto-launch" owns diagnosis configuration and its read-only boundary.
 # This cut does not change the timer recipe or install/enable any service.
 # --join and --publish-candidates expose the staged snapshot read seam owned
 # by bin/fm-next-in-line.py. They neither select nor launch an actor; production

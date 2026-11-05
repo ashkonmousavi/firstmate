@@ -881,7 +881,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 
 ## Auto-launch
 
-`bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
+`bin/fm-autolaunch.sh` deterministically selects prepared backlog work to fill this machine's free lanes.
 Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
@@ -901,10 +901,11 @@ Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh
 The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
 The staged `--publish-candidates` and `--join` evidence interfaces are owned by the [candidate reader header](../bin/fm-next-in-line.py).
 They do not select, claim or launch work; production input completeness remains open until the catalogue, task/phase and claim/kick producer contracts are wired.
-Installing this cut alone keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
+Without activation evidence, installing this cut keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
 Controller agent reconciliation matches `agent_root_pid`, `agent_root_start`, and `boot_id` from task metadata against the current kernel identity of that process.
 Publishing those fields remains the frozen plan's K2b dependency, owned by `fleet-ops:relaunch-preflight-fix`; fixture coverage does not establish production late-start recognition before that writer lands.
 Diagnosis defaults are read-only Codex `gpt-6.1-sol` followed by Claude `claude-opus-5-5`, after ownership has already reached the technical responder.
+Scheduling and selection do not call a model; only the staged controller's diagnosis ladder does.
 A home may replace either command prefix with a nonempty JSON argv array named `rung3` or `rung4` in `config/controller-diagnosis`; the controller appends its diagnosis prompt and retains the 900-second bound.
 For example, `{"rung3":["codex","exec","-s","read-only","-m","gpt-6.1-sol","-c","model_reasoning_effort=high"]}` replaces only rung 3.
 The command must retain read-only permissions; configuration never authorizes a diagnosis to modify project or lifecycle state.

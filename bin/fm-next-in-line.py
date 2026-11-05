@@ -7,7 +7,12 @@ Internal argv: fm-next-in-line.py join | publish-candidates.
 The publication is <physical home>/state/autolaunch-steps.candidates, JSON
 fm-seat-candidates/v1. Required sources are tasks, prep, slice and catalogue.
 Each names status (ok/not_applicable for a completed read), opaque revision and
-evidence_digest; not_applicable instead supplies its authoritative reason.
+sha256:<hex> evidence_digest; not_applicable instead supplies its authoritative
+reason. Every source consumed by an entry reference or fact must satisfy the
+same evidence rule and have an explicit nonempty matching revision/reference.
+Required-source evidence failures make the publication unavailable; within an
+otherwise complete publication, invalid consumed evidence leaves the entry
+UNKNOWN. Unused optional sources do not affect publication completeness.
 The envelope names machine, home, publication_id, integer completed_at and
 valid_until, boolean complete and entries. Complete-empty requires successful
 coverage of every required source. Expiry never proves a writer/claim absent.
@@ -27,6 +32,10 @@ every available/unavailable home, and ELIGIBLE/INELIGIBLE/UNKNOWN entries.
 Bounded entry evidence failures retain UNKNOWN; incomplete home membership or
 publication coverage and conflicting ownership produce NO_PICK. Unknown takes
 precedence over deny. COMPLETE is eligibility information, never admission.
+Home discovery follows local parent records and readable child registries;
+missing state or an unavailable ancestor does not erase known membership.
+Each unavailable home retains its identity in homes and a home-unavailable
+machine reason naming home, owner and retry disposition in reasons.
 No kick is written or interpreted as evidence of missing claims/writers.
 
 Producer read seam: the existing registered-home/parent parsers and tasks-axi
