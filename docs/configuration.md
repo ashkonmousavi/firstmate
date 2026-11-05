@@ -561,15 +561,16 @@ On the default markdown adapter, tasks-axi and manual edits produce the same `##
 
 `bin/fm-tasks-axi.sh ready`, the autolaunch candidates it feeds, the session-start digest, and `bin/fm-fleet-snapshot.sh` share one rule for whether a `blocked-by:` edge still blocks: [`bin/fm-blocked-by-lib.sh`](../bin/fm-blocked-by-lib.sh)'s header owns it.
 An open row blocks, whether it is in this home or, per the fleet list, in another home.
-With a fresh fleet list, a blocker done in this home's backlog or done archive clears the edge, and so does a recorded mark.
+A blocker done in this home's backlog or done archive, or a recorded mark, clears a local edge only when the fleet list holds that id and shows no other home holding it open, even if the list is stale.
 A blocker with no row, no archive row and no mark is unknown, so it blocks and is listed with its evidence rather than cleared.
 A merged pull request never clears an edge by itself, because the same id can still be an open row in another home.
 Only a manual mark recorded with [`bin/fm-blocked-by.sh`](../bin/fm-blocked-by.sh) `mark` can clear an edge on the strength of a merged PR; `unmark` reverses it, and the marks live in the home's `data/blocked-by-marks.tsv`.
-The optional fleet list `data/blocked-by-fleet-rows.tsv` holds every home's open, done and archived rows; the blocked-by census kit's `fleet-rows` output writes one per home, and it is copied into each home by hand.
-With it, an edge written `<home>:<id>` resolves against that home's rows.
+The optional fleet list `data/blocked-by-fleet-rows.tsv` holds every home's open, done and archived rows; the blocked-by census kit's `fleet-rows` output writes one per home, and it is copied into each home by hand until the planned registered check refreshes it.
+With it, an edge written `<home>:<id>` resolves against that home's rows; a qualifier matching `self` is local, including for manual marks and their reversal.
 Its rows also carry the full pull request URLs each row cites, which [`bin/fm-pr-owner.sh`](../bin/fm-pr-owner.sh) reads to name the home and task that own a pull request.
-Without it, or once it is older than the fixed six-hour limit (21600 seconds), visible open rows still block and every other edge is unknown, including targets done or archived locally and targets with recorded marks.
-The ready list and the digest print a `blocked_by_fleet_list:` line naming the gap.
+Without a list, or when the list holds no row for the target id, a local done/archive row or mark cannot clear the edge; it is unknown unless a visible open row blocks it.
+A list older than the fixed six-hour limit (21600 seconds) is stale: its open rows still block and its done rows cannot satisfy a remote-qualified edge.
+The ready list and the digest keep printing a `blocked_by_fleet_list:` line for missing or stale data; a stale line names the generation time, age and covered homes.
 PR ownership is also UNKNOWN without a fresh list; only this home's matching rows can make it a candidate, and triage never launches a fix from incomplete fleet data.
 `bin/fm-blocked-by.sh verdicts` prints the verdict for every edge.
 

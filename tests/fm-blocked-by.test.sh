@@ -9,9 +9,10 @@
 # archive citing those URLs; the live 2026-11-05 cross-home case (q-server
 # x-j17-slice6 blocked by x-spine-workshop-contract, open on the Zenbook while its
 # fm/ pull request 1218 merged on 2026-10-19); and the rule fleet-ops set for cut
-# 13 as amended on 2026-11-05: with a fresh fleet list, a done or archive
-# row or a manual merged-PR mark satisfies; an open row never does; an id with no row, no archive row and no
-# pull request is unknown, which blocks and is reported.
+# 13 as amended by fleet-ops-033 on 2026-11-05: a listed id with local done or
+# archive evidence or a manual merged-PR mark satisfies, even with a stale list;
+# an open row never does; an id with no row, no archive row and no recorded mark
+# is unknown, which blocks and is reported.
 # Fleet-list oracle: the four live edges of the 2026-11-05 census whose blocker
 # is done or archived in the edge's own home and open in the other one (q-server
 # x-j17-slice6, x-j09-basket-approval-build and x-feedback-apps-status, open on
@@ -117,6 +118,7 @@ test_archived_blockers_resolve_and_cite_their_prs() {
 - [ ] x-person-preferences - One per-person preference (repo: NOT_Q) (kind: ship)")
   archive "$home" "- [x] x-record-ux-data-compat - N4b-R record: land N4b's data compatibility drawings on main $PR_2700 (repo: NOT_Q)
 - [x] x-region-registry - P2 region registry: code lists and facts about places $PR_2978 (repo: NOT_Q) (kind: ship)"
+  fleet_list "$home" local "$(date +%s)" local local:x-region-registry:archive local:x-record-ux-data-compat:archive
   out=$(snapshot_unresolved "$home" x-person-region)
   [ "$out" = x-person-preferences ] || fail "snapshot keeps archived blockers unresolved: '$out'"
   out=$(FM_HOME=$home "$TOOL" verdicts)
@@ -139,7 +141,7 @@ test_ready_withholds_unknown_and_other_home_blockers() {
   ids=$(ready_ids "$home" | tr '\n' ' ')
   [ "$ids" = 'x-z x-free ' ] || fail "ready lists rows whose blocker is unknown: '$ids'"
   held=$(withheld "$home")
-  printf '%s\n' "$held" | grep -Fq 'x-a,x-ghost,unknown,"no row in this home backlog or archive and no recorded mark"' \
+  printf '%s\n' "$held" | grep -Fq 'x-a,x-ghost,unknown,"id x-ghost absent from fleet list ' \
     || fail "absent blocker not reported with its evidence: $held"
   printf '%s\n' "$held" | grep -Fq 'x-e,"q-zenbook:x-z",unknown,"names home q-zenbook' \
     || fail "other-home blocker not reported: $held"
@@ -170,6 +172,7 @@ test_mark_records_the_merged_pr_and_unmark_reverses_it() {
 - [ ] x-b - waits blocked-by: x-open (kind: ship)
 - [ ] x-open - still open (kind: ship)
 - [ ] x-c - waits blocked-by: q-zenbook:x-y (kind: ship)')
+  fleet_list "$home" local "$(date +%s)" local local:x-gone:done local:x-open:open
   gh=$TMP_ROOT/marks-gh
   fake_gh "$gh"
   printf '{"state":"MERGED","url":"%s","headRefName":"fm/x-gone","mergedAt":"2026-11-02T23:45:34Z"}\n' "$PR_2978" > "$gh/2978.json"
@@ -217,6 +220,7 @@ test_ready_autolaunch_and_snapshot_agree() {
 - [ ] x-far - waits on another home blocked-by: pc:x-there (repo: proj) (kind: ship)
 - [ ] x-open - waits on an open row blocked-by: x-free (repo: proj) (kind: ship)' '- [x] x-fin - delivered (done 2026-11-01)')
   archive "$home" '- [x] x-old - archived (done 2026-10-20)'
+  fleet_list "$home" local "$(date +%s)" local local:x-old:archive local:x-fin:done
   ready=$(ready_ids "$home" | sort | tr '\n' ' ')
   [ "$ready" = 'x-arch x-done x-free ' ] || fail "ready list: '$ready'"
   snap=$(FM_HOME=$home "$SNAPSHOT" --json | jq -r '.backlog.records[] | select(.structured and .state == "queued" and (.unresolved_blocker_ids | length) == 0) | .id' | sort | tr '\n' ' ')
@@ -236,6 +240,7 @@ test_a_second_run_gives_the_same_result_and_reads_change_nothing() {
   home=$(make_home again "$X_PERSON_REGION
 - [ ] x-a - waits blocked-by: x-ghost (kind: ship)")
   archive "$home" "- [x] x-region-registry - registry $PR_2978"
+  fleet_list "$home" local "$(date +%s)" local local:x-region-registry:archive
   before=$(cd "$home/data" && sha256sum backlog.md done-archive.md)
   one=$(FM_HOME=$home "$WRAPPER" ready; FM_HOME=$home "$TOOL" verdicts; snapshot_unresolved "$home" x-person-region)
   two=$(FM_HOME=$home "$WRAPPER" ready; FM_HOME=$home "$TOOL" verdicts; snapshot_unresolved "$home" x-person-region)
@@ -370,6 +375,7 @@ test_the_archive_path_follows_tasks_toml() {
   home=$(make_home toml '- [ ] x-a - waits blocked-by: x-old (kind: ship)')
   printf 'backend = "markdown"\n\n[markdown]\npath = "data/backlog.md"\narchive = "data/old/archive.md"\n' > "$home/.tasks.toml"
   archive "$home" '- [x] x-old - in the default place only'
+  fleet_list "$home" local "$(date +%s)" local local:x-old:archive
   ready_ids "$home" | grep -Fqx x-a && fail 'the default archive was read although .tasks.toml names another'
   mkdir -p "$home/data/old"
   printf '## Archived 2026-11-01\n- [x] x-old - archived where .tasks.toml says\n' > "$home/data/old/archive.md"
@@ -377,7 +383,7 @@ test_the_archive_path_follows_tasks_toml() {
   pass 'the archive path follows .tasks.toml'
 }
 
-test_missing_or_stale_fleet_data_withholds_every_nonopen_edge() {
+test_unlisted_or_absent_fleet_data_withholds_local_completion() {
   local home mode out id gh
   home=$(make_home incomplete '- [ ] wait-done - waits blocked-by: done-id (kind: ship)
 - [ ] wait-archive - waits blocked-by: archive-id (kind: scout)
@@ -415,15 +421,124 @@ test_missing_or_stale_fleet_data_withholds_every_nonopen_edge() {
     [ "$(snapshot_unresolved "$home" wait-done)" = done-id ] || fail "$mode snapshot cleared local done work"
     [ "$(snapshot_unresolved "$home" wait-mark)" = marked-id ] || fail "$mode snapshot cleared a recorded mark"
   done
-  fleet_list "$home" local "$(date +%s)" local,remote remote:remote-id:done remote:remote-open-id:open
+  fleet_list "$home" local "$(date +%s)" local,remote remote:remote-id:done remote:remote-open-id:open \
+    local:done-id:done local:archive-id:archive local:marked-id:done
   for id in wait-done wait-archive wait-mark wait-qualified wait-remote; do
     ready_ids "$home" | grep -Fqx "$id" || fail "fresh fleet data did not restore $id"
   done
-  pass 'absent or stale fleet data preserves visible blockers and makes every other edge unknown until refreshed'
+  pass 'no list or unlisted local completion stays unknown; listed completion is restored with fleet evidence'
+}
+
+test_self_qualified_marks_preserve_the_edge_identity() {
+  local home gh out ledger before
+  home=$(make_home self-mark '- [ ] wait - waits blocked-by: local:old (kind: ship)
+- [ ] plain - waits blocked-by: old (kind: ship)
+- [ ] remote - waits blocked-by: other:old (kind: ship)
+- [ ] wait-open - waits blocked-by: local:open (kind: ship)
+- [ ] open - still open (kind: ship)')
+  fleet_list "$home" local "$(date +%s)" local,other local:old:done local:open:open
+  gh=$TMP_ROOT/self-mark-gh
+  fake_gh "$gh"
+  printf '{"state":"MERGED","url":"%s"}\n' "$PR_2978" > "$gh/2978.json"
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait local:old --pr "$PR_2978" >/dev/null \
+    || fail 'a self-qualified local edge refused its manual mark'
+  ledger=$home/data/blocked-by-marks.tsv
+  awk -F '\t' -v pr="$PR_2978" '$1 == "mark" && $3 == "wait" && $4 == "local:old" && $5 == pr { found = 1 } END { exit !found }' "$ledger" \
+    || fail 'the ledger lost the qualified target or PR citation'
+  ready_ids "$home" | grep -Fqx wait || fail 'the self-qualified mark did not satisfy its edge'
+  ready_ids "$home" | grep -Fqx plain && fail 'a qualified mark leaked into another row or target'
+  [ "$(snapshot_unresolved "$home" wait)" = '' ] || fail 'the snapshot ignored the qualified mark'
+  out=$(FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait local:old --pr "$PR_2978")
+  assert_contains "$out" 'already marked:' 'a repeated qualified mark is not a no-op'
+  [ "$(wc -l < "$ledger")" -eq 1 ] || fail 'a repeated qualified mark appended a second entry'
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark remote other:old --pr "$PR_2978" >/dev/null 2>&1 \
+    && fail 'a remote-qualified target accepted a local mark'
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait-open local:open --pr "$PR_2978" >/dev/null 2>&1 \
+    && fail 'a self-qualified open row accepted a mark'
+  FM_HOME=$home "$TOOL" unmark wait local:old >/dev/null || fail 'unmark refused a qualified ledger entry'
+  ready_ids "$home" | grep -Fqx wait && fail 'the qualified mark survived its reversal'
+  [ "$(snapshot_unresolved "$home" wait)" = local:old ] || fail 'the reversed edge lost its original target'
+  fleet_list "$home" local "$(( $(date +%s) - 7 * 3600 ))" local,other local:old:done
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait local:old --pr "$PR_2978" >/dev/null \
+    || fail 'a stale list lost its self identity for a qualified mark'
+  ready_ids "$home" | grep -Fqx wait || fail 'a stale listed qualified mark did not satisfy the edge'
+  before=$(cat "$home/data/backlog.md")
+  printf '%s\n' "$before" | sed '/^## Queued$/a - [ ] old - reopened local follow-up (kind: ship)' > "$home/data/backlog.md"
+  ready_ids "$home" | grep -Fqx wait && fail 'the qualified mark cleared a reopened local target'
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait local:old --pr "$PR_2978" >/dev/null 2>&1 \
+    && fail 'a repeated qualified mark bypassed a reopened local target'
+  printf '%s\n' "$before" > "$home/data/backlog.md"
+  rm -f "$home/data/blocked-by-fleet-rows.tsv"
+  ready_ids "$home" | grep -Fqx wait && fail 'the qualified mark cleared an edge without a fleet list'
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait local:old --pr "$PR_2978" >/dev/null 2>&1 \
+    && fail 'a qualifier was assumed local without a fleet self identity'
+  pass 'self-qualified marks retain their ledger identity, repeat safely, reverse, and respect open rows and fleet membership'
+}
+
+test_stale_list_satisfies_listed_local_completion() {
+  local home gh out id
+  home=$(make_home stale-local '- [ ] wait-done - waits blocked-by: done-id (repo: proj) (kind: ship)
+- [ ] wait-archive - waits blocked-by: archive-id (repo: proj) (kind: scout)
+- [ ] wait-mark - waits blocked-by: marked-id (repo: proj) (kind: ship)
+- [ ] wait-self - waits blocked-by: local:done-id (repo: proj) (kind: ship)' '- [x] done-id - delivered')
+  archive "$home" '- [x] archive-id - archived'
+  fleet_list "$home" local "$(( $(date +%s) - 7 * 3600 ))" local,other \
+    local:done-id:done local:archive-id:archive local:marked-id:done
+  gh=$TMP_ROOT/stale-local-gh
+  fake_gh "$gh"
+  printf '{"state":"MERGED","url":"%s"}\n' "$PR_2978" > "$gh/2978.json"
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait-mark marked-id --pr "$PR_2978" >/dev/null || fail 'could not mark a listed stale blocker'
+  for id in wait-done wait-archive wait-mark wait-self; do
+    ready_ids "$home" | grep -Fqx "$id" || fail "a stale list withheld listed local completion $id"
+    [ "$(snapshot_unresolved "$home" "$id")" = '' ] || fail "the snapshot ignored listed local completion $id"
+  done
+  out=$(FM_HOME=$home "$WRAPPER" ready)
+  assert_contains "$out" 'blocked_by_fleet_list: "fleet list stale: generated ' 'stale satisfaction hid the fleet-list warning'
+  assert_contains "$out" '(age 7h), covers local,other;' 'the stale line lost its age or homes'
+  out=$(autolaunch_dry "$home")
+  assert_contains "$out" 'wait-done' 'autolaunch did not consume stale listed local completion'
+  fleet_list "$home" local "$(( $(date +%s) - 7 * 3600 ))" local,other \
+    other:done-id:done other:archive-id:archive other:marked-id:done
+  for id in wait-done wait-archive wait-mark wait-self; do
+    ready_ids "$home" | grep -Fqx "$id" || fail "membership held by another home's closed row was lost for $id"
+  done
+  fleet_list "$home" local "$(date +%s)" local,other local:unrelated:done
+  out=$(FM_HOME=$home "$TOOL" verdicts)
+  for id in wait-done wait-archive wait-mark wait-self; do
+    ready_ids "$home" | grep -Fqx "$id" && fail "a fresh list missing the target cleared $id"
+    printf '%s\n' "$out" | awk -F '\t' -v row="$id" '$1 == row && $4 == "unknown" && index($5, "absent from fleet list") { found = 1 } END { exit !found }' \
+      || fail "a missing fleet id lost its UNKNOWN evidence: $out"
+  done
+  pass 'a seven-hour list satisfies listed local done, archive and mark evidence while staying visible; a missing id stays unknown'
+}
+
+test_stale_list_remote_opens_override_local_completion() {
+  local home gh id
+  home=$(make_home stale-conflict '- [ ] wait-done - waits blocked-by: done-id (kind: ship)
+- [ ] wait-archive - waits blocked-by: local:archive-id (kind: scout)
+- [ ] wait-mark - waits blocked-by: marked-id (kind: ship)' '- [x] done-id - delivered')
+  archive "$home" '- [x] archive-id - archived'
+  gh=$TMP_ROOT/stale-conflict-gh
+  fake_gh "$gh"
+  printf '{"state":"MERGED","url":"%s"}\n' "$PR_2978" > "$gh/2978.json"
+  FM_HOME=$home FM_BLOCKED_BY_GH="$gh/gh" "$TOOL" mark wait-mark marked-id --pr "$PR_2978" >/dev/null || fail 'could not create the conflict mark fixture'
+  fleet_list "$home" local "$(( $(date +%s) - 7 * 3600 ))" local,other,third \
+    local:done-id:done local:archive-id:archive local:marked-id:done \
+    other:done-id:open other:archive-id:open other:marked-id:open third:done-id:open
+  for id in wait-done wait-archive wait-mark; do
+    ready_ids "$home" | grep -Fqx "$id" && fail "remote opens failed to override local completion $id"
+    [ -n "$(snapshot_unresolved "$home" "$id")" ] || fail "the snapshot cleared $id with a remote open target"
+  done
+  withheld "$home" | grep -Fq 'wait-done,done-id,blocked,"open in other,third per fleet list ' \
+    || fail 'two remote open rows were not retained as blockers'
+  pass 'a seven-hour list with remote open rows blocks local done, archive and mark evidence, including multiple owning homes'
 }
 
 fm_test_run \
-  test_missing_or_stale_fleet_data_withholds_every_nonopen_edge \
+  test_self_qualified_marks_preserve_the_edge_identity \
+  test_stale_list_satisfies_listed_local_completion \
+  test_stale_list_remote_opens_override_local_completion \
+  test_unlisted_or_absent_fleet_data_withholds_local_completion \
   test_archived_blockers_resolve_and_cite_their_prs \
   test_ready_withholds_unknown_and_other_home_blockers \
   test_a_merged_pr_alone_never_clears_an_absent_blocker \

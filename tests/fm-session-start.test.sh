@@ -2198,11 +2198,32 @@ EOF
     "an archived blocker cleared the row without fresh fleet data"
   assert_contains "$out" 'ready-2,archived-only,unknown,"fleet list absent:' \
     "the digest lost the incomplete-data evidence for a local archive row"
-  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\n' "$(date +%s)" \
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tthis-home\tarchived-only\tarchive\n' "$(date +%s)" \
     > "$home/data/blocked-by-fleet-rows.tsv"
   out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
   assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
-    "fresh fleet data did not restore readiness for the archived blocker"
+    "listed fleet data did not restore readiness for the archived blocker"
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tthis-home\tarchived-only\tarchive\n' \
+    "$(( $(date +%s) - 7 * 3600 ))" > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a stale list withheld listed local archive evidence"
+  assert_contains "$out" 'blocked_by_fleet_list: "fleet list stale: generated ' \
+    "stale satisfaction hid the fleet-list warning"
+  assert_contains "$out" '(age 7h), covers this-home,other;' "the stale warning lost its age or homes"
+  printf 'row\tother\tarchived-only\topen\n' >> "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a stale remote open row failed to override local archive evidence"
+  assert_contains "$out" 'ready-2,archived-only,blocked,"open in other per fleet list ' \
+    "the digest lost the stale remote blocker"
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\n' "$(date +%s)" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a fresh list with no target id cleared local archive evidence"
+  assert_contains "$out" 'ready-2,archived-only,unknown,"id archived-only absent from fleet list ' \
+    "the digest lost the absent-id evidence"
 
   if [ "$(id -u)" != 0 ]; then
     chmod 000 "$home/data/done-archive.md"
@@ -2214,7 +2235,7 @@ EOF
       "an unreadable archive still printed a dispatchable ready group"
   fi
 
-  pass "the startup ready listing withholds a row whose blocker is unknown here or open in another home and clears archived work only with fresh fleet data"
+  pass "the startup ready listing withholds a row whose blocker is unknown here or open in another home and clears listed local archive evidence while naming stale data"
 }
 
 test_backlog_compact_manual_backend_skips_indented_bodies() {

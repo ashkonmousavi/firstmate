@@ -14,13 +14,14 @@
 # that delivered it merged. It reads the pull request once with
 # `gh pr view <url> --json state,url,headRefName,mergedAt` and refuses unless it
 # is MERGED; it also refuses when <row-id> has no such blocked-by edge, when the
-# edge names another home, and when <target> is an open row here (an open row
-# still blocks whatever a mark says). It appends one line to the ledger and
+# edge names another home (a qualifier matching the fleet list self is local),
+# and when <target> has a visible open row (an open row still blocks whatever a
+# mark says). It appends one line to the ledger and
 # changes nothing else; a repeated mark is a no-op.
 # unmark appends the reversing line, so the edge reads as it did before the mark.
 # Use mark for a blocker whose only trace is its merged pull request (no done
 # row in this home's backlog or archive); a done or archived row already
-# satisfies the edge without one when the fleet list is fresh.
+# satisfies the edge without one under the library header's fleet-list rule.
 #
 # The data directory is FM_DATA_OVERRIDE, else $FM_HOME/data, else the code
 # root's data/. Exit 0 on success, 1 on a refusal, 2 on a usage error or an
@@ -58,16 +59,24 @@ last_entry() {  # <ledger> <row> <target>: "<mark|unmark><TAB><url|->" of the ne
 }
 
 mark() {
-  local row=$1 target=$2 url=$3 current gh json state merged_url ledger
+  local row=$1 target=$2 url=$3 current gh json state merged_url ledger fleet header self
   case "$url" in
     https://*/pull/[0-9]*) ;;
     *) usage_error "--pr wants a pull request URL, got '$url'" ;;
   esac
-  case "$target" in *:*) die "$row: the edge $target names another home; a mark here cannot satisfy it" ;; esac
+  case "$target" in
+    *:*)
+      fleet=$(fm_blocked_by_fleet_file "$DATA")
+      [ -f "$fleet" ] || die "$row: the qualifier in $target cannot be resolved without a fleet list"
+      header=$(fm_blocked_by_fleet_header "$fleet") || exit 2
+      self=${header%%$'\t'*}
+      [ "${target%%:*}" = "$self" ] || die "$row: the edge $target names another home; a mark here cannot satisfy it"
+      ;;
+  esac
   current=$(edge_verdict "$row" "$target") || exit 2
   case "$current" in
     '') die "$row has no blocked-by: $target edge in $DATA/backlog.md" ;;
-    blocked) die "$target is an open row in this home; it still blocks $row" ;;
+    blocked) die "$target has a visible open row; it still blocks $row" ;;
   esac
   ledger=$(fm_blocked_by_marks_file "$DATA")
   if [ -f "$ledger" ] && [ "$(last_entry "$ledger" "$row" "$target")" = "mark"$'\t'"$url" ]; then

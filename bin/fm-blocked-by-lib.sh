@@ -15,31 +15,35 @@
 #              row cites), or a recorded mark cites the merged pull request
 #   unknown    none of those; unknown work blocks and is reported, never cleared
 # Checked in that order, so an open row anywhere the list covers beats a done
-# row here and a mark. Satisfaction requires a fleet list no older than six
-# hours; without one, every edge not blocked by a visible open row is unknown.
+# row here and a mark. Local done/archive evidence or a mark can satisfy only
+# an id held in the fleet list, even when that list is stale. No list or an id
+# absent from it is unknown unless a visible open row already blocks it.
 # A merged pull request is never looked up here and never clears an edge by
 # itself: an id whose fm/<id> pull request merged can still be an open row (a
 # contract row held open in another home until it lands), and reading the merge
 # as satisfied would launch its dependents early. Only a manual mark recorded
 # with bin/fm-blocked-by.sh mark can clear an edge on the strength of a merged PR.
 # An edge written <home>:<id> is decided from the fleet list's rows for that
-# home (open blocks, done or archive satisfies, no row is unknown), or as a
-# plain <id> when <home> is this home; with no fleet list it is unknown.
+# home (open blocks, done or archive satisfies only from a fresh list, no row
+# is unknown), or as a plain <id> when <home> is this home; with no fleet list
+# its qualifier cannot be resolved and it is unknown.
 #
 # FLEET LIST. <data>/blocked-by-fleet-rows.tsv is optional, copied into each home
-# by hand from the blocked-by census kit's `fleet-rows` output (nothing here
-# fetches it):
+# by hand from the blocked-by census kit's `fleet-rows` output until the
+# planned registered check refreshes it (nothing here fetches it):
 #   self<TAB><this home's name>
 #   generated<TAB><epoch the rows were read>
 #   homes<TAB><comma-separated homes the rows cover>
 #   row<TAB><home><TAB><id><TAB><open|done|archive>[<TAB><pull-request-urls>]
 # with `#` comment lines allowed; the optional last field lists every full
-# pull request URL the row cites, comma-separated (bin/fm-pr-owner.sh reads it). Rows for self are ignored, because this home's
-# own backlog and archive are read live. A missing list or a list older than
-# 21600 seconds (six hours) cannot establish satisfaction, including from a
-# local done row, archive row, or recorded mark. Visible open rows still block;
-# every other edge is unknown, with the missing or stale list as evidence.
-# fm_blocked_by_fleet_note reports the gap on ready lists and digests.
+# pull request URL the row cites, comma-separated (bin/fm-pr-owner.sh reads it).
+# Self rows supply only membership for blocked-by decisions; this home's live
+# backlog and archive decide its row states. A list older than
+# 21600 seconds (six hours) is stale: its open rows still block and its done
+# rows cannot satisfy remote-qualified edges. Local done/archive evidence and
+# marks may satisfy a listed id only when no other home holds that id open.
+# fm_blocked_by_fleet_note reports a missing or stale list on ready lists and
+# digests, naming generation time, age and covered homes for a stale one.
 # Edges come from bin/fm-tasks-axi-lib.sh fm_tasks_axi_dependency_edges and rows
 # from the same row grammar (`- [ ] <id> - ...`, `- [x] <id> - ...`,
 # `- **<id>** - ...`; a checked row or any row under `## Done` is done, and every
@@ -132,7 +136,7 @@ fm_blocked_by_fleet_note() {
   header=$(fm_blocked_by_fleet_header "$fleet") || return 2
   [ "${header##*$'\t'}" = 1 ] && return 0
   IFS=$'\t' read -r _ gen homes _ <<<"$header"
-  printf 'fleet list stale: generated %s (age %sh), covers %s; visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks\n' \
+  printf 'fleet list stale: generated %s (age %sh), covers %s; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing\n' \
     "$(fm_blocked_by_iso "$gen")" "$(( ($(date +%s) - gen) / 3600 ))" "$homes"
 }
 
@@ -241,7 +245,9 @@ fm_blocked_by_verdicts() {  # <data-dir>
       mark[$4 SUBSEP $5] = ($2 == "mark" ? "marked " $6 " at " $3 : "")
       next
     }
-    $1 == "L" && $3 != self && ($5 == "open" || $5 == "done" || $5 == "archive") {
+    $1 == "L" && ($5 == "open" || $5 == "done" || $5 == "archive") {
+      listedid[$4] = 1
+      if ($3 == self) next
       key = $3 SUBSEP $4
       if (!(key in fl) || $5 == "open") fl[key] = $5
       if ($5 == "open") openin[$4] = ($4 in openin ? openin[$4] "," : "") $3
@@ -270,8 +276,11 @@ fm_blocked_by_verdicts() {  # <data-dir>
         verdict = "blocked"; why = "open row" (id in openin ? "; also open in " openin[id] " per fleet list " when : "")
       } else if (id in openin) {
         verdict = "blocked"; why = "open in " openin[id] " per fleet list " when
-      } else if (!fresh) {
+      } else if (!list) {
         verdict = "unknown"; why = gap
+      } else if (!(id in listedid)) {
+        verdict = "unknown"; why = "id " id " absent from fleet list " when
+        if (!fresh) why = why "; " gap
       } else if (id in done) {
         verdict = "satisfied"; why = done[id]
       } else if (mark[row SUBSEP target] != "") {
