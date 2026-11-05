@@ -1801,7 +1801,7 @@ test_task_slice_fence_boundaries() {
   index=0
   for marker in '```' '~~~' '````' '~~~~'; do
     for inner in '```text' '~~~text' '```' '~~~' '    ````' '    ~~~~'; do
-      case "$marker:$inner" in '```:```'|'~~~:~~~') continue ;; esac
+      case "$marker:$inner" in "\`\`\`:\`\`\`"|'~~~:~~~') continue ;; esac
       for closed in yes no; do
         index=$((index + 1))
         printf -v body '%smarkdown\n%s\nSLICE: example/ignored | Example | role=owner\n' "$marker" "$inner"
