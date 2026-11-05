@@ -89,6 +89,8 @@ fm_worktree_require_recorded_branch() { # <meta> <worktree>
 # interactive get, it survives shell exit without detaching/resetting the copy.
 # Existing durable leases are already protective and are never replaced.
 # The check mode runs every refusal up to the lease without taking it.
+# A supplied status snapshot must belong to this root and the current protected
+# operation under the project lock; omitting it reads fresh status.
 fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id> [check] [status-json]
   local project=$1 worktree=$2 id=$3 mode=${4:-} slot pool root entry status leased lease
   FM_TREEHOUSE_NEW_LEASE_ID=
@@ -123,6 +125,9 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id> [check] [st
 # The project lock serializes Firstmate allocation, promotion and cleanup.
 # No status word exempts a retained meta. Collisions refuse for reconciliation.
 # The check mode runs the same refusals without holding any copy.
+# Read one snapshot per root per invocation, selecting each slot by exact path.
+# Read every root before changing leases, so any status command failure holds
+# nothing; snapshots must never survive into a later invocation.
 fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
   local state=$1 project=$2 mode=${3:-} state_dir meta path root index copy_index
   local -a states roots snapshots metas paths snapshot_indexes
@@ -163,8 +168,6 @@ fm_treehouse_protect_recorded_copies() { # <state> <project> [check]
       snapshot_indexes+=("$index")
     done
   done
-  # Read every root before changing leases, so any status failure holds nothing.
-  # Snapshots are invocation-local; direct hold callers still read fresh status.
   copy_index=0
   while [ "$copy_index" -lt "${#metas[@]}" ]; do
     meta=${metas[$copy_index]}
