@@ -84,6 +84,152 @@ exit 0
 SH
 }
 
+controller_inventory_failure_pass() {
+  local at=$1 rc=0
+  printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
+  k1_tick
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-plan "$KB/scheduler" >> "$KF/pass.out" 2>&1 || rc=$?
+  expect_code 1 "$rc" 'the unavailable discovery boundary must still report its failure'
+  printf '%s\n' $((K1_T0 + at + 20)) > "$KF/clock"
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$KB/scheduler" "$rc" >> "$KF/pass.out" 2>&1 || fail 'effects must deliver existing ownership after a discovery failure'
+}
+
+controller_wait_action_receipt() {
+  local token
+  token=$(python3 - "$H/state/autolaunch-controller/$1.json" <<'PYCASE'
+import json, sys
+from pathlib import Path
+print(json.loads(Path(sys.argv[1]).read_text())['attempt'])
+PYCASE
+  )
+  k1_wait_file "$H/state/autolaunch-controller/$token.result"
+}
+
+test_controller_discovery_failures_reconcile_existing_actions() {
+  local source agent start
+  for source in preparation decisions; do
+    k1_setup "failed-$source" mate
+    k1_ready k1-due k1-late k1-retry k1-slice
+    printf '3\n' > "$KF/free"
+    printf 'act k1-slice\n' > "$H/config/autolaunch-steps"
+    printf 'hung-child-exits\n' > "$KF/spawn-mode"
+    cp "$KB/spawn" "$KB/spawn-original"
+    cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = k1-retry ]; then
+  printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+  echo 'error: unexpected fixture fault' >&2
+  exit 1
+fi
+exec "$KB/spawn-original" "$@"
+SH
+    cat > "$KB/scheduler" <<'SH'
+#!/usr/bin/env bash
+case "$(cat "$KF/inventory-failure"):$1" in
+  preparation:--dry-run|decisions:--controller-decisions) echo 'inventory unavailable' >&2; exit 1 ;;
+esac
+exec bash "$ROOT/bin/fm-autolaunch.sh" "$@"
+SH
+    chmod +x "$KB/scheduler" "$KB/spawn"
+    printf '%s\n' "$source" > "$KF/inventory-failure"
+    k1_pass 0
+    k1_wait_file "$KF/holder-k1-due.pid" || fail 'the timeout launch must start'
+    k1_wait_file "$KF/holder-k1-late.pid" || fail 'the late launch must start'
+    controller_wait_action_receipt ctl-b-launch-k1-retry || fail 'the failed retry source must publish its receipt'
+    controller_wait_action_receipt ctl-a-step || fail 'the successful step must publish its receipt'
+    controller_inventory_failure_pass 55
+    controller_inventory_failure_pass 165
+    python3 - "$H/state/autolaunch-controller" <<'PYCASE' || fail 'failed discovery must reconcile step receipts and promote due retries'
+import json, sys
+from pathlib import Path
+root=Path(sys.argv[1])
+step=json.loads((root/'ctl-a-step.json').read_text())
+retry=json.loads((root/'ctl-b-launch-k1-retry.json').read_text())
+assert step['phase']=='complete',step
+assert retry['phase']=='queued' and retry['rung']==1,retry
+PYCASE
+    controller_inventory_failure_pass 660
+    for task in k1-due k1-late; do
+      assert_equals 1 "$(k1_owned "$task" | grep -c .)" 'a discovery failure cannot suppress a due launch timeout handoff by 680 seconds'
+      assert_equals 1 "$(k1_units_max_count 600 "$task")" 'timeout reconciliation cannot duplicate a launch'
+    done
+    controller_wait_action_receipt ctl-b-launch-k1-due || fail 'the first diagnosis must publish its receipt'
+    controller_inventory_failure_pass 715
+    python3 - "$H/state/autolaunch-controller/ctl-b-launch-k1-due.json" <<'PYCASE' || fail 'failed discovery must reconcile diagnosis completion'
+import json, sys
+from pathlib import Path
+row=json.loads(Path(sys.argv[1]).read_text())
+assert row['diag_rung']==4,row
+PYCASE
+    "$K1/agent/claude" 100000 </dev/null >/dev/null 2>&1 &
+    agent=$!
+    start=$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$agent/stat")
+    printf 'agent_root_pid=%s\nagent_root_start=%s\nboot_id=%s\n' "$agent" "$start" "$(cat /proc/sys/kernel/random/boot_id)" >> "$H/state/k1-late.meta"
+    controller_inventory_failure_pass 770
+    assert_equals 1 "$(k1_count "$LOG" k1-late 'resolved launched-late')" 'late agent identity closes existing ownership even when discovery fails'
+    printf 'ctl-a-step\n' > "$KF/hang-match"
+    k1_pass 825
+    assert_equals 2 "$(k1_units_max_count 120)" 'the next successful pass recreates and dispatches the completed leased step immediately'
+    controller_inventory_failure_pass 990
+    python3 - "$H/state/autolaunch-controller/ctl-a-step.json" <<'PYCASE' || fail 'failed discovery must reconcile a step timeout'
+import json, sys
+from pathlib import Path
+row=json.loads(Path(sys.argv[1]).read_text())
+assert row['phase']=='retry-wait',row
+PYCASE
+    assert_equals 1 "$(k1_count "$LOG" ctl-a-step failed:timeout)" 'the expired step is one ordinary failed attempt'
+    k1_teardown
+  done
+  pass 'preparation and decision failures preserve timeout, receipt, retry, diagnosis and late-start reconciliation'
+}
+
+test_controller_vanished_holders_never_accumulate() {
+  local at holder
+  k1_setup vanished-holders mate
+  k1_pass_lock_holder
+  holder=$K1_HOLDER
+  for at in 0 55; do
+    printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+      python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$AL" 73 || fail 'a live observation must finish'
+  done
+  kill "$holder"; wait "$holder" 2>/dev/null || true
+  K1_HOLDER=
+  rm -rf "$H/state/.autolaunch.lock"
+  for at in 110 165 220; do
+    printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+      python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$AL" 73 || fail 'a vanished observation must finish'
+  done
+  mkdir "$H/state/.autolaunch.lock"
+  printf '999999999\n' > "$H/state/.autolaunch.lock/pid"
+  for at in 275 330 385; do
+    printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+      python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$AL" 73 || fail 'a stale identity must finish'
+  done
+  assert_equals 0 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'missing and stale identities spanning sixty seconds never become persistent live holders'
+  python3 - "$H/state/autolaunch-controller/pass.json" <<'PYCASE' || fail 'vanished observations must clear prior holder state'
+import json, sys
+from pathlib import Path
+assert 'holder' not in json.loads(Path(sys.argv[1]).read_text())
+PYCASE
+  rm -rf "$H/state/.autolaunch.lock"
+  k1_pass_lock_holder
+  printf '%s\n' $((K1_T0 + 440)) > "$H/state/.autolaunch.lock/at"
+  for at in 440 495 550; do
+    printf '%s\n' $((K1_T0 + at)) > "$KF/clock"
+    FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+      python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-effects "$AL" 73 || fail 'a persistent live identity must finish'
+  done
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'a new real persistent holder still receives one bounded handoff'
+  k1_alive "$K1_HOLDER" || fail 'the persistent live holder must not be killed'
+  k1_teardown
+  pass 'vanished holder observations are discarded while genuine persistent holders still escalate'
+}
+
 test_controller_interrupted_launch_rechecks_preparation() {
   k1_setup interrupted-preparation mate
   k1_ready k1-prepared
@@ -2535,7 +2681,9 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_interrupted_launch_rechecks_preparation \
+k1_run test_controller_discovery_failures_reconcile_existing_actions \
+  test_controller_vanished_holders_never_accumulate \
+  test_controller_interrupted_launch_rechecks_preparation \
   test_controller_saved_action_refreshes_launch_argv \
   test_controller_saved_action_refuses_withdrawn_preparation \
   test_controller_retry_rechecks_preparation_and_argv \

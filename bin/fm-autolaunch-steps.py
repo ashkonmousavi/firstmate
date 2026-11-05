@@ -405,7 +405,7 @@ class Slice:
         # value across gh-axi's normal TOON presentation of object results.
         payload = json.dumps(dict(query=query, variables=dict(owner=owner, repo=repo, number=int(number))))
         result = invoke([tool("PR", "gh-axi"), "api", "POST", "/graphql", "--input", "-",
-                         "--jq", ".data.repository.pullRequest | @base64"], input=payload)
+                         "--jq", ".data.repository.pullRequest | @base64", "--full"], input=payload)
         if result.returncode:
             return {}
         value = json.loads(base64.b64decode(result.stdout.strip().strip('"'), validate=True))
@@ -1726,9 +1726,12 @@ class Controller:
 
     def plan(self):
         p = self.load(self.passfile)
-        self.technical_decisions()
-        self.discover()
         self.reconcile()
+        try:
+            self.technical_decisions()
+            self.discover()
+        finally:
+            self.reconcile()
         if leases():
             row = self.create("ctl-a-step", "", "step", ["bash", self.scheduler, "--steps-only"])
             if row["phase"] == "wait":
@@ -1799,19 +1802,23 @@ class Controller:
             start = self.identity(pid)
             at = read(STATE / ".autolaunch.lock" / "at").strip()
             held = max(0, self.now() - int(at)) if at.isdigit() else 0
-            old = p.get("holder", {})
-            same = old.get("pid") == pid and old.get("start") == start
-            observations = old.get("observations", 0) + 1 if same else 1
-            first = old.get("first", self.now()) if same else self.now()
-            p.update(overrun=1, holder=dict(pid=pid, start=start, observations=observations, first=first))
-            self.emit(dict(key="pass"), f"overrun holder={pid} held_s={held}")
-            # Qualify elapsed time as well as count. Event bursts are not
-            # independent 55-second timer observations.
-            if observations >= 3 and max(held, self.now() - first) >= 60 and not self.step_holds_within_deadline(pid):
-                home = hashlib.sha256(str(HOME.resolve()).encode()).hexdigest()[:12]
-                row = self.create(f"ctl-e-pass-lock-{home}", "", "notice")
-                row["overrun"] = 1
-                self.own(row, f"persistent pass lock holder={pid} start={start} held_s={held}")
+            p["overrun"] = 1
+            if not start or not pid.isdigit() or self.snapshot.get(int(pid)) != start:
+                p.pop("holder", None)
+            else:
+                old = p.get("holder", {})
+                same = old.get("pid") == pid and old.get("start") == start
+                observations = old.get("observations", 0) + 1 if same else 1
+                first = old.get("first", self.now()) if same else self.now()
+                p["holder"] = dict(pid=pid, start=start, observations=observations, first=first)
+                self.emit(dict(key="pass"), f"overrun holder={pid} held_s={held}")
+                # Qualify elapsed time as well as count. Event bursts are not
+                # independent 55-second timer observations.
+                if observations >= 3 and max(held, self.now() - first) >= 60 and not self.step_holds_within_deadline(pid):
+                    home = hashlib.sha256(str(HOME.resolve()).encode()).hexdigest()[:12]
+                    row = self.create(f"ctl-e-pass-lock-{home}", "", "notice")
+                    row["overrun"] = 1
+                    self.own(row, f"persistent pass lock holder={pid} start={start} held_s={held}")
         elif rc == 0:
             for row in self.rows(True):
                 if row["key"].startswith("ctl-e-pass-lock-") and "handoff" in row:
