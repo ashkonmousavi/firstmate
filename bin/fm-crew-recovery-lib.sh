@@ -44,6 +44,10 @@
 # ask the forge. A scout report outside the worktree is not unlanded work.
 # The complete landed-work test stays in bin/fm-teardown.sh and is not called.
 #
+# Backend reads run in batches of at most eight, each bounded to three seconds
+# by fm_run_timed; a failed or timed-out read is unreadable. Cheap kind and
+# lane-release exclusions run before starting reads. Results are consumed in
+# metadata file order, with eligibility and unlanded-work checks kept serial.
 # Task attempts are serial. Spawn reads capacity afresh for each launch. The
 # first failure or capacity deferral stops the sweep, leaving later tasks for
 # the next pass. The sweep returns 0. Control exit 75 is reported as deferred;
@@ -72,6 +76,22 @@ if ! command -v fm_lane_release_marker_active >/dev/null 2>&1; then
   # shellcheck source=bin/fm-lane-release-lib.sh disable=SC1091
   . "$FM_CREW_RECOVERY_LIB_DIR/fm-lane-release-lib.sh"
 fi
+
+if ! command -v fm_run_timed >/dev/null 2>&1; then
+  # shellcheck source=bin/fm-timeout-lib.sh disable=SC1091
+  . "$FM_CREW_RECOVERY_LIB_DIR/fm-timeout-lib.sh"
+fi
+
+# Match the session-start endpoint reader's isolation and portable timeout.
+fm_crew_recovery_read_agent_state() {  # <backend> <target>
+  local result
+  # shellcheck disable=SC2016 # Parameters expand in the child bash.
+  result=$(fm_run_timed 3 bash -c '
+    . "$1/fm-backend.sh"
+    fm_backend_agent_state "$2" "$3"
+  ' _ "$FM_CREW_RECOVERY_LIB_DIR" "$1" "$2") || result=unreadable
+  printf '%s\n' "$result"
+}
 
 fm_crew_recovery_need_classify() {
   command -v last_status_line >/dev/null 2>&1 && return 0
@@ -205,7 +225,7 @@ fm_crew_recovery_one() {  # <id> <agent-state>
   return "$rc"
 }
 
-fm_crew_recovery_agent_state() {
+fm_crew_recovery_agent_state() {  # <state-dir> <id> [prefetched-agent-state]
   local state=$1 id=$2 meta kind target backend agent_state wt base_name
   [ ! -L "$state" ] && [ -d "$state" ] || return 1
   meta="$state/$id.meta"
@@ -219,7 +239,11 @@ fm_crew_recovery_agent_state() {
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || return 1
   backend=$(fm_backend_of_meta "$meta")
-  agent_state=$(fm_backend_agent_state "$backend" "$target") || agent_state=unreadable
+  if [ "$#" -ge 3 ]; then
+    agent_state=$3
+  else
+    agent_state=$(fm_crew_recovery_read_agent_state "$backend" "$target")
+  fi
   case "$agent_state" in
     dead|missing) ;;
     *) return 1 ;;
@@ -231,21 +255,44 @@ fm_crew_recovery_agent_state() {
   printf '%s\n' "$agent_state"
 }
 
-fm_crew_recovery_sweep() {
-  local home state meta id agent_state
+fm_crew_recovery_sweep() (
+  local home state meta id agent_state kind target backend reads pid
+  local -a pids=()
   home=${FM_HOME:-}
   [ -n "$home" ] || return 0
   state=${FM_STATE_OVERRIDE:-$home/state}
   if [ -L "$state" ] || [ ! -d "$state" ]; then
     return 0
   fi
+  reads=$(mktemp -d "${TMPDIR:-/tmp}/fm-crew-recovery.XXXXXX") || return 0
+  # The subshell keeps cleanup local to this sweep and its caller's traps intact.
+  trap 'rm -rf -- "$reads"' EXIT
   for meta in "$state"/*.meta; do
     [ -f "$meta" ] || continue
     [ -L "$meta" ] && continue
     id=$(basename -- "$meta" .meta)
     fm_task_id_creation_valid "$id" || continue
-    agent_state=$(fm_crew_recovery_agent_state "$state" "$id") || continue
+    kind=$(fm_meta_get "$meta" kind)
+    case "$kind" in ship|scout) ;; *) continue ;; esac
+    fm_lane_release_marker_active "$state" "$id" && continue
+    target=$(fm_backend_target_of_meta "$meta")
+    [ -n "$target" ] || continue
+    backend=$(fm_backend_of_meta "$meta")
+    fm_crew_recovery_read_agent_state "$backend" "$target" > "$reads/$id" &
+    pids+=("$!")
+    if [ "${#pids[@]}" -ge 8 ]; then
+      for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
+      pids=()
+    fi
+  done
+  for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
+  for meta in "$state"/*.meta; do
+    id=$(basename -- "$meta" .meta)
+    [ -f "$reads/$id" ] || continue
+    agent_state=$(cat -- "$reads/$id")
+    case "$agent_state" in dead|missing) ;; *) continue ;; esac
+    agent_state=$(fm_crew_recovery_agent_state "$state" "$id" "$agent_state") || continue
     fm_crew_recovery_one "$id" "$agent_state" || break
   done
   return 0
-}
+)
