@@ -1,0 +1,2 @@
+teardown clean-bold-0 complete (window fm-lab-validation:fm-clean-bold-0, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6N7VHPCAPP5324ZXXW0YMRS/.test-phase-lifecycle/clean-bold-0/absent-worktree)
+Backlog: clean-bold-0 scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6N7VHPCAPP5324ZXXW0YMRS/.test-phase-lifecycle/clean-bold-0/data/backlog.md; parent completion state preserved.

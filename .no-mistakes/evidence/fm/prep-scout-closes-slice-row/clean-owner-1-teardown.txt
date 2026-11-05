@@ -1,0 +1,2 @@
+teardown clean-owner-1 complete (window fm-lab-validation:fm-clean-owner-1, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6N7VHPCAPP5324ZXXW0YMRS/.test-phase-lifecycle/clean-owner-1/absent-worktree)
+Backlog: clean-owner-1 scout phase report and note recorded in ~/.no-mistakes/worktrees/049a88734b0e/01M6N7VHPCAPP5324ZXXW0YMRS/.test-phase-lifecycle/clean-owner-1/data/backlog.md; parent completion state preserved.

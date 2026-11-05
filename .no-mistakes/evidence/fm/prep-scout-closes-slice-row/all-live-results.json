@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Completing a prep phase retains ship and slice parent state and report",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Ordinary scouts and accepted ships still close; fenced examples do not make an owner",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Repeated done and close --json return the retained parent task",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Scout cleanup releases endpoints, queues unfinished parents without redispatch, preserves settled rows and dependencies, and reports state neutrally",
+    "result": "pass",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Interrupted report completion replays idempotently without metadata, preserves settled answers, and retires completed prep eligibility",
+    "result": "pass",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Generated supervision prompt distinguishes a completed scout phase from accepted owner completion",
+    "result": "pass",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": ""
+  }
+]

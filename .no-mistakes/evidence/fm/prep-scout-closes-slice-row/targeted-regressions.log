@@ -1,0 +1,18 @@
+FM_TEST_BEGIN 2026-11-05T07:55:49Z tests/.test-phase-fm-backlog-atomicity.test.sh family=unclassified expected_gate_skip=none
+ok - phase replay queues unfinished parents without relaunching prep and preserves settled answers
+ok - phase classification follows the first unfenced Markdown SLICE declaration
+ok - done, close and library completion retain ship and owner rows in their existing state; scout rows close
+ok - retained done and close return the resulting task as JSON
+FM_TEST_END 2026-11-05T07:58:18Z tests/.test-phase-fm-backlog-atomicity.test.sh exit=0 duration_ms=149631 gate_skip=false
+FM_TEST_BEGIN 2026-11-05T07:58:18Z tests/.test-phase-fm-teardown.test.sh family=unclassified expected_gate_skip=none
+ok - scout phase cleanup retains ship/owner rows and dependent edges, and preserves settled rows
+FM_TEST_END 2026-11-05T07:58:44Z tests/.test-phase-fm-teardown.test.sh exit=0 duration_ms=25324 gate_skip=false
+FM_TEST_BEGIN 2026-11-05T07:58:44Z tests/.test-phase-fm-branch-supervision.test.sh family=unclassified expected_gate_skip=none
+ok - emitted branch prompt routes completed scouts through existing policies and leased cleanup, preserving unfinished work
+FM_TEST_END 2026-11-05T07:58:44Z tests/.test-phase-fm-branch-supervision.test.sh exit=0 duration_ms=132 gate_skip=false
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=175183
+FM_TEST_SUMMARY_FAMILY family=unclassified count=3 duration_ms=175087 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/.test-phase-fm-backlog-atomicity.test.sh duration_ms=149631
+FM_TEST_SLOWEST rank=2 script=tests/.test-phase-fm-teardown.test.sh duration_ms=25324
+FM_TEST_SLOWEST rank=3 script=tests/.test-phase-fm-branch-supervision.test.sh duration_ms=132
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6N7VHPCAPP5324ZXXW0YMRS/targeted-timing.json

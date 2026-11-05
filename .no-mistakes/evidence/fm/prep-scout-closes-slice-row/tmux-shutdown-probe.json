@@ -1,0 +1,37 @@
+[
+  {
+    "command": [
+      "new-session",
+      "-d",
+      "-s",
+      "fm-lab-probe",
+      "-x",
+      "100",
+      "-y",
+      "30",
+      "sleep 60"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "socket_entry_exists": true
+  },
+  {
+    "command": [
+      "kill-server"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "socket_entry_exists": true
+  },
+  {
+    "command": [
+      "list-sessions"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "server exited unexpectedly\n",
+    "socket_entry_exists": true
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Scout cleanup releases endpoints, queues unfinished parents without redispatch, preserves settled rows and dependencies, and reports state neutrally",
+    "result": "fail",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": "Private tmux socket survived teardown"
+  },
+  {
+    "name": "Interrupted report completion replays idempotently without metadata, preserves settled answers, and retires completed prep eligibility",
+    "result": "pass",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Generated supervision prompt distinguishes a completed scout phase from accepted owner completion",
+    "result": "pass",
+    "live": true,
+    "evidence": "lifecycle-cli-transcript.log",
+    "reason": ""
+  }
+]

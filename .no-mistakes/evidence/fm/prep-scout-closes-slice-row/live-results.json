@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Completing a prep phase retains ship and slice parent state and report",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Ordinary scouts and accepted ships still close; fenced examples do not make an owner",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Repeated done and close --json return the retained parent task",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-cli-transcript.log",
+    "reason": ""
+  }
+]
