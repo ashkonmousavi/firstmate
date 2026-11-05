@@ -706,7 +706,8 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
 FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
 # Full-body notice classification, separate from the summary expiry above:
 # standalone no-reply/no-action waiver sentences may appear anywhere; walk
-# end/dispatched, copied/carried, and Firstmate-updated openings also qualify.
+# end/dispatched and copied/carried openings also qualify, as do both
+# "firstmate updated to" and the stock nudge's "firstmate was updated to".
 # A question mark or an explicit reporting/investigation directive takes
 # precedence, including after an introductory clause. A report filename or
 # noun alone is not a directive. Classification sets one_way=1 at creation;
