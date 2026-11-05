@@ -255,7 +255,7 @@ fm_spawn_duplicate_admit() {
     return 0
   fi
   forge=$("$FM_ROOT/bin/fm-project-mode.sh" --forge "$(basename "$PROJ_ABS")") || {
-    echo "error: spawn refused: duplicate-builder check could not read the registered forge for $(basename "$PROJ_ABS")" >&2
+    echo "error: $ID cannot launch: the registry entry for $(basename "$PROJ_ABS") does not resolve to a delivery posture (see the refusal above); correct data/projects.md and spawn again" >&2
     return 1
   }
   # The configured URL names the forge; url.<base>.insteadOf may point fetches at a mirror.

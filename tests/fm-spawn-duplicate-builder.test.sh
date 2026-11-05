@@ -361,6 +361,95 @@ PY
   pass "fm-open-pr-lookup: SLICE and Task declarations match only outside correctly closed backtick and tilde fences"
 }
 
+test_fences_follow_list_containers() {
+  make_case list-fences t1
+  if ! FM_TEST_FORGE="$FORGE_DIR" python3 - "$FORGE_DIR" "$FAKEBIN_DIR" "$ROOT/bin/fm-open-pr-lookup.py" <<'PY'
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+forge, fakebin, program = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+env = dict(os.environ, PATH=fakebin + os.pathsep + os.environ['PATH'])
+
+def check(body, matches):
+    row = dict(number=1, url='https://github.com/o/r/pull/1', headRefName='other',
+               headRefOid='abc', state='OPEN', body=body)
+    (forge / 'search.json').write_text(json.dumps([row]))
+    result = subprocess.run([sys.executable, program, '--forge', 'none',
+                             '--origin', 'https://github.com/o/r.git', '--branch', 'fm/t1',
+                             '--task-id', 't1', '--timeout', '5'], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, (body, result.stdout, result.stderr)
+    answer = json.loads(result.stdout)
+    assert answer['state'] == 'ok', answer
+    assert [(pr['number'], pr['why']) for pr in answer['prs']] == (
+        [(1, ['body'])] if matches else []), (body, matches, answer)
+
+for marker in ('-', '+', '*', '1.', '2)', '123456789.'):
+    for leading, padding in ((0, 1), (3, 4)):
+        prefix = ' ' * leading + marker + ' ' * padding
+        indent = ' ' * len(prefix)
+        for fence in ('```', '~~~~'):
+            fenced = prefix + fence + '\n' + indent + 'Task: home/t1\n' + indent + fence
+            check(fenced, False)
+            check(fenced + '\n\nTask: home/t1', True)
+            check(prefix + fence + '\n' + indent + 'example\nTask: home/t1', True)
+            check(prefix + 'paragraph\n\n' + indent + fence + '\n' + indent
+                  + 'SLICE: home/t1\n' + indent + fence, False)
+
+for body, matches in (
+    ('- ```\n example\n ```\n\nTask: home/t1', False),
+    ('- ```\n  example\n  ```\n\nTask: home/t1', True),
+    ('- ```\n  - Task: home/t1\n  ```', False),
+    ('- ```\n- Task: home/t1', True),
+    ('1. ```\n2. Task: home/t1', True),
+    ('- outer\n  1. ```\n     Task: home/t1\n     ```', False),
+    ('- outer\n  1. ```\n     example\n  Task: home/t1', True),
+    ('- - ```\n    Task: home/t1\n    ```', False),
+    ('1. - 2. ~~~\n        Task: home/t1\n        ~~~', False),
+    ('- outer\n  - paragraph\nlazy text\n    ```\n    Task: home/t1\n    ```', False),
+    ('10. paragraph\nlazy text\n\n    ```\n    Task: home/t1\n    ```', False),
+    ('10. paragraph\n# heading\n    ```\n    Task: home/t1\n    ```', True),
+    ('10. paragraph\n***\n    ```\n    Task: home/t1\n    ```', True),
+    ('paragraph\n2. ```\n   Task: home/t1', True),
+    ('paragraph\n1. ```\n   Task: home/t1\n   ```', False),
+    ('-\n  ```\n  Task: home/t1\n  ```', False),
+    ('-\t```\n\tTask: home/t1\n\t```', False),
+    ('- ````\n  ```\n  SLICE: home/t1\n  ````', False),
+    ('- ````\n  example\n  `````\nTask-ID: home:t1', True),
+    ('1. ~~~~\n   ```\n   Task id: home:t1\n   ~~~~', False),
+    ('- ```\n      ```\n  Task: home/t1', False),
+    ('```\n- ```\nTask: home/t1\n```', False),
+    ('```\n- ```\n```\nSLICE: home/t1', True),
+):
+    check(body, matches)
+for interrupt, ends_paragraph in (
+    ('<!-- comment -->', True),
+    ('<?processing?>', True),
+    ('<!DOCTYPE html>', True),
+    ('<![CDATA[text]]>', True),
+    ('<pre>', True),
+    ('<script>', True),
+    ('<style>', True),
+    ('<textarea>', True),
+    ('<div>', True),
+    ('</div>', True),
+    ('<DIV class="example">', True),
+    ('<search>', True),
+    ('<p>', True),
+    ('<custom>', False),
+    ('</custom>', False),
+    ('<pre/>', False),
+):
+    check('10. paragraph\n' + interrupt + '\n    ```\n    Task: home/t1\n    ```', ends_paragraph)
+PY
+  then
+    fail "list-contained fence matching disagrees with CommonMark 0.31.2 sections 4.5 and 5.2"
+  fi
+  pass "fm-open-pr-lookup: list-contained fences hide declarations inside and expose declarations after closing or leaving their item"
+}
+
 test_a_deferred_launch_reads_the_forge_when_it_launches() {
   local id=dup-deferred out status
   make_case deferred "$id"
@@ -614,6 +703,7 @@ test_forge_reader_contracts
 test_every_registry_forge_kind
 test_remote_origins_never_skip_as_local
 test_body_fences_follow_commonmark_delimiters
+test_fences_follow_list_containers
 test_an_open_pr_on_the_branch_refuses_and_names_it
 test_a_pr_body_naming_the_task_refuses_on_another_branch
 test_prose_mentions_and_closed_prs_do_not_refuse
