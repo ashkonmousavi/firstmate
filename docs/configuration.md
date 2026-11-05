@@ -2049,6 +2049,34 @@ A malformed or unreadable file refuses every fresh ship or scout spawn until it 
 Firstmate cannot see which part of a worker's life uses the resource, so the limit applies to whole workers rather than individual resource operations, and the tightest resource every worker needs should decide it.
 [`bin/fm-project-capacity-lib.sh`](../bin/fm-project-capacity-lib.sh) owns the file format, what holds a place, and why concurrent spawns cannot both take the last one.
 
+## Slice admission (config/slicing.json)
+
+The optional local, gitignored `config/slicing.json` in a home turns on slice admission for fresh ship spawns of the projects it names.
+Its format, its `observe` and `enforce` modes, the catalogue it points at and the rollout order belong to the vertical-slicing skill's slice metadata contract (`references/contract.md`, "Activation and migration"), not to Firstmate.
+Before any worktree, task record or backlog move exists, `bin/fm-spawn.sh` runs that skill's validator `gate` on the task body, `data/<id>/brief.md` and, when present, `data/<id>/prep.md`.
+In `observe` mode a missing, invalid, unknown or conflicting `SLICE:` line prints a `notice:` naming the validator's reasons, and the ship launches.
+In `enforce` mode any nonzero gate result refuses the spawn with those reasons, including a malformed policy.
+A home without the file, scouts, secondmates and `--relaunch` recovery are not checked.
+The validator is `FM_SLICE_VALIDATOR` when set, else the installed skills-master copy at `~/.config/skills-master/.agents/skills/vertical-slicing/scripts/slicing.py`.
+When it yields no result, the admission library reads the policy's `projects` array: an unlisted project bypasses in every mode, while a listed project or an unreadable projects list launches with a notice in `observe` and refuses in any other mode.
+`fm_spawn_slice_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns this admission step.
+
+## Duplicate-builder admission
+
+Before any worktree, task record or lease exists, a fresh ship spawn reads the project's forge and refuses when an open pull request already carries the task, printing each such pull request's URL.
+A pull request carries the task when its head is the task's branch, or when its body names the task id on a `SLICE:` or `Task:` line anywhere, including fenced code examples; a prose mention does not count, and closed or merged pull requests never count.
+A forge that cannot be read, answers too slowly (`FM_SPAWN_FORGE_TIMEOUT`, 30 seconds per call by default) or returns a list that may be incomplete refuses the spawn as UNKNOWN unless an explicit override below applies.
+`--continue-pr <N>` attaches the fresh spawn to open pull request N on the task's branch instead of refusing: the worker's copy starts at that pull request's head, and `continue_pr=` is recorded in the task record.
+When the forge is UNKNOWN, this option proceeds with a notice and fetches the task's branch without verifying the pull request or its head against the forge.
+It is refused in `local-only` mode and whenever the lookup reports no pull request forge to read.
+`--no-forge-check <reason>` skips the read, and the reason is recorded as `forge_check_skipped=`.
+An example that declares this exact task id can therefore refuse a spawn; review the printed pull request URL and use `--no-forge-check <reason>` when the declaration is only an example.
+Relaunches, scouts, secondmates and `local-only` ships do not read the forge; a `forge=gerrit` or `forge=external` project skips the read with a notice, and a project with no forge origin skips it silently.
+Scout promotion through [`bin/fm-promote.sh`](../bin/fm-promote.sh) does not run this check.
+The check runs after machine admission, so a deferred launch reads the forge only when retried with room available; a duplicate-builder refusal exits 1 rather than the deferral exit 75.
+The [`fm-spawn.sh` header](../bin/fm-spawn.sh) owns override argument requirements and restrictions, with regression coverage in [`tests/fm-spawn-duplicate-builder.test.sh`](../tests/fm-spawn-duplicate-builder.test.sh).
+[`bin/fm-open-pr-lookup.py`](../bin/fm-open-pr-lookup.py) owns which forge is read and what counts as carrying the task, and `fm_spawn_duplicate_admit` in [`bin/fm-spawn-admission-lib.sh`](../bin/fm-spawn-admission-lib.sh) owns the refusal.
+
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
@@ -2569,7 +2597,8 @@ The token is the thin registry form of no-mistakes' own keep-text option, [kunch
 The PR library reads `github-hosts` from `FM_CONFIG_OVERRIDE` when nonempty, otherwise from `$FM_HOME/config`, falling back when `FM_HOME` is unset or empty to `config/` under the library's own code root, captured when the library is sourced.
 `github.com` needs no line and is always accepted.
 Blank lines, `#` comments, and any other line authorize nothing: only a line equal to the host is a match, so the file cannot be made to allow more than it spells out.
-An absent, unreadable, or symlinked file authorizes no Enterprise hosts.
+For PR URL acceptance, an absent, unreadable, or symlinked file authorizes no Enterprise hosts.
+The [duplicate-builder lookup](../bin/fm-open-pr-lookup.py) also reads this list to select the GitHub reader for an origin host.
 
 GitHub pull request URLs are otherwise identical on every GitHub host, so a hostname's shape cannot show whether it is a GitHub host or a look-alike such as `github.com.evil`, and [`bin/fm-pr-lib.sh`](../bin/fm-pr-lib.sh)'s `fm_github_host_allowed` accepts an Enterprise host only when this file names it.
 That covers registration through `bin/fm-pr-check.sh`, the merge poll, `bin/fm-pr-merge.sh`, and the merge-outcome and teardown reads, which all carry the parsed host through `gh` and `gh-axi` via `GH_HOST`.
@@ -3579,6 +3608,8 @@ FM_ROOT_OVERRIDE=        # override firstmate repo root, tangle-guard target, an
 FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
+FM_SLICE_VALIDATOR=      # slice admission validator (vertical-slicing scripts/slicing.py); unset means the installed skills-master copy
+FM_SPAWN_FORGE_TIMEOUT=30 # duplicate-builder admission: seconds each forge read may take before a fresh ship spawn refuses as UNKNOWN
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
