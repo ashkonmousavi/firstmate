@@ -1963,7 +1963,7 @@ Install that reader before updating; missing or invalid activity evidence refuse
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
-Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 when full; the [relaunch transaction](agent-control.md#transactional-relaunch) owns refusal ordering and state preservation.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
@@ -1983,7 +1983,7 @@ The shared [`bin/fm-machine-resources.py`](../bin/fm-machine-resources.py) reade
 The capacity report's `headroom_kb` subtracts the fixed reserve from that same effective reading.
 Resource refusals retain physical free-seat counts, so free seats alone do not establish admission.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
-Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
+Resource verdict logging is best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns sampling exceptions, columns and the size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.

@@ -245,9 +245,6 @@ fm_operational_record_prune() {  # <record-dir>
   return 0
 }
 
-# Write one generic-kind record under <state-dir> and return its doorbell line.
-# Exits 2 for invalid input and 1 when the record cannot be published or its
-# physical path cannot be carried by a printable-ASCII doorbell.
 fm_operational_record_directory() {
   local state=${1-} result=${2-} directory resolved
   local LC_ALL=C
@@ -267,6 +264,9 @@ fm_operational_record_directory() {
   printf -v "$result" '%s' "$resolved"
 }
 
+# Write one generic-kind record under <state-dir> and return its doorbell line.
+# Exits 2 for invalid input and 1 when the record cannot be published or its
+# physical path cannot be carried by a printable-ASCII doorbell.
 fm_operational_record_write() {  # <state-dir> <kind> <body> <doorbell-var>
   local state=${1-} kind=${2-} body=${3-} result_var=${4-} encoded dir abs nonce name tmp
   local LC_ALL=C

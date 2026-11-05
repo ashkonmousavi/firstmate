@@ -18,9 +18,10 @@
 # pressure_limit, using explicit unknowns for readings not yet available.
 # Independent resource floors and pressure/disk admission are owned by
 # fm-machine-resources.py and require config/machine-admission.json in that root.
-# Every resource verdict is also appended, best effort, to
-# <state>/machine-admission.log by fm_capacity_sample below; a failed write never
-# changes the verdict.
+# Resource verdicts are appended, best effort, to <state>/machine-admission.log
+# by fm_capacity_sample below; a failed write never changes the verdict.
+# fm_capacity_read's optional fifth argument, sample=0, skips that write for
+# mutation-free replacement preparation; the launch itself samples normally.
 # Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.

@@ -5022,6 +5022,7 @@ test_claude_trust_check_uses_the_selected_account_store() {
         ;;
       secondmate-ordinary)
         make_secondmate_record "$dir" "$id" claude
+        printf 'claude\n' > "$dir/home/config/secondmate-harness"
         mkdir -p "$dir/home/config/secondmate-accounts/$id" "$dir/user-home/.claude" "$dir/ambient"
         printf 'ordinary\n' > "$dir/home/config/secondmate-accounts/$id/claude-account"
         : > "$dir/user-home/.claude/.credentials.json"
