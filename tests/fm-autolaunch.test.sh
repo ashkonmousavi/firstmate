@@ -75,6 +75,866 @@ field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
 }
 
+# === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
+# Frozen plan LC-KUN-v26, section "K1 build-time requirements of
+# fleet-ops:lc-core-scheduler". The builder runs these and never edits this
+# region (or the R6 edit to the busy-lock block below); a disputed case goes
+# back to the tester. Expected numbers are the plan's, never the code's:
+# deadlines 600/300/60/120/900 s, stop grace 5 s, passes at most 55 s apart,
+# step (1) bounded by `timeout -k 5 20`, bounds 75/130/165/255/310/315/680/735 s.
+#
+# Seams these cases fix for the build (all inert unless FM_TEST_SEAM=1):
+#   FM_AUTOLAUNCH_NOW_FILE   fake clock: a file holding the epoch the pass
+#                            reads for every time it uses (record stamps,
+#                            deadlines, lock `at`, key ages).
+#   FM_AUTOLAUNCH_SEND_BIN   replaces bin/fm-send.sh for responder hand-offs.
+#   FM_AUTOLAUNCH_SPAWN_BIN, FM_AUTOLAUNCH_CAPACITY_BIN  (existing).
+#   PATH stubs               systemd-run, systemctl, timeout, codex, claude:
+#                            the pass resolves them from PATH. The fake
+#                            `timeout` advances the clock by 20 s for every
+#                            step (1) it runs (`-k 5 20`), the plan's worst
+#                            case, and can cut one step (1) at TERM (exit 124,
+#                            +20 s) or KILL (exit 137, +25 s); the same stub
+#                            answers as `gnutimeout`. The fake
+#                            `systemd-run` runs the command as the unit's main
+#                            process; k1_tick plays systemd at each pass time:
+#                            TERM to the main pid only at RuntimeMaxSec and
+#                            KILL TimeoutStopSec later (KillMode=process).
+#   Agent identity           a started agent is recorded as agent_root_pid,
+#                            agent_root_start (/proc/<pid>/stat field 22) and
+#                            boot_id lines in state/<task>.meta (the K2a
+#                            identity fields).
+# Run one case alone: FM_AUTOLAUNCH_TEST_ONLY='<test name>...' (or k1 for all).
+K1_T0=1800000000
+REAL_TIMEOUT=$(command -v timeout)
+REAL_SLEEP=$(command -v sleep)
+K1_TESTS=''
+
+k1_setup() {  # <case> <mate|main>
+  K1="$TMP_ROOT/k1-$1" H="$TMP_ROOT/k1-$1/home"
+  KF="$K1/fake" KB="$K1/bin" LOG="$H/state/autolaunch.log"
+  mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects/proj" "$KF/units" "$KB" "$K1/agent" "$K1/tmux"
+  fm_test_tasks_toml "$H/.tasks.toml"
+  K1_TEST_PID=$$
+  export FM_HOME="$H" K1 KF KB REAL_TIMEOUT ROOT K1_TEST_PID
+  [ "$2" = main ] || printf 'k1-mate\n' > "$H/.fm-secondmate-home"
+  printf '%s\n' "$K1_T0" > "$KF/clock"
+  printf '1\n' > "$KF/free"
+  printf 'ok\n' > "$KF/spawn-mode"
+  cp "$REAL_SLEEP" "$KB/k1-sleep"
+  cp "$REAL_SLEEP" "$K1/agent/claude"
+  k1_write_stubs
+  export FM_AUTOLAUNCH_SPAWN_BIN="$KB/spawn" FM_AUTOLAUNCH_CAPACITY_BIN="$KB/capacity" \
+    FM_AUTOLAUNCH_SEND_BIN="$KB/fm-send" TMUX_TMPDIR="$K1/tmux"
+  : > "$KF/observe"
+}
+
+k1_write_stubs() {
+  cat > "$KB/capacity" <<'SH'
+#!/usr/bin/env bash
+free=$(cat "$KF/free")
+if [ "$free" -gt 0 ]; then printf 'capacity: free_lanes=%s reason=ok lanes=1 target=10\n' "$free"; exit 0; fi
+printf 'capacity: free_lanes=0 reason=full lanes=10 target=10\n'; exit 75
+SH
+  # Spawn modes (fake/spawn-mode): ok, fail-unknown, hung (a child takes the
+  # real spawn lock and lives on; the stub never returns), hung-child-exits,
+  # hung-agent-first (starts the agent, then hangs). fake/agent-go-<id> makes
+  # a hung child start the agent late.
+  cat > "$KB/spawn" <<'SH'
+#!/usr/bin/env bash
+id=$1
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/spawn.log"
+mode=$(cat "$KF/spawn-mode")
+start_agent() {
+  "$K1/agent/claude" 100000 </dev/null >/dev/null 2>&1 &
+  apid=$!
+  astart=$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$apid/stat")
+  printf 'agent_root_pid=%s\nagent_root_start=%s\nboot_id=%s\n' "$apid" "$astart" \
+    "$(cat /proc/sys/kernel/random/boot_id)" >> "$FM_HOME/state/$id.meta"
+  printf '%s\n' "$apid" > "$KF/agent-$id.pid"
+}
+case "$mode" in
+  ok) printf 'spawned %s\n' "$id"; exit 0 ;;
+  fail-unknown) echo "error: k1 unexpected internal fault 0x2a" >&2; exit 1 ;;
+esac
+[ "$mode" != hung-agent-first ] || start_agent
+(
+  STATE="$FM_HOME/state"; export STATE
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-wake-lib.sh"
+  fm_lock_try_acquire "$STATE/.spawn-$id.lock" || exit 3
+  printf '%s\n' "$BASHPID" > "$KF/holder-$id.pid"
+  [ "$mode" != hung-child-exits ] || exit 0
+  while [ ! -e "$KF/agent-go-$id" ]; do "$KB/k1-sleep" 0.2; done
+  start_agent
+  exec "$KB/k1-sleep" 100000
+) </dev/null >/dev/null 2>&1 &
+while [ ! -s "$KF/holder-$id.pid" ]; do "$KB/k1-sleep" 0.05; done
+exec "$KB/k1-sleep" 100000
+SH
+  cat > "$KB/systemd-run" <<'SH'
+#!/usr/bin/env bash
+# Fake systemd-run: records the call at the fake time and runs the command as
+# the unit's main process (in its own session); never reaches real systemd.
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/systemd-run.log"
+unit='' props=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --) shift; break ;;
+    -p|--property) props="$props $2"; shift 2 ;;
+    --property=*) props="$props ${1#*=}"; shift ;;
+    -p*) props="$props ${1#-p}"; shift ;;
+    -u|--unit) unit=$2; shift 2 ;;
+    --unit=*) unit=${1#*=}; shift ;;
+    -E|--setenv|--description|--slice|--working-directory|-M|--machine|--uid|--gid|--nice|--service-type|-H|--host) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+max='' stop=''
+for p in $props; do
+  case "$p" in RuntimeMaxSec=*) max=${p#*=} ;; TimeoutStopSec=*) stop=${p#*=} ;; esac
+done
+n=$(( $(find "$KF/units" -type f | wc -l) + 1 ))
+argv="$*"
+cmd=("$@")
+if [ -s "$KF/hang-match" ] && printf '%s\n' "$argv" | grep -qF -f "$KF/hang-match"; then
+  cmd=("$KB/k1-sleep" 100000)
+fi
+if [ -e "$KF/ignore-term" ]; then
+  setsid bash -c 'trap "" TERM; exec "$@"' k1-unit "${cmd[@]}" </dev/null >>"$KF/unit-$n.out" 2>&1 &
+else
+  setsid "${cmd[@]}" </dev/null >>"$KF/unit-$n.out" 2>&1 &
+fi
+pid=$!
+printf 'unit=%s\npid=%s\nstart=%s\nmax=%s\nstop=%s\nargv=%s\n' \
+  "${unit:-run-k1-$n}" "$pid" "$(cat "$KF/clock")" "$max" "$stop" "$argv" > "$KF/units/$n"
+echo "Running as unit: ${unit:-run-k1-$n}.service" >&2
+SH
+  cat > "$KB/systemctl" <<'SH'
+#!/usr/bin/env bash
+# Fake systemctl --user over the fake units: show MainPID/ActiveState, is-active.
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/systemctl.log"
+sub='' unit='' props='' value=0
+for a in "$@"; do
+  case "$a" in
+    --user|--quiet|-q|--no-pager) ;;
+    --value) value=1 ;;
+    -p|--property) ;;
+    --property=*) props="$props,${a#*=}" ;;
+    MainPID*|ActiveState*|SubState*|ExecMainStartTimestamp*) props="$props,$a" ;;
+    show|is-active|stop|kill|status) sub=$a ;;
+    *) [ -n "$unit" ] || unit=${a%.service} ;;
+  esac
+done
+rec=$(grep -lx "unit=$unit" "$KF"/units/* 2>/dev/null | head -1)
+pid=0; state=inactive
+if [ -n "$rec" ]; then
+  p=$(sed -n 's/^pid=//p' "$rec")
+  st=$(awk '{sub(/^.*\) /, ""); print $1}' "/proc/$p/stat" 2>/dev/null) || st=
+  if [ -n "$st" ] && [ "$st" != Z ]; then pid=$p; state=active; fi
+fi
+case "$sub" in
+  is-active) echo "$state"; [ "$state" = active ] ;;
+  show)
+    for p in $(printf '%s' "${props#,}" | tr ',' ' '); do
+      case "$p" in
+        MainPID) v=$pid ;; ActiveState) v=$state ;; SubState) [ "$state" = active ] && v=running || v=dead ;; *) v= ;;
+      esac
+      if [ "$value" = 1 ]; then echo "$v"; else echo "$p=$v"; fi
+    done ;;
+  *) exit 0 ;;
+esac
+SH
+  # Fake timeout: only the step-(1) signature `-k 5 20` is clock-managed.
+  cat > "$KB/timeout" <<'SH'
+#!/usr/bin/env bash
+orig=("$@") kill='' dur=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -k|--kill-after|-s|--signal) [ "$1" = -k ] || [ "$1" = --kill-after ] && kill=$2; shift 2 ;;
+    --kill-after=*) kill=${1#*=}; shift ;;
+    -k*) kill=${1#-k}; shift ;;
+    --signal=*|-s*|--preserve-status|--foreground|-v|--verbose) shift ;;
+    *) dur=$1; shift; break ;;
+  esac
+done
+printf '%s\t%s\n' "$(cat "$KF/clock")" "${orig[*]}" >> "$KF/timeout.log"
+if [ "${kill%s}" != 5 ] || [ "${dur%s}" != 20 ]; then exec "$REAL_TIMEOUT" "${orig[@]}"; fi
+cut=$(head -1 "$KF/cut-step1" 2>/dev/null)
+if [ -n "$cut" ]; then
+  sed -i 1d "$KF/cut-step1"
+  if [ "$cut" = kill ]; then echo $(( $(cat "$KF/clock") + 25 )) > "$KF/clock"; exit 137; fi
+  echo $(( $(cat "$KF/clock") + 20 )) > "$KF/clock"; exit 124
+fi
+rc=0
+"$REAL_TIMEOUT" "${orig[@]}" || rc=$?
+echo $(( $(cat "$KF/clock") + 20 )) > "$KF/clock"
+exit "$rc"
+SH
+  # Fake responder send (fm-send.sh). fake/send-mode lines, one per call:
+  # fail (nothing accepted), crash (accepted, then the calling pass dies
+  # before it can record a receipt), ok. Accepted identities: fake/accepted.
+  cat > "$KB/fm-send" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t%s\n' "$(cat "$KF/clock")" "$*" >> "$KF/send.log"
+mode=$(head -1 "$KF/send-mode" 2>/dev/null); [ -z "$mode" ] || sed -i 1d "$KF/send-mode"
+case "${mode:-ok}" in fail) echo 'error: k1 enqueue failed' >&2; exit 1 ;; esac
+id=$(printf '%s' "$*" | sha256sum | cut -c1-16)
+grep -qx "$id" "$KF/accepted" 2>/dev/null || printf '%s\n' "$id" >> "$KF/accepted"
+if [ "$mode" = crash ]; then
+  p=$PPID
+  while [ -n "$p" ] && [ "$p" -gt 1 ] && [ "$p" != "$K1_TEST_PID" ]; do
+    case "$(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null)" in */bin/fm-autolaunch.sh*) kill -KILL "$p" 2>/dev/null ;; esac
+    p=$(awk '{sub(/^.*\) /, ""); print $2}' "/proc/$p/stat" 2>/dev/null)
+  done
+fi
+exit 0
+SH
+  # Diagnosis stubs: fake/codex-mode hang keeps rung 3 running.
+  cat > "$KB/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\tcodex %s\n' "$(cat "$KF/clock")" "$*" >> "$KF/diag.log"
+[ "$(cat "$KF/codex-mode" 2>/dev/null)" != hang ] || exec "$KB/k1-sleep" 100000
+echo 'k1 rung-3 advice'
+SH
+  cat > "$KB/claude" <<'SH'
+#!/usr/bin/env bash
+printf '%s\tclaude %s\n' "$(cat "$KF/clock")" "$*" >> "$KF/diag.log"
+echo 'k1 rung-4 advice'
+SH
+  cp "$KB/timeout" "$KB/gnutimeout"
+  chmod +x "$KB"/*
+}
+
+k1_now() { cat "$KF/clock"; }
+k1_alive() {  # <pid>: running and not a zombie
+  local st
+  [ -n "$1" ] && st=$(awk '{sub(/^.*\) /, ""); print $1}' "/proc/$1/stat" 2>/dev/null) && [ -n "$st" ] && [ "$st" != Z ]
+}
+k1_unit_field() { sed -n "s/^$2=//p" "$1"; }
+
+# Play systemd at the current fake time for every fake unit.
+k1_tick() {
+  local now rec pid start max stop i
+  now=$(k1_now)
+  for rec in "$KF"/units/*; do
+    [ -f "$rec" ] || continue
+    pid=$(k1_unit_field "$rec" pid) start=$(k1_unit_field "$rec" start)
+    max=$(k1_unit_field "$rec" max) stop=$(k1_unit_field "$rec" stop)
+    case "$max" in ''|*[!0-9]*) continue ;; esac
+    case "$stop" in ''|*[!0-9]*) stop=90 ;; esac
+    k1_alive "$pid" || continue
+    [ "$now" -ge $((start + max)) ] || continue
+    if [ -s "$KF/unkillable-match" ] && grep -qF -f "$KF/unkillable-match" "$rec"; then continue; fi
+    grep -qx 'termed=1' "$rec" || { kill -TERM "$pid" 2>/dev/null; printf 'termed=1\n' >> "$rec"; }
+    i=0; while k1_alive "$pid" && [ "$i" -lt 10 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+    if k1_alive "$pid" && [ "$now" -ge $((start + max + stop)) ]; then
+      kill -KILL "$pid" 2>/dev/null
+      i=0; while k1_alive "$pid" && [ "$i" -lt 20 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+    fi
+  done
+}
+
+# One pass at fake time T0+<t>; term|kill cuts its step (1). A pass that
+# blocks is ended after 30 real seconds and counts as red evidence.
+k1_pass() {  # <t> [term|kill]
+  local rc=0
+  printf '%s\n' $((K1_T0 + $1)) > "$KF/clock"
+  k1_tick
+  [ -z "${2:-}" ] || printf '%s\n' "$2" > "$KF/cut-step1"
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    "$REAL_TIMEOUT" -k 2 30 bash "$AL" >> "$KF/pass.out" 2>&1 || rc=$?
+  rm -f "$KF/cut-step1"
+  printf '%s\t%s\n' "$1" "$rc" >> "$KF/pass-rc.log"
+
+  k1_observe
+}
+k1_passes() {  # <from> <to>: timer passes 55 s apart
+  local t=$1
+  while [ "$t" -le "$2" ]; do k1_pass "$t"; t=$((t + 55)); done
+}
+k1_blocked_passes() { awk -F'\t' '$2 == 124 || $2 == 137 { n++ } END { print n + 0 }' "$KF/pass-rc.log"; }
+
+# First fake time (clock after the pass) at which a condition held.
+k1_watch() {  # <name> <condition evaluated with eval>
+  printf '%s\t%s\n' "$1" "$2" >> "$KF/observe"
+}
+k1_observe() {
+  local name cond
+  while IFS=$'\t' read -r name cond; do
+    [ -e "$KF/seen-$name" ] && continue
+    if eval "$cond"; then k1_now > "$KF/seen-$name"; fi
+  done < "$KF/observe"
+}
+k1_seen() { cat "$KF/seen-$1" 2>/dev/null; }
+k1_within() {  # <name> <origin epoch> <bound s> <message>
+  local at
+  at=$(k1_seen "$1")
+  [ -n "$at" ] || fail "$4: never observed"
+  [ $((at - $2)) -le "$3" ] || fail "$4: observed $((at - $2)) s after its origin, bound $3 s"
+}
+
+k1_lines() {  # <file> <fixed string>...: lines of the file holding every string
+  local f=$1 out s
+  shift
+  [ -f "$f" ] || return 0
+  out=$(cat "$f")
+  for s in "$@"; do out=$(printf '%s\n' "$out" | grep -F -- "$s" || true); done
+  [ -z "$out" ] || printf '%s\n' "$out"
+}
+k1_count() { k1_lines "$@" | grep -c . || true; }
+k1_owned() {  # <task>: the task's responder hand-offs (keyed blocked: ctl-... owned)
+  k1_lines "$H/state/$1.status" blocked ctl- "$1" owned
+}
+k1_units() {  # <fixed string>...: fake systemd-run calls holding every string
+  k1_lines "$KF/systemd-run.log" "$@"
+}
+k1_units_max() {  # <RuntimeMaxSec> <fixed string>...: matching calls with exactly that deadline
+  local max=$1 l
+  shift
+  k1_units "$@" | while IFS= read -r l; do [ "$(k1_prop "$l" RuntimeMaxSec)" != "$max" ] || printf '%s\n' "$l"; done
+}
+k1_units_max_count() { k1_units_max "$@" | grep -c . || true; }
+k1_units_max_start() {  # <n> <RuntimeMaxSec> <fixed string>...
+  local n=$1
+  shift
+  k1_units_max "$@" | sed -n "${n}p" | cut -f1
+}
+k1_unit_start() {  # <n> <fixed string>...: fake start time of the n-th matching call
+  local n=$1
+  shift
+  k1_units "$@" | sed -n "${n}p" | cut -f1
+}
+k1_slot_locks_free() {  # every slot lock under state/autolaunch-slots is free
+  local f
+  for f in "$H"/state/autolaunch-slots/*; do
+    [ -e "$f" ] || continue
+    flock -n "$f" true || return 1
+  done
+}
+k1_slot_lock_held() {
+  local f
+  for f in "$H"/state/autolaunch-slots/*; do
+    [ -e "$f" ] || continue
+    flock -n "$f" true || return 0
+  done
+  return 1
+}
+
+k1_ready() {  # <id>...: prepared ready entries
+  local id
+  for id in "$@"; do printf -- '- [ ] %s - k1 fixture (repo: proj) (kind: ship)\n' "$id"; done | backlog
+  for id in "$@"; do prep "$id" proj; done
+}
+k1_inbox_due() {  # <task>: a live task with one unacknowledged message past its grace
+  printf 'window=sess:fm-%s\nkind=ship\nharness=claude\nbackend=tmux\n' "$1" > "$H/state/$1.meta"
+  ( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_write "$H/state" "$1" "k1 steer for $1" >/dev/null ) \
+    || fail "k1 fixture: inbox write for $1"
+  find "$H/state/$1.inbox" -maxdepth 1 -name '*.msg' -exec touch -d '-1 hour' {} +
+}
+# shellcheck disable=SC2031 # $! is read in this shell, right after the background start
+k1_pass_lock_holder() {  # a live holder of state/.autolaunch.lock from T0
+  "$KB/k1-sleep" 100000 &
+  K1_HOLDER=$!
+  mkdir "$H/state/.autolaunch.lock"
+  printf '%s\n' "$K1_HOLDER" > "$H/state/.autolaunch.lock/pid"
+  printf '%s\n' "$K1_T0" > "$H/state/.autolaunch.lock/at"
+}
+k1_teardown() {
+  local rec
+  for rec in "$KF"/units/*; do [ -f "$rec" ] && kill -KILL "$(k1_unit_field "$rec" pid)" 2>/dev/null; done
+  [ -z "${K1_HOLDER:-}" ] || kill -KILL "$K1_HOLDER" 2>/dev/null
+  K1_HOLDER=
+  fm_test_reap_root_processes "$K1"
+}
+k1_need_unit() {  # <message> <fixed string>...: fail unless a matching unit started
+  local msg=$1
+  shift
+  [ -n "$(k1_units "$@")" ] || fail "$msg (no fake systemd-run call; $(k1_blocked_passes) pass(es) blocked past 30 s; spawn calls: $(grep -c . "$KF/spawn.log" 2>/dev/null || echo 0); last pass output: $(tail -2 "$KF/pass.out" 2>/dev/null | tr '\n\t' '  ')"
+}
+
+k1_prop() { printf '%s\n' "$1" | grep -o "$2=[0-9]*" | head -1 | cut -d= -f2; }
+k1_evidence_has() {  # <hand-off line> <fixed string>: the line or the evidence file it names holds it
+  local line=$1 want=$2 path
+  printf '%s\n' "$line" | grep -qwF -- "$want" && return 0
+  path=$(printf '%s\n' "$line" | sed -n 's/.* owned \([^ ]*\).*/\1/p')
+  [ -n "$path" ] || return 1
+  case "$path" in /*) ;; *) path="$H/$path" ;; esac
+  grep -qwF -- "$want" "$path" 2>/dev/null
+}
+k1_main_of() {  # <fixed string>: main pid of the first fake unit whose call holds it
+  local rec
+  rec=$(grep -lF -- "$1" "$KF"/units/* 2>/dev/null | head -1)
+  [ -n "$rec" ] && k1_unit_field "$rec" pid
+}
+k1_wait_file() {  # <file>: up to 5 real seconds
+  local i=0
+  while [ ! -s "$1" ] && [ "$i" -lt 50 ]; do "$KB/k1-sleep" 0.1; i=$((i + 1)); done
+  [ -s "$1" ]
+}
+k1_live_units() {  # <RuntimeMaxSec>: fake units of that deadline whose main still runs
+  local rec n=0
+  for rec in "$KF"/units/*; do
+    [ -f "$rec" ] && [ "$(k1_unit_field "$rec" max)" = "$1" ] || continue
+    k1_alive "$(k1_unit_field "$rec" pid)" && n=$((n + 1))
+  done
+  printf '%s\n' "$n"
+}
+k1_teardown_all() {
+  local rec
+  for rec in "$TMP_ROOT"/k1-*/fake/units/*; do [ -f "$rec" ] && kill -KILL "$(k1_unit_field "$rec" pid)" 2>/dev/null; done
+  [ -z "${K1_HOLDER:-}" ] || kill -KILL "$K1_HOLDER" 2>/dev/null
+  return 0
+}
+
+# K1-R1: every action is a transient unit with its kind's deadline.
+test_actions_start_as_transient_units() {
+  local c launch rering
+  k1_setup r1-units mate
+  k1_ready k1-launch
+  k1_inbox_due k1-rering
+  k1_pass 0
+  k1_need_unit 'K1-R1: no due obligation started as a transient unit; the pass ran the launch itself' --user
+  while IFS= read -r c; do
+    for want in --user --collect KillMode=process TimeoutStopSec=5 fm-al- --run-action; do
+      assert_contains "$c" "$want" "K1-R1: every action unit call carries $want"
+    done
+  done < <(cut -f2- "$KF/systemd-run.log")
+  launch=$(k1_units k1-launch) rering=$(k1_units k1-rering)
+  assert_equals 1 "$(printf '%s\n' "$launch" | grep -c .)" 'K1-R1: one unit for the claimed launch'
+  assert_equals 600 "$(k1_prop "$launch" RuntimeMaxSec)" 'K1-R1: a launch unit has RuntimeMaxSec=600'
+  assert_equals 1 "$(printf '%s\n' "$rering" | grep -c .)" 'K1-R1: one unit for the due re-ring'
+  assert_equals 60 "$(k1_prop "$rering" RuntimeMaxSec)" 'K1-R1: a local re-ring unit has RuntimeMaxSec=60'
+  assert_equals 2 "$(grep -c . "$KF/systemd-run.log")" 'K1-R1: one unit call per due obligation'
+  k1_teardown
+  pass 'K1-R1 test_actions_start_as_transient_units: one unit per due obligation, 600 s launch, 60 s re-ring, TimeoutStopSec=5'
+}
+
+# K1-R1/R3/R4: a hung launch (stub fm-spawn never returns; its child keeps the
+# real spawn lock). Variants: base, term-ignored, recording-cut, child-exited,
+# late-start, agent-first.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+k1_hung_launch() {  # <case> <variant>
+  local variant=$2 start main holder t cut_done=0 line bound=680 last req
+  k1_setup "$1" mate
+  case "$variant" in
+    child-exited) printf 'hung-child-exits\n' > "$KF/spawn-mode" ;;
+    agent-first) printf 'hung-agent-first\n' > "$KF/spawn-mode" ;;
+    *) printf 'hung\n' > "$KF/spawn-mode" ;;
+  esac
+  [ "$variant" != term-ignored ] || : > "$KF/ignore-term"
+  [ "$variant" != recording-cut ] || bound=735
+  k1_ready k1-hung
+  k1_pass 0
+  case "$variant" in
+    base) req='K1-R1 (base): the never-returning launch has no transient unit and no deadline; it stays attempted and holds its slot for ever' ;;
+    term-ignored|recording-cut) req="K1-R4 ($variant): no hand-off bound exists; the never-returning launch has no deadline, so no hand-off ever comes by 680 or 735 s" ;;
+    *) req="K1-R3 ($variant): no hand-off; the never-returning launch has no deadline, so no timeout, spawn-lock read or owned record ever happens" ;;
+  esac
+  k1_need_unit "$req" k1-hung
+  line=$(k1_units k1-hung | head -1)
+  assert_equals 600 "$(k1_prop "$line" RuntimeMaxSec)" "K1-R1 ($variant): launch deadline RuntimeMaxSec=600"
+  assert_equals 5 "$(k1_prop "$line" TimeoutStopSec)" "K1-R1 ($variant): stop grace TimeoutStopSec=5"
+  start=$(k1_unit_start 1 k1-hung)
+  main=$(k1_main_of k1-hung)
+  k1_wait_file "$KF/holder-k1-hung.pid" || fail "K1-R1 ($variant): the launch unit never ran the spawn"
+  holder=$(cat "$KF/holder-k1-hung.pid")
+  k1_alive "$main" || fail "K1-R1 ($variant): the unit's main process ended before its deadline"
+  k1_slot_lock_held || fail "K1-R1 ($variant): the running action holds no slot lock under state/autolaunch-slots/"
+  k1_watch owned '[ -n "$(k1_owned k1-hung)" ]'
+  k1_watch launched '[ -n "$(k1_lines "$LOG" k1-hung launched)" ]'
+  last=$((start - K1_T0 + bound + 165))
+  t=55
+  while [ "$t" -le "$last" ]; do
+    if [ "$variant" = recording-cut ] && [ "$cut_done" = 0 ] && [ $((K1_T0 + t)) -ge $((start + 600)) ]; then
+      k1_pass "$t" kill; cut_done=1
+    else
+      k1_pass "$t"
+    fi
+    if [ "$variant" = late-start ] && [ -n "$(k1_seen owned)" ]; then : > "$KF/agent-go-k1-hung"; fi
+    t=$((t + 55))
+  done
+  ! k1_alive "$main" || fail "K1-R1 ($variant): the main process outlived deadline plus 5 s"
+  k1_slot_locks_free || fail "K1-R1 ($variant): the slot lock is still held after the main process ended"
+  assert_equals 1 "$(k1_count "$KF/spawn.log" k1-hung)" "K1-R3 ($variant): the loop never retries a timed-out launch"
+  assert_equals 1 "$(k1_units_max_count 600 k1-hung)" "K1-R3 ($variant): no second launch unit"
+  assert_absent "$KF/send.log" "K1-R3 ($variant): a mate-home task key is never sent through fm-send"
+  if [ "$variant" = agent-first ]; then
+    assert_equals 0 "$(k1_owned k1-hung | grep -c .)" 'K1-R3 (started before hang): a live agent means no owned record'
+    [ -n "$(k1_seen launched)" ] || fail 'K1-R3 (started before hang): the pass never recorded launched for the live agent'
+    k1_teardown; return 0
+  fi
+  [ -n "$(k1_lines "$LOG" k1-hung failed:timeout)" ] || fail "K1-R1 ($variant): no failed:timeout record after the main process was gone"
+  assert_equals 1 "$(k1_owned k1-hung | grep -c .)" "K1-R3 ($variant): exactly one owned hand-off for the timed-out launch"
+  k1_within owned "$start" "$bound" "K1-R4 ($variant): owned hand-off within $bound s of the launch unit start"
+  line=$(k1_owned k1-hung)
+  case "$variant" in
+    child-exited)
+      assert_absent "$H/state/.spawn-k1-hung.lock" 'K1-R3 (child exited): the spawn lock was taken and released' ;;
+    *)
+      k1_alive "$holder" || fail "K1-R3 ($variant): fixture holder died"
+      k1_evidence_has "$line" "spawn_lock_holder=$holder" || fail "K1-R3 ($variant): the owned record does not name spawn_lock_holder=$holder: $line" ;;
+  esac
+  if [ "$variant" = recording-cut ]; then
+    assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'K1-R4 (recording pass cut): the cut pass records pass killed=1'
+    k1_evidence_has "$line" overrun=1 || [ -n "$(k1_lines "$LOG" k1-hung overrun=1)" ] \
+      || fail 'K1-R4 (recording pass cut): the late hand-off is not marked overrun=1'
+  fi
+  if [ "$variant" = late-start ]; then
+    [ -n "$(k1_seen launched)" ] || fail 'K1-R3 (late start): the late agent start was never recorded launched'
+    assert_equals 1 "$(k1_count "$H/state/k1-hung.status" resolved launched-late)" 'K1-R3 (late start): the key closes resolved: launched-late'
+  fi
+  k1_teardown
+}
+test_hung_action_times_out_and_reaches_responder_once() {
+  k1_hung_launch r1-hung base
+  pass 'K1-R1/R3 test_hung_action_times_out_and_reaches_responder_once: deadline, free slot, failed:timeout, one owned spawn_lock_holder hand-off by 680 s'
+}
+test_hung_action_times_out_and_reaches_responder_once_term_ignored() {
+  k1_hung_launch r4-term term-ignored
+  pass 'K1-R4 term-ignored main: gone by the KILL, hand-off by 680 s'
+}
+test_hung_action_times_out_and_reaches_responder_once_recording_pass_cut() {
+  k1_hung_launch r4-cut recording-cut
+  pass 'K1-R4 recording pass cut: pass killed=1, hand-off by 735 s marked overrun=1'
+}
+test_hung_action_times_out_and_reaches_responder_once_child_exited() {
+  k1_hung_launch r3-exited child-exited
+  pass 'K1-R3 child exited: lock taken and released, one owned hand-off'
+}
+test_hung_action_times_out_and_reaches_responder_once_late_start() {
+  k1_hung_launch r3-late late-start
+  pass 'K1-R3 late start: one launch, launched, resolved: launched-late'
+}
+test_hung_action_times_out_and_reaches_responder_once_started_before_hang() {
+  k1_hung_launch r3-first agent-first
+  pass 'K1-R3 started before hang: launched, no owned record'
+}
+
+# K1-R2: a hung delivery is an ordinary failed attempt; rungs 1 and 2, then
+# one owned record; an unrelated re-ring due meanwhile runs on time.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_hung_action_times_out_and_reaches_responder_once_delivery() {
+  local t rung2 other_due=''
+  k1_setup r2-delivery mate
+  k1_inbox_due k1-dlv
+  printf 'k1-dlv\n' > "$KF/hang-match"
+  k1_pass 0
+  k1_need_unit 'K1-R2 (delivery): the due re-ring never became a 60 s unit, so a hang has no timeout path' k1-dlv
+  assert_equals 60 "$(k1_prop "$(k1_units k1-dlv | head -1)" RuntimeMaxSec)" 'K1-R2 (delivery): re-ring deadline 60 s'
+  k1_watch owned '[ -n "$(k1_owned k1-dlv)" ]'
+  t=55
+  while [ "$t" -le 1100 ]; do
+    if [ "$t" = 165 ]; then k1_inbox_due k1-other; other_due=$((K1_T0 + t)); fi
+    k1_pass "$t"
+    if [ "$t" = 165 ]; then
+      [ -n "$(k1_units k1-other)" ] || fail 'K1-R2 (delivery): the unrelated re-ring due at 165 s did not start on that pass'
+      [ "$(k1_unit_start 1 k1-other)" -le $((other_due + 20)) ] || fail 'K1-R2 (delivery): the unrelated re-ring started late'
+    fi
+    t=$((t + 55))
+  done
+  [ -n "$(k1_lines "$LOG" k1-dlv failed:timeout)" ] || fail 'K1-R2 (delivery): the timed-out delivery was never recorded failed:timeout'
+  assert_equals 3 "$(k1_units_max_count 60 k1-dlv)" 'K1-R2 (delivery): attempt, rung 1 and rung 2, then no more delivery units'
+  assert_equals 1 "$(k1_owned k1-dlv | grep -c .)" 'K1-R2 (delivery): one owned record at the failed rung 2'
+  rung2=$(k1_units_max_start 3 60 k1-dlv)
+  k1_within owned $((rung2 + 60 + 5)) 75 'K1-R2/R7 (delivery): responder within 75 s of the failed rung 2'
+  k1_teardown
+  pass 'K1-R2 delivery variant: rungs 1-2 on timeout, one owned record, unrelated re-ring on time'
+}
+
+# K1-R2: a timed-out diagnosis records diagnosis=failed:timeout and the next
+# rung, with no new owned record.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_hung_action_times_out_and_reaches_responder_once_diagnosis() {
+  local diag_unit
+  k1_setup r2-diag mate
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  printf 'hang\n' > "$KF/codex-mode"
+  k1_ready k1-dx
+  k1_watch owned '[ -n "$(k1_owned k1-dx)" ]'
+  k1_passes 0 1925
+  assert_equals 1 "$(k1_owned k1-dx | grep -c .)" 'K1-R2 (diagnosis): an unknown failure is handed to the responder once (no ladder today)'
+  diag_unit=$(k1_units_max 900 --user | head -1)
+  [ -n "$diag_unit" ] || fail 'K1-R1/R2 (diagnosis): rung 3 never ran as a 900 s unit'
+  grep -q 'codex' "$KF/diag.log" 2>/dev/null || fail 'K1-R2 (diagnosis): rung 3 never called the diagnosis command'
+  { grep -rqsF 'diagnosis=failed:timeout' "$LOG" "$H/state/autolaunch-diag"; } \
+    || fail 'K1-R2 (diagnosis): the timed-out rung 3 is not recorded diagnosis=failed:timeout'
+  grep -q 'claude' "$KF/diag.log" 2>/dev/null || fail 'K1-R2 (diagnosis): the key did not move to rung 4 after the timeout'
+  assert_equals 1 "$(k1_owned k1-dx | grep -c .)" 'K1-R2 (diagnosis): the diagnosis timeout adds no owned record'
+  k1_teardown
+  pass 'K1-R2 diagnosis variant: 900 s rung-3 unit, diagnosis=failed:timeout, rung 4, no new owned record'
+}
+
+# K1-R5: a dropped event is repaired by 130 s through a killed pass.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+k1_dropped_event() {  # <case> <cut: term|none> <bound>
+  k1_setup "$1" mate
+  k1_ready k1-ev
+  printf '0\n' > "$KF/free"
+  k1_pass 0
+  printf '1\n' > "$KF/free"   # an agent exits; its pane event is dropped (no kick)
+  # Repaired = the freed seat's launch is under way: its unit call (written by
+  # the pass itself) or, in-process, its spawn call.
+  k1_watch repaired '[ -n "$(k1_units k1-ev)$(k1_lines "$KF/spawn.log" k1-ev)" ]'
+  if [ "$2" = term ]; then k1_pass 55 term; else k1_pass 55; fi
+  k1_pass 110
+  if [ "$2" = term ]; then
+    assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'K1-R5: the cut pass records pass killed=1 (today a cut pass leaves no record)'
+    [ -n "$(k1_lines "$LOG" k1-ev overrun=1)" ] || fail 'K1-R5: the late repair sample is not marked overrun=1'
+  fi
+  k1_within repaired "$K1_T0" "$3" "K1-R5: dropped event repaired within $3 s"
+  k1_teardown
+}
+test_dropped_event_repaired_after_killed_pass() {
+  k1_dropped_event r5-cut term 130
+  pass 'K1-R5 test_dropped_event_repaired_after_killed_pass: pass killed=1, repaired by 130 s, overrun=1'
+}
+test_dropped_event_repaired_after_killed_pass_step_completes() {
+  k1_dropped_event r5-whole none 75
+  pass 'K1-R5 (K2c case) dropped event repaired within 75 s when step (1) completes'
+}
+
+# K1-R6: a never-releasing live holder of .autolaunch.lock.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_persistent_pass_lock_holder_opens_one_responder_key() {
+  local explain key
+  k1_setup r6-lock mate
+  k1_ready k1-wait
+  k1_inbox_due k1-rr
+  k1_pass_lock_holder
+  k1_watch key '[ -n "$(k1_lines "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" ]'
+  k1_pass 55
+  assert_equals 1 "$(k1_count "$LOG" overrun "holder=$K1_HOLDER held_s=")" 'K1-R6: a busy pass writes one overrun holder=<pid> held_s=<n> record (today it exits silently)'
+  [ -n "$(k1_units k1-rr)" ] || fail 'K1-R6: the due re-ring was not started in step (2) behind the busy lock'
+  k1_pass 110; k1_pass 165; k1_pass 220
+  assert_equals 4 "$(k1_count "$LOG" overrun "holder=$K1_HOLDER held_s=")" 'K1-R6: one overrun record per busy pass'
+  k1_within key "$K1_T0" 165 'K1-R6: ctl-e-pass-lock key within 165 s of the hold starting'
+  key=$(k1_lines "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)
+  assert_equals 1 "$(printf '%s\n' "$key" | grep -c .)" 'K1-R6: exactly one key for one persistent holder'
+  k1_evidence_has "$key" "$K1_HOLDER" || fail "K1-R6: the key does not name the holder pid: $key"
+  explain=$(FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" bash "$AL" --explain 2>&1)
+  printf '%s\n' "$explain" | grep -F k1-wait | grep -qF pass-lock-held || fail "K1-R6: --explain does not list k1-wait as pass-lock-held: $explain"
+  assert_absent "$KF/spawn.log" 'K1-R6: the prepared entry is never launched while the lock is held'
+  assert_equals "$K1_HOLDER" "$(cat "$H/state/.autolaunch.lock/pid")" 'K1-R6: the live holder lock is never taken'
+  k1_alive "$K1_HOLDER" || fail 'K1-R6: the live holder was killed'
+  kill -KILL "$K1_HOLDER"; wait "$K1_HOLDER" 2>/dev/null; K1_HOLDER=
+  k1_pass 275
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" resolved ctl-e-pass-lock-)" 'K1-R6: the key closes on the first pass that acquires the lock'
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'K1-R6: no second key'
+  k1_teardown
+  pass 'K1-R6 test_persistent_pass_lock_holder_opens_one_responder_key: overrun per pass, re-ring on time, pass-lock-held, one key by 165 s, closed after release'
+}
+
+# K1-R7: unknown failure ladder bound, then the queued-diagnosis skip bound.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_unknown_failure_escalation_is_bounded() {
+  local rung2
+  k1_setup r7-unknown mate
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  k1_ready k1-unk
+  k1_watch owned '[ -n "$(k1_owned k1-unk)" ]'
+  k1_watch diag '[ -s "$KF/diag.log" ]'
+  k1_passes 0 1210
+  assert_equals 1 "$(k1_owned k1-unk | grep -c .)" 'K1-R7: an unknown failure reaches one responder record after its failed rung 2 (today: a refused record every pass)'
+  assert_equals 2 "$(k1_count "$LOG" k1-unk retry)" 'K1-R7: two deterministic retries (rungs 1-2)'
+  assert_equals 3 "$(k1_units_max_count 600 k1-unk)" 'K1-R7: attempt plus two retries'
+  rung2=$(k1_units_max_start 3 600 k1-unk)
+  k1_within owned "$rung2" 75 'K1-R7: responder record within 75 s of the failed rung 2'
+  [ -n "$(k1_seen diag)" ] || fail 'K1-R7: no diagnosis call after the hand-off'
+  [ "$(k1_seen owned)" -le "$(k1_seen diag)" ] || fail 'K1-R7: ownership waited for a diagnosis call'
+  grep -F codex "$KF/diag.log" | grep -qF gpt-6.1-sol || fail 'K1-R7: rung 3 is not the gpt-6.1-sol call'
+  grep -F claude "$KF/diag.log" | grep -qF claude-opus-5-5 || fail 'K1-R7: rung 4 is not the claude-opus-5-5 call'
+  assert_equals 1 "$(k1_count "$LOG" k1-unk exhausted)" 'K1-R7: one exhausted record'
+  assert_equals 1 "$(k1_owned k1-unk | grep -c .)" 'K1-R7: no second responder record'
+  k1_teardown
+  pass 'K1-R7 test_unknown_failure_escalation_is_bounded: 2 retries, responder within 75 s of failed rung 2, rungs 3-5 after'
+}
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_unknown_failure_escalation_is_bounded_ten_keys() {
+  local i id ids='' queued=0
+  k1_setup r7-ten mate
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  printf 'hang\n' > "$KF/codex-mode"
+  printf '10\n' > "$KF/free"
+  for i in 01 02 03 04 05 06 07 08 09 10; do ids="$ids k1-u$i"; done  # no id is a substring of another
+  # shellcheck disable=SC2086 # one id per word
+  k1_ready $ids
+  for id in $ids; do
+    k1_watch "owned-$id" "[ -n \"\$(k1_owned $id)\" ]"
+    k1_watch "queued-$id" "[ -n \"\$(k1_lines \"\$LOG\" $id diagnose-queued)\" ]"
+    k1_watch "skipped-$id" "grep -lsF skipped-capacity \"\$H\"/state/autolaunch-diag/*$id*summary* >/dev/null"
+  done
+  k1_watch two-diag '[ "$(k1_live_units 900)" -gt 1 ]'
+  k1_passes 0 1485
+  for id in $ids; do
+    assert_equals 1 "$(k1_owned "$id" | grep -c .)" "K1-R7 (ten keys): $id has exactly one responder record (today: none)"
+    k1_within "owned-$id" "$(k1_units_max_start 3 600 "$id")" 75 "K1-R7 (ten keys): $id responder within 75 s of its failed rung 2"
+    if [ -n "$(k1_seen "queued-$id")" ]; then
+      queued=$((queued + 1))
+      k1_within "skipped-$id" "$(k1_seen "queued-$id")" 315 "K1-R7 (ten keys): queued $id gets diagnosis=skipped-capacity within 315 s"
+    fi
+  done
+  [ "$queued" -ge 9 ] || fail "K1-R7 (ten keys): with one diagnosis running, nine keys must wait as diagnose-queued; saw $queued"
+  [ -z "$(k1_seen two-diag)" ] || fail 'K1-R7 (ten keys): two diagnosis calls ran at once'
+  k1_teardown
+  pass 'K1-R7 ten keys: every responder within 75 s, every queued key skipped-capacity within 315 s'
+}
+
+# K1-R8: every step (1) cut under a new pass PID.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_repeated_cut_passes_reach_responder() {
+  local t
+  k1_setup r8-cuts mate
+  k1_ready k1-int
+  k1_inbox_due k1-rr8
+  k1_watch incident '[ -n "$(k1_lines "$H/state/autolaunch.status" blocked ctl-)" ]'
+  for t in 0 55 110 165 220 275; do k1_pass "$t" kill; done
+  [ -n "$(k1_seen incident)" ] || fail 'K1-R8: six consecutive cut passes reached no technical responder'
+  k1_within incident "$K1_T0" 165 'K1-R8: repeated cut passes reach the responder within 165 s (tester-chosen bound, see report)'
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-)" 'K1-R8: exactly one incident'
+  assert_equals 6 "$(k1_count "$LOG" 'pass killed=1')" 'K1-R8: every cut pass records pass killed=1'
+  [ -n "$(k1_units k1-rr8)" ] || fail 'K1-R8: the unrelated re-ring did not continue'
+  assert_absent "$KF/spawn.log" 'K1-R8: interrupted work is not launched'
+  assert_equals 0 "$(k1_count "$H/state/autolaunch.status" resolved)" 'K1-R8: interrupted work stays unresolved'
+  k1_teardown
+  pass 'K1-R8 test_repeated_cut_passes_reach_responder: one incident within 165 s, re-rings continue, work unresolved'
+}
+
+# K1-R9: the unit's main process survives KILL.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_action_alive_after_kill_deadline() {
+  local start main
+  k1_setup r9-alive mate
+  printf 'hung\n' > "$KF/spawn-mode"
+  printf 'k1-stuck\n' > "$KF/unkillable-match"
+  k1_ready k1-stuck
+  k1_pass 0
+  k1_need_unit 'K1-R9: the action has no unit or deadline, so it stays attempted for ever' k1-stuck
+  start=$(k1_unit_start 1 k1-stuck)
+  main=$(k1_main_of k1-stuck)
+  k1_watch owned '[ -n "$(k1_owned k1-stuck)" ]'
+  k1_passes 55 $((start - K1_T0 + 680 + 165))
+  assert_equals 1 "$(k1_owned k1-stuck | grep -c .)" 'K1-R9: deadline plus grace expiry with a live main produces one responder hand-off'
+  k1_within owned "$start" 680 'K1-R9: hand-off within 680 s of the unit start (tester-chosen: the R4 bound)'
+  k1_alive "$main" || fail 'K1-R9: fixture main process died'
+  k1_slot_lock_held || fail 'K1-R9: the live action no longer occupies its slot'
+  assert_equals 1 "$(k1_count "$KF/spawn.log" k1-stuck)" 'K1-R9: no duplicate launch while the main lives'
+  assert_equals 1 "$(k1_units_max_count 600 k1-stuck)" 'K1-R9: no second launch unit'
+  k1_teardown
+  pass 'K1-R9 test_action_alive_after_kill_deadline: one hand-off by 680 s, slot and identity kept, no duplicate launch'
+}
+
+# K1-R10: an event burst is not three 55 s observations.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+test_event_burst_does_not_escalate_normal_lock() {
+  k1_setup r10-burst mate
+  k1_ready k1-b
+  k1_pass_lock_holder
+  k1_pass 1; k1_pass 3; k1_pass 5
+  assert_equals 0 "$(k1_count "$H/state/autolaunch.status" ctl-e-pass-lock-)" 'K1-R10: three rapid event passes escalated a lock held for 5 s'
+  k1_watch key '[ -n "$(k1_lines "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" ]'
+  k1_passes 55 220
+  k1_within key "$K1_T0" 165 'K1-R10: a genuinely persistent holder still reaches its responder within 165 s'
+  assert_equals 1 "$(k1_count "$H/state/autolaunch.status" blocked ctl-e-pass-lock-)" 'K1-R10: one key'
+  k1_teardown
+  pass 'K1-R10 test_event_burst_does_not_escalate_normal_lock: no key on a burst, one key by 165 s when persistent'
+}
+
+# K1-R11: MAIN-home hand-off (no-task key -> fm-send fleet-ops --one-way).
+test_responder_handoff_survives_failed_send_and_restart() {
+  k1_setup r11-send main
+  k1_pass_lock_holder
+  printf 'fail\ncrash\n' > "$KF/send-mode"
+  k1_passes 55 495
+  [ -s "$KF/send.log" ] || fail 'K1-R11: no responder hand-off was ever sent for the persistent-lock key'
+  assert_equals 0 "$(cut -f2 "$KF/send.log" | awk '$1 != "fleet-ops"' | grep -c . || true)" 'K1-R11: every hand-off goes to fleet-ops'
+  assert_equals 0 "$(cut -f2 "$KF/send.log" | grep -vcF -- --one-way || true)" 'K1-R11: every hand-off is --one-way'
+  [ "$(grep -c . "$KF/send.log")" -ge 3 ] || fail "K1-R11: the hand-off was not retried after the failed enqueue and the crash: $(cat "$KF/send.log")"
+  assert_equals 1 "$(cut -f2- "$KF/send.log" | sort -u | grep -c .)" 'K1-R11: every retry carries the same identity'
+  assert_equals 1 "$(grep -c . "$KF/accepted")" 'K1-R11: exactly one accepted hand-off'
+  assert_equals 3 "$(grep -c . "$KF/send.log")" 'K1-R11: no send after the receipt is recorded'
+  [ ! -s "$H/state/.wake-queue" ] || fail 'K1-R11: the hand-off woke MAIN'
+  assert_equals '' "$(find "$H/state" -maxdepth 1 -name '*.status' -size +0)" 'K1-R11: a MAIN-home no-task key writes no status line'
+  k1_teardown
+  pass 'K1-R11 test_responder_handoff_survives_failed_send_and_restart: one accepted hand-off, same identity, no MAIN wake'
+}
+
+# K1-R7/R12: an unanswered technical decision key.
+# shellcheck disable=SC2016 # k1_watch conditions are evaluated after each pass
+k1_unanswered() {  # <case> <cut pass t or none> <bound>
+  local t line
+  k1_setup "$1" mate
+  printf 'window=sess:fm-k1-ask\nkind=ship\nharness=claude\nbackend=tmux\n' > "$H/state/k1-ask.meta"
+  printf 'needs-decision [key=k1-tech] [at=%s]: pick the retry backoff for the flaky fetch\n' "$K1_T0" > "$H/state/k1-ask.status"
+  : > "$H/config/open-decision-reminders"
+  k1_watch ask '[ -n "$(k1_lines "$H/state/k1-ask.status" blocked ctl-c-ask-)" ]'
+  t=0
+  while [ "$t" -le 495 ]; do
+    if [ "$t" = "$2" ]; then k1_pass "$t" term; else k1_pass "$t"; fi
+    t=$((t + 55))
+  done
+  line=$(k1_lines "$H/state/k1-ask.status" blocked ctl-c-ask-)
+  [ -n "$line" ] || fail 'K1-R12: the unanswered technical key never got a ctl-c-ask responder record (today: no owner)'
+  assert_equals 1 "$(printf '%s\n' "$line" | grep -c .)" 'K1-R12: exactly one ctl-c-ask record, never repeated'
+  assert_contains "$line" k1-tech 'K1-R12: the record names the key'
+  assert_contains "$line" unanswered 'K1-R12: the record says unanswered'
+  k1_within ask "$K1_T0" "$3" "K1-R12: responder owns the key within $3 s of opening"
+  assert_absent "$KF/diag.log" 'K1-R12: no diagnosis call for a known case'
+  assert_equals 0 "$(k1_count "$LOG" diagnose)" 'K1-R12: no diagnose record'
+  assert_absent "$KF/send.log" 'K1-R12: a mate-home key is never sent through fm-send'
+  if [ "$2" != none ]; then
+    assert_equals 1 "$(k1_count "$LOG" 'pass killed=1')" 'K1-R12: the interrupted recording pass records pass killed=1'
+    case "$line" in *overrun=1*) ;; *) [ -n "$(k1_lines "$LOG" ctl-c-ask- overrun=1)" ] || fail 'K1-R12: the hand-off after an interrupted pass is not marked overrun=1 (falsely on time)' ;; esac
+  fi
+  k1_teardown
+}
+test_unanswered_technical_key_goes_to_responder_without_diagnosis() {
+  k1_unanswered r12-ask none 255
+  pass 'K1-R7/R12 test_unanswered_technical_key_goes_to_responder_without_diagnosis: one ctl-c-ask within 255 s, no diagnosis'
+}
+test_unanswered_technical_key_goes_to_responder_without_diagnosis_interrupted() {
+  k1_unanswered r12-cut 220 310
+  pass 'K1-R12 interrupted recording pass: one ctl-c-ask within 310 s, overrun=1, no diagnosis'
+}
+
+K1_TESTS='test_actions_start_as_transient_units
+test_hung_action_times_out_and_reaches_responder_once
+test_hung_action_times_out_and_reaches_responder_once_delivery
+test_hung_action_times_out_and_reaches_responder_once_diagnosis
+test_hung_action_times_out_and_reaches_responder_once_child_exited
+test_hung_action_times_out_and_reaches_responder_once_late_start
+test_hung_action_times_out_and_reaches_responder_once_started_before_hang
+test_hung_action_times_out_and_reaches_responder_once_term_ignored
+test_hung_action_times_out_and_reaches_responder_once_recording_pass_cut
+test_dropped_event_repaired_after_killed_pass
+test_dropped_event_repaired_after_killed_pass_step_completes
+test_persistent_pass_lock_holder_opens_one_responder_key
+test_unknown_failure_escalation_is_bounded
+test_unknown_failure_escalation_is_bounded_ten_keys
+test_repeated_cut_passes_reach_responder
+test_action_alive_after_kill_deadline
+test_event_burst_does_not_escalate_normal_lock
+test_responder_handoff_survives_failed_send_and_restart
+test_unanswered_technical_key_goes_to_responder_without_diagnosis
+test_unanswered_technical_key_goes_to_responder_without_diagnosis_interrupted'
+k1_run() {  # <test name>... (k1 = all)
+  local name
+  trap 'k1_teardown_all; fm_test_cleanup' EXIT
+  # shellcheck disable=SC2086 # one test name per word
+  [ "$*" != k1 ] || set -- $K1_TESTS
+  for name in "$@"; do
+    [ "$(type -t "$name")" = function ] || fail "unknown K1 case $name"
+    "$name"
+  done
+}
+if [ -n "${FM_AUTOLAUNCH_TEST_ONLY:-}" ]; then
+  # shellcheck disable=SC2086 # one test name per word
+  k1_run $FM_AUTOLAUNCH_TEST_ONLY
+  exit 0
+fi
+# === END tester-owned (definitions; the full run calls k1_run k1 below) ====
+
 # --- x-prep persona, Doctor and XAI surface admission -------------------------
 reset 2
 mkdir -p "$H/projects/NOT_Q"
@@ -690,13 +1550,15 @@ reset 1
 printf '%s\n' "- [ ] locked - prepared (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
 prep locked proj
 sleep 300 &
+# shellcheck disable=SC2031 # read in this shell; the K1 helpers' own background starts are separate
 holder=$!
 mkdir "$H/state/.autolaunch.lock"; printf '%s\n' "$holder" > "$H/state/.autolaunch.lock/pid"
 out=$(bash "$AL" 2>&1); rc=$?
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
 expect_code 0 "$rc" 'busy lock exits quietly'
 assert_contains "$out" 'another pass holds' 'busy lock is named'
-assert_absent "$LOG" 'busy lock writes no record'
+# Tester-owned (K1-R6): a busy pass now writes one overrun record, so the
+# former 'busy lock writes no record' assertion is retired; no launch stays.
 [ ! -f "$FAKE/spawn.log" ] || fail 'second instance spawned'
 rm -rf "$H/state/.autolaunch.lock"
 bash "$AL" >/dev/null 2>&1
@@ -801,3 +1663,7 @@ pass 'the check arms through fm-check-register and the timer is only a printed p
 [ "${1:-}" != --launch-only ] || exit 0
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
+
+# Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
+# run last so every earlier case keeps its coverage while they are red.
+k1_run k1
