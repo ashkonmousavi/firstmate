@@ -263,6 +263,22 @@ lookup() {
   PATH="$fakebin:$PATH" python3 "$ROOT/bin/fm-open-pr-lookup.py" --branch fm/t1 --task-id t1 --timeout 5 "$@"
 }
 
+test_a_deferred_launch_reads_the_forge_when_it_launches() {
+  local id=dup-deferred out status
+  make_case deferred "$id"
+  pr_json 3240 "fm/$id" > "$FORGE_DIR/head.json"
+  printf '1 0\n' > "$HOME_DIR/config/lane-capacity"
+  out=$(FM_TEST_ACTIVITY_LANES=1 run_spawn "$id"); status=$?
+  expect_code 75 "$status" "a spawn on a full machine was not deferred"$'\n'"$out"
+  [ ! -s "$FORGE_DIR/argv.log" ] || fail "G8: a deferred spawn read the forge before it had a lane"$'\n'"$(cat "$FORGE_DIR/argv.log")"
+  [ -n "$(ls -A "$HOME_DIR/state/spawn-deferred/queue" 2>/dev/null)" ] || fail "G8: the deferred spawn was not recorded for automatic retry"$'\n'"$out"
+  # The retry replays the same arguments once a lane is free; the check runs then.
+  out=$(FM_TEST_ACTIVITY_LANES=0 run_spawn "$id"); status=$?
+  expect_code 1 "$status" "G8: the retried launch did not refuse on the open pull request (a 75 would retry forever)"$'\n'"$out"
+  assert_contains "$out" "https://github.com/o/r/pull/3240" "the retried launch did not name the open pull request"
+  pass "fm-spawn: a deferred launch reads the forge only when it launches, and its retry refuses on an open pull request"
+}
+
 test_every_registry_forge_kind() {
   local dir="$TMP_ROOT/forges" out status
   mkdir -p "$dir/bin"
@@ -324,4 +340,5 @@ test_continue_pr_attaches_to_the_open_pr_head
 test_continue_pr_on_another_branch_refuses
 test_kinds_and_forges_that_do_not_consult_the_forge
 test_relaunch_with_its_own_open_pr_is_not_refused
+test_a_deferred_launch_reads_the_forge_when_it_launches
 echo "# all fm-spawn-duplicate-builder tests passed"
