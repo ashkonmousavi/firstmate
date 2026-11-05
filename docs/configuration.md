@@ -882,7 +882,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 ## Auto-launch
 
 `bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
-Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
+Each pass launches prepared items in the order returned by `bin/fm-tasks-axi.sh ready` through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
 Preparation admission, including X persona/Doctor/XAI-surface fields and legacy grace, is owned by the [launcher header's PREP section](../bin/fm-autolaunch.sh).
@@ -895,7 +895,8 @@ On the other homes the commands are documented here only, and run there once the
 | Laptop zb-crew | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 | Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 
-Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+Held, parked, and blocked items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+When a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority unprepared slice owner's own task row; the [step engine header](../bin/fm-autolaunch-steps.py) owns ranking, preservation and retry.
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 Nothing enables a schedule automatically.

@@ -95,6 +95,122 @@ rm -f "$FM_HOME/state/$1.meta"
         self.env["STEP_ROOT"] = str(ROOT)
         self.env["FM_AUTOLAUNCH_STEPS_NOW"] = "2000000000"
 
+    def prep_queue(self, prepared=False):
+        # Contract oracle: catalogue order, deliberately opposite backlog order.
+        self.write("config/autolaunch-steps", "off\n")
+        (self.home / "state/builder.meta").unlink()
+        self.write("data/backlog.md", "## In flight\n## Queued\n" + "".join(
+            f"- [ ] {task} - {title} (repo: proj) (kind: ship)\n  SLICE: main/{task} | outcome | role=owner\n"
+            for task, title in (("help", "Help/UX"), ("j01", "J-01"), ("ai", "X AI"))) + "## Done\n")
+        catalog = dict(schema="slice-catalog.v1", revision="fixture", slices=[
+            dict(id="main/ai", queue_band=0, queue_order=0),
+            dict(id="main/j01", queue_band=1, queue_order=0),
+            dict(id="main/help", queue_band=2, queue_order=0)])
+        self.write("data/slices/catalog.json", json.dumps(catalog))
+        self.write("config/slicing.json", json.dumps(dict(catalog=str(self.home / "data/slices/catalog.json"))))
+        self.write("fake/free", "1")
+        # Reuse the existing executable spawn fixture, with real seat consumption.
+        with (self.home / "fake/spawn").open("a") as f:
+            f.write('n=$(cat "$FM_HOME/fake/free"); echo $((n - 1)) > "$FM_HOME/fake/free"\n')
+        if prepared:
+            self.write("data/help/brief.md", "Delivery contract: mode=direct-PR\n")
+            self.write("data/help/prep.md", "Ready to build\n")
+            self.write("data/help/autolaunch-prep", "project=proj\nkind=ship\nmode=direct-PR\nyolo=off\n")
+
+    def test_prep_fallback_g1_g10_highest_priority_and_g6_replay(self):
+        self.prep_queue()
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"])
+        self.assertIn("Prepare", (self.home / "data/ai/brief.md").read_text())
+
+    def test_prep_fallback_g2_prepared_item_wins_even_with_spare_lane(self):
+        self.prep_queue(prepared=True)
+        self.write("fake/free", "2")
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), ["spawn help gpt-5.5"], result.stdout)
+        self.assertFalse((self.home / "data/ai/brief.md").exists())
+
+    def test_prep_fallback_g9_empty_queue_is_nothing_to_prep(self):
+        self.prep_queue()
+        self.write("data/backlog.md", "## In flight\n## Queued\n## Done\n")
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), [])
+        self.assertIn("nothing-to-prep", result.stdout)
+
+    def test_prep_fallback_g3_unreadable_catalogue_never_reports_idle(self):
+        self.prep_queue()
+        path = self.home / "data/slices/catalog.json"
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt):
+                if corrupt:
+                    path.write_text("not JSON")
+                else:
+                    path.unlink()
+                result = self.run_pass(ordinary=True)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("spawn "), [])
+                self.assertNotIn("nothing-to-prep", result.stdout)
+
+    def test_prep_fallback_no_capacity_has_no_effect(self):
+        self.prep_queue()
+        self.write("fake/free", "0")
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), [])
+        self.assertFalse((self.home / "data/ai/slice-steps.log").exists())
+
+    def test_prep_fallback_g5_existing_prep_is_skipped(self):
+        self.prep_queue()
+        self.meta("ai", "gpt-5.5", "s1.9.1")
+        self.write("fake/agent-ai", "alive")
+        result = self.run_pass(ordinary=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("spawn "), ["spawn j01 gpt-5.5"], result.stdout)
+
+    def test_prep_fallback_dry_and_readers_never_start_scout(self):
+        self.prep_queue()
+        result = subprocess.run(["bash", str(ROOT / "bin/fm-autolaunch.sh"), "--dry-run"],
+                                env=self.env, capture_output=True, text=True, timeout=40)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("would-step: ai", result.stdout)
+        self.assertEqual(self.effects("spawn "), [])
+        self.assertFalse((self.home / "data/ai").exists())
+        result = subprocess.run(["bash", str(ROOT / "bin/fm-autolaunch.sh"), "--list-prepared"],
+                                env=self.env, capture_output=True, text=True, timeout=40)
+        self.assertEqual(result.stdout, "")
+        self.assertFalse((self.home / "data/ai/slice-steps.log").exists())
+
+    def test_prep_fallback_g5_pending_crash_preserves_contract_and_resumes(self):
+        for boundary in ("before:file-prep", "after:file-prep", "before:launch-prep", "after:launch-prep"):
+            with self.subTest(boundary=boundary):
+                self.prep_queue()
+                self.write("data/ai/brief.md", "## Captain's intent\nOriginal outcome\n## Firstmate spec\nOriginal build instructions\nBase branch: curated\n")
+                contract = "project=proj\nkind=ship\nmode=direct-PR\nyolo=off\nbase_branch=curated\n"
+                self.write("data/ai/autolaunch-prep", contract)
+                original = (self.home / "data/ai/brief.md").read_text()
+                first = self.run_pass(stop=boundary, ordinary=True)
+                self.assertNotEqual(first.returncode, 0, first.stdout)
+                result = self.run_pass(ordinary=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("spawn "), ["spawn ai gpt-5.5"], result.stdout)
+                self.assertEqual((self.home / "data/ai/prep-ship-brief.md").read_text(), original)
+                self.assertEqual((self.home / "data/ai/autolaunch-prep").read_text(), contract)
+                self.assertIn("Original outcome", (self.home / "data/ai/brief.md").read_text())
+                row = subprocess.run(["bash", str(ROOT / "bin/fm-tasks-axi.sh"), "show", "ai", "--full"],
+                                     env=self.env, capture_output=True, text=True, timeout=10)
+                self.assertIn("kind: ship", row.stdout)
+                self.assertIn("state: in_flight", row.stdout)
+                self.assertNotIn("role=prep", row.stdout)
+                # New frozen home for the next crash boundary; no shared task state.
+                self.tmp.cleanup()
+                self.setUp()
+
     def write(self, path, value):
         p = self.home / path
         p.parent.mkdir(parents=True, exist_ok=True)

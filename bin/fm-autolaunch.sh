@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fm-autolaunch.sh - fill free machine lanes from this home's prepared backlog,
+# fm-autolaunch.sh - fill free machine lanes from this home's backlog,
 # with no model in the loop, and keep one record per decision.
 #
 # Usage:
@@ -60,7 +60,9 @@
 #        refused:spawn error: <line>   any other fm-spawn.sh failure
 #      A launch is one `launched` record, after which capacity is read again.
 #      When candidates run out with a lane still open, one
-#      `refused:no prepared item` record names the first open lane.
+#      `refused:no prepared item` record names the first open lane. If no
+#      prepared candidate existed anywhere in the pass, the existing step
+#      engine instead starts one initial prep scout (or reports nothing-to-prep).
 #
 # PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
@@ -377,6 +379,9 @@ prep_read() {
   local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
   local b_mode b_consent b_branch b_base prep_path
   P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
+  if [ -f "$DATA/$id/prep-ship-brief.md" ] && python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-pending "$id"; then
+    PREP_ERR="initial prep pending"; return 1
+  fi
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
@@ -550,6 +555,20 @@ check_item() {
   ! deferred_pending "$id" || { CHECK_ERR="spawn deferred pending"; return 1; }
 }
 
+# No prepared candidate existed anywhere in this pass. The existing step
+# engine owns initial prep filing/launch receipts, ranking and duplicate checks.
+prep_fallback() {
+  local out candidate rc=0
+  local -a args=(prep)
+  [ "$ACTION" != dry ] || args+=(--dry-run)
+  while IFS= read -r candidate; do
+    [ -z "$candidate" ] || args+=("$candidate")
+  done <<< "$ids"
+  out=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" "${args[@]}" 2>&1) || rc=$?
+  [ -z "$out" ] || record "$LANE" - - "$out"
+  return "$rc"
+}
+
 # default_candidates <kind> <backend>: ranked default profiles as TSV
 # harness, model, effort; DEFAULT_REFUSAL names a refused default. The quota
 # snapshot is taken on first need and QUOTA_SNAP (ok or failed) keeps its
@@ -721,7 +740,13 @@ if [ "$ACTION" = step-dispatch ]; then
   [ -n "$STEP_ACTION_ID" ] || exit 2
   capacity_read || true
   [ "$CAP_FREE" -gt 0 ] || exit 75
-  check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
+  if context=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-context "$STEP_TARGET" "$STEP_ACTION_ID"); then
+    P_PROJECT=$(jq -r '.project' <<<"$context")
+    P_BASE_BRANCH=$(jq -r '.base_branch' <<<"$context")
+    P_KIND=scout
+  else
+    check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
+  fi
   dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
   if [ -n "$STEP_EXCLUDE" ] && [ -n "$STEP_FAMILY" ] && [ "$STEP_FAMILY" != unknown ]; then
     : > "$TMPD/preferred.tsv"
@@ -824,6 +849,7 @@ fi
 
 LANE=1
 STOP=0
+HAD_PREPARED=0
 for id in $ids; do
   slot=$LANE
   if [ "$LANE" -gt "$FREE" ]; then
@@ -831,9 +857,11 @@ for id in $ids; do
     slot=-
   fi
   if ! check_item "$id"; then
+    [ "$CHECK_ERR" != "spawn deferred pending" ] || HAD_PREPARED=1
     record "$slot" "$id" - "refused:$CHECK_ERR"
     continue
   fi
+  HAD_PREPARED=1
   if ! dispatch_candidates "$P_KIND"; then
     record "$slot" "$id" - "refused:$DISPATCH_ERR"
     continue
@@ -891,6 +919,10 @@ for id in $ids; do
   esac
 done
 if [ "$STOP" = 0 ] && [ "$LANE" -le "$FREE" ]; then
-  record "$LANE" - - "refused:no prepared item"
+  if [ "$HAD_PREPARED" = 0 ]; then
+    prep_fallback || exit 1
+  else
+    record "$LANE" - - "refused:no prepared item"
+  fi
 fi
 exit 0

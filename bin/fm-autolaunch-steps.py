@@ -3,7 +3,9 @@
 
 Usage: fm-autolaunch-steps.py run|dry|check
        fm-autolaunch-steps.py wait <owner>
-Internal callbacks: guard|teardown-guard|record-teardown|accept-owner <task> <owner>:<action-id>
+Internal callbacks: prep [--dry-run] [<ready-owner> ...]
+                    prep-context <task> <owner>:<action-id>
+                    guard|teardown-guard|record-teardown|accept-owner <task> <owner>:<action-id>
                     launch-admission <task> <candidate-model> <action-or-empty>
                     record-launch <task> <owner>:<action-id> <spawn-gen>
 For launch-admission without a step receipt, the final argument is empty.
@@ -20,10 +22,17 @@ Effect witnesses in state/autolaunch.log use epoch time and '-' lane/model:
 Fresh-launch witnesses are committed by spawn before deferred signals; cleanup
 witnesses plus absent metadata complete teardown before native acceptance.
 
-Config: absent/off disables; each line is `act <owner> ...` or
+Initial prep is entered only by the ordinary launcher when it has a free lane
+and no prepared item. It uses the same task id as a scout, preserves the native
+row and its original brief/launch record, and records file-prep/launch-prep
+receipts before effects. Later promotion remains firstmate-owned. Ranking uses
+config/slicing.json catalog (else data/[from-main/]slices/catalog.json)
+queue_band/queue_order; absent catalogue ranks retain ready-queue order.
+
+Config: absent/off disables leased slice progression; each line is `act <owner> ...` or
 `observe <owner> ...`; bare observe observes all recorded owners. Duplicate or
 invalid owners refuse the entire config. Only act grants a transition lease.
-Observation and dry mode write nothing. A pass reconciles pending effects
+Observation and dry mode write nothing; initial prep requires no slice lease. A pass reconciles pending effects
 before discovering new triggers, then publishes state/autolaunch-steps.pass
 atomically. C2 only judges evidence older than this completed-pass record.
 
@@ -91,6 +100,7 @@ DATA = Path(os.environ.get("FM_DATA_OVERRIDE", HOME / "data"))
 STATE = Path(os.environ.get("FM_STATE_OVERRIDE", HOME / "state"))
 CONFIG = Path(os.environ.get("FM_CONFIG_OVERRIDE", HOME / "config"))
 TEST = os.environ.get("FM_TEST_SEAM") == "1"
+PREP_ACTIONS = ("file-prep", "launch-prep")
 TESTER_ACTIONS = ("launch-tester", "relaunch-tester")
 CHILD_ACTIONS = TESTER_ACTIONS + ("launch-review", "recheck-review")
 LIFECYCLE_ACTIONS = CHILD_ACTIONS + ("note-owner", "relaunch-owner", "cut-delivery", "route-finding")
@@ -262,7 +272,7 @@ def record_launch(task, action, generation):
     row = latest(records).get(key, {})
     effect = row.get("effect", {})
     meta = kv(STATE / f"{task}.meta")
-    if (row.get("receipt") != "pending" or effect.get("kind") not in CHILD_ACTIONS or
+    if (row.get("receipt") != "pending" or effect.get("kind") not in CHILD_ACTIONS + ("launch-prep",) or
             effect.get("target") != task or effect.get("id") != key or not generation or
             row.get("generation", 1) != max((r.get("generation", 1) for r in records), default=1) or
             meta.get("spawn_gen") != generation or generation == effect.get("expected_gen")):
@@ -279,6 +289,14 @@ def launch_admission(task, candidate, action):
     shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
     if shown.returncode:
         return "task-unreadable"
+    prep = prep_receipt(task, action)
+    if prep:
+        if re.search(r"^  held: yes$", shown.stdout, re.M):
+            return "held"
+        return "" if re.search(r"^  state: queued$", shown.stdout, re.M) else "prep-owner-not-queued"
+    if any(r.get("effect", {}).get("kind") in PREP_ACTIONS and r.get("receipt") == "pending"
+           for r in latest(rows(task)).values()):
+        return "step-receipt-required"
     identity = tokens(fields(task_body(shown.stdout)).get("SLICE", ""))
     role = identity.get("role")
     if role not in ("tester", "review"):
@@ -304,6 +322,20 @@ def launch_admission(task, candidate, action):
                                  for r in records if r.get("generation", 1) == generation):
         return "step-receipt-required"
     return ""
+
+
+def prep_receipt(task, action):
+    owner, sep, key = action.partition(":")
+    if not sep or task != owner or not SLUG.fullmatch(task):
+        return None
+    records = rows(owner)
+    row = latest(records).get(key, {})
+    effect = row.get("effect", {})
+    if (row.get("receipt") == "pending" and effect.get("kind") == "launch-prep" and
+            effect.get("target") == task and effect.get("id") == key and
+            row.get("generation", 1) == max((r.get("generation", 1) for r in records), default=1)):
+        return row
+    return None
 
 
 def effect_tester(effect):
@@ -347,9 +379,12 @@ class Slice:
         proof = next((r for r in reversed(self.current()) if r.get("closure_ready")), {})
         self.project = self.meta.get("project", "") or proof.get("project", "")
         self.repo = Path(self.project).name if self.project else ""
+        self.kind = ""
         for key, value in re.findall(r"^  (repo|kind): (.+)$", shown.stdout, re.M):
             if key == "repo" and not self.repo:
                 self.repo = value.strip('"')
+            if key == "kind":
+                self.kind = value.strip('"')
         self.project = self.project or str(HOME / "projects" / self.repo)
         self.mode = self.meta.get("mode") or kv(DATA / owner / "autolaunch-prep").get("mode")
         self.pr = {}
@@ -928,6 +963,79 @@ class Slice:
         merged = invoke(["git", "-C", worktree, "merge", "--ff-only", commit])
         return merged.returncode == 0 and self.tests_on_branch(effect), merged.stderr.strip() or "tester-integration-refused"
 
+    def prep_action(self):
+        key = f"initial-prep:{self.generation}"
+        saved = latest(self.records)
+        if not self.done(key + ":file"):
+            prior = saved.get(key + ":file")
+            if prior:
+                return prior
+            record = DATA / self.owner / "autolaunch-prep"
+            original = read(DATA / self.owner / "brief.md")
+            launch_record = read(record)
+            base = kv(record).get("base_branch", "")
+            if not base:
+                match = re.search(r"^Base branch: (\S+)", original, re.M)
+                base = match[1] if match else ""
+            return self.action("prep", key + ":file", "file-prep", payload={
+                "original_brief": original, "launch_record": launch_record,
+                "record_present": record.exists(), "base_branch": base})
+        if not self.done(key):
+            return saved.get(key) or self.action("prep", key, "launch-prep", payload={
+                "base_branch": saved[key + ":file"]["effect"]["base_branch"]}, waiting=True)
+        return None
+
+    def file_prep(self, effect):
+        # Generate through the standard scout scaffold in scratch, then publish
+        # atomically. A crash never replaces the preserved ship contract.
+        directory = DATA / self.owner
+        directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".prep-", dir=directory) as scratch:
+            env = dict(os.environ, FM_DATA_OVERRIDE=scratch)
+            args = [BIN / "fm-brief.sh", self.owner, self.repo, "--scout"]
+            if effect["base_branch"]:
+                args += ["--base-branch", effect["base_branch"]]
+            result = invoke(args, env=env)
+            if result.returncode:
+                return False, result.stderr.strip() or "prep-scaffold-refused"
+            brief = read(Path(scratch) / self.owner / "brief.md").replace(scratch, str(DATA))
+            original = effect["original_brief"]
+            match = re.search(r"^## Captain's intent\n(.*?)(?=^## |^# |\Z)", original, re.M | re.S)
+            intent = match[1].strip() if match else self.body
+            spec = (f"Prepare this task's existing outcome; do not implement, commit project changes, or open a PR.\n"
+                    f"Read the project's instructions, prep method and full task via {BIN / 'fm-tasks-axi.sh'} show {self.owner} --full. "
+                    f"Write {self.prep_path} with blast radius, "
+                    "walk list, FOG, RETIRES, REFERENCE and RISKS. Record any unresolved prerequisite in the report.\n"
+                    f"This task's own row remains its outcome owner. Preserve {directory / 'prep-ship-brief.md'} "
+                    f"and {directory / 'autolaunch-prep'} for firstmate's standard promotion; never promote yourself.\n"
+                    f"Rule 2 also permits writing this task's prep at {self.prep_path}.\n")
+            brief = brief.replace("{TASK}", intent).replace("{FIRSTMATE_SPEC}", spec)
+            binding = fields(self.body).get("SLICE", "")
+            if binding and "# Slice\n" not in brief:
+                brief += "\n# Slice\nSLICE: " + binding + "\n"
+            for name, content in (("prep-ship-brief.md", original), ("brief.md", brief)):
+                path = directory / name
+                staged = Path(scratch) / name
+                staged.write_text(content)
+                with staged.open("r+") as stream:
+                    os.fsync(stream.fileno())
+                os.replace(staged, path)
+        return True, ""
+
+    def start_prep(self, dry=False):
+        for _ in range(2):
+            row = self.prep_action()
+            if not row:
+                return "already-prepping"
+            if dry:
+                print(f"would-step: {self.owner} {row['trigger']}")
+                return "would-prep"
+            if not self.have(row["trigger"]):
+                row = self.log(row)
+            if not self.perform(row):
+                return "prep-pending"
+        return "prep-started"
+
     def child_files(self, effect):
         target = effect["target"]
         role = effect["role"]
@@ -973,6 +1081,10 @@ class Slice:
         kind, target = effect["kind"], effect["target"]
         if effect.get("tester_commit") and not self.tests_on_branch(effect):
             return False
+        if kind == "file-prep":
+            return False  # Rebuild an interrupted publication from its immutable receipt.
+        if kind == "launch-prep":
+            return launch_recorded(target, effect["id"])
         if kind.startswith("file-"):
             shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
             if shown.returncode or not self.child_owned(effect, shown.stdout):
@@ -1014,6 +1126,13 @@ class Slice:
     def apply(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
+        if kind == "file-prep":
+            return self.file_prep(effect)
+        if kind == "launch-prep":
+            if self.meta or agent(target) not in ("dead", "missing"):
+                return False, "prep-incarnation-present"
+            r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target, "", "", f"{self.owner}:{effect['id']}"])
+            return r.returncode == 0 or self.effect_present(row), r.stderr.strip() or "prep-dispatch-refused"
         if kind in LIFECYCLE_ACTIONS and not self.lifecycle_allowed(effect):
             return False, "destination-not-leased"
         if kind == "accept-owner":
@@ -1149,9 +1268,9 @@ class Slice:
         return r.returncode == 0, "relaunch-due" if r.returncode == 75 else r.stderr.strip() or "relaunch-refused"
 
     def perform(self, row):
-        if leases().get(self.owner) != "act":
-            return False
         effect = row["effect"]
+        if leases().get(self.owner) != "act" and effect["kind"] not in PREP_ACTIONS:
+            return False
         kind = effect["kind"]
         tester = effect_tester(effect)
         if tester:
@@ -1192,7 +1311,7 @@ class Slice:
             if success and kind in LIFECYCLE_ACTIONS and not effect_is_note(row) and not (kind in CHILD_ACTIONS and not effect.get("expected_gen")):
                 effect = row["effect"]
                 append(STATE / "autolaunch.log", f"{NOW}\t-\t{effect['target']}\t-\tlaunched|relaunched {effect['target']} {effect['id']}")
-            success = success and self.effect_present(row)
+            success = success and (kind == "file-prep" or self.effect_present(row))
         effect = row["effect"]
         extra = {}
         if success and tester:
@@ -1358,11 +1477,60 @@ def check():
                 return
 
 
+def prep_fallback(owners, dry=False):
+    """One highest-ranked initial prep, with the existing durable-effect engine."""
+    policy = json.loads(read(CONFIG / "slicing.json") or "{}")
+    catalog_path = Path(policy["catalog"]) if policy.get("catalog") else next(
+        (p for p in (DATA / "slices/catalog.json", DATA / "from-main/slices/catalog.json") if p.exists()), None)
+    if catalog_path and not catalog_path.is_file():
+        raise ValueError("prep catalogue unavailable")
+    catalog = json.loads(read(catalog_path)) if catalog_path else {}
+    ranks = {s["id"]: (s["queue_band"], s["queue_order"]) for s in catalog.get("slices", [])
+             if "queue_band" in s and "queue_order" in s}
+    candidates = []
+    for order, owner in enumerate(owners):
+        if not SLUG.fullmatch(owner):
+            continue
+        slice_ = Slice(owner)
+        binding = fields(slice_.body).get("SLICE", "")
+        if (slice_.held or slice_.kind not in ("ship", "scout") or
+                "role=owner" not in binding or not Path(slice_.project).is_dir()):
+            continue
+        prep_rows = [r for r in latest(slice_.current()).values() if r.get("effect", {}).get("kind") in PREP_ACTIONS]
+        completed = any(r["receipt"] == "completed" and r["effect"]["kind"] == "launch-prep" for r in prep_rows)
+        pending = any(r["receipt"] == "pending" for r in prep_rows)
+        witnessed = any(launch_recorded(owner, r["effect"]["id"]) for r in prep_rows)
+        if completed or (slice_.meta or agent(owner) not in ("dead", "missing")) and not (pending and witnessed):
+            continue
+        if any(kv(path).get("task") == owner for path in (STATE / "spawn-deferred/queue").glob("*")):
+            continue
+        slice_id = binding.split("|", 1)[0].strip().split()[0]
+        candidates.append((ranks.get(slice_id, (float("inf"), order)), order, slice_))
+    if not candidates:
+        print("nothing-to-prep")
+        return
+    slice_ = min(candidates, key=lambda c: (c[0], c[1]))[2]
+    print(f"{slice_.start_prep(dry)} {slice_.owner}")
+
+
 def main():
     if len(sys.argv) == 1 or sys.argv[1] in ("-h", "--help"):
         print(__doc__)
         return 0
     command = sys.argv[1]
+    if command == "prep":
+        prep_fallback([arg for arg in sys.argv[2:] if arg != "--dry-run"], "--dry-run" in sys.argv[2:])
+        return 0
+    if command == "prep-pending" and len(sys.argv) == 3:
+        return 0 if any(r.get("receipt") == "pending" and r.get("effect", {}).get("kind") in PREP_ACTIONS
+                        for r in latest(rows(sys.argv[2])).values()) else 3
+    if command == "prep-context" and len(sys.argv) == 4:
+        row = prep_receipt(*sys.argv[2:])
+        if not row:
+            return 3
+        slice_ = Slice(sys.argv[2])
+        print(json.dumps(dict(project=slice_.repo, base_branch=row["effect"]["base_branch"])))
+        return 0
     arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3,
                "launch-admission": 5, "record-launch": 5}
     if command not in arities or len(sys.argv) != arities[command]:
