@@ -14,7 +14,9 @@
 # One record per task lives under state/spawn-deferred/queue, named only by the
 # zero-padded order in which it was first deferred. The body is schema
 # fm-deferred-spawn.v1: task, order, cwd, argv_sha256, failures, reported,
-# pending, then one arg= line per base64-encoded argument. The checksum covers
+# pending, an optional step_action (the deferring spawn's FM_SPAWN_STEP_ACTION
+# receipt identity, exported again to its retry), then one arg= line per
+# base64-encoded argument. The checksum covers
 # the raw arguments joined by trailing NULs. A later deferral of the same task
 # keeps that order and clears a previous hard failure. State files are mode 600
 # and the directory is mode 700.
@@ -98,6 +100,7 @@ LOCK="$STATE/.spawn-deferred.lock"
 RETRY_LOG="$STORE/retry.log"
 REPORT="$STORE/report"
 DEFERRED_SCHEMA=fm-deferred-spawn.v1
+DEFERRED_STEP_ACTION=
 
 deferred_task_id_valid() { # <id> - same character rule as fm_pr_task_id_valid
   local id=${1-}
@@ -212,6 +215,7 @@ deferred_write() { # <dest> <task> <order> <cwd> <sha> <failures> <reported> <pe
       printf 'failures=%s\n' "$failures"
       printf 'reported=%s\n' "$reported"
       printf 'pending=%s\n' "$pending"
+      [ -z "$DEFERRED_STEP_ACTION" ] || printf 'step_action=%s\n' "$DEFERRED_STEP_ACTION"
       cat -- "$side"
     } > "$tmp" || status=1
   fi
@@ -236,6 +240,7 @@ deferred_load() { # <file>
   DEFERRED_FAILURES=
   DEFERRED_REPORTED=
   DEFERRED_PENDING=
+  DEFERRED_STEP_ACTION=
   DEFERRED_ARG_ENC=()
   DEFERRED_SEEN_SCHEMA=0
   DEFERRED_SEEN_TASK=0
@@ -245,10 +250,11 @@ deferred_load() { # <file>
   DEFERRED_SEEN_FAILURES=0
   DEFERRED_SEEN_REPORTED=0
   DEFERRED_SEEN_PENDING=0
+  DEFERRED_SEEN_STEP_ACTION=0
   [ -f "$file" ] && [ ! -L "$file" ] || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-      schema=*|task=*|order=*|cwd=*|argv_sha256=*|failures=*|reported=*|pending=*|arg=*) ;;
+      schema=*|task=*|order=*|cwd=*|argv_sha256=*|failures=*|reported=*|pending=*|step_action=*|arg=*) ;;
       *) return 1 ;;
     esac
     key=${line%%=*}
@@ -292,6 +298,11 @@ deferred_load() { # <file>
         [ "$DEFERRED_SEEN_PENDING" -eq 0 ] || return 1
         DEFERRED_SEEN_PENDING=1
         DEFERRED_PENDING=${line#pending=}
+        ;;
+      step_action)
+        [ "$DEFERRED_SEEN_STEP_ACTION" -eq 0 ] || return 1
+        DEFERRED_SEEN_STEP_ACTION=1
+        DEFERRED_STEP_ACTION=${line#step_action=}
         ;;
       arg)
         DEFERRED_ARG_ENC+=("${line#arg=}")
@@ -453,6 +464,10 @@ deferred_record() { # <id> -- <argv...>
   case "$cwd" in
     *$'\n'*) return 1 ;;
   esac
+  DEFERRED_STEP_ACTION=${FM_SPAWN_STEP_ACTION:-}
+  case "$DEFERRED_STEP_ACTION" in
+    *$'\n'*) return 1 ;;
+  esac
   deferred_ensure_dirs || return 1
   sha=$(deferred_hash_args "$@") || return 1
   best=
@@ -599,7 +614,7 @@ deferred_run_claim() { # <claim>
   printf '%s\n' "$$" > "${claim}.pid" || return 1
   fm_lock_release "$LOCK" || true
   set +e
-  (cd -- "$DEFERRED_CWD" && "${DECODED[@]}") >> "$RETRY_LOG" 2>&1 </dev/null
+  (cd -- "$DEFERRED_CWD" && FM_SPAWN_STEP_ACTION="$DEFERRED_STEP_ACTION" "${DECODED[@]}") >> "$RETRY_LOG" 2>&1 </dev/null
   rc=$?
   DEFERRED_LAUNCH_RC=$rc
   set +e

@@ -62,7 +62,10 @@
 #      When candidates run out with a lane still open, one
 #      `refused:no prepared item` record names the first open lane. If no
 #      prepared candidate existed anywhere in the pass, the existing step
-#      engine instead starts one initial prep scout (or reports nothing-to-prep).
+#      engine instead starts one initial prep scout for the highest-ranked
+#      unprepared item (or reports nothing-to-prep); unranked items are named,
+#      never picked. A pending initial prep refuses its item until its scout
+#      launches or, before any launch, prep arrives and a run pass retires it.
 #
 # PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
@@ -371,7 +374,10 @@ prep_read() {
   local b_mode b_consent b_branch b_base prep_path
   P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR='' P_HAS_PREP=0
   prep_path=$(prep_doc "$id") && P_HAS_PREP=1
-  if [ -f "$DATA/$id/prep-ship-brief.md" ] && python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" prep-pending "$id"; then
+  local -a pending=(prep-pending "$id")
+  [ "$ACTION" != run ] || pending+=(--reconcile)
+  if [ -f "$DATA/$id/slice-steps.log" ] &&
+    printf '%s\n' "$ITEM_BODY" | python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" "${pending[@]}"; then
     PREP_ERR="initial prep pending"; return 1
   fi
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then

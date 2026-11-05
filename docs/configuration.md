@@ -896,7 +896,7 @@ On the other homes the commands are documented here only, and run there once the
 | Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 
 Held, parked, and blocked items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
-When a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority unprepared slice owner's own task row; the [step engine header](../bin/fm-autolaunch-steps.py) owns ranking, preservation and retry.
+When a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority unprepared item's own task row, ranked by the slice catalogue; an item without a rank is reported as unranked and never picked by backlog position. The [step engine header](../bin/fm-autolaunch-steps.py) owns ranking, preservation, retirement and retry.
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 Nothing enables a schedule automatically.
