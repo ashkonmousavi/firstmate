@@ -899,6 +899,8 @@ Held, parked, blocked, and unprepared items never launch, and an item already wa
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
+The staged `--publish-candidates` and `--join` evidence interfaces are owned by the [candidate reader header](../bin/fm-next-in-line.py).
+They do not select, claim or launch work; production input completeness remains open until the catalogue, task/phase and claim/kick producer contracts are wired.
 Installing this cut alone keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
 Controller agent reconciliation matches `agent_root_pid`, `agent_root_start`, and `boot_id` from task metadata against the current kernel identity of that process.
 Publishing those fields remains the frozen plan's K2b dependency, owned by `fleet-ops:relaunch-preflight-fix`; fixture coverage does not establish production late-start recognition before that writer lands.

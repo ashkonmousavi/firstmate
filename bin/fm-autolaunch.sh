@@ -36,6 +36,9 @@
 # action units run separately, with non-inherited per-key slot descriptors.
 # bin/fm-autolaunch-steps.py Controller owns journal, deadlines and ladder.
 # This cut does not change the timer recipe or install/enable any service.
+# --join and --publish-candidates expose the staged snapshot read seam owned
+# by bin/fm-next-in-line.py. They neither select nor launch an actor; production
+# input completeness remains open until the external producer adapters land.
 #
 # LEGACY PASS (before controller activation).
 #   1. Single instance: state/.autolaunch.lock (fm_lock_try_acquire). A busy
@@ -162,7 +165,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--join|--publish-candidates|--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
@@ -173,6 +176,9 @@ TIMER_STEPS=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
+  --join) ACTION='join' ;;
+  --publish-candidates) ACTION=publish-candidates ;;
+  --candidate-prep) ACTION='candidate-prep'; STEP_TARGET=${2:-} ;;
   --run-action) ACTION=controller-action; STEP_TARGET=${2:-} ;;
   --controller-plan) ACTION=controller-plan ;;
   --controller-remote-inbox) ACTION=controller-remote-inbox; STEP_TARGET=${2:-} ;;
@@ -213,13 +219,19 @@ elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
   :
 elif [ "$ACTION" = step-accept ] && [ "$#" -eq 3 ]; then
   :
-elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
+elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ] || [ "$ACTION" = candidate-prep ]; } && [ "$#" -eq 2 ]; then
   :
 elif [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
   APPLY=1
 elif [ "$#" -gt 1 ]; then
   usage; exit 2
 fi
+
+# Evidence-only routes must precede library initialization, temporary files,
+# controller selection, log creation and the run-mode action dispatch below.
+case "$ACTION" in
+  join|publish-candidates) exec python3 "$SCRIPT_DIR/fm-next-in-line.py" "$ACTION" ;;
+esac
 
 LOG="$STATE/autolaunch.log"
 LOCK="$STATE/.autolaunch.lock"
@@ -283,20 +295,31 @@ if [ "$ACTION" = steps ] && [ ! -f "$CONFIG/autolaunch-steps" ]; then
   exit 0
 fi
 
+# The private preparation reader must not let fm-wake-lib create state.
+if [ "$ACTION" = candidate-prep ]; then
+  [ -d "$STATE" ] && [ ! -L "$STATE" ] || exit 75
+fi
+
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
-# shellcheck source=bin/fm-timeout-lib.sh
-. "$SCRIPT_DIR/fm-timeout-lib.sh"
-# shellcheck source=bin/fm-backend.sh
-. "$SCRIPT_DIR/fm-backend.sh"
-# shellcheck source=bin/fm-quota-axi-lib.sh
-. "$SCRIPT_DIR/fm-quota-axi-lib.sh"
-# shellcheck source=bin/fm-pr-lib.sh
-. "$SCRIPT_DIR/fm-pr-lib.sh"
-# shellcheck source=bin/fm-secondmate-registry-lib.sh
-. "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
-# shellcheck source=bin/fm-project-capacity-lib.sh
-. "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+if [ "$ACTION" = candidate-prep ]; then
+  # This callback uses only task identity and existing prep predicates.
+  # shellcheck source=bin/fm-pr-lib.sh
+  . "$SCRIPT_DIR/fm-pr-lib.sh"
+else
+  # shellcheck source=bin/fm-timeout-lib.sh
+  . "$SCRIPT_DIR/fm-timeout-lib.sh"
+  # shellcheck source=bin/fm-backend.sh
+  . "$SCRIPT_DIR/fm-backend.sh"
+  # shellcheck source=bin/fm-quota-axi-lib.sh
+  . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+  # shellcheck source=bin/fm-pr-lib.sh
+  . "$SCRIPT_DIR/fm-pr-lib.sh"
+  # shellcheck source=bin/fm-secondmate-registry-lib.sh
+  . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+  # shellcheck source=bin/fm-project-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+fi
 
 controller_project_admission() {
   local declaration project_lock
@@ -403,6 +426,24 @@ item_show() {
   local out
   ITEM_HELD='' ITEM_KIND='' ITEM_REPO='' ITEM_BODY=''
   out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
+  if [ "$ACTION" = candidate-prep ]; then
+    # Validate and retain only the single task block. First-match field reads
+    # cannot turn contradictory or out-of-scope detail into positive evidence.
+    out=$(printf '%s\n' "$out" | awk -v expected="$1" '
+      /^task:$/ { tasks++; inside=1; print; next }
+      /^[^[:space:]]/ { inside=0 }
+      inside && /^  [a-z_]+: / {
+        key=$0; sub(/^  /,"",key); sub(/:.*/,"",key)
+        if (seen[key]++) bad=1
+        value=$0; sub(/^  [a-z_]+: /,"",value)
+        sub(/^"/,"",value); sub(/"$/,"",value)
+        if (key=="id" && value!=expected) bad=1
+        print; next
+      }
+      inside && /[^[:space:]]/ { bad=1 }
+      END { if (bad || tasks!=1 || !seen["id"] || !seen["held"] || !seen["kind"]) exit 1 }
+    ') || return 1
+  fi
   ITEM_HELD=$(show_field "$out" held)
   ITEM_KIND=$(show_field "$out" kind)
   ITEM_REPO=$(show_field "$out" repo)
@@ -607,6 +648,24 @@ check_item() {
   prep_read "$id" || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
   ! deferred_pending "$id" || { CHECK_ERR="spawn deferred pending"; return 1; }
 }
+
+# Private publication callback. Preserve the existing predicate owner while
+# keeping read uncertainty distinct from a positive hold/preparation verdict.
+if [ "$ACTION" = candidate-prep ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  verdict=unknown reason='task detail unavailable or malformed' held=unknown
+  if item_show "$STEP_TARGET" && { [ "$ITEM_HELD" = yes ] || [ "$ITEM_HELD" = no ]; } && [ -n "$ITEM_KIND" ]; then
+    held=$ITEM_HELD
+    if prep_read "$STEP_TARGET"; then
+      verdict=allow reason='existing preparation predicates satisfied'
+    else
+      reason=$PREP_ERR
+    fi
+  fi
+  jq -cn --arg verdict "$verdict" --arg reason "$reason" --arg held "$held" \
+    '{prep:{verdict:$verdict,reason:$reason},held:$held}'
+  exit $?
+fi
 
 # default_candidates <kind> <backend>: ranked default profiles as TSV
 # harness, model, effort; DEFAULT_REFUSAL names a refused default. The quota
