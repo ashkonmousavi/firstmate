@@ -29,12 +29,16 @@ case "$*" in
   *'get --help'*) echo '--lease --lease-holder --json' ;;
   *'return --help'*) echo '--if-lease-id --if-lease-holder' ;;
   *'status --json'*)
-    jq '[.worktrees[] | . + {status:"available",lease_id:"",leased_at:null}]' "$FM_TEST_POOL/treehouse-state.json"
+    [ ! -e "$FM_TEST_POOL/fail-status" ] || exit 42
+    jq '[.worktrees[] | . + {status:(if .leased then "leased" else "available" end),lease_id:(if .leased then "fixture-lease" else "" end),leased_at:null}]' "$FM_TEST_POOL/treehouse-state.json"
     ;;
   *'lease '[0-9]*)
     while [ "$1" != lease ]; do shift; done
     name=$2
     : > "$FM_TEST_POOL/leased-$name"
+    jq --arg name "$name" '.worktrees |= map(if .name == $name then .leased = true else . end)' \
+      "$FM_TEST_POOL/treehouse-state.json" > "$FM_TEST_POOL/state.new"
+    mv "$FM_TEST_POOL/state.new" "$FM_TEST_POOL/treehouse-state.json"
     jq --arg name "$name" '.worktrees[] | select(.name == $name) | {path,lease_id:"fixture-lease",lease_holder:"fixture"}' "$FM_TEST_POOL/treehouse-state.json"
     ;;
   *'get --lease'*) printf '%s\n' "$FM_TEST_COPY" ;;
@@ -70,6 +74,118 @@ run_cli() {
   env -u FM_STATE_OVERRIDE -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE \
     FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_TEARDOWN_GUARD_DONE=1 \
     FM_SPAWN_NO_GUARD=1 PATH="$FAKEBIN_DIR:$PATH" "$ROOT/bin/$1" "${@:2}"
+}
+
+
+# Public library seam used by spawn admission and home seeding; no real pool CLI.
+protect_case() {
+  # shellcheck disable=SC2016 # The child shell expands the positional arguments.
+  env FM_HOME="$HOME_DIR" FM_STATE_OVERRIDE="$HOME_DIR/state" PATH="$FAKEBIN_DIR:$PATH" \
+    "$BASH" -eu -c '
+      . "$1/bin/fm-wake-lib.sh"
+      . "$1/bin/fm-secondmate-registry-lib.sh"
+      . "$1/bin/fm-backend.sh"
+      . "$1/bin/fm-treehouse-lib.sh"
+      fm_treehouse_protect_recorded_copies "$2" "$3" "$4"
+    ' _ "$ROOT" "$HOME_DIR/state" "$PROJECT_DIR" "${1:-}"
+}
+
+add_retained_copy() { # <slot> [pool-directory]
+  local name=$1 pool=${2:-$CASE_DIR/pool}
+  POOL_DIR="$pool/$name/project"
+  mkdir -p "$pool/$name"
+  git -C "$PROJECT_DIR" worktree add --quiet --detach "$POOL_DIR"
+  if [ ! -f "$pool/treehouse-state.json" ]; then
+    printf '{"worktrees":[]}\n' > "$pool/treehouse-state.json"
+  fi
+  jq --arg name "$name" --arg path "$POOL_DIR" '.worktrees += [{name:$name,path:$path}]' \
+    "$pool/treehouse-state.json" > "$CASE_DIR/state.new"
+  mv "$CASE_DIR/state.new" "$pool/treehouse-state.json"
+  write_meta "retained-$name" scout
+}
+
+test_protect_reads_status_once_and_refreshes_on_replay() {
+  local count leases
+  make_case protect-status-count
+  write_meta retained-1 scout
+  add_retained_copy 2
+  add_retained_copy 3
+  # One slot already has a durable lease, which must never be replaced.
+  jq '.worktrees[2].leased = true' "$FM_TEST_POOL/treehouse-state.json" > "$CASE_DIR/state.new"
+  mv "$CASE_DIR/state.new" "$FM_TEST_POOL/treehouse-state.json"
+  protect_case
+  count=$(grep -c 'status --json' "$FM_TEST_POOL/log")
+  [ "$count" -eq 1 ] || fail "3 retained records made $count status reads, expected 1"
+  assert_present "$FM_TEST_POOL/leased-1" 'first retained slot was not held'
+  assert_present "$FM_TEST_POOL/leased-2" 'second retained slot was not held'
+  assert_absent "$FM_TEST_POOL/leased-3" 'existing durable lease was replaced'
+  leases=$(grep -c ' lease ' "$FM_TEST_POOL/log")
+  [ "$leases" -eq 2 ] || fail 'wrong slots were leased from the shared snapshot'
+  protect_case
+  count=$(grep -c 'status --json' "$FM_TEST_POOL/log")
+  [ "$count" -eq 2 ] || fail 'replay reused a previous invocation snapshot'
+  [ "$(grep -c ' lease ' "$FM_TEST_POOL/log")" -eq 2 ] || fail 'replay replaced durable leases'
+  # Refresh must observe a changed pool rather than keep the earlier snapshot.
+  add_retained_copy 4
+  protect_case
+  [ "$(grep -c 'status --json' "$FM_TEST_POOL/log")" -eq 3 ] || fail 'third protect did not read fresh status'
+  assert_present "$FM_TEST_POOL/leased-4" 'fresh retained record was missed on replay'
+  pass 'protect reads status once per root, filters each slot and refreshes on replay'
+}
+
+test_protect_status_failure_changes_nothing() {
+  make_case protect-status-failure
+  write_meta retained-1 scout
+  add_retained_copy 2
+  cp "$FM_TEST_POOL/treehouse-state.json" "$CASE_DIR/before.json"
+  : > "$FM_TEST_POOL/fail-status"
+  assert_refuses 'cannot durably protect' protect_case
+  cmp -s "$CASE_DIR/before.json" "$FM_TEST_POOL/treehouse-state.json" || fail 'failed read changed pool state'
+  assert_no_grep ' lease ' "$FM_TEST_POOL/log" 'failed read held a copy'
+  assert_no_grep ' return ' "$FM_TEST_POOL/log" 'failed read released a copy'
+  rm "$FM_TEST_POOL/fail-status"
+  protect_case check
+  assert_no_grep ' lease ' "$FM_TEST_POOL/log" 'check mode held a copy'
+  assert_no_grep ' return ' "$FM_TEST_POOL/log" 'check mode released a copy'
+  protect_case
+  assert_present "$FM_TEST_POOL/leased-1" 'failed snapshot leaked into a later invocation'
+  assert_present "$FM_TEST_POOL/leased-2" 'retry did not hold all copies'
+  pass 'a failed status read holds and releases nothing; check mode also stays read-only'
+}
+
+test_protect_caches_by_root_before_holding() {
+  local second_pool root
+  make_case protect-multiple-roots
+  write_meta retained-1 scout
+  second_pool="$CASE_DIR/other/.treehouse/project-pool"
+  add_retained_copy 2 "$second_pool"
+  # Model Treehouse root resolution, so cross-root snapshot reuse cannot pass.
+  mv "$FAKEBIN_DIR/treehouse" "$FAKEBIN_DIR/treehouse.fixture"
+  cat > "$FAKEBIN_DIR/treehouse" <<'FAKE'
+#!/usr/bin/env bash
+if [ "${1:-}" = --root ] && [ "$2" = "$FM_TEST_SECOND_ROOT" ]; then
+  export FM_TEST_POOL="$FM_TEST_SECOND_ROOT/.treehouse/project-pool"
+fi
+exec "$(dirname "$0")/treehouse.fixture" "$@"
+FAKE
+  chmod +x "$FAKEBIN_DIR/treehouse"
+  export FM_TEST_SECOND_ROOT="$CASE_DIR/other"
+  : > "$second_pool/fail-status"
+  assert_refuses 'cannot durably protect' protect_case
+  for root in "$FM_TEST_POOL" "$second_pool"; do
+    assert_no_grep ' lease ' "$root/log" 'later root failure partially held copies'
+    assert_no_grep ' return ' "$root/log" 'later root failure released a copy'
+  done
+  rm "$second_pool/fail-status"
+  : > "$FM_TEST_POOL/log"
+  : > "$second_pool/log"
+  protect_case
+  for root in "$FM_TEST_POOL" "$second_pool"; do
+    [ "$(grep -c 'status --json' "$root/log")" -eq 1 ] || fail 'root did not get exactly one snapshot'
+  done
+  assert_present "$FM_TEST_POOL/leased-1" 'first root was not held'
+  assert_present "$second_pool/leased-2" 'second root was not held'
+  pass 'separate roots get separate snapshots and all reads precede lease changes'
 }
 
 test_spawn_refuses_retained_record() {
@@ -391,6 +507,9 @@ test_autolaunch_refuses_retained_copy() {
 
 
 
+test_protect_reads_status_once_and_refreshes_on_replay
+test_protect_status_failure_changes_nothing
+test_protect_caches_by_root_before_holding
 test_spawn_resolves_native_pool_root
 test_teardown_rechecks_branch_after_process_barrier
 test_forced_descendant_refuses_wrong_branch
