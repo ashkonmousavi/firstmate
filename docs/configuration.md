@@ -1647,16 +1647,22 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
 For T3 Code's account-selection limits, see [its backend contract](t3code-backend.md#active-limits).
 Without that file, existing ambient Codex behavior is unchanged.
-Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
+Each line names one literal absolute existing folder in preference order, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
 Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
 Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
-Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it excludes locally signed-in folders with shared configuration whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, including exhausted runway with an unknown remaining percentage.
-Among eligible folders, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
-Under rank-only, exhausted folders remain eligible with a notice; weekly ranking, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
+Unless the home selects [rank-only](#crew-dispatch-profiles-configcrew-dispatchjson), it may skip a folder only when applicable account-wide or selected model/product quota is exhausted, at zero effective percent, or projects exhaustion less than three hours from now.
+The first folder not skipped must be locally signed in with required shared configuration present; otherwise launch refuses with a repair message instead of switching accounts.
+Weekly percentages do not change that preference.
+The horizon uses the absolute projected exhaustion time when available, otherwise the usable runway seconds anchored to that folder's reading time; exactly three hours remains eligible.
+A through-reset reading stays eligible, while missing, stale, unavailable or unknown quota remains unmeasured and does not by itself authorize switching to another account.
+An unavailable sign-in or missing required shared configuration cannot launch.
+If no folder is eligible, launch refuses.
+Under rank-only, exhausted and below-horizon folders remain eligible with a notice; configured preference, a preselected folder, sign-in, shared-configuration, and duplicate-account guards still apply.
+Under quota enforcement, exhausted runway excludes an account even when its remaining percentage is unknown.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and fresh secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion before allocation.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight applies the same quota admission policy to known universal exhaustion or below-horizon runway before allocation or stopping a live secondmate.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
@@ -1665,6 +1671,7 @@ No usable folder refuses rather than falling back to `~/.codex`; raw Codex launc
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.
 This is a home-wide Codex list, separate from the Claude and Pi pins below; it has no per-secondmate list override.
+It governs tasks launched through Firstmate, including advisor or review tasks dispatched as workers; an external review tool such as a separately running no-mistakes daemon owns its own account environment and does not consume this list.
 
 Use the `prepare` command in [`bin/fm-codex-accounts.py`](../bin/fm-codex-accounts.py) to link shared non-auth configuration into an existing folder before enabling it.
 Its help owns the exact commands and allowlist: configuration (including MCP definitions and project trust), instructions, rules and optional skills are shared; credentials, sessions, logs and caches remain account-local.

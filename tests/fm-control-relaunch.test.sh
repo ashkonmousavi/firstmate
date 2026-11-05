@@ -4400,7 +4400,6 @@ PY
     selected="$dir/account-one"
     if [ "$policy" = rank-only ]; then
       printf 'rank-only\n' > "$dir/home/config/quota-gate"
-      selected="$dir/account-two"
       for root in "$dir/account-one" "$dir/account-two"; do
         jq '.providers[].quotaSemantics.effectiveAvailability = [
           {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
@@ -4462,7 +4461,7 @@ SH
     fi
     expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
     assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
-    assert_equals "$selected" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B under $policy"
+    assert_equals "$selected" "$(meta_field "$dir" "$id" account)" "$lifecycle selects the preferred quota-eligible account for project B under $policy"
     if [ "$policy" = rank-only ]; then
       assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "$lifecycle notices exhausted quota"
     fi
