@@ -471,10 +471,14 @@ append_slice_identity() {
   local line
   line=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" --full 2>/dev/null | python3 -c '
 import json,re,sys
-m=re.search(r"(?m)^  body: (.*)$",sys.stdin.read());b=(m[1] if m else "").strip();b=json.loads(b) if b[:1]=="\"" else b;f=0
+m=re.search(r"(?m)^  body: (.*)$",sys.stdin.read());b=(m[1] if m else "").strip();b=json.loads(b) if b[:1]=="\"" else b;f=""
 for l in b.splitlines():
-  if re.match(r"\s*(```|~~~)",l):f=not f
-  elif not f and re.match(r"\s*(#{1,6}\s+)?([-*]\s+)?(\*\*)?SLICE(\*\*)?:",l):print(l.strip());break
+  fence=re.match(r" {0,3}(`{3,}|~{3,})(.*)$",l)
+  if fence:
+    marker,rest=fence.groups()
+    if not f:f=marker
+    elif marker[0]==f[0] and len(marker)>=len(f) and not rest.strip():f=""
+  elif not f and re.match(r"\s*SLICE:",l):print(l.strip());break
 ') || line=
   [ -n "$line" ] || { echo "note: no SLICE line in $ID's task body" >&2; return 0; }
   printf '\n# Slice\n%s\n' "$line" >> "$BRIEF"

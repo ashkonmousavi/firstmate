@@ -1728,10 +1728,11 @@ make_slice_brief_fixture() {
 #!/usr/bin/env bash
 [ "$#" -eq 3 ] && [ "$1" = show ] && [ "$3" = --full ] || exit 64
 case "$2" in
+  custom-*) python3 -c 'import json,os;print("  body: " + json.dumps(os.environ["FM_SLICE_BODY"]))' ;;
   stamped-*)
-    printf '%s\n' '  body: "```text\nSLICE: example/ignored | Example | role=owner\n```\nSLICE: main/main-model | First chat | role=owner\nRULES: owner\nSCOPE: First chat\nORACLE: brief-slice\nSLICE: later/ignored | Later | role=owner"'
+    printf '%s\n' '  body: "```text\nSLICE: example/ignored | Example | role=owner\n```\n# SLICE: heading/ignored\n- SLICE: bullet/ignored\n* SLICE: bullet/ignored\n**SLICE**: bold/ignored\nSLICE: main/main-model | First chat | role=owner\nRULES: owner\nSCOPE: First chat\nORACLE: brief-slice\nSLICE: later/ignored | Later | role=owner"'
     ;;
-  missing-*) printf '%s\n' '  body: "A task without a slice declaration."' ;;
+  missing-*) printf '%s\n' '  body: "A task without a slice declaration.\n# SLICE: heading/ignored\n- SLICE: bullet/ignored\n* SLICE: bullet/ignored\n**SLICE**: bold/ignored"' ;;
   fenced-*)
     printf '%s\n' '  body: "An example only:\n```text\nSLICE: example/ignored | Example | role=owner\n```\n~~~text\nSLICE: another/ignored | Example | role=owner\n~~~"'
     ;;
@@ -1793,8 +1794,50 @@ test_missing_or_fenced_task_slice_is_not_copied() {
   pass "fm-brief.sh: absent and fenced-only Slice declarations add no section and emit one note"
 }
 
+test_task_slice_fence_boundaries() {
+  local fixture marker inner closed kind id body out brief section index
+  fixture="$TMP_ROOT/slice-fence-boundaries"
+  make_slice_brief_fixture "$fixture"
+  index=0
+  for marker in '```' '~~~' '````' '~~~~'; do
+    for inner in '```text' '~~~text' '```' '~~~' '    ````' '    ~~~~'; do
+      case "$marker:$inner" in '```:```'|'~~~:~~~') continue ;; esac
+      for closed in yes no; do
+        index=$((index + 1))
+        printf -v body '%smarkdown\n%s\nSLICE: example/ignored | Example | role=owner\n' "$marker" "$inner"
+        if [ "$closed" = yes ]; then
+          printf -v body '%s  %s%s \t\nSLICE: main/main-model | First chat | role=owner\n' "$body" "$marker" "${marker:0:1}"
+        fi
+        for kind in ship scout; do
+          id="custom-$index-$kind"
+          if [ "$kind" = scout ]; then
+            out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --scout 2>&1) \
+              || fail "$id scaffold failed: $out"
+          else
+            out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --mode no-mistakes 2>&1) \
+              || fail "$id scaffold failed: $out"
+          fi
+          brief="$fixture/home/data/$id/brief.md"
+          assert_no_grep 'example/ignored' "$brief" "$id copied an example after $inner inside $marker"
+          if [ "$closed" = yes ]; then
+            section=$(sed -n '/^# Slice$/,/^# Home brief additions$/p' "$brief")
+            [ "$section" = "$(printf '%s\n' '# Slice' 'SLICE: main/main-model | First chat | role=owner' '' '# Home brief additions')" ] \
+              || fail "$id did not resume declaration selection after the matching fence"
+            assert_not_contains "$out" 'note: no SLICE line' "$id missed the unfenced declaration"
+          else
+            assert_no_grep '# Slice' "$brief" "$id copied from an unclosed fence"
+            assert_contains "$out" "note: no SLICE line in $id's task body" "$id omitted the missing-SLICE note"
+          fi
+        done
+      done
+    done
+  done
+  pass "fm-brief.sh: ship and scout respect fence marker, length, suffix, indentation, and closure"
+}
+
 test_task_slice_is_copied_into_ship_and_scout
 test_missing_or_fenced_task_slice_is_not_copied
+test_task_slice_fence_boundaries
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
