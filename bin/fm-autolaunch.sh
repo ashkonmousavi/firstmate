@@ -856,6 +856,11 @@ case "$ACTION" in
     window=$(sed -n 's/^window=//p' "$meta" | head -1)
     backend=$(sed -n 's/^backend=//p' "$meta" | head -1)
     harness=$(sed -n 's/^harness=//p' "$meta" | head -1)
+    # shellcheck source=bin/fm-busy-lib.sh
+    . "$SCRIPT_DIR/fm-busy-lib.sh"
+    if ! fm_control_submit_queue "$harness" && fm_busy_is_busy "${backend:-tmux}" "$window" "$harness" "$STEP_TARGET" "$STATE"; then
+      exit 75
+    fi
     ring_rc=0
     fm_task_inbox_ring "${backend:-tmux}" "$window" "$STEP_EXCLUDE" "fm-$STEP_TARGET" "$harness" || ring_rc=$?
     if [ "$STEP_FAMILY" = retry ]; then

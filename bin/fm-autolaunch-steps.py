@@ -1662,7 +1662,7 @@ class Controller:
         self.save(row)
         self.event(row, "exhausted", f"exhausted {reason}")
 
-    def discover(self):
+    def preparation(self):
         # Reuse the exact preparation, quota, backend and profile gates through
         # the existing read-only public interface; never reconstruct them here.
         r = subprocess.run(["bash", self.scheduler, "--dry-run"], text=True,
@@ -1671,6 +1671,7 @@ class Controller:
         if r.returncode:
             raise ValueError(f"controller preparation failed: {r.stderr.strip()}")
         command = None
+        decisions = []
         for line in r.stdout.splitlines():
             if line.startswith("would-argv: "):
                 command = json.loads(line[len("would-argv: "):])
@@ -1681,18 +1682,19 @@ class Controller:
                 if len(fields) != 5:
                     raise ValueError("invalid preparation decision")
                 _, lane, task, model, outcome = fields
-                if command and outcome in ("launched", "would-launch-when-a-lane-frees"):
-                    if lane == "-":
-                        command = None
-                        continue
-                    row = self.create(f"ctl-b-launch-{task}", task, "launch", command)
-                    row["model"] = model
-                    if row["phase"] == "wait":
-                        row.update(phase="queued", argv=command)
-                    self.save(row)
-                    command = None
-                elif task != "-" and outcome.startswith("refused:"):
-                    self.emit(dict(key=f"ctl-b-launch-{task}", task=task), outcome)
+                decisions.append((task, lane, model, outcome, command))
+                command = None
+        return decisions
+
+    def discover(self):
+        for task, lane, model, outcome, command in self.preparation():
+            if command and outcome == "launched" and lane != "-":
+                row = self.create(f"ctl-b-launch-{task}", task, "launch", command)
+                if row["phase"] in ("queued", "wait"):
+                    row.update(phase="queued", argv=command, model=model)
+                self.save(row)
+            elif task != "-" and outcome.startswith("refused:"):
+                self.emit(dict(key=f"ctl-b-launch-{task}", task=task), outcome)
 
     def technical_decisions(self):
         r = subprocess.run(["bash", self.scheduler, "--controller-decisions"], text=True,
@@ -1724,14 +1726,14 @@ class Controller:
 
     def plan(self):
         p = self.load(self.passfile)
-        self.reconcile()
         self.technical_decisions()
+        self.discover()
+        self.reconcile()
         if leases():
             row = self.create("ctl-a-step", "", "step", ["bash", self.scheduler, "--steps-only"])
             if row["phase"] == "wait":
                 row["phase"] = "queued"
                 self.save(row)
-        self.discover()
         for row in self.rows(False):
             if row["phase"] == "queued":
                 row["overrun"] = int(p.get("overrun", 0))
@@ -1958,6 +1960,15 @@ class Controller:
             atomic(self.diag / f"{token}.identity", dict(agent_root_pid=identity['pid'],
                    agent_root_start=identity['start'], boot_id=self.boot))
         try:
+            if attempt["kind"] == "launch":
+                task = self.load(self.path(attempt["key"]))["task"]
+                command = next((argv for candidate, lane, _, outcome, argv in self.preparation()
+                                if candidate == task and lane != "-" and outcome == "launched" and argv), None)
+                if command is None:
+                    atomic(self.root / f"{token}.result", dict(rc=75, at=self.now(), wait="preparation"))
+                    return 75
+                attempt["argv"] = command
+                atomic(self.root / token, attempt)
             output = self.diag / f"{token}.md" if attempt["kind"] == "diagnosis" else self.root / f"{token}.out"
             with output.open("w") as out, open(os.devnull) as stdin:
                 r = subprocess.run(attempt["argv"], stdin=stdin, stdout=out, stderr=subprocess.STDOUT,

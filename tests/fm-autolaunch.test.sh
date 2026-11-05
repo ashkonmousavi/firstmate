@@ -76,6 +76,160 @@ field() {  # <record-line> <n>
 }
 
 # Builder-owned regressions for independently identified controller defects.
+controller_save_pending_launch() {
+  cat > "$KB/systemd-run" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${!#}" > "$KF/pending-action"
+exit 0
+SH
+}
+
+test_controller_interrupted_launch_rechecks_preparation() {
+  k1_setup interrupted-preparation mate
+  k1_ready k1-prepared
+  cp "$KB/timeout" "$KB/timeout-original"
+  cat > "$KB/timeout" <<'SH'
+#!/usr/bin/env bash
+"$KB/timeout-original" "$@" || exit $?
+case "$*" in *--controller-plan*) exit 124 ;; esac
+SH
+  cp "$KB/timeout" "$KB/gnutimeout"
+  k1_pass 0
+  assert_absent "$KF/spawn.log" 'interrupted planning leaves the launch pending'
+  rm "$H/data/k1-prepared/prep.md"
+  cp "$KB/timeout-original" "$KB/timeout"
+  cp "$KB/timeout-original" "$KB/gnutimeout"
+  k1_pass 55; k1_pass 110
+  assert_absent "$KF/spawn.log" 'withdrawn preparation prevents a saved queued launch'
+  prep k1-prepared proj
+  k1_pass 165; k1_pass 220
+  assert_equals 1 "$(k1_count "$KF/spawn.log" k1-prepared)" 'restored preparation admits one launch without replaying a deferred receipt'
+  k1_teardown
+  pass 'interrupted queued launches require current preparation before spawning'
+}
+
+test_controller_saved_action_refreshes_launch_argv() {
+  local token
+  k1_setup saved-current-argv mate
+  k1_ready k1-argv
+  printf 'base_branch=before\n' >> "$H/data/k1-argv/autolaunch-prep"
+  controller_save_pending_launch
+  k1_pass 0
+  token=$(cat "$KF/pending-action")
+  prep k1-argv proj base_branch=after
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" || fail 'the current prepared action must execute'
+  assert_contains "$(cat "$KF/spawn.log")" '--base-branch after' 'saved actions select current preparation arguments'
+  assert_not_contains "$(cat "$KF/spawn.log")" '--base-branch before' 'saved command arguments cannot survive a preparation change'
+  python3 - "$H/state/autolaunch-controller/$token" <<'PYCASE' || fail 'the actual attempt must record the refreshed argv'
+import json
+from pathlib import Path
+import sys
+argv = json.loads(Path(sys.argv[1]).read_text())['argv']
+assert argv[argv.index('--base-branch') + 1] == 'after', argv
+PYCASE
+  k1_teardown
+  pass 'pending saved actions execute and record freshly selected launch argv'
+}
+
+test_controller_saved_action_refuses_withdrawn_preparation() {
+  local token rc=0
+  k1_setup saved-preparation-refused mate
+  k1_ready k1-pending
+  controller_save_pending_launch
+  k1_pass 0
+  token=$(cat "$KF/pending-action")
+  rm "$H/data/k1-pending/prep.md"
+  FM_AUTOLAUNCH_NOW_FILE="$KF/clock" PATH="$KB:$PATH" \
+    python3 "$ROOT/bin/fm-autolaunch-steps.py" controller-action "$AL" "$token" || rc=$?
+  expect_code 75 "$rc" 'withdrawn preparation defers an already-dispatched saved action'
+  assert_absent "$KF/spawn.log" 'an admitted old action cannot bypass a later preparation refusal'
+  k1_slot_locks_free || fail 'a preparation deferral must release its action slot'
+  k1_teardown
+  pass 'saved actions defer safely when current preparation is refused'
+}
+
+test_controller_retry_rechecks_preparation_and_argv() {
+  k1_setup retry-preparation mate
+  k1_ready k1-retry-prep
+  printf 'fail-unknown\n' > "$KF/spawn-mode"
+  k1_pass 0; k1_pass 55
+  assert_equals 1 "$(k1_count "$KF/spawn.log" k1-retry-prep)" 'the initial admitted attempt reaches the spawn boundary'
+  rm "$H/data/k1-retry-prep/prep.md"
+  k1_pass 165; k1_pass 220
+  assert_equals 1 "$(k1_count "$KF/spawn.log" k1-retry-prep)" 'promoting a retry never bypasses withdrawn preparation'
+  assert_absent "$KF/diag.log" 'preparation waits do not advance the failure ladder'
+  prep k1-retry-prep proj base_branch=fresh
+  printf 'ok\n' > "$KF/spawn-mode"
+  k1_pass 275; k1_pass 330
+  assert_equals 2 "$(k1_count "$KF/spawn.log" k1-retry-prep)" 'a cleared preparation wait permits one retry'
+  assert_contains "$(tail -1 "$KF/spawn.log")" '--base-branch fresh' 'retry dispatch uses the current selected argv'
+  k1_teardown
+  pass 'promoted retries recheck admission and refresh their launch arguments'
+}
+
+test_controller_busy_delivery_defers_and_recovers() {
+  local verb record rc mode
+  for verb in ring retry; do
+    k1_setup "busy-$verb" mate
+    printf 'window=sess:fm-k1-busy\nkind=ship\nharness=grok\nbackend=tmux\n' > "$H/state/k1-busy.meta"
+    mode=
+    [ "$verb" != retry ] || mode=fire-and-forget
+    record=$( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_write "$H/state" k1-busy 'continue work' "$mode" )
+    if [ "$verb" = retry ]; then
+      ( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_mark_retry "$H/state" k1-busy "$record" ) || fail 'the retry fixture must retain a delivery token'
+    fi
+    cat > "$KB/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  list-windows) printf 'fm-k1-busy\n' ;;
+  capture-pane) cat "$KF/capture" ;;
+  display-message)
+    case "$*" in
+      *pane_current_command*) sed -n 's/^harness=//p' "$FM_HOME/state/k1-busy.meta" ;;
+      *cursor_y*) printf '1\n' ;;
+      *pane_tty*) printf '\n' ;;
+      *) printf 'fakepane\n' ;;
+    esac ;;
+  send-keys)
+    shift
+    while [ "$#" -gt 0 ]; do
+      case "$1" in -t) shift 2 ;; -l) shift; printf 'literal:%s\n' "$*" >> "$KF/send.log"; exit 0 ;; *) break ;; esac
+    done
+    printf 'key:%s\n' "$*" >> "$KF/send.log" ;;
+esac
+SH
+    chmod +x "$KB/tmux"
+    printf 'BUSYTOKEN active\n╭────╮\n│    │\n╰────╯\n' > "$KF/capture"
+    rc=0
+    FM_BUSY_REGEX=BUSYTOKEN PATH="$KB:$PATH" bash "$AL" --controller-ring k1-busy "$record" "$verb" >/dev/null 2>&1 || rc=$?
+    expect_code 75 "$rc" 'a busy non-queue task defers either delivery verb'
+    assert_absent "$KF/send.log" 'a busy Grok task receives neither typing nor Enter'
+    assert_absent "$H/state/k1-busy.inbox/.ring-state" 'busy deferral does not advance the ring ladder'
+    [ "$verb" != retry ] || assert_present "$H/state/k1-busy.inbox/.retry-ring" 'busy deferral preserves its retry token'
+    printf '╭────╮\n│    │\n╰────╯\n' > "$KF/capture"
+    FM_BUSY_REGEX=BUSYTOKEN PATH="$KB:$PATH" bash "$AL" --controller-ring k1-busy "$record" "$verb" >/dev/null 2>&1 || true
+    assert_contains "$(cat "$KF/send.log")" 'Firstmate instruction waiting' 'idle recovery types the owed doorbell'
+    assert_contains "$(cat "$KF/send.log")" 'key:Enter' 'idle recovery submits the owed doorbell'
+    if [ "$verb" = retry ]; then
+      assert_absent "$H/state/k1-busy.inbox/.retry-ring" 'an attempted idle retry spends its token'
+    else
+      assert_present "$H/state/k1-busy.inbox/.ring-state" 'an attempted idle ring advances its ladder'
+    fi
+    printf 'window=sess:fm-k1-busy\nkind=ship\nharness=claude\nbackend=tmux\n' > "$H/state/k1-busy.meta"
+    if [ "$verb" = retry ]; then
+      ( . "$ROOT/bin/fm-task-inbox-lib.sh"; fm_task_inbox_mark_retry "$H/state" k1-busy "$record" ) || fail 'the queued retry fixture must be owed'
+    fi
+    "$ROOT/bin/fm-busy-event.sh" arm "$H/state" k1-busy --state busy --source claude-hook --event user-prompt-submit >/dev/null || fail 'the queued-submit task must be semantically busy'
+    : > "$KF/send.log"
+    FM_BUSY_REGEX=BUSYTOKEN PATH="$KB:$PATH" bash "$AL" --controller-ring k1-busy "$record" "$verb" >/dev/null 2>&1 || true
+    assert_contains "$(cat "$KF/send.log")" 'Firstmate instruction waiting' 'queue-capable busy tasks retain allowed submission'
+    assert_contains "$(cat "$KF/send.log")" 'key:Enter' 'queue-capable busy tasks receive Enter'
+    k1_teardown
+  done
+  pass 'ordinary and retry delivery defer busy non-queue tasks and preserve idle and queued submission'
+}
+
 test_controller_deferred_attempt_has_fresh_receipts() {
   k1_setup deferred-generation mate
   k1_ready k1-deferred
@@ -2381,7 +2535,12 @@ test_controller_activation_preserves_legacy_until_rollout
 python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
 pass 'slice step-pass crash, replay, lease and stall fixtures'
 
-k1_run test_controller_decision_pair_is_injective \
+k1_run test_controller_interrupted_launch_rechecks_preparation \
+  test_controller_saved_action_refreshes_launch_argv \
+  test_controller_saved_action_refuses_withdrawn_preparation \
+  test_controller_retry_rechecks_preparation_and_argv \
+  test_controller_busy_delivery_defers_and_recovers \
+  test_controller_decision_pair_is_injective \
   test_controller_inbox_pair_preserves_task_and_message \
   test_controller_quota_refusal_is_a_wait \
   test_controller_deferred_attempt_has_fresh_receipts \

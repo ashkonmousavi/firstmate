@@ -12,18 +12,6 @@ Its oracle is the operator contract above: prepared ready work fills admitted la
 It checks emitted commands, spawn arguments, persisted records, notification delivery, and failures rather than implementation text.
 The model-request regression places a refusing `curl` at the external network boundary and enables a synthetic key; either a real or dry pass requesting a model would create an observable failure record.
 
-The K1 oracle block is independently authored and approved as SHA-256 `c307f9e7f8d2088b174593e44fa83e1dc4d8de2a017978b9a5e96b6a7375bf60`, including its closing newline.
-It is the block from commit `6c3453ef` plus the approved tester patch SHA-256 `f13b880edebe38f7ac24a0b246f630d82f6999e1a4b7ae9ab88dd1b886ae5951`.
-`FM_AUTOLAUNCH_TEST_ONLY=k1 bash bin/fm-test-run.sh tests/fm-autolaunch.test.sh` runs its 20 K1-R1 through K1-R12 cases; the complete subject also runs the builder regressions and leased-step matrix.
-The controller retains the existing leased slice engine in 120-second step units and the existing remote-inbox tick in 300-second units when due.
-`test_controller_step_deadline_qualifies_pass_lock` checks normal step holds at ages 1, 31, and 61 seconds and escalation after the deadline; `test_controller_journal_contention_keeps_delivery_live` covers a persistent holder without a matching step attempt.
-`test_controller_ledger_contention_preserves_ten_key_deadlines` checks ten ownership records within 255 seconds despite a held ledger lock, then sibling closures and interrupted ownership within 310 seconds with `overrun=1`.
-Status acceptance uses the existing status helper independently of the optional ledger hook, which runs separately with a ten-second bound and five-second kill grace.
-
-On 2026-11-05 UTC, the Linux fixture command `FM_AUTOLAUNCH_TEST_ONLY='' bash bin/fm-test-run.sh tests/fm-autolaunch.test.sh tests/fm-task-inbox.test.sh tests/fm-watch-open-decisions.test.sh` returned `FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=800415`.
-The autolaunch subject completed all 20 approved K1 oracles green, 67 leased-step tests, and the builder regressions including deadline-qualified lock detection and ten-key ledger contention.
-`FM_LINT_JOBS=1 bash bin/fm-lint.sh bin/fm-autolaunch.sh tests/fm-autolaunch.test.sh` passed with pinned ShellCheck 0.11.0; `bash bin/fm-doc-audience-check.sh`, Bash syntax checks on both shell files, and Python compilation of `bin/fm-autolaunch-steps.py` also passed.
-
 | Affected class | Regression or inspected disposition |
 | --- | --- |
 | Real pass: ready queue, item checks, dispatch, spawn, records, capacity refresh | `free lanes launch in ready-queue order, one launched record per lane`; lane count, task order, UTC record fields, stdout, and spawn arguments are asserted together. |
@@ -85,9 +73,6 @@ The autolaunch subject completed all 20 approved K1 oracles green, 67 leased-ste
 ## Live-proof gaps and entry points
 
 The focused suite proves orchestration across controlled executable boundaries, not installed harness behavior, real authentication, or a scheduled pass on PC, server, and laptop.
-K1 agent recognition requires `agent_root_pid`, `agent_root_start`, and `boot_id` in task metadata and matches them against the pass's process snapshot.
-The production identity writer remains the frozen plan's K2b dependency, owned by `fleet-ops:relaunch-preflight-fix`; until it lands, the fixtures prove the reader contract and cannot establish production late-start recognition.
-K6, the K8 reader, next-in-line, classes a-g, G-hunks, and canary/live rollout remain later cuts.
 The designated validation owner must record actual date, command, OS/architecture, harness/backend versions, output, and exit status before claiming that live coverage.
 The [runtime-backend record](runtime-backends.md) owns dated vendor/backend evidence and the guards' individual limits.
 

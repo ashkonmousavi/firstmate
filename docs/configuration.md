@@ -900,6 +900,8 @@ Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh
 
 The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
 Installing this cut alone keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
+Controller agent reconciliation matches `agent_root_pid`, `agent_root_start`, and `boot_id` from task metadata against the process snapshot.
+Publishing those fields remains the frozen plan's K2b dependency, owned by `fleet-ops:relaunch-preflight-fix`; fixture coverage does not establish production late-start recognition before that writer lands.
 Diagnosis defaults are read-only Codex `gpt-6.1-sol` followed by Claude `claude-opus-5-5`, after ownership has already reached the technical responder.
 A home may replace either command prefix with a nonempty JSON argv array named `rung3` or `rung4` in `config/controller-diagnosis`; the controller appends its diagnosis prompt and retains the 900-second bound.
 For example, `{"rung3":["codex","exec","-s","read-only","-m","gpt-6.1-sol","-c","model_reasoning_effort=high"]}` replaces only rung 3.
