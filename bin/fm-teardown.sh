@@ -30,8 +30,7 @@
 # PR or an expired external hold never accepts pending work. A missing row may
 # already have been pruned or archived and does not require recreating it.
 # bin/fm-backlog-transition-lib.sh owns guarded close replay.
-# A scout phase on a ship or slice-owner row uses the library's retain path,
-# recording its report without accepting the parent outcome or moving an open row.
+# The library's fm_backlog_retain contract also owns scout-phase parent retention.
 # ship-landing owns the acceptance procedure and
 # pending-proof resource release through fm-control.sh exit.
 # None of this loosens the landed-work gates below or the retained-task paths.

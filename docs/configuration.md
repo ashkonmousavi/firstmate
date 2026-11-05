@@ -509,7 +509,7 @@ A pull-request lookup that fails is never met: the condition simply retries on t
 ### Dispatch, acceptance and cleanup
 
 When the automatic transition gate applies, dispatch pairs the In flight transition with creation of the task record ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
-Acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
+Ship acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion); [scout-completion](../.agents/skills/scout-completion/SKILL.md) owns standalone scout acceptance and scout-phase completion on parent rows.
 Under that gate, dispatch accepts only an unheld, unblocked Queued or In flight item in this home; a missing, Done, held, or dependency-blocked item is refused before any endpoint or local copy is created.
 
 [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) refuses `add --start` and its `create --start` alias.

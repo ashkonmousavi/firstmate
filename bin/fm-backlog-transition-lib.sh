@@ -16,8 +16,8 @@
 #   bin/fm-teardown.sh   meta removed => completion-link backfill on an accepted
 #                        row, or `tasks-axi reopen`
 #                        with the deliverable recorded when the row is still an
-#                        open captain call (bin/fm-captain-hold.sh `open`), so
-#                        cleanup never retires the captain's own question
+#                        open captain call (bin/fm-captain-hold.sh `open`) or a
+#                        scout-phase parent (fm_backlog_retain below)
 #   bin/fm-bootstrap.sh  replays whatever a crash left behind, THIS HOME ONLY.
 # bin/fm-fleet-snapshot.sh's classifier and bin/fm-secondmate-reconcile.sh's
 # cross-home nudge stay defense in depth, not the primary mechanism.
@@ -59,9 +59,7 @@
 # closes a row that reads as an open captain call. An answer that closes the row
 # first applies any supported retained artifact from the validated record, then
 # replay simply retires the record.
-# A scout phase on a ship or SLICE role=owner row uses that retain path too,
-# keeping the report and phase note without accepting its parent outcome.
-# The report argument preserves this distinction during replay.
+# Scout-phase retention and report-based replay follow fm_backlog_retain below.
 
 # Set by fm_backlog_transition_applies for a return-1 exemption.
 # shellcheck disable=SC2034 # Output global, read by the sourcing caller.
@@ -656,13 +654,20 @@ fm_backlog_row_artifact_supported() {
   esac
 }
 
-# Keep a captain-held row open across the removal of the work record that
-# discovered it: record the finished work's deliverable as one line at the end
-# of the task body (a line already present is left alone), preserve supported
-# artifacts on the row, and return it to Queued, the conventional post-cleanup
-# shape for an open captain call.
+# Retain a captain-held row or a scout-phase parent: record the finished work's
+# deliverable as one line at the end of the task body (a line already present is
+# left alone) and preserve supported artifacts on the row.
+# A captain-held row returns to Queued, the conventional post-cleanup shape for
+# an open captain call.
 # bin/fm-fleet-snapshot.sh classifies that retained hold from its structured
 # fields; only bin/fm-captain-hold.sh answer resolves the call.
+# For a report-bearing scout phase classified by fm_backlog_scout_phase, keep
+# the parent's state while worker metadata exists and preserve settled Done
+# rows, including answered holds. Once cleanup removes the worker, return an
+# unfinished parent to Queued and retire brief.md and autolaunch-prep so the
+# finished phase cannot launch again; prep.md and the report remain evidence.
+# Report-bearing replay on an unfinished parent uses this same retention path;
+# it never reopens an already-Done parent.
 # Reuse an actual held CONTROL lock (teardown and bootstrap replay own it),
 # otherwise acquire that same task lock before the first body read. The wake
 # lock helper reclaims same-PID acquisition, so ownership must be checked first.
@@ -1405,7 +1410,7 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
   case "$row_state" in
     done\ *)
       if [ "$mode" = retain ]; then
-        # The captain's answer closed the row before this replay; the retained
+        # Accepted completion settled the row before this replay; the retained
         # transition owes it nothing more than retiring the record.
         fm_backlog_close_marker_remove "$marker" "$state" || return 1
         FM_BACKLOG_CLOSE_REPLAY_RESULT=answered
