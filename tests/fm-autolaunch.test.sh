@@ -2318,6 +2318,465 @@ SH
   pass 'controller activation preserves legacy until rollout and protects outstanding work'
 }
 
+# === BEGIN tester-owned: lc-core-scheduler EGM1 input-join oracles =========
+# EGM point 1 (instruction 009): input join completeness and disagreement
+# contract with valid-empty publication and unavailable-home disposition.
+# Expected results come from the accepted cut line (EGM dispositions row 1)
+# and the read-only advisor contract for cut 1, never from the code under
+# test. The builder runs these and never edits this region; a disputed case
+# goes back to the tester. The tester report lists, per case, the contract
+# sentence behind each expectation and the hand mutant that turns it red.
+#
+# Seam the build exposes (names frozen by the tester; all fixtures hermetic):
+#   fm-autolaunch.sh --join
+#       Reads state/autolaunch-steps.candidates of every local registered
+#       home (the fm_local_firstmate_state_dirs set) and prints one JSON
+#       document on stdout:
+#         {schema:"join/v1", status:"COMPLETE"|"NO_PICK", reasons:[...],
+#          homes:[{home, status:"available"|"unavailable", reason}],
+#          entries:[{owner:{home,task},
+#                    result:"ELIGIBLE"|"INELIGIBLE"|"UNKNOWN", reasons}]}
+#       Exit 0 for COMPLETE; NO_PICK exits nonzero and never 2 (usage).
+#       COMPLETE means the join succeeded, not permission to launch.
+#   fm-autolaunch.sh --publish-candidates
+#       Atomically replaces this home's publication.
+#   Publication fm-seat-candidates/v1: machine; home (the publishing home's
+#       physical path); publication_id; completed_at and valid_until (epoch
+#       seconds); complete (JSON true); sources.<name>.{status, revision,
+#       evidence_digest}, required names tasks, prep, slice, catalogue, where
+#       only status ok or not_applicable is a complete read; entries[] of
+#       owner{home,task}, slice_id, actor{home,task,kind}, phase, cut,
+#       owner_generation, prep{revision, digest, brief_digest} (digest is
+#       "sha256:<hex>" of data/<task>/prep.md), source_refs.<source> (the
+#       revision the entry was derived from), facts.<name>{verdict
+#       allow|deny|unknown, authority, source_ref, reason}.
+#   Clock: FM_TEST_SEAM=1 with FM_AUTOLAUNCH_NOW_FILE (the existing seam).
+# Run alone: FM_AUTOLAUNCH_EGM1_ONLY='<case>...' (or egm1 for all).
+EGM1_T0=1800000000
+EGM1_BOUND=30   # tester bound on one --join call; the real budget is the producers'
+EGM1_TESTS='test_egm1_g1_unreadable_home_is_no_pick
+test_egm1_g1_missing_registered_home_is_no_pick
+test_egm1_g1_stale_prep_or_phase_is_not_eligible
+test_egm1_g2_valid_empty_home_permits_other_home
+test_egm1_g2_bounded_unknown_does_not_block_other_home
+test_egm1_g3_missing_garbage_timeout_are_no_pick
+test_egm1_g3_unavailable_home_disposition_survives_kick
+test_egm1_g3_uncertain_claim_stays_reserved_through_kick
+test_egm1_g7_unsupported_or_skewed_publication_is_no_pick
+test_egm1_g7_conflicting_revisions_stay_entry_scoped
+test_egm1_g7_conflicting_ownership_picks_no_side
+test_egm1_g9_complete_zero_rows_is_valid_empty
+test_egm1_g9_missing_completion_evidence_is_never_empty
+test_egm1_g9_producer_unrecognized_ready_is_not_empty
+test_egm1_g1_producer_retains_unprepared_entries'
+
+egm1_setup() {  # <case>: root home R with one registered local child home B
+  E="$TMP_ROOT/egm1-$1"
+  mkdir -p "$E/root/state" "$E/root/data" "$E/root/config" "$E/b/state" "$E/b/data" "$E/b/config" "$E/bin"
+  R=$(cd -P -- "$E/root" && pwd -P) B=$(cd -P -- "$E/b" && pwd -P)
+  local h
+  for h in "$R" "$B"; do
+    fm_test_tasks_toml "$h/.tasks.toml"
+    printf '## In flight\n## Queued\n## Done\n' > "$h/data/backlog.md"
+  done
+  printf -- '- egm1-b - EGM1 fixture home (home: %s; scope: egm1 fixture; projects: proj; added 2026-11-05)\n' "$B" > "$R/data/secondmates.md"
+  printf '%s\n' "$EGM1_T0" > "$E/clock"
+  export FM_HOME="$R" FM_TEST_SEAM=1 FM_AUTOLAUNCH_NOW_FILE="$E/clock"
+  unset FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_CONFIG_OVERRIDE
+  # Fixture integrity: the existing registered-home owner sees exactly R and B.
+  local homes
+  homes=$(bash -c '. "$1/bin/fm-wake-lib.sh"; . "$1/bin/fm-secondmate-registry-lib.sh"
+    fm_local_firstmate_state_dirs "$2/state" && printf "%s\n" "${FM_LOCAL_FIRSTMATE_STATES[@]}"' _ "$ROOT" "$R") ||
+    fail "EGM1 fixture: fm_local_firstmate_state_dirs refused the fixture registry"
+  assert_equals "$R/state"$'\n'"$B/state" "$homes" 'EGM1 fixture: the registered-home set is R then B'
+}
+
+egm1_digest() {  # <file>: sha256:<hex> of its bytes
+  python3 -c 'import hashlib,sys; print("sha256:" + hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$1"
+}
+
+egm1_mtime() {  # <file> <epoch>: portable mtime set (GNU and BSD touch differ)
+  python3 -c 'import os,sys; os.utime(sys.argv[1], (int(sys.argv[2]), int(sys.argv[2])))' "$1" "$2"
+}
+
+egm1_entry() {  # <home> <task>: one entry whose every fact allows, derived from the base sources
+  local h=$1 t=$2
+  mkdir -p "$h/data/$t"
+  [ -f "$h/data/$t/brief.md" ] || printf '# Task\nbrief for %s\n' "$t" > "$h/data/$t/brief.md"
+  [ -f "$h/data/$t/prep.md" ] || printf '# Prep\nprep for %s\n' "$t" > "$h/data/$t/prep.md"
+  jq -cn --arg h "$h" --arg t "$t" --arg pd "$(egm1_digest "$h/data/$t/prep.md")" \
+    --arg bd "$(egm1_digest "$h/data/$t/brief.md")" '
+    def fact($a; $r): {verdict: "allow", authority: $a, source_ref: $r};
+    {owner: {home: $h, task: $t}, slice_id: "ops/egm1-fixture",
+     actor: {home: $h, task: $t, kind: "builder"}, phase: "build", cut: "egm1",
+     owner_generation: 1, prep: {revision: "prep-r1", digest: $pd, brief_digest: $bd},
+     source_refs: {tasks: "tasks-r1", prep: "prep-r1", slice: "slice-r1", catalogue: "cat-r1", claims: "claims-r1"},
+     facts: {task: fact("tasks"; "tasks-r1"), dependencies: fact("tasks"; "tasks-r1"),
+             prep: fact("prep"; "prep-r1"), phase: fact("slice"; "slice-r1"),
+             placement: fact("catalogue"; "cat-r1"), claim: fact("claims"; "claims-r1")}}'
+}
+
+egm1_pub() {  # <home> [entries-json] [jq-filter]: write a complete publication for <home>
+  local h=$1 entries=${2:-[]} filter=${3:-.}
+  jq -n --arg h "$h" --argjson t0 "$EGM1_T0" --argjson entries "$entries" '
+    def src($r): {status: "ok", revision: $r, evidence_digest: ("sha256:" + ("0" * 64))};
+    {schema: "fm-seat-candidates/v1", machine: "egm1-machine", home: $h,
+     publication_id: ("pub-" + ($h | split("/") | last) + "-1"),
+     completed_at: ($t0 - 10), valid_until: ($t0 + 300), complete: true,
+     sources: {tasks: src("tasks-r1"), prep: src("prep-r1"), slice: src("slice-r1"),
+               catalogue: src("cat-r1"), claims: src("claims-r1")},
+     entries: $entries}' | jq "$filter" > "$h/state/autolaunch-steps.candidates" ||
+    fail "EGM1 fixture: cannot write the publication for $h"
+}
+
+egm1_join() {  # one --join call under the tester bound
+  EGM1_OUT=$(timeout -k 5 "$EGM1_BOUND" bash "$AL" --join 2>"$E/join.err")
+  EGM1_RC=$?
+}
+
+egm1_doc() {  # <label>: the first assertion of every case - a join/v1 document came back
+  case "$EGM1_RC" in
+    124|137) fail "$1: --join was killed by the tester bound of ${EGM1_BOUND}s instead of returning" ;;
+  esac
+  printf '%s\n' "$EGM1_OUT" | jq -e '.schema == "join/v1" and (.status == "COMPLETE" or .status == "NO_PICK")
+    and (.homes | type == "array") and (.entries | type == "array") and (.reasons | type == "array")' >/dev/null 2>&1 ||
+    fail "$1: --join printed no join/v1 document (rc=$EGM1_RC; stdout: $(printf '%s' "$EGM1_OUT" | head -c 200); stderr: $(head -c 200 "$E/join.err"))"
+}
+
+egm1_complete() {  # <label>
+  egm1_join
+  egm1_doc "$1"
+  assert_equals COMPLETE "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" "$1: join status"
+  expect_code 0 "$EGM1_RC" "$1: a COMPLETE join exits 0"
+}
+
+egm1_no_pick() {  # <label> [unavailable-home]
+  egm1_join
+  egm1_doc "$1"
+  assert_equals NO_PICK "$(printf '%s\n' "$EGM1_OUT" | jq -r .status)" "$1: join status"
+  [ "$EGM1_RC" != 0 ] && [ "$EGM1_RC" != 2 ] || fail "$1: NO_PICK must exit nonzero and not 2 (usage), got $EGM1_RC"
+  [ "$(printf '%s\n' "$EGM1_OUT" | jq '.reasons | length')" -gt 0 ] || fail "$1: NO_PICK carries no typed reason"
+  [ -z "${2:-}" ] || egm1_unavailable "$1" "$2"
+}
+
+egm1_unavailable() {  # <label> <home>: the explicit failure disposition for a home that cannot run
+  assert_equals unavailable "$(printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$2" '[.homes[] | select(.home == $h) | .status] | join(",")')" \
+    "$1: $2 is listed once as unavailable, never dropped"
+  [ -n "$(printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$2" '.homes[] | select(.home == $h) | .reason // empty')" ] ||
+    fail "$1: the unavailable home $2 carries no reason"
+}
+
+egm1_result() {  # <home> <task>: the entry's results, comma-joined (one entry gives one word)
+  printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$1" --arg t "$2" \
+    '[.entries[] | select(.owner.home == $h and .owner.task == $t) | .result] | join(",")'
+}
+
+# G1: an unreadable home is never dropped from the machine-wide join.
+test_egm1_g1_unreadable_home_is_no_pick() {
+  egm1_setup g1-unreadable
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1 G1 baseline: both homes readable'
+  chmod 000 "$B/state/autolaunch-steps.candidates"
+  if [ -r "$B/state/autolaunch-steps.candidates" ]; then
+    chmod 600 "$B/state/autolaunch-steps.candidates"
+    printf 'skip: EGM1 G1 unreadable-home case needs a non-root user (mode 000 stays readable)\n'
+    return 0
+  fi
+  egm1_no_pick 'EGM1 G1: an unreadable home publication gives NO_PICK' "$B"
+  chmod 600 "$B/state/autolaunch-steps.candidates"
+  pass 'EGM1 G1 test_egm1_g1_unreadable_home_is_no_pick: an unreadable home is NO_PICK with an explicit unavailable disposition'
+}
+
+test_egm1_g1_missing_registered_home_is_no_pick() {
+  egm1_setup g1-missing-home
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1 G1 baseline: registered home present'
+  mv "$B" "$E/b-gone"
+  egm1_no_pick 'EGM1 G1: a registered local home that is unavailable gives NO_PICK'
+  mv "$E/b-gone" "$B"
+  pass 'EGM1 G1 test_egm1_g1_missing_registered_home_is_no_pick: a failed home enumeration never returns success'
+}
+
+# G1: stale prep or phase evidence leaves no eligible entry; a sibling stays eligible.
+test_egm1_g1_stale_prep_or_phase_is_not_eligible() {
+  local variant filter
+  egm1_setup g1-stale
+  egm1_pub "$R" "[$(egm1_entry "$R" fresh),$(egm1_entry "$R" stale)]"
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1 G1 baseline: current revisions'
+  assert_equals ELIGIBLE "$(egm1_result "$R" stale)" 'EGM1 G1 baseline: the all-allow entry is eligible'
+  for variant in prep-revision phase-revision; do
+    case "$variant" in
+      prep-revision) filter='(.entries[] | select(.owner.task == "stale") | .source_refs.prep) = "prep-r0"' ;;
+      phase-revision) filter='(.entries[] | select(.owner.task == "stale") | .source_refs.slice) = "slice-r0"' ;;
+    esac
+    egm1_pub "$R" "[$(egm1_entry "$R" fresh),$(egm1_entry "$R" stale)]" "$filter"
+    egm1_complete "EGM1 G1 $variant: a bounded stale entry does not stop the join"
+    assert_equals UNKNOWN "$(egm1_result "$R" stale)" "EGM1 G1 $variant: the stale entry is UNKNOWN, never eligible or dropped"
+    assert_equals ELIGIBLE "$(egm1_result "$R" fresh)" "EGM1 G1 $variant: the current sibling stays eligible"
+  done
+  # The prep document changed after the publication: its digest no longer matches.
+  egm1_pub "$R" "[$(egm1_entry "$R" fresh),$(egm1_entry "$R" stale)]"
+  printf 'revised after publication\n' >> "$R/data/stale/prep.md"
+  egm1_join
+  egm1_doc 'EGM1 G1 prep-digest'
+  [ "$(egm1_result "$R" stale)" != ELIGIBLE ] || fail 'EGM1 G1 prep-digest: an entry whose prep changed after publication is eligible'
+  pass 'EGM1 G1 test_egm1_g1_stale_prep_or_phase_is_not_eligible: stale prep or phase gives no eligible entry'
+}
+
+# G2: a legitimate empty home must not stall another home's eligible work.
+test_egm1_g2_valid_empty_home_permits_other_home() {
+  egm1_setup g2-valid-empty
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[$(egm1_entry "$B" b-task)]"
+  egm1_complete 'EGM1 G2: valid-empty R plus eligible B'
+  assert_equals ELIGIBLE "$(egm1_result "$B" b-task)" "EGM1 G2: B's entry is eligible beside a valid-empty home"
+  assert_equals available "$(printf '%s\n' "$EGM1_OUT" | jq -r --arg h "$R" '[.homes[] | select(.home == $h) | .status] | join(",")')" \
+    'EGM1 G2: the valid-empty home is available'
+  pass 'EGM1 G2 test_egm1_g2_valid_empty_home_permits_other_home: valid-empty A plus eligible B permits B'
+}
+
+test_egm1_g2_bounded_unknown_does_not_block_other_home() {
+  egm1_setup g2-bounded-unknown
+  egm1_pub "$R" "[$(egm1_entry "$R" r-unknown)]" \
+    '(.entries[0].facts.dependencies) = {verdict: "unknown", authority: "tasks", source_ref: "tasks-r1", reason: "dependency evidence missing"}'
+  egm1_pub "$B" "[$(egm1_entry "$B" b-task)]"
+  egm1_complete 'EGM1 G2: an R-only unknown entry'
+  assert_equals UNKNOWN "$(egm1_result "$R" r-unknown)" 'EGM1 G2: the R entry with missing evidence is UNKNOWN'
+  assert_equals ELIGIBLE "$(egm1_result "$B" b-task)" 'EGM1 G2: an R-only unknown does not block B'
+  pass 'EGM1 G2 test_egm1_g2_bounded_unknown_does_not_block_other_home: a bounded unknown stays entry-scoped'
+}
+
+# G3: each dependency failure produces the specified scope.
+test_egm1_g3_missing_garbage_timeout_are_no_pick() {
+  local variant
+  egm1_setup g3-dependency
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  for variant in missing garbage source-timeout expired fifo; do
+    rm -f "$B/state/autolaunch-steps.candidates"
+    egm1_pub "$B" "[]"
+    egm1_complete "EGM1 G3 $variant baseline"
+    case "$variant" in
+      missing) rm -f "$B/state/autolaunch-steps.candidates" ;;
+      garbage) printf 'ready[2]: ??? \x01 not a publication\n' > "$B/state/autolaunch-steps.candidates" ;;
+      source-timeout) egm1_pub "$B" "[]" '.sources.tasks = {status: "timeout", revision: "tasks-r1", reason: "fm-tasks-axi ready did not answer"}' ;;
+      expired) egm1_pub "$B" "[]" '.valid_until = (.completed_at + 5)' ;;
+      fifo) rm -f "$B/state/autolaunch-steps.candidates"; mkfifo "$B/state/autolaunch-steps.candidates" ;;
+    esac
+    egm1_no_pick "EGM1 G3 $variant: B's publication fails" "$B"
+  done
+  rm -f "$B/state/autolaunch-steps.candidates"
+  pass 'EGM1 G3 test_egm1_g3_missing_garbage_timeout_are_no_pick: missing, garbage, timed-out, expired and blocking input are NO_PICK naming the home'
+}
+
+# G3: a kick never stands in for the input of a home that cannot run.
+test_egm1_g3_unavailable_home_disposition_survives_kick() {
+  local kick
+  egm1_setup g3-kick-unavailable
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  for kick in none fresh expired; do
+    rm -f "$B/state/autolaunch-steps.candidates" "$B/state/.autolaunch.kick"
+    case "$kick" in
+      fresh) printf 'kick for %s\n' "$B" > "$B/state/.autolaunch.kick"; egm1_mtime "$B/state/.autolaunch.kick" "$EGM1_T0" ;;
+      expired) printf 'kick for %s\n' "$B" > "$B/state/.autolaunch.kick"; egm1_mtime "$B/state/.autolaunch.kick" "$((EGM1_T0 - 3600))" ;;
+    esac
+    egm1_no_pick "EGM1 G3 kick=$kick: B has no publication" "$B"
+  done
+  pass 'EGM1 G3 test_egm1_g3_unavailable_home_disposition_survives_kick: a kicked, expired or unkicked home without input stays unavailable and NO_PICK'
+}
+
+# G3: an uncertain claim stays reserved; kick success or expiry is not claim absence.
+test_egm1_g3_uncertain_claim_stays_reserved_through_kick() {
+  local kick
+  egm1_setup g3-uncertain-claim
+  egm1_pub "$R" "[]"
+  for kick in none fresh expired; do
+    rm -f "$B/state/.autolaunch.kick"
+    case "$kick" in
+      fresh) printf 'kick for %s\n' "$B" > "$B/state/.autolaunch.kick"; egm1_mtime "$B/state/.autolaunch.kick" "$EGM1_T0" ;;
+      expired) printf 'kick for %s\n' "$B" > "$B/state/.autolaunch.kick"; egm1_mtime "$B/state/.autolaunch.kick" "$((EGM1_T0 - 3600))" ;;
+    esac
+    egm1_pub "$B" "[$(egm1_entry "$B" claimed)]" \
+      '(.entries[0].facts.claim) = {verdict: "unknown", authority: "claims", source_ref: "claims-r1", reason: "writer state uncertain"}'
+    egm1_join
+    egm1_doc "EGM1 G3 claim kick=$kick"
+    assert_equals UNKNOWN "$(egm1_result "$B" claimed)" "EGM1 G3 claim kick=$kick: the uncertain-claim entry stays present and UNKNOWN"
+  done
+  rm -f "$B/state/.autolaunch.kick"
+  pass 'EGM1 G3 test_egm1_g3_uncertain_claim_stays_reserved_through_kick: an uncertain claim stays reserved with or without a kick'
+}
+
+# G7: version skew and copied publications are rejected machine-wide.
+test_egm1_g7_unsupported_or_skewed_publication_is_no_pick() {
+  local variant
+  egm1_setup g7-skew
+  egm1_pub "$R" "[$(egm1_entry "$R" r-task)]"
+  for variant in schema-v2 duplicate-key copied-home; do
+    egm1_pub "$B" "[]"
+    egm1_complete "EGM1 G7 $variant baseline"
+    case "$variant" in
+      schema-v2) egm1_pub "$B" "[]" '.schema = "fm-seat-candidates/v2"' ;;
+      duplicate-key)
+        egm1_pub "$B" "[]"
+        python3 - "$B/state/autolaunch-steps.candidates" <<'PY'
+import sys
+p = sys.argv[1]
+text = open(p).read().rstrip()
+# A second "complete" member: a lenient reader keeps the last value.
+open(p, "w").write(text[:-1].rstrip() + ',\n  "complete": false\n}\n')
+PY
+        ;;
+      copied-home) egm1_pub "$R" "[]"; cp "$R/state/autolaunch-steps.candidates" "$B/state/autolaunch-steps.candidates"
+        egm1_pub "$R" "[$(egm1_entry "$R" r-task)]" ;;
+    esac
+    egm1_no_pick "EGM1 G7 $variant: B's publication is not current v1 evidence for B" "$B"
+  done
+  pass 'EGM1 G7 test_egm1_g7_unsupported_or_skewed_publication_is_no_pick: unsupported schema, duplicate members and a copied publication are NO_PICK'
+}
+
+# G7: conflicting revisions on one identified entry stay entry-scoped.
+test_egm1_g7_conflicting_revisions_stay_entry_scoped() {
+  egm1_setup g7-revisions
+  egm1_pub "$R" "[$(egm1_entry "$R" ok-task),$(egm1_entry "$R" split-task)]" \
+    '(.entries[] | select(.owner.task == "split-task") | .facts.prep.source_ref) = "prep-r0"
+     | (.entries[] | select(.owner.task == "split-task") | .prep.revision) = "prep-r0"'
+  egm1_pub "$B" "[]"
+  egm1_complete 'EGM1 G7: one entry carries a revision its source does not publish'
+  assert_equals UNKNOWN "$(egm1_result "$R" split-task)" 'EGM1 G7: the entry with conflicting revisions is UNKNOWN'
+  assert_equals ELIGIBLE "$(egm1_result "$R" ok-task)" 'EGM1 G7: the consistent sibling stays eligible'
+  pass 'EGM1 G7 test_egm1_g7_conflicting_revisions_stay_entry_scoped: a revision conflict makes only its entry UNKNOWN'
+}
+
+# G7: two homes claiming one task are never resolved by picking a side.
+test_egm1_g7_conflicting_ownership_picks_no_side() {
+  egm1_setup g7-ownership
+  egm1_entry "$B" shared >/dev/null
+  egm1_pub "$B" "[$(egm1_entry "$B" shared)]"
+  egm1_pub "$R" "[$(egm1_entry "$B" shared)]"
+  egm1_no_pick 'EGM1 G7: R and B both publish the owner entry B/shared'
+  [ -z "$(printf '%s\n' "$EGM1_OUT" | jq -r '.entries[] | select(.result == "ELIGIBLE") | .owner.task')" ] ||
+    fail 'EGM1 G7: a side of the ownership conflict was made eligible'
+  pass 'EGM1 G7 test_egm1_g7_conflicting_ownership_picks_no_side: conflicting ownership is NO_PICK and no side is eligible'
+}
+
+# G9: a complete zero-row publication is a valid empty join.
+test_egm1_g9_complete_zero_rows_is_valid_empty() {
+  egm1_setup g9-valid-empty
+  egm1_pub "$R" "[]"
+  egm1_pub "$B" "[]" '.sources.catalogue = {status: "not_applicable", revision: "cat-r1", reason: "no catalogue rows for this home"}'
+  egm1_complete 'EGM1 G9: every home completed with zero rows'
+  assert_equals 0 "$(printf '%s\n' "$EGM1_OUT" | jq '.entries | length')" 'EGM1 G9: a valid empty join has no entries'
+  assert_equals available,available "$(printf '%s\n' "$EGM1_OUT" | jq -r --arg r "$R" --arg b "$B" \
+    '[([.homes[] | select(.home == $r) | .status] | join("+")), ([.homes[] | select(.home == $b) | .status] | join("+"))] | join(",")')" \
+    'EGM1 G9: both homes are listed once, available'
+  pass 'EGM1 G9 test_egm1_g9_complete_zero_rows_is_valid_empty: a complete zero-row publication succeeds'
+}
+
+# G9: missing completion or source evidence never counts as valid-empty.
+test_egm1_g9_missing_completion_evidence_is_never_empty() {
+  local variant
+  egm1_setup g9-not-empty
+  egm1_pub "$R" "[]"
+  for variant in incomplete no-catalogue skipped-source no-completed-at string-complete zero-byte blank; do
+    egm1_pub "$B" "[]"
+    egm1_complete "EGM1 G9 $variant baseline"
+    case "$variant" in
+      incomplete) egm1_pub "$B" "[]" '.complete = false' ;;
+      no-catalogue) egm1_pub "$B" "[]" 'del(.sources.catalogue)' ;;
+      skipped-source) egm1_pub "$B" "[]" '.sources.prep = {status: "skipped", revision: "prep-r1"}' ;;
+      no-completed-at) egm1_pub "$B" "[]" 'del(.completed_at)' ;;
+      string-complete) egm1_pub "$B" "[]" '.complete = "true"' ;;
+      zero-byte) : > "$B/state/autolaunch-steps.candidates" ;;
+      blank) printf '\n  \n' > "$B/state/autolaunch-steps.candidates" ;;
+    esac
+    egm1_no_pick "EGM1 G9 $variant: B's empty publication lacks completion evidence" "$B"
+  done
+  pass 'EGM1 G9 test_egm1_g9_missing_completion_evidence_is_never_empty: incomplete, skipped, absent or blank evidence is never valid-empty'
+}
+
+egm1_ready_stub() {  # <mode>: tasks-axi on PATH answers `ready` per <mode>, else the real tool
+  local real
+  real=$(command -v tasks-axi)
+  cat > "$E/bin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = ready ]; then
+  case "$1" in
+    blank) exit 0 ;;
+    garbage) printf 'ready[zz]: the backlog service returned something else\n'; exit 0 ;;
+  esac
+fi
+exec "$real" "\$@"
+SH
+  chmod +x "$E/bin/tasks-axi"
+}
+
+egm1_publish() {  # <home> [PATH-prefix]: run the producer for <home>
+  ( export FM_HOME="$1"; [ -z "${2:-}" ] || PATH="$2:$PATH"; timeout -k 5 "$EGM1_BOUND" bash "$AL" --publish-candidates ) >"$E/publish.out" 2>&1
+  EGM1_PUB_RC=$?
+}
+
+# G9 (producer): unrecognized successful ready output is not a complete empty read.
+test_egm1_g9_producer_unrecognized_ready_is_not_empty() {
+  local mode p tasks
+  egm1_setup g9-producer
+  p="$R/state/autolaunch-steps.candidates"
+  egm1_pub "$B" "[]"
+  egm1_publish "$R"
+  jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+    fail "EGM1 G9 producer baseline: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+  assert_equals ok "$(jq -r '.sources.tasks.status' "$p")" 'EGM1 G9 producer baseline: a real empty ready queue is a complete tasks read'
+  for mode in blank garbage; do
+    rm -f "$p"
+    egm1_ready_stub "$mode"
+    egm1_publish "$R" "$E/bin"
+    if [ -e "$p" ]; then
+      tasks=$(jq -r '.sources.tasks.status // "absent"' "$p" 2>/dev/null)
+      case "$tasks" in ok|not_applicable) fail "EGM1 G9 producer $mode: unrecognized ready output was published as tasks status $tasks" ;; esac
+      [ "$(jq -r '.complete' "$p" 2>/dev/null)" != true ] ||
+        fail "EGM1 G9 producer $mode: unrecognized ready output was published as complete"
+    fi
+    egm1_no_pick "EGM1 G9 producer $mode: the join after an unrecognized ready read"
+  done
+  pass 'EGM1 G9 test_egm1_g9_producer_unrecognized_ready_is_not_empty: blank or garbage ready output never publishes a complete empty home'
+}
+
+# G1 (producer): a completed scan keeps refused entries instead of omitting them.
+test_egm1_g1_producer_retains_unprepared_entries() {
+  local p
+  egm1_setup g1-producer
+  p="$R/state/autolaunch-steps.candidates"
+  mkdir -p "$R/projects/proj"
+  printf '## In flight\n## Queued\n- [ ] alpha - prepared (repo: proj) (kind: ship)\n- [ ] beta - not prepared (repo: proj) (kind: ship)\n## Done\n' > "$R/data/backlog.md"
+  egm1_entry "$R" alpha >/dev/null
+  egm1_publish "$R"
+  jq -e '.schema == "fm-seat-candidates/v1"' "$p" >/dev/null 2>&1 ||
+    fail "EGM1 G1 producer: --publish-candidates wrote no v1 publication (rc=$EGM1_PUB_RC; $(head -c 200 "$E/publish.out"))"
+  assert_equals ok "$(jq -r '.sources.tasks.status' "$p")" 'EGM1 G1 producer: the ready queue was read completely'
+  assert_equals alpha,beta "$(jq -r --arg h "$R" '[.entries[] | select(.owner.home == $h) | .owner.task] | sort | join(",")' "$p")" \
+    'EGM1 G1 producer: both ready items are published, the unprepared one included'
+  [ "$(jq -r '[.entries[] | select(.owner.task == "beta") | .facts.prep.verdict] | join(",")' "$p")" != allow ] ||
+    fail 'EGM1 G1 producer: the unprepared item is published with an allowing prep fact'
+  pass 'EGM1 G1 test_egm1_g1_producer_retains_unprepared_entries: a completed scan retains refused entries'
+}
+
+egm1_run() {  # <case>... (egm1 = all)
+  local name
+  # shellcheck disable=SC2086 # one test name per word
+  [ "$*" != egm1 ] || set -- $EGM1_TESTS
+  for name in "$@"; do
+    [ "$(type -t "$name")" = function ] || fail "unknown EGM1 case $name"
+    "$name"
+  done
+}
+if [ -n "${FM_AUTOLAUNCH_EGM1_ONLY:-}" ]; then
+  # shellcheck disable=SC2086 # one test name per word
+  egm1_run $FM_AUTOLAUNCH_EGM1_ONLY
+  exit 0
+fi
+# === END tester-owned EGM1 (definitions; the full run calls egm1_run egm1 last) ===
+
 # === BEGIN tester-owned: lc-core-scheduler K1-R1..K1-R12 oracles ==========
 # Frozen plan LC-KUN-v26, section "K1 build-time requirements of
 # fleet-ops:lc-core-scheduler". The builder runs these and never edits this
@@ -4007,3 +4466,7 @@ k1_run test_controller_agent_identity_refreshes_after_spawn_probe \
 # Tester-owned (lc-core-scheduler K1-R1..R12 oracles, defined above): they
 # run last so every earlier case keeps its coverage while they are red.
 k1_run k1
+
+# Tester-owned (lc-core-scheduler EGM1 input-join oracles, defined above the
+# K1 block): they run after every earlier case so those keep their coverage.
+egm1_run egm1
