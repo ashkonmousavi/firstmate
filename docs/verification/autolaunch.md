@@ -32,6 +32,7 @@ The model-request regression places a refusing `curl` at the external network bo
 | Full machine, project deferral, spawn error, exhausted queue | Existing capacity, deferral/error, and no-prepared-item cases assert records and whether the lane advances; admission remains owned by capacity and spawn. |
 | Log availability and lifetime | An unwritable existing log must prevent spawn; a rename during spawn must leave the launch record on the descriptor opened before dispatch. |
 | Lock acquisition, busy refusal, release | A live lock holder prevents a second launch and record; the next pass succeeds after release and removes its own lock. |
+| K1 bounded controller | The frozen K1-R1..R12 cases (`test_actions_start_as_transient_units` through `test_unanswered_technical_key_goes_to_responder_without_diagnosis_interrupted`) cover per-kind unit deadlines, timeout ladders, spawn-lock hand-off, cut and killed passes, persistent pass locks, surviving main processes and durable responder delivery; the `test_controller_*` cases include, among others, activation, lane order under project refusal, saved-action rechecks and agent identity refresh. |
 | Main-home stall episodes | Missing, recent, and stale records; no lane; no prepared work; initial alert, suppression, hourly repeat, and quiet-marker removal are exercised. |
 | Secondmate notification | Invalid identity, missing binding, and append failure remain retryable; recovery delivers to the parent exactly once and only then publishes the episode marker. |
 | Arm, re-arm, disarm, repeated disarm | Registration and trust artifacts are checked; unwritable state and unsafe trust artifacts must fail without reporting success. Retirement stays with `fm-check-unregister.sh`. |
@@ -73,6 +74,7 @@ The model-request regression places a refusing `curl` at the external network bo
 ## Live-proof gaps and entry points
 
 The focused suite proves orchestration across controlled executable boundaries, not installed harness behavior, real authentication, or a scheduled pass on PC, server, and laptop.
+Controller units run through a recording `systemd-run` fixture on a fake clock; no real user manager, cgroup kill, stop grace or production cadence has been exercised.
 The designated validation owner must record actual date, command, OS/architecture, harness/backend versions, output, and exit status before claiming that live coverage.
 The [runtime-backend record](runtime-backends.md) owns dated vendor/backend evidence and the guards' individual limits.
 

@@ -149,7 +149,8 @@
 # Test seams, honored only with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN,
 # FM_AUTOLAUNCH_SPAWN_BIN replace fm-capacity.sh and fm-spawn.sh.
 # FM_AUTOLAUNCH_NOW_FILE selects a dynamic controller clock and
-# FM_AUTOLAUNCH_SEND_BIN replaces responder sends (both test-only).
+# FM_AUTOLAUNCH_SEND_BIN replaces responder sends (both test-only);
+# FM_AUTOLAUNCH_INSPECT_SELECTION=1 prints controller or legacy and exits.
 set -u
 export LC_ALL=C
 

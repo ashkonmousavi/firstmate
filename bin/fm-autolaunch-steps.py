@@ -2,7 +2,8 @@
 """Durable slice transitions and K1 controller for fm-autolaunch.sh.
 
 The shell owns the pass lock. Slice and Controller retain separate journals.
-Private K1 callbacks: controller-plan <scheduler>, controller-effects <scheduler> <rc>,
+Private K1 callbacks: controller-plan <scheduler>,
+controller-effects <scheduler> <plan-rc> <pass-acquired 0|1>,
 controller-action <scheduler> <attempt>. Controller deadlines are per-kind;
 config/controller-diagnosis optionally supplies JSON rung3/rung4 argv arrays.
 Controller clock reads are dynamic and use FM_AUTOLAUNCH_NOW_FILE only in tests.
