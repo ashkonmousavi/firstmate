@@ -1693,7 +1693,7 @@ test_scout_phase_retention_replays_without_worker_metadata() {
           fm_backlog_close_marker_replay "$2/state" "$2/state/$3.backlog-close" "$2/data"
         ' _ "$ROOT" "$home" "$id" "$mode" "$state" 2>&1) || fail "phase replay failed: $out"
         expected=queued
-        case "$state" in done|answered) expected=done ;; esac
+        case "$state" in done|answered) expected='done' ;; esac
         [ "$(row_state "$case_dir" "$id")" = "$expected" ] || fail "phase replay changed the parent's expected $expected state"
         if [ "$expected" = queued ]; then
           assert_grep 'scout phase finished' "$(backlog_of "$case_dir")" "replay lost phase note"

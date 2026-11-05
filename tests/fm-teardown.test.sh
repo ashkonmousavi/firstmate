@@ -6203,7 +6203,7 @@ test_scout_phase_cleanup_retains_its_owner_and_dependencies() {
       printf 'project=phase\nkind=scout\n' > "$case_dir/data/task-x1/autolaunch-prep"
       expected=queued
       if [ "$accepted" = yes ]; then
-        expected=done
+        expected='done'
         tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
       fi
       [ "$accepted" != no ] || add_blocked_by_child "$case_dir" child-one 'still needs the owner'
