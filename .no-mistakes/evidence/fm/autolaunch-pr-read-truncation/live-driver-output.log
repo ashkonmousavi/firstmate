@@ -1,0 +1,36 @@
+Real gh-axi default output: 4016 bytes; tail='fdHlwZW5hbWUiOiJDaGVja1J1... (truncated)'
+Real gh-axi --full output: 4241 bytes; 34 checks decoded successfully
+Reproduced original default-output failure: Only base64 data is allowed
+
+long: bash bin/fm-autolaunch.sh --steps-only exit=0
+stdout=''
+stderr=''
+Local GraphQL requests: [{"path": "/api/v3/graphql", "number": 1, "mode": "long"}, {"path": "/api/v3/graphql", "number": 2, "mode": "long"}]
+Persisted first PR facts: {"checks": "started", "draft": false, "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "merge": null, "started": true, "state": "OPEN"}
+Independent second PR transition: [{"at": 1793864958, "generation": 1, "merge": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "owner": "second", "receipt": "completed", "step": "merged", "trigger": "merge:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "waiting": true}]
+Published pass completion: {"at": 1793864958, "owners": ["first", "second"]}
+
+red: bash bin/fm-autolaunch.sh --steps-only exit=0
+stdout=''
+stderr=''
+Local GraphQL requests: [{"path": "/api/v3/graphql", "number": 1, "mode": "red"}, {"path": "/api/v3/graphql", "number": 2, "mode": "red"}]
+Persisted first PR facts: {"checks": "red", "draft": false, "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "merge": null, "started": true, "state": "OPEN"}
+Independent second PR transition: [{"at": 1793864958, "generation": 1, "merge": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "owner": "second", "receipt": "completed", "step": "merged", "trigger": "merge:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "waiting": true}]
+Published pass completion: {"at": 1793864958, "owners": ["first", "second"]}
+
+malformed: bash bin/fm-autolaunch.sh --steps-only exit=0
+stdout=''
+stderr=''
+Local GraphQL requests: [{"path": "/api/v3/graphql", "number": 1, "mode": "malformed"}, {"path": "/api/v3/graphql", "number": 2, "mode": "malformed"}]
+Undecodable PR JSON skipped; no first.step-pr cache written.
+Independent second PR transition: [{"at": 1793864959, "generation": 1, "merge": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "owner": "second", "receipt": "completed", "step": "merged", "trigger": "merge:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "waiting": true}]
+Published pass completion: {"at": 1793864959, "owners": ["first", "second"]}
+
+dry: bash bin/fm-autolaunch.sh --steps-only --dry-run exit=0
+stdout='would-step: second merge:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n'
+stderr=''
+Local GraphQL requests: [{"path": "/api/v3/graphql", "number": 1, "mode": "long"}, {"path": "/api/v3/graphql", "number": 2, "mode": "long"}]
+Dry pass read both PRs and left all lab files unchanged.
+
+All production CLI scenarios passed without FM_TEST_SEAM or replacement executables.
+Local TLS server stopped and all disposable homes removed.
