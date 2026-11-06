@@ -158,10 +158,9 @@ test_batch() {
   make_case "$CASE_NAME"
   fm_test_spawn_brief "$HOME_DIR" "$id2"
   git -C "$PROJ_DIR" worktree add --quiet -b wt-lane-batch-b "$CASE_DIR/wt-b"
-  mkdir -p "$CASE_DIR/pane-paths"
-  printf '%s\n' "$WT_DIR" > "$CASE_DIR/pane-paths/fm-$id1"
-  printf '%s\n' "$CASE_DIR/wt-b" > "$CASE_DIR/pane-paths/fm-$id2"
-  out=$(FM_FAKE_PANE_PATH_DIR="$CASE_DIR/pane-paths" spawn_case "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
+  printf '%s\n' "$WT_DIR" > "$FAKEBIN_DIR/.pane-path-fm-$id1"
+  printf '%s\n' "$CASE_DIR/wt-b" > "$FAKEBIN_DIR/.pane-path-fm-$id2"
+  out=$(spawn_case "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
   expect_code 0 "$status" "$out"
   for id in "$id1" "$id2"; do
     assert_grep 'lane_profile=governance' "$HOME_DIR/state/$id.meta" 'batch lost explicit lane profile'
