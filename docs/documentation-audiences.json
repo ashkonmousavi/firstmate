@@ -670,10 +670,6 @@
       "audience": "maintainer-verification"
     },
     {
-      "path": "tests/captures/fm-blocked-by-review-output.txt",
-      "audience": "maintainer-verification"
-    },
-    {
       "path": "tests/captures/kimi-code-2.3.0/README.md",
       "audience": "maintainer-verification"
     },

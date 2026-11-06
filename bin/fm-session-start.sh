@@ -160,10 +160,7 @@
 # `tasks-axi list` for the compact identity fields plus blocked_by, hold_kind,
 # and hold_reason, never body. The groups are the tool's own filters
 # (`--state in_flight`, `--state held`, `--state queued --blocked`, and
-# `tasks-axi ready`, filtered by bin/fm-blocked-by-lib.sh exactly as
-# `bin/fm-tasks-axi.sh ready` filters it, so a row whose blocker is unknown here
-# shows in its ready_withheld group rather than as dispatchable), so this script
-# never reimplements task state; the groups
+# `tasks-axi ready`), so this script never reimplements task state; the groups
 # can overlap, because an in-flight item that is also held appears under both.
 # When manual mode is selected, or tasks-axi is unavailable or incompatible,
 # this script prints only backlog section headings and item title lines, so
@@ -375,8 +372,6 @@ PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 . "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # shellcheck source=bin/fm-tasks-axi-lib.sh
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
-# shellcheck source=bin/fm-blocked-by-lib.sh
-. "$SCRIPT_DIR/fm-blocked-by-lib.sh"
 # shellcheck source=bin/fm-public-followup-lib.sh
 . "$SCRIPT_DIR/fm-public-followup-lib.sh"
 # shellcheck source=bin/fm-trace-context-lib.sh
@@ -528,7 +523,7 @@ print_ready_queued_bounded() {
 }
 
 print_backlog_tasks_axi_compact() {
-  local path=$1 in_flight held blocked ready verdicts note err withheld=
+  local path=$1 in_flight held blocked ready err
   if ! in_flight=$(tasks-axi list --file "$path" --state in_flight --fields "$BACKLOG_FIELDS" 2>&1); then
     err=$in_flight
   elif ! held=$(tasks-axi list --file "$path" --state held --fields "$BACKLOG_FIELDS" 2>&1); then
@@ -537,12 +532,7 @@ print_backlog_tasks_axi_compact() {
     err=$blocked
   elif ! ready=$(tasks-axi ready --file "$path" 2>&1); then
     err=$ready
-  elif ! verdicts=$(fm_blocked_by_verdicts "$(dirname "$path")" 2>&1); then
-    err=$verdicts withheld=1
-  elif ! note=$(fm_blocked_by_fleet_note "$(dirname "$path")" 2>&1); then
-    err=$note withheld=1
   else
-    ready=$(printf '%s\n' "$ready" | fm_blocked_by_filter_ready "$verdicts" "$note")
     printf 'compact backlog listing (tasks-axi; done rows omitted; every in-flight, held, and blocked row shown in full; ready queued bounded to %s; task bodies omitted)\n' \
       "$QUEUED_LIMIT"
     printf '\nin flight:\n'
@@ -557,7 +547,6 @@ print_backlog_tasks_axi_compact() {
   fi
   printf 'tasks-axi compact listing failed; falling back to title-line rendering.\n'
   printf '%s\n' "$err"
-  [ -z "$withheld" ] || printf 'ready list withheld: blocked-by edges cannot be decided, so no queued row below is known to be dispatchable.\n'
   print_backlog_manual_compact "$path" "fallback"
 }
 

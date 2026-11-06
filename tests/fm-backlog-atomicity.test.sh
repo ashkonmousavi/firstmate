@@ -1672,13 +1672,7 @@ test_scout_phase_retention_replays_without_worker_metadata() {
         case_dir=$(make_home "$id")
         home=$(home_of "$case_dir")
         if [ "$kind" = ship ] || [ "$kind" = task ]; then add_item "$case_dir" "$id" "$kind";
-        elif [ "$kind" = legacy ]; then
-          add_legacy_build_row "$case_dir" "$id"
-          # This phase is ready to launch only after its listed blockers finish.
-          printf '%s\n' '- [x] x-j09-intent-review-test - Finished prep' \
-            '- [x] x-refresh-1213 - Finished refresh' >> "$home/data/backlog.md"
-          printf 'self\tlocal\ngenerated\t%s\nhomes\tlocal\nrow\tlocal\tx-j09-intent-review-test\tdone\nrow\tlocal\tx-refresh-1213\tdone\n' \
-            "$(date +%s)" > "$home/data/blocked-by-fleet-rows.tsv"
+        elif [ "$kind" = legacy ]; then add_legacy_build_row "$case_dir" "$id";
         else
           add_item "$case_dir" "$id" scout
           tasks-axi update "$id" --body '**SLICE**: main/example role=owner' --file "$(backlog_of "$case_dir")" >/dev/null
