@@ -39,9 +39,14 @@ _fm_wake_require_timeout() {
 # which read the trusted session id beside state/.lock. Sourcing it eagerly
 # would pull harness identity machinery into every wake-library consumer.
 _fm_wake_require_session_lock() {
-  command -v fm_session_lock_recorded_session_id >/dev/null 2>&1 && return 0
-  # shellcheck source=bin/fm-session-lock-lib.sh
-  . "$FM_WAKE_LIB_DIR/fm-session-lock-lib.sh"
+  if ! command -v fm_session_lock_recorded_session_id >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-session-lock-lib.sh
+    . "$FM_WAKE_LIB_DIR/fm-session-lock-lib.sh"
+  fi
+  if ! command -v fm_session_lock_read_record >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-session-lock-fork-lib.sh
+    . "$FM_WAKE_LIB_DIR/fm-session-lock-fork-lib.sh"
+  fi
 }
 
 # Pass a variable name to capture this frame's pid without forking it in $().
