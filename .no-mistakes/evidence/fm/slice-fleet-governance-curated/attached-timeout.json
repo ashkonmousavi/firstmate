@@ -1,0 +1,36 @@
+[
+  {
+    "label": "lab create",
+    "exit": 0,
+    "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-attached-qmfyrx7z\n",
+    "stderr": ""
+  },
+  {
+    "label": "register slow",
+    "exit": 0,
+    "stdout": "registered: state/slow.check.sh\n",
+    "stderr": ""
+  },
+  {
+    "label": "duplicate start after stall bound",
+    "exit": 0,
+    "stdout": "watcher: already running pid 69613\n",
+    "stderr": ""
+  },
+  {
+    "label": "watcher timeout completion",
+    "exit": 0,
+    "stdout": "check: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-attached-qmfyrx7z/state/slow.check.sh: check entered\ntimed out after 12s (measured 13s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)\n",
+    "stderr": ""
+  },
+  {
+    "label": "attached arm delivery",
+    "exit": 0,
+    "stdout": "watcher: attached pid=69613 (beacon 0s)\ncheck: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-attached-qmfyrx7z/state/slow.check.sh: check entered timed out after 12s (measured 13s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)\n",
+    "stderr": ""
+  },
+  {
+    "label": "persisted timeout notification",
+    "queue": "1793949196\t1\tcheck\t~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-attached-qmfyrx7z/state/slow.check.sh\tcheck: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-attached-qmfyrx7z/state/slow.check.sh: check entered timed out after 12s (measured 13s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)\n"
+  }
+]

@@ -1,0 +1,1 @@
+1793949026	1	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/tamper/state/tampered.check.sh

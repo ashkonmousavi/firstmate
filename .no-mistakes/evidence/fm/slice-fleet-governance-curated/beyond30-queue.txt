@@ -1,0 +1,1 @@
+1793949017	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/beyond30/state/research-sources.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/beyond30/state/research-sources.check.sh: research completed; budget=36

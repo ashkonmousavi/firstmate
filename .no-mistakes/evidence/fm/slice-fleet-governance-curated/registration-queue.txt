@@ -1,0 +1,1 @@
+1793948987	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/registration/state/default.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/registration/state/default.check.sh: default child budget=30

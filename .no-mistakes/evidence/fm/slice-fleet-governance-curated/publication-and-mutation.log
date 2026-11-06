@@ -1,0 +1,2 @@
+PASS: admitted timeout published after 3s quiet boundary despite 5s lock contention; elapsed 6.200s
+PASS: executable lexical-order mutant rejected: observed 'a-slow\nb-fast\nc-fast\n'; required 'b-fast\nc-fast\na-slow\n'

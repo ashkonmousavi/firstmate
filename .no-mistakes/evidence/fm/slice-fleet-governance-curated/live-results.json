@@ -1,26 +1,38 @@
 [
   {
-    "name": "Malformed, duplicate, and edited budgets cannot gain execution trust",
-    "result": "pass"
+    "name": "Malformed declarations refuse; absent budget stays 30; unregister retires",
+    "result": "pass",
+    "live": true,
+    "detail": "All malformed/duplicate declarations refused with exit 2 and no trust; absent declaration exported 30; unregister removed script and trust."
   },
   {
-    "name": "An undeclared check retains the 30-second default and publishes a named timeout",
-    "result": "pass"
+    "name": "Authenticated check runs longer than former 30s cap",
+    "result": "pass",
+    "live": true,
+    "detail": "Real registered check completed after 31s under its authenticated 36s budget, exceeding the unchanged 30s default."
   },
   {
-    "name": "A 40-second authenticated budget survives 32 seconds and re-arm preserves its healthy owner",
-    "result": "pass"
+    "name": "Both timeout engines publish named measured cuts and continue the sweep",
+    "result": "pass",
+    "live": true,
+    "detail": "Installed timeout and portable Perl paths retained partial output, cut late output, named tool/budget/positive measured seconds, then ran the later check with default 30."
   },
   {
-    "name": "Portable timeout preserves partial output, reports positive elapsed time, resets the next budget, and unregisters",
-    "result": "pass"
+    "name": "Budget tampering invalidates authentication before execution",
+    "result": "pass",
+    "live": true,
+    "detail": "Changing only authenticated budget bytes after registration prevented execution and generated an unauthenticated-check notification."
   },
   {
-    "name": "Foreground checkpoints run fitting checks by budget and name and report oversized deferral",
-    "result": "pass"
+    "name": "Checkpoint ordering, deferral, remaining-window admission and ordinary full budget",
+    "result": "pass",
+    "live": true,
+    "detail": "Foreground checks ran by ascending budget then name; oversized 300s check was deferred in the 180s window and in a quiet 2s window; admission rechecked remaining time; ordinary watcher retained 300s."
   },
   {
-    "name": "An admitted timeout completing past the quiet boundary still publishes its wake",
-    "result": "pass"
+    "name": "Long admitted check retains monitoring health and ownership",
+    "result": "pass",
+    "live": true,
+    "detail": "After 5s of active check execution, a 4s stall bound did not evict the original watcher: duplicate start reported its same PID, beacon age stayed under 3s, and original completed/published."
   }
 ]

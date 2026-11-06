@@ -1,0 +1,1 @@
+PASS: portable timeout path preserved original watcher beyond a 4s stall bound; attached arm waited and delivered the 12s named timeout.

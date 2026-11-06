@@ -1,0 +1,3 @@
+beacon_age=0.903s; stall_bound=4s; check active >5s
+exit=0
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTPTMK4BHKP80JC21WTY8N/.live-check-budget-n0bx353e/health/state/slow.check.sh: healthy long check completed
