@@ -2609,6 +2609,8 @@ test_mixed_secondmate_roles_partial_state_and_captain_readiness() {
   make_valid_secondmate_home wheel "$wheel"
   make_valid_secondmate_home sshhip "$sshhip"
   make_valid_secondmate_home home-assistant "$ha"
+  printf 'self\thome-assistant\ngenerated\t%s\nhomes\thome-assistant\nrow\thome-assistant\tprep\topen\nrow\thome-assistant\tsecurity\topen\n' \
+    "$(date +%s)" > "$ha/data/blocked-by-fleet-rows.tsv"
   append_secondmate_registry "$home" hibit "$hibit"
   append_secondmate_registry "$home" wheel "$wheel"
   append_secondmate_registry "$home" sshhip "$sshhip"
@@ -2864,6 +2866,8 @@ EOF
 test_main_captain_readiness_matches_secondmate_projection() {
   local home fakebin json
   home=$(make_home main-captain-readiness)
+  printf 'self\tmain\ngenerated\t%s\nhomes\tmain\nrow\tmain\tprep\topen\nrow\tmain\treview\topen\n' \
+    "$(date +%s)" > "$home/data/blocked-by-fleet-rows.tsv"
   : > "$home/data/secondmates.md"
   mkdir -p "$home/projects/prep" "$home/projects/observation"
   cat > "$home/data/backlog.md" <<'EOF'

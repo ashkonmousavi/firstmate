@@ -57,9 +57,10 @@
 #      record and the pass ends. Nothing here relaxes or re-derives admission;
 #      fm-spawn.sh re-checks machine and project capacity at launch.
 #   3. Candidates: `bin/fm-tasks-axi.sh ready`, which already excludes held
-#      (including parked) and blocked work, and treats a blocked-by edge whose
-#      target is Done, archived, or absent as cleared. Items run in the order
-#      it returns them.
+#      (including parked) and blocked work and withholds any row with a
+#      blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied; that
+#      library's header owns the resolution rule. Items run in the order it
+#      returns them.
 #   4. Per lane, the first candidate that passes every check below launches.
 #      Each refused candidate gets its own record and the next is tried:
 #        refused:held                  `show` reports the item held

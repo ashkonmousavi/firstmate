@@ -29,13 +29,18 @@
 # bin/fm-watch.sh), forge reads, and the pass limits below affect when an eligible
 # candidate is inspected.
 #
-# OWNER ROUTING. The task id is the head branch with fm/ removed. When
-# this home's backlog holds that id (bin/fm-tasks-axi.sh show), the wake names it
-# as this home's task. Otherwise a main home still wakes, naming no owner, so
-# the main firstmate can route it; a secondmate home stays quiet, because the
-# pull request is not its work and its main home sweeps the same project when
-# registered there. A pull request body carries no home marker, so a home cannot
-# tell which other home opened an unclaimed pull request.
+# OWNER ROUTING. bin/fm-pr-owner.sh, given the pull request URL and its listed
+# head branch, names the owning home and task or says UNKNOWN with candidate
+# homes; its header owns that rule and the fleet list it reads. When it names
+# this home, the wake names this home's task. When it names another home or is
+# UNKNOWN, a main home still wakes, naming that owner or UNKNOWN and the
+# candidates, so the main firstmate can route it. A secondmate home wakes for
+# UNKNOWN only when it is one of the candidates, so a home that may own the work
+# still hears of it; otherwise it stays quiet, because the pull request is not its
+# work and its main home sweeps the same project when registered there. When the lookup sees no row at all, this home's
+# backlog is asked for the head branch's id (bin/fm-tasks-axi.sh show) only with
+# a fresh fleet list. With no fleet list,
+# or a stale one, the wake ends with the lookup's fleet_list line.
 # Coverage is local to this home: a pull request a secondmate home also watches
 # may receive a harmless duplicate wake in the main home.
 #
@@ -59,8 +64,10 @@
 # has carried the conflict label for at least 15 minutes and automatic recovery
 # could not run or became unavailable. Recover it in that wake:
 #   1. Dispatch the worker: the task's own worker for `conflict`; for
-#      `pr-orphan-conflict`, a fresh worker on that branch, or, when the wake
-#      names no task in this home, route it to the secondmate whose scope owns it.
+#      `pr-orphan-conflict`, a fresh worker on that branch when the wake names a
+#      task in this home; otherwise route it to the home the wake names as owner,
+#      or, for UNKNOWN, decide among the candidate homes and the secondmate whose
+#      scope owns it.
 #   2. The worker merges the base branch in with a merge commit.
 #   3. It regenerates generated files.
 #   4. It runs their tests.
@@ -76,8 +83,9 @@
 # reported on stderr for the watcher's triage log); exit 2 on bad usage.
 #
 # Tunables (env), mainly for tests:
-#   FM_PR_ORPHAN_SHOW_CMD    prefix command receiving <task-id>; exit 0 means
-#                            this home's backlog holds it
+#   FM_PR_ORPHAN_SHOW_CMD    prefix command receiving <task-id>, asked only when
+#                            the owner lookup sees no row; exit 0 means this
+#                            home's backlog holds it
 #   FM_PR_ORPHAN_BOUND       per-forge-call bound in seconds (default 20)
 #   FM_PR_ORPHAN_BUDGET      whole-pass budget in seconds (default 90)
 #   FM_PR_ORPHAN_LIMIT       pull requests listed per project (default 200)
@@ -227,6 +235,41 @@ task_claimed_here() {  # <task-id>
   fi
 }
 
+# pr_owner <url> <head> <task>: the wake's owner text, or status 1 when this
+# home stays quiet (a secondmate home the lookup leaves out).
+pr_owner() {
+  local url=$1 head=$2 task=$3 bound out rc first verdict home id where why cands note=''
+  bound=$(fm_checkpoint_budget "$BOUND") || return 1
+  out=$(FM_DATA_OVERRIDE="$DATA" fm_run_timed "$bound" "$SCRIPT_DIR/fm-pr-owner.sh" "$url" --branch "$head" 2>/dev/null)
+  rc=$?
+  first=$(printf '%s\n' "$out" | sed -n 1p)
+  note=$(printf '%s\n' "$out" | awk -F '\t' '$1 == "fleet_list" { print $2; exit }')
+  verdict=${first%%$'\t'*}
+  if [ "$rc" = 0 ] && [ "$verdict" = known ]; then
+    IFS=$'\t' read -r _ home id where why <<<"$first"
+    if [ "$where" = here ]; then
+      printf "task %s in this home's backlog\n" "$id"
+      return 0
+    fi
+    [ "$MAIN_HOME" = 1 ] || return 1
+    printf 'task %s in home %s (%s)%s\n' "$id" "$home" "$why" "${note:+; $note}"
+    return 0
+  fi
+  if [ "$rc" = 3 ] && [ "$verdict" = unknown ]; then
+    IFS=$'\t' read -r _ cands where why <<<"$first"
+  else
+    warn "could not decide the owner of $url"
+    cands=- where=elsewhere why="the owner lookup could not read this home's rows"
+  fi
+  if [ "$rc" = 3 ] && [ -z "$note" ] && [ "$cands" = - ] && task_claimed_here "$task"; then
+    printf "task %s in this home's backlog\n" "$task"
+    return 0
+  fi
+  [ "$MAIN_HOME" = 1 ] || [ "$where" = here ] || return 1
+  [ "$cands" != - ] || cands=none
+  printf 'UNKNOWN, candidate homes: %s (%s)%s\n' "$cands" "$why" "${note:+; $note}"
+}
+
 sweep_project() {  # <name>
   local name=$1 clone target path mode forge bound listing number head url
   local result added previous task owner reason marker dir
@@ -277,13 +320,7 @@ sweep_project() {  # <name>
       warn "pass budget spent before $url"
       continue
     fi
-    if task_claimed_here "$task"; then
-      owner="task $task in this home's backlog"
-    elif [ "$MAIN_HOME" = 1 ]; then
-      owner="no task in this home's backlog is named $task"
-    else
-      continue
-    fi
+    owner=$(pr_owner "$url" "$head" "$task") || continue
     bound=$(fm_checkpoint_budget "$BOUND") || continue
     result=$(fm_run_timed "$bound" "$SCRIPT_DIR/fm-pr-poll.sh" --validated github "$url" github.com "$path" "$number" 2>/dev/null) || {
       warn "could not read the conflict label age of $url"

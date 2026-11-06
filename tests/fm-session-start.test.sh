@@ -2154,6 +2154,90 @@ EOF
   pass "the startup backlog bound cuts only dispatchable queued rows and discloses the remainder exactly"
 }
 
+# The dispatchable-now listing applies the shared blocked-by rule
+# (bin/fm-blocked-by-lib.sh) exactly as bin/fm-tasks-axi.sh ready does: a row
+# tasks-axi lists although its blocker has no row here moves to ready_withheld.
+test_backlog_ready_withholds_unknown_blockers() {
+  local rec root home fakebin out
+  rec=$(new_world backlog-ready-withheld)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_tasks_axi_compact "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  write_long_body_backlog "$home/data/backlog.md"
+  printf -- '- [ ] ready-2 - Ready item 2 blocked-by: archived-only (repo: firstmate) (kind: ship)\n' >> "$home/data/backlog.md.tmp"
+  awk -v row="$(cat "$home/data/backlog.md.tmp")" '{ print } /^## Queued$/ { print row }' "$home/data/backlog.md" > "$home/data/backlog.md.new"
+  mv "$home/data/backlog.md.new" "$home/data/backlog.md"
+  rm -f "$home/data/backlog.md.tmp"
+
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-1,queued,ship,firstmate,Ready item 1" "the ready listing lost an unblocked row"
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "the ready listing kept a row whose blocker has no row in this home"
+  assert_contains "$out" 'ready-2,archived-only,unknown,"fleet list absent:' \
+    "the withheld row is not shown with its blocker and evidence"
+  assert_contains "$out" 'blocked_by_fleet_list: "fleet list absent: visible open rows still block; every other edge is unknown' \
+    "the digest does not say that this home has no fleet list"
+
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tother\tarchived-only\topen\n' "$(date +%s)" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  printf '# Done archive\n\n## Archived 2026-11-01\n- [x] archived-only - done long ago\n' > "$home/data/done-archive.md"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "the digest kept a row whose blocker is archived here but open in another home"
+  assert_contains "$out" 'ready-2,archived-only,blocked,"open in other per fleet list ' \
+    "the digest does not show the other home's open row as the reason"
+  assert_not_contains "$out" 'blocked_by_fleet_list:' "a fresh fleet list still prints the absent or stale line"
+  rm -f "$home/data/blocked-by-fleet-rows.tsv"
+
+  printf '# Done archive\n\n## Archived 2026-11-01\n- [x] archived-only - done long ago\n' > "$home/data/done-archive.md"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "an archived blocker cleared the row without fresh fleet data"
+  assert_contains "$out" 'ready-2,archived-only,unknown,"fleet list absent:' \
+    "the digest lost the incomplete-data evidence for a local archive row"
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tthis-home\tarchived-only\tarchive\n' "$(date +%s)" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "listed fleet data did not restore readiness for the archived blocker"
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\nrow\tthis-home\tarchived-only\tarchive\n' \
+    "$(( $(date +%s) - 7 * 3600 ))" > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a stale list withheld listed local archive evidence"
+  assert_contains "$out" 'blocked_by_fleet_list: "fleet list stale: generated ' \
+    "stale satisfaction hid the fleet-list warning"
+  assert_contains "$out" '(age 7h), covers this-home,other;' "the stale warning lost its age or homes"
+  printf 'row\tother\tarchived-only\topen\n' >> "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a stale remote open row failed to override local archive evidence"
+  assert_contains "$out" 'ready-2,archived-only,blocked,"open in other per fleet list ' \
+    "the digest lost the stale remote blocker"
+  printf 'self\tthis-home\ngenerated\t%s\nhomes\tthis-home,other\n' "$(date +%s)" \
+    > "$home/data/blocked-by-fleet-rows.tsv"
+  out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "ready-2,queued,ship,firstmate,Ready item 2" \
+    "a fresh list with no target id cleared local archive evidence"
+  assert_contains "$out" 'ready-2,archived-only,unknown,"id archived-only absent from fleet list ' \
+    "the digest lost the absent-id evidence"
+
+  if [ "$(id -u)" != 0 ]; then
+    chmod 000 "$home/data/done-archive.md"
+    out=$(FM_FAKE_TASKS_AXI_READY=2 run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+    chmod 644 "$home/data/done-archive.md"
+    assert_contains "$out" "ready list withheld: blocked-by edges cannot be decided" \
+      "an unreadable archive left the digest's fallback looking dispatchable"
+    assert_not_contains "$out" "ready queued (dispatchable now):" \
+      "an unreadable archive still printed a dispatchable ready group"
+  fi
+
+  pass "the startup ready listing withholds a row whose blocker is unknown here or open in another home and clears listed local archive evidence while naming stale data"
+}
+
 test_backlog_compact_manual_backend_skips_indented_bodies() {
   local rec root home fakebin out
   rec=$(new_world backlog-compact-manual)
@@ -3165,6 +3249,7 @@ test_non_pi_session_start_leaves_branch_state_untouched
 test_session_start_seeds_the_outcome_display_tail_while_away
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata
 test_backlog_queued_bound_discloses_its_remainder
+test_backlog_ready_withholds_unknown_blockers
 test_backlog_compact_manual_backend_skips_indented_bodies
 test_backlog_compact_tasks_axi_unavailable_uses_manual_fallback
 test_fleet_digest_empty_fleet

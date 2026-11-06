@@ -410,6 +410,9 @@ EOF
 test_normalized_roles_and_plural_blocker_readiness() {
   local home fakebin out
   home=$(make_home normalized-records)
+  # The local row remains authoritative as each listed blocker finishes.
+  printf 'self\tlocal\ngenerated\t%s\nhomes\tlocal\nrow\tlocal\tworker\topen\nrow\tlocal\treview\topen\n' \
+    "$(date +%s)" > "$home/data/blocked-by-fleet-rows.tsv"
   mkdir -p "$home/projects/worker"
   cat > "$home/data/backlog.md" <<'EOF'
 ## In flight

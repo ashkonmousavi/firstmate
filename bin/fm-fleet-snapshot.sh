@@ -23,8 +23,11 @@
 #     normalized current_role, requires_child_metadata, blocked_by_ids,
 #     unresolved_blocker_ids, captain_actionable, hold_set, hold_age_days,
 #     and hold_bucket fields.
-#     Repeated blocker tokens remain ordered; a blocker resolves only when its
-#     structured record is Done, and missing ids stay open.
+#     Repeated blocker tokens remain ordered; unresolved_blocker_ids holds each
+#     blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied (the
+#     same verdict `fm-tasks-axi.sh ready` applies); the library header owns
+#     the resolution rule. A blocked-by token tasks-axi does not read as an
+#     edge (one not at the end of its row) never blocks.
 #     There is no separate decision type: any captain-held task is the same
 #     primitive, whatever kind its row carries.
 #     hold_bucket is the single classification for every captain hold, decided
@@ -234,6 +237,10 @@ esac
 . "$SCRIPT_DIR/fm-merge-authority-lib.sh"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-tasks-axi-lib.sh
+. "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-blocked-by-lib.sh
+. "$SCRIPT_DIR/fm-blocked-by-lib.sh"
 
 usage() {
   cat <<'EOF'
@@ -395,8 +402,18 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
   fi
 
   set -o pipefail
+  local verdicts verdicts_error=
+  # An unreadable blocked-by input (archive, mark ledger, fleet list) leaves the
+  # snapshot standing: every blocker then reads unresolved and the reason is
+  # kept as blocked_by_error and printed on stderr.
+  if ! verdicts=$(fm_blocked_by_verdicts "$(dirname "$backlog")" 2>&1); then
+    verdicts_error=${verdicts:-blocked-by edges could not be decided}
+    verdicts=
+    printf 'fm-fleet-snapshot: %s; every blocker of %s reads unresolved\n' "$verdicts_error" "$backlog" >&2
+  fi
   # shellcheck disable=SC2094
   jq -Rn --arg path "$backlog" --arg today "$SNAPSHOT_TODAY" --arg now "$SNAPSHOT_NOW" \
+    --arg verdicts "$verdicts" --arg verdicts_error "$verdicts_error" \
     --argjson age_days "$FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS" '
     def trim: gsub("^[[:space:]]+|[[:space:]]+$"; "");
     def timestamp_epoch($d):
@@ -548,15 +565,16 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
                   end))
           | .body_excerpt = ((.body_lines | join(" "))[:240])
         else . end)
-    | .records as $records
-    | (reduce ($records[] | select(.structured)) as $record ({};
-         .[$record.id] = ((.[$record.id] // true) and ($record.state == "done")))) as $resolved_ids
+    | (reduce ($verdicts | split("\n")[] | select(length > 0) | split("\t")) as $v ({};
+         .[$v[0]][$v[2]] = (if (.[$v[0]][$v[2]] // "satisfied") == "satisfied" then $v[3]
+                            else .[$v[0]][$v[2]] end))) as $edge_verdicts
     | .records |= map(
         if .structured then
           . as $record
           | .unresolved_blocker_ids = [
               $record.blocked_by_ids[] as $blocker
-              | select($resolved_ids[$blocker] != true)
+              | select($verdicts_error != ""
+                       or ($edge_verdicts[$record.id][$blocker] // "satisfied") != "satisfied")
               | $blocker
             ]
           | .current_role =
@@ -577,6 +595,7 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
           | .captain_actionable = (.hold_bucket == "live")
         else . end)
     | del(.section,.order)
+    | .blocked_by_error = (if $verdicts_error == "" then null else $verdicts_error end)
   ' < "$backlog" | fm_hold_reason_decode_stream json
 )
 

@@ -1,0 +1,295 @@
+{
+  "scope": {
+    "base": "49e7f81ece5af52b7bf7f90f39157e3a0118ac6b",
+    "reviewed_head": "4ef9f851288f4bacacdfe647c9d3aea71e6c4ab8",
+    "inspected_date": "2026-11-05",
+    "purpose": "Cut 13 affected-surface handoff for the selected review fixes; this review does not own delivery or live-runtime validation.",
+    "requirement": "bin/fm-dod-lib.sh:465",
+    "decisions": "fleet-ops-033 (2026-11-05T23:18Z) supersedes the dependency freshness rule only: local done/archive/mark evidence may satisfy a listed id even in a stale list, absent any remote open row; no list or no listed id remains UNKNOWN. PR ownership still requires a fresh list. Self-qualified local marks are supported. Six-hour freshness, TSV-only verdicts and the R6 cut-13b exclusion remain."
+  },
+  "findings": {
+    "R1": {
+      "classification": "Routing ownership boundary; fixed by c5a8cac8 and retained.",
+      "invariant": "Resolve PR ownership before local completion checks, local relaunch or remote steering, and steer only the selected registered home.",
+      "surfaces": [
+        "bin/fm-pr-triage.sh:act_fix",
+        "bin/fm-pr-triage.sh:open_owner",
+        "bin/fm-pr-triage.sh:steer_owner"
+      ],
+      "regression": "tests/fm-pr-triage.test.sh: absent, open and done local rows sharing an ID with two remote homes; only the PR-citing home receives the steer; ambiguous ownership, dry run, selected local ownership and repeated passes."
+    },
+    "R2_review-1": {
+      "classification": "PR ownership still requires fresh evidence; its earlier dependency freshness rule is superseded by fleet-ops-033 below.",
+      "invariant": "Without a fresh fleet list, PR ownership stays UNKNOWN; dependency satisfaction instead follows the listed-id and local-evidence rule in fleet-ops-033.",
+      "surfaces": [
+        "bin/fm-pr-owner.sh: branch IDs, --task, PR citations, known/unknown and candidate outputs",
+        "bin/fm-pr-orphan-sweep.sh:pr_owner and task_claimed_here fallback",
+        "bin/fm-pr-triage.sh:act_fix",
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_verdicts for plain, self-qualified and remote-qualified edges, open/done/archive rows and mark/unmark ledger",
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_fleet_note"
+      ],
+      "regressions": [
+        "tests/fm-pr-owner.test.sh:test_absent_or_stale_list_is_named",
+        "tests/fm-pr-orphan-sweep.test.sh:test_incomplete_fleet_data_preserves_unknown_owner_wakes",
+        "tests/fm-pr-triage.test.sh: missing/stale local prep ownership refusal",
+        "tests/fm-blocked-by.test.sh:test_unlisted_or_absent_fleet_data_withholds_local_completion",
+        "tests/fm-session-start.test.sh:test_backlog_ready_withholds_unknown_blockers"
+      ]
+    },
+    "R3_review-2": {
+      "classification": "Contract amendment, documentation only.",
+      "invariant": "A merged PR alone never clears an edge; only a manual mark can clear it on the strength of the merge.",
+      "surfaces": [
+        "bin/fm-blocked-by-lib.sh header",
+        "docs/configuration.md: Blocked-by edges"
+      ],
+      "regressions": [
+        "tests/fm-blocked-by.test.sh:test_a_merged_pr_alone_never_clears_an_absent_blocker",
+        "tests/fm-blocked-by.test.sh:test_mark_records_the_merged_pr_and_unmark_reverses_it"
+      ]
+    },
+    "R4_review-3": {
+      "classification": "Unrequired reporting branch removed.",
+      "invariant": "The verdicts command exposes only the existing TSV contract.",
+      "surfaces": [
+        "bin/fm-blocked-by.sh:verdicts",
+        "bin/fm-blocked-by.sh command dispatch and usage header"
+      ],
+      "regression": "tests/fm-blocked-by.test.sh executes verdicts and asserts row, target, verdict and evidence fields in its public TSV output."
+    },
+    "R5_review-4": {
+      "classification": "Unrequired policy override removed at the shared freshness boundary.",
+      "invariant": "All fleet-list consumers use the fixed 21600-second freshness limit.",
+      "surfaces": [
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_fleet_header",
+        "bin/fm-pr-owner.sh freshness admission",
+        "docs/configuration.md: Blocked-by edges and environment reference"
+      ],
+      "regressions": [
+        "tests/fm-blocked-by.test.sh: fresh lists and stale seven-hour lists",
+        "tests/fm-pr-owner.test.sh: fresh lists and stale seven-hour lists",
+        "tests/fm-pr-triage.test.sh: stale seven-hour list refuses launch"
+      ]
+    },
+    "R7": {
+      "classification": "Validation handoff gap.",
+      "invariant": "Every affected compatibility axis is mapped to a regression or an inspected unaffected reason, and proof limits remain visible.",
+      "resolution": "This retained inventory follows the existing tests/captures review-inventory convention."
+    },
+    "review-self-qualified-mark": {
+      "classification": "Representation mismatch at mark admission; the verdict library already recognizes the fleet self qualifier.",
+      "invariant": "A target qualified by the fleet self identity is local for mark admission, verdict consumption, repeated marks, open-row checks and unmark reversal, while the ledger retains the exact edge target.",
+      "surfaces": [
+        "bin/fm-blocked-by.sh:mark qualifier admission, last_entry and unmark",
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_verdicts self normalization and mark lookup"
+      ],
+      "regression": "tests/fm-blocked-by.test.sh:test_self_qualified_marks_preserve_the_edge_identity executes mark/verdicts/ready/snapshot/unmark with fresh and stale self identities, repeat marks, local reopen, remote qualifiers and no list."
+    },
+    "fleet-ops-033": {
+      "classification": "Supervisor correction to dependency evidence admission; PR ownership is explicitly unchanged.",
+      "invariant": "Local done/archive evidence or a recorded mark satisfies a local edge only if its id is present in the fleet list and no other home holds that id open, regardless of list age; remote-qualified done rows still require a fresh list.",
+      "surfaces": [
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_verdicts raw-list membership for self and other homes, plain/self-qualified targets, local done/archive rows, marks and remote open precedence",
+        "bin/fm-blocked-by-lib.sh:fm_blocked_by_fleet_note stale generation/age/home warning",
+        "bin/fm-tasks-axi.sh ready and fm-autolaunch.sh ready_ids consumers",
+        "bin/fm-fleet-snapshot.sh unresolved_blocker_ids consumer",
+        "bin/fm-session-start.sh:print_backlog_tasks_axi_compact digest consumer",
+        "library and command headers; docs/configuration.md Blocked-by edges"
+      ],
+      "regressions": [
+        "tests/fm-blocked-by.test.sh:test_stale_list_satisfies_listed_local_completion",
+        "tests/fm-blocked-by.test.sh:test_stale_list_remote_opens_override_local_completion",
+        "tests/fm-blocked-by.test.sh:test_unlisted_or_absent_fleet_data_withholds_local_completion",
+        "tests/fm-blocked-by.test.sh:test_a_stale_fleet_list_is_shown_and_never_reopens_an_edge",
+        "tests/fm-session-start.test.sh:test_backlog_ready_withholds_unknown_blockers"
+      ],
+      "oracle": "fleet-ops-033 explicitly requires a seven-hour list with a local done-only blocker to satisfy and stay visible; a listed remote open namesake must not satisfy; no list and a fresh list missing the id remain UNKNOWN."
+    }
+  },
+  "axes": {
+    "call_paths": [
+      {
+        "path": "fm-tasks-axi.sh ready -> fm_blocked_by_verdicts -> fm_blocked_by_filter_ready",
+        "proof": "tests/fm-blocked-by.test.sh: known blockers, UNKNOWN evidence, count rewriting, local and remote archive/done rows, manual mark and reversal."
+      },
+      {
+        "path": "fm-autolaunch.sh:ready_ids -> fm-tasks-axi.sh ready -> spawn_argv",
+        "proof": "tests/fm-blocked-by.test.sh:test_ready_autolaunch_and_snapshot_agree and cross-home fixtures. Admission changes candidates before the existing dispatch/account selection and spawn call."
+      },
+      {
+        "path": "fm-session-start.sh:print_backlog_tasks_axi_compact -> verdicts/filter",
+        "proof": "tests/fm-session-start.test.sh:test_backlog_ready_withholds_unknown_blockers checks missing data, listed fresh and stale local archive satisfaction, stale remote-open overrides, missing ids in fresh lists and unreadable archives."
+      },
+      {
+        "path": "fm-fleet-snapshot.sh backlog composition -> fm_blocked_by_verdicts",
+        "proof": "tests/fm-blocked-by.test.sh exercises the public JSON snapshot, including unknown mark/done targets, cross-home blockers and unreadable archive fail-closed output."
+      },
+      {
+        "path": "fm-blocked-by.sh verdicts/mark/unmark -> shared library/ledger",
+        "proof": "tests/fm-blocked-by.test.sh checks public TSV and the persisted ledger, including self-qualified targets, repeat marks, exact-key reversal and reopened blockers. Reads never auto-mark."
+      },
+      {
+        "path": "fm-watch.sh check sweep -> fm-pr-orphan-sweep.sh -> fm-pr-owner.sh -> durable check wake",
+        "proof": "tests/fm-pr-orphan-sweep.test.sh covers real watcher wake composition, main and candidate-secondmate UNKNOWN, noncandidate silence, and fresh-list-only show fallback."
+      },
+      {
+        "path": "fm-pr-triage.sh act_fix -> fm-pr-owner.sh -> selected open_owner -> fm-on.sh show / fm-send.sh --one-way, or local fm-control.sh relaunch",
+        "proof": "tests/fm-pr-triage.test.sh asserts selected-home transport and send argv, no local launch on ambiguity/missing/stale data, local relaunch guards, repeated sends and dry-run side effects."
+      }
+    ],
+    "input_representations": [
+      "Markdown unchecked and checked rows; Done sections; custom done-archive paths",
+      "plain blocked-by ID, self-qualified ID, remote-qualified ID",
+      "fleet TSV absent, fresh, stale, malformed, self rows counted for membership but ignored for live state, and remote open/done/archive rows",
+      "append-only mark/unmark ledger with merged PR URL",
+      "fm/ branch, project-specific branch prefix passed as --task, full GitHub PR URL and every cited URL",
+      "TSV verdicts and ownership, ready/withheld groups, digest text, JSON snapshot, durable wake and outbound instruction argv"
+    ],
+    "task_kinds": {
+      "values": [
+        "ship",
+        "scout",
+        "secondmate"
+      ],
+      "inspection": "fm_blocked_by_row_states and fm-pr-owner do not select by kind; prep-scout versus build-ship collisions are explicit regressions. fm-autolaunch.sh:spawn_argv retains its existing scout/ship split. Persistent secondmate ownership is selected through .fm-secondmate-home in the sweep and through the existing registry parser for triage; no secondmate lifecycle is added."
+    },
+    "harnesses": {
+      "values": [
+        "claude",
+        "codex",
+        "opencode",
+        "pi",
+        "pi-signed",
+        "grok",
+        "kimi",
+        "cursor",
+        "gemini",
+        "muse",
+        "rovo",
+        "omp",
+        "agy",
+        "devin",
+        "commandcode",
+        "polytoken",
+        "cortex",
+        "kiro"
+      ],
+      "inspection": "Inspected fm-harness.sh supported values and the fm-send.sh durable text/doorbell boundary and fm-control.sh relaunch handoff. Changed verdicts use only row/census/ledger data before those boundaries; no vendor rendering, prompt, keybind, account, model or harness classification changes. The same data-boundary tests apply to every listed harness.",
+      "live_guard_owners": [
+        "docs/verification/runtime-backends.md",
+        "tests/fm-control-claude-busy-live-e2e.test.sh"
+      ],
+      "gap": "No live harness guard was run in this review. The inspected control guard exercises Claude/Herdr exit behavior, not fleet-data admission; live proof must not be inferred from command-recording fakes."
+    },
+    "backends": {
+      "values": [
+        "tmux",
+        "herdr",
+        "zellij",
+        "orca",
+        "cmux",
+        "paseo",
+        "rex",
+        "t3code",
+        "tern",
+        "hc"
+      ],
+      "inspection": "Inspected bin/fm-backend.sh known/spawn sets, fm-control.sh relaunch paths, fm-send.sh text delivery and fm-on.sh remote entrypoint contract. All decisions added here precede the existing backend dispatch. Local registered homes and SSH-registered homes use the same selected-home check. No endpoint, backend pin or worktree ownership changes.",
+      "live_guard_owners": [
+        "docs/verification/runtime-backends.md",
+        "tests/fm-backend-t3code-pr-tools-live-e2e.test.sh"
+      ],
+      "gap": "No real backend or SSH fleet transport exercised. The T3 guard covers native PR-tool attachment rather than this row-based lookup; it is not substituted for the ownership regression. codex-app is absent from the supported backend set and remains unchanged."
+    },
+    "platforms": {
+      "values": [
+        "Linux",
+        "macOS"
+      ],
+      "inspection": "Fixed freshness arithmetic remains in portable awk and Bash; fm_blocked_by_iso retains GNU date -d then BSD date -r formatting. Row extraction still uses existing Perl and does not depend on terminal signals. No platform-specific runtime operation changed.",
+      "gap": "Focused verification runs on this Linux worktree only. macOS Bash/date behavior is inspected but not executed here."
+    },
+    "account_selection": {
+      "inspection": "fm-pr-owner.sh still reads an unspecified branch with the existing gh seam; mark still validates merge state through gh. Triages prelisted branches and preserves its existing GitHub read/write split. fm-control.sh relaunch and fm-autolaunch.sh dispatch/quota/account selection are downstream and unchanged. No credential, environment configuration, key, profile or account pin is written.",
+      "gap": "Forge and capacity/control boundaries are fixture-recorded; no authenticated GitHub or account failover live proof."
+    },
+    "lifecycle_transitions": [
+      "fresh -> stale: local done/archive/mark satisfaction persists for listed ids with no remote opens; remote-qualified done satisfaction and definitive PR ownership become UNKNOWN; stale warnings stay visible",
+      "list or listed-id removal -> local completion becomes UNKNOWN; adding listed identity -> eligible local completion may satisfy, even in a stale list",
+      "queued -> ready withheld or ready from listed completion; local and remote open rows always override local completion",
+      "main orphan wake; candidate secondmate UNKNOWN wake; noncandidate secondmate silence",
+      "exited/released-copy local task -> guarded relaunch only after known local ownership",
+      "known remote task -> one-way steer only to selected registered home; ambiguous/unreadable/done owner -> refusal",
+      "mark -> repeated mark no-op -> reopened row blocks -> unmark restores unresolved edge",
+      "dry run -> no control/send/forge writes; repeated pass -> unchanged verdicts and no duplicate steer/launch",
+      "self-qualified mark -> repeated no-op -> unmark restores the exact qualified target; a reopened local target or listed remote open overrides the mark"
+    ],
+    "excluded_by_decision": "R6: direct fm-tasks-axi show output and direct fm-spawn dispatch/relaunch blocked-by admission are deferred to cut 13b. This change does not claim they enforce these verdicts."
+  },
+  "prior_round_verification": {
+    "commands": [
+      "bash tests/fm-blocked-by.test.sh",
+      "bash tests/fm-pr-owner.test.sh",
+      "bash tests/fm-pr-orphan-sweep.test.sh",
+      "bash tests/fm-pr-triage.test.sh",
+      "bash tests/fm-session-start.test.sh"
+    ],
+    "status": "Passed: all five focused test files exited 0 on 2026-11-05; no complete repository suite or lint phase was run.",
+    "limits": [
+      "No complete repository test or lint run in this assigned review phase.",
+      "No new claim of live-runtime, mutant or complete G1-G11 delivery proof; the two before/after regressions above and the five focused test files are the evidence produced by this review.",
+      "A fresh census is trusted as supplied; these fixes enforce age, not the completeness of the external census producer."
+    ],
+    "results": {
+      "bash tests/fm-blocked-by.test.sh": "exit 0",
+      "bash tests/fm-pr-owner.test.sh": "exit 0",
+      "bash tests/fm-pr-orphan-sweep.test.sh": "exit 0",
+      "bash tests/fm-pr-triage.test.sh": "exit 0",
+      "bash tests/fm-session-start.test.sh": "exit 0"
+    },
+    "regression_reproduction": [
+      {
+        "before_source": "git show c5a8cac8d84def59bd2473b01ee6d0889acb9487:bin/fm-pr-owner.sh",
+        "interface": "bash <disposable copy in bin> https://github.com/o/r/pull/7 --task lane, with FM_HOME pointing at an isolated fixture and no fleet list",
+        "fixture": "Queued local prep row lane; no remote census.",
+        "before": "exit 0; known/local",
+        "after": "exit 3; unknown, candidate ., here",
+        "result": "Prior behavior violates the independently supplied incomplete-fleet rule; current behavior satisfies it."
+      },
+      {
+        "before_source": "git show c5a8cac8d84def59bd2473b01ee6d0889acb9487:bin/fm-blocked-by-lib.sh",
+        "interface": "Source bin/fm-tasks-axi-lib.sh and the selected library under bash, then call its documented fm_blocked_by_verdicts <fixture-data-dir> interface.",
+        "fixture": "Queued dependent blocked-by delivered; delivered is a local Done row; no fleet list.",
+        "before": "delivered verdict satisfied",
+        "after": "delivered verdict unknown, evidence starts fleet list absent:",
+        "result": "Prior behavior violates the independently supplied incomplete-fleet rule; current behavior satisfies it."
+      }
+    ]
+  },
+  "verification": {
+    "commands": [
+      "bash tests/fm-blocked-by.test.sh",
+      "bash tests/fm-pr-owner.test.sh",
+      "tests/fm-session-start.test.sh:test_backlog_ready_withholds_unknown_blockers (isolated driver copied beside tests/lib.sh; other test invocations omitted)"
+    ],
+    "status": "Passed: before/after reproductions, remote-open hand mutant, blocked-by and PR-owner files, and the isolated affected session-start case all passed in this review round.",
+    "output": "tests/captures/fm-blocked-by-review-output.txt",
+    "limits": [
+      "No full repository suite, lint, delivery, live harness, macOS or real remote transport phase is run here.",
+      "The conflict guard is expected to pass on the previous code; a disposable mutant omitting remote-open precedence will establish that this guard rejects the newly possible unsafe satisfaction.",
+      "PR lookup source is unchanged; its behavior suite checks the strict ownership rule alongside the corrected dependency rule."
+    ],
+    "results": {
+      "self_qualified_mark": "prior exit 1; current exit 0",
+      "stale_listed_done": "prior unknown; current satisfied",
+      "remote_open_guard": "mutant satisfied (rejected); current blocked",
+      "missing_fresh_id": "prior satisfied; current unknown",
+      "bash tests/fm-blocked-by.test.sh": "exit 0",
+      "bash tests/fm-pr-owner.test.sh": "exit 0",
+      "session-start: test_backlog_ready_withholds_unknown_blockers": "exit 0"
+    },
+    "digest_selection": "Copy the definitions preceding the final test_context_digest_absent_empty_present invocation in tests/fm-session-start.test.sh into a temporary .test.sh beside tests/lib.sh, append test_backlog_ready_withholds_unknown_blockers, run it with bash, then remove it. This executes the existing case without its unrelated sibling tests.",
+    "baseline_source": "git show 4ef9f851288f4bacacdfe647c9d3aea71e6c4ab8:bin/fm-blocked-by.sh and :bin/fm-blocked-by-lib.sh, executed as disposable copies in this worktree; no production files were swapped.",
+    "mutant": "Disposable copy of current fm-blocked-by-lib.sh with the plain/self-qualified openin branch disabled; the independently specified remote-open rejection becomes red, while the real library is green."
+  }
+}
