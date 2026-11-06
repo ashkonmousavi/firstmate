@@ -1625,6 +1625,7 @@ Neither fallback is unrestricted execution, and Firstmate does not change vendor
 
 A lane profile selects worker MCP startup independently of harness, model, effort, and delivery mode.
 Choose it explicitly at spawn according to the work, using the flags in [`fm-spawn.sh`](../bin/fm-spawn.sh).
+Unknown profile names refuse before worker provisioning.
 
 | Profile | Intended work | MCP startup |
 | --- | --- | --- |
