@@ -1766,7 +1766,7 @@ SH
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the timed-out check (rc=$rc): $(cat "$dir/watch.err")"
     grep -qxF "check: $state/custom.check.sh: finding before the cut" "$dir/watch.out" \
       || fail "$backend watcher dropped output printed before the timeout: $(cat "$dir/watch.out")"
-    grep -qxF 'timed out after 1s' "$dir/watch.out" \
+    grep -qxE 'timed out after 1s \(measured [1-9][0-9]*s; ❌ failing tool: custom; FM_CHECK_TIMEOUT\)' "$dir/watch.out" \
       || fail "$backend watcher kept a timed-out check silent: $(cat "$dir/watch.out")"
     ! grep -qF 'finding after the cut' "$dir/watch.out" || fail "$backend watcher let the check run past its timeout"
   done
