@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # fm-autolaunch.sh - fill free machine lanes from this home's backlog,
-# with no model in the loop, and keep one record per decision.
+# with deterministic selection, and keep one record per decision.
 #
 # Usage:
 #   fm-autolaunch.sh                 one pass: launch or refuse, one record each
@@ -13,6 +13,10 @@
 #   fm-autolaunch.sh --backfill [--apply]
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
+#   fm-autolaunch.sh --explain        prepared entries and current wait reasons
+#   fm-autolaunch.sh --join | --publish-candidates
+#                                    staged evidence interfaces; contract in
+#                                    bin/fm-next-in-line.py's header
 #   fm-autolaunch.sh --help
 #
 # Timer proposals capture the caller's PATH and resolved FM_HOME for both
@@ -25,7 +29,23 @@
 # The pass never rides the watcher's check sweep, whose 30 s bound a spawn does
 # not fit; only the companion throttle check bin/fm-autolaunch-check.sh does.
 #
-# ONE PASS.
+# CONTROLLER. CUT1 selects the bounded controller with config/autolaunch-sole
+# or an existing state/autolaunch-controller journal. A verified user manager
+# is required; a missing manager never falls back with durable controller work.
+# Without activation evidence the legacy path preserves leased slice progress.
+# The explicit fake-clock seam selects the controller in isolated tests only.
+# Controller planning holds .autolaunch.lock under PATH-resolved GNU timeout
+# -k 5 20. Busy or killed plans still run non-seat delivery reconciliation;
+# action units run separately, with non-inherited per-key slot descriptors.
+# bin/fm-autolaunch-steps.py Controller owns journal, deadlines and ladder.
+# Optional model diagnosis follows responder ownership; docs/configuration.md
+# "Auto-launch" owns diagnosis configuration and its read-only boundary.
+# This cut does not change the timer recipe or install/enable any service.
+# --join and --publish-candidates expose the staged snapshot read seam owned
+# by bin/fm-next-in-line.py. They neither select nor launch an actor; production
+# input completeness remains open until the external producer adapters land.
+#
+# LEGACY PASS (before controller activation).
 #   1. Single instance: state/.autolaunch.lock (fm_lock_try_acquire). A busy
 #      lock exits 0 with one stderr notice and no record; a holder stuck for
 #      ten minutes is exactly what the throttle check turns red.
@@ -143,6 +163,9 @@
 # or its log cannot be read or written; 2 usage.
 # Test seams, honored only with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN,
 # FM_AUTOLAUNCH_SPAWN_BIN replace fm-capacity.sh and fm-spawn.sh.
+# FM_AUTOLAUNCH_NOW_FILE selects a dynamic controller clock and
+# FM_AUTOLAUNCH_SEND_BIN replaces responder sends (both test-only);
+# FM_AUTOLAUNCH_INSPECT_SELECTION=1 prints controller or legacy and exits.
 set -u
 export LC_ALL=C
 
@@ -154,7 +177,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--join|--publish-candidates|--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--explain|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
@@ -165,6 +188,18 @@ TIMER_STEPS=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
+  --join) ACTION='join' ;;
+  --publish-candidates) ACTION=publish-candidates ;;
+  --candidate-prep) ACTION='candidate-prep'; STEP_TARGET=${2:-} ;;
+  --run-action) ACTION=controller-action; STEP_TARGET=${2:-} ;;
+  --controller-plan) ACTION=controller-plan ;;
+  --controller-remote-inbox) ACTION=controller-remote-inbox; STEP_TARGET=${2:-} ;;
+  --controller-decisions) ACTION=controller-decisions ;;
+  --controller-spawn-lock) ACTION=controller-spawn-lock; STEP_TARGET=${2:-} ;;
+  --controller-inbox-due) ACTION=controller-inbox-due; STEP_TARGET=${2:-} ;;
+  --controller-spawn-result) ACTION=controller-spawn-result; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --controller-ring) ACTION=controller-ring; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-} ;;
+  --explain) ACTION=explain ;;
   --dry-run) ACTION=dry ;;
   --steps-only) ACTION=steps ;;
   --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-}; STEP_ACTION_ID=${5:-} ;;
@@ -182,19 +217,33 @@ if [ "$ACTION" = timer ] && [ "${2:-}" = --steps-only ] && [ "$#" -eq 2 ]; then
   TIMER_STEPS=1
 elif [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
+elif [ "$ACTION" = controller-ring ] && [ "$#" -eq 4 ] && { [ "$STEP_FAMILY" = ring ] || [ "$STEP_FAMILY" = retry ]; }; then
+  :
+elif [ "$ACTION" = controller-spawn-result ] && [ "$#" -eq 3 ]; then
+  :
+elif [ "$ACTION" = controller-remote-inbox ] && [ "$#" -eq 2 ] && { [ "$STEP_TARGET" = due ] || [ "$STEP_TARGET" = run ]; }; then
+  :
+elif { [ "$ACTION" = controller-action ] || [ "$ACTION" = controller-spawn-lock ] || [ "$ACTION" = controller-inbox-due ]; } && [ "$#" -eq 2 ]; then
+  :
 elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
   :
 elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
   :
 elif [ "$ACTION" = step-accept ] && [ "$#" -eq 3 ]; then
   :
-elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
+elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ] || [ "$ACTION" = candidate-prep ]; } && [ "$#" -eq 2 ]; then
   :
 elif [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
   APPLY=1
 elif [ "$#" -gt 1 ]; then
   usage; exit 2
 fi
+
+# Evidence-only routes must precede library initialization, temporary files,
+# controller selection, log creation and the run-mode action dispatch below.
+case "$ACTION" in
+  join|publish-candidates) exec python3 "$SCRIPT_DIR/fm-next-in-line.py" "$ACTION" ;;
+esac
 
 LOG="$STATE/autolaunch.log"
 LOCK="$STATE/.autolaunch.lock"
@@ -258,27 +307,64 @@ if [ "$ACTION" = steps ] && [ ! -f "$CONFIG/autolaunch-steps" ]; then
   exit 0
 fi
 
+# The private preparation reader must not let fm-wake-lib create state.
+if [ "$ACTION" = candidate-prep ]; then
+  [ -d "$STATE" ] && [ ! -L "$STATE" ] || exit 75
+fi
+
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
-# shellcheck source=bin/fm-timeout-lib.sh
-. "$SCRIPT_DIR/fm-timeout-lib.sh"
-# shellcheck source=bin/fm-backend.sh
-. "$SCRIPT_DIR/fm-backend.sh"
-# shellcheck source=bin/fm-quota-axi-lib.sh
-. "$SCRIPT_DIR/fm-quota-axi-lib.sh"
-# shellcheck source=bin/fm-pr-lib.sh
-. "$SCRIPT_DIR/fm-pr-lib.sh"
+if [ "$ACTION" = candidate-prep ]; then
+  # This callback uses only task identity and existing prep predicates.
+  # shellcheck source=bin/fm-pr-lib.sh
+  . "$SCRIPT_DIR/fm-pr-lib.sh"
+else
+  # shellcheck source=bin/fm-timeout-lib.sh
+  . "$SCRIPT_DIR/fm-timeout-lib.sh"
+  # shellcheck source=bin/fm-backend.sh
+  . "$SCRIPT_DIR/fm-backend.sh"
+  # shellcheck source=bin/fm-quota-axi-lib.sh
+  . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+  # shellcheck source=bin/fm-pr-lib.sh
+  . "$SCRIPT_DIR/fm-pr-lib.sh"
+  # shellcheck source=bin/fm-secondmate-registry-lib.sh
+  . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+  # shellcheck source=bin/fm-project-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+fi
+
+controller_project_admission() {
+  local declaration project_lock
+  CONTROLLER_PROJECT_ERROR=
+  declaration=$(fm_project_capacity_config_dir "$FM_HOME" "$CONFIG") || {
+    CONTROLLER_PROJECT_ERROR='project capacity home unavailable'; return 1;
+  }
+  fm_project_capacity_lookup "$declaration" "$P_PROJECT" || {
+    CONTROLLER_PROJECT_ERROR=$FM_PROJECT_CAPACITY_ERROR; return 1;
+  }
+  [ -n "$FM_PROJECT_CAPACITY" ] || return 0
+  project_lock=$(fm_treehouse_project_lock_path "$FM_HOME/projects/$P_PROJECT") || {
+    CONTROLLER_PROJECT_ERROR='project capacity identity unavailable'; return 1;
+  }
+  fm_project_capacity_occupants "$project_lock" "$FM_HOME/projects/$P_PROJECT" "$STATE" "$1" || {
+    CONTROLLER_PROJECT_ERROR=$FM_PROJECT_CAPACITY_ERROR; return 1;
+  }
+  [ "$FM_PROJECT_CAPACITY_OCCUPANTS" -ge "$FM_PROJECT_CAPACITY" ] || return 0
+  CONTROLLER_PROJECT_ERROR="project $P_PROJECT capacity $FM_PROJECT_CAPACITY held by $FM_PROJECT_CAPACITY_OCCUPANTS workers"
+  return 1
+}
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
 TMPD=
 LOCK_HELD=0
+PASS_LOCK_OWNER=
 STEP_ACCEPT_LOCK=
 # shellcheck disable=SC2329 # Invoked through the EXIT trap below.
 cleanup() {
   [ -z "$STEP_ACCEPT_LOCK" ] || fm_lock_release "$STEP_ACCEPT_LOCK"
   [ -z "$TMPD" ] || rm -rf -- "$TMPD"
-  [ "$LOCK_HELD" = 0 ] || fm_lock_release "$LOCK"
+  [ "$LOCK_HELD" = 0 ] || pass_lock_release
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
@@ -352,6 +438,25 @@ item_show() {
   local out
   ITEM_HELD='' ITEM_KIND='' ITEM_REPO='' ITEM_BODY=''
   out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
+  if [ "$ACTION" = candidate-prep ]; then
+    # Validate and retain only the single task block. First-match field reads
+    # cannot turn contradictory or out-of-scope detail into positive evidence.
+    out=$(printf '%s\n' "$out" | awk -v expected="$1" '
+      /^task:$/ { tasks++; inside=1; print; next }
+      /^[^[:space:]]/ { inside=0 }
+      !inside && /^[[:space:]]*(id|held|kind|repo):/ { bad=1 }
+      inside && /^  [a-z_]+: / {
+        key=$0; sub(/^  /,"",key); sub(/:.*/,"",key)
+        if (seen[key]++) bad=1
+        value=$0; sub(/^  [a-z_]+: /,"",value)
+        sub(/^"/,"",value); sub(/"$/,"",value)
+        if (key=="id" && value!=expected) bad=1
+        print; next
+      }
+      inside && /[^[:space:]]/ { bad=1 }
+      END { if (bad || tasks!=1 || !seen["id"] || !seen["held"] || !seen["kind"]) exit 1 }
+    ') || return 1
+  fi
   ITEM_HELD=$(show_field "$out" held)
   ITEM_KIND=$(show_field "$out" kind)
   ITEM_REPO=$(show_field "$out" repo)
@@ -555,6 +660,24 @@ check_item() {
   ! deferred_pending "$id" || { CHECK_ERR="spawn deferred pending"; return 1; }
 }
 
+# Private publication callback. Preserve the existing predicate owner while
+# keeping read uncertainty distinct from a positive hold/preparation verdict.
+if [ "$ACTION" = candidate-prep ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  verdict=unknown reason='task detail unavailable or malformed' held=unknown
+  if item_show "$STEP_TARGET" && { [ "$ITEM_HELD" = yes ] || [ "$ITEM_HELD" = no ]; } && [ -n "$ITEM_KIND" ]; then
+    held=$ITEM_HELD
+    if prep_read "$STEP_TARGET"; then
+      verdict=allow reason='existing preparation predicates satisfied'
+    else
+      reason=$PREP_ERR
+    fi
+  fi
+  jq -cn --arg verdict "$verdict" --arg reason "$reason" --arg held "$held" \
+    '{prep:{verdict:$verdict,reason:$reason},held:$held}'
+  exit $?
+fi
+
 # No prepared candidate existed anywhere in this pass. The existing step
 # engine owns initial prep filing/launch receipts, ranking and duplicate checks.
 prep_fallback() {
@@ -687,8 +810,190 @@ step_family() {
 }
 
 spawn_quota_refused() {
-  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"
+  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "${2:-$TMPD/spawn.out}"
 }
+
+# The generic lock library intentionally removes only its known files.
+# K1 owns the additional at file, including its cleanup on dead-holder reclaim.
+# Never remove that file from a live or freshly publishing owner.
+pass_lock_try() {
+  local steal="$LOCK.steal" steal_owner primary_owner pid
+  if [ -f "$LOCK/at" ] && ! fm_lock_holder_alive "$LOCK" "$(cat "$LOCK/pid" 2>/dev/null || true)"; then
+    if fm_lock_try_acquire_steal_mutex "$steal"; then
+      steal_owner=${FM_LOCK_OWNER_DIR:-}
+      primary_owner=''
+      if [ -L "$LOCK" ]; then
+        primary_owner=$(fm_lock_link_owner "$LOCK" 2>/dev/null || true)
+      fi
+      pid=$(cat "$LOCK/pid" 2>/dev/null || true)
+      if fm_lock_points_to_owner "$steal" "$steal_owner" \
+        && fm_lock_recheck_stale_owner "$LOCK" "$primary_owner" "$pid"; then
+        rm -f -- "$LOCK/at"
+      fi
+      fm_lock_release "$steal"
+    fi
+  fi
+  fm_lock_try_acquire "$LOCK" || return 1
+  PASS_LOCK_OWNER=${FM_LOCK_OWNER_DIR:-}
+}
+
+pass_lock_release() {
+  if [ -n "$PASS_LOCK_OWNER" ] && fm_lock_points_to_owner "$LOCK" "$PASS_LOCK_OWNER"; then
+    rm -f -- "$LOCK/at"
+  fi
+  fm_lock_release "$LOCK"
+  PASS_LOCK_OWNER=''
+}
+
+# Private K1 callbacks share the existing admission and inbox primitives.
+controller_now() {
+  if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "${FM_AUTOLAUNCH_NOW_FILE:-}" ]; then
+    local now
+    now=$(cat "$FM_AUTOLAUNCH_NOW_FILE") || return 1
+    case "$now" in ''|*[!0-9]*) echo 'invalid controller clock' >&2; return 1 ;; esac
+    printf '%s\n' "$now"
+  else
+    date +%s
+  fi
+}
+
+controller_enabled() {
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then
+    # Explicit fixture seam: existing synchronous fixtures stay independent of
+    # whether the test host happens to run a user manager.
+    if [ -n "${FM_AUTOLAUNCH_NOW_FILE:-}" ]; then
+      controller_now >/dev/null || return 2
+      return 0
+    fi
+  fi
+  # CUT1 is dormant until the existing rollout marker is present. A journal
+  # is continuity evidence: removing the marker must not replay live work via
+  # the synchronous path. Later carrier/canary integration owns early entry.
+  if [ ! -f "$CONFIG/autolaunch-sole" ] && [ ! -d "$STATE/autolaunch-controller" ]; then
+    return 1
+  fi
+  local manager=''
+  manager=$(fm_run_timed 3 systemctl --user show -p Version --value 2>/dev/null) || manager=''
+  if [[ "$manager" =~ ^[0-9]{3}([.[:alnum:]+~:_-]+)?([[:space:]]\(.*\))?$ ]]; then
+    return 0
+  fi
+  echo 'fm-autolaunch: user service manager unavailable; controller obligations preserved' >&2
+  return 2
+}
+
+if [ "${FM_TEST_SEAM:-}" = 1 ] && [ "${FM_AUTOLAUNCH_INSPECT_SELECTION:-}" = 1 ]; then
+  mode_rc=0
+  controller_enabled || mode_rc=$?
+  case "$mode_rc" in 0) echo controller ;; 1) echo legacy ;; *) exit 1 ;; esac
+  exit 0
+fi
+
+case "$ACTION" in
+  controller-remote-inbox)
+    # shellcheck source=/dev/null
+    . "$SCRIPT_DIR/fm-watch.sh"
+    if [ "$STEP_TARGET" = due ]; then
+      [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ]
+      exit $?
+    fi
+    remote_inbox_tick
+    exit $?
+    ;;
+  controller-decisions)
+    # The existing fold owns the status grammar, terminal behavior, reserved
+    # namespaces and close semantics. The controller only supplies age policy.
+    # shellcheck source=bin/fm-classify-lib.sh
+    . "$SCRIPT_DIR/fm-classify-lib.sh"
+    for status in "$STATE"/*.status; do
+      [ -f "$status" ] && [ ! -L "$status" ] || continue
+      task=${status##*/}; task=${task%.status}
+      while IFS= read -r decision || [ -n "$decision" ]; do
+        [ -n "$decision" ] || continue
+        reserved=0
+        for prefix in ${FM_CLASSIFY_RESERVED_KEY_PREFIXES:-$FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT} remote-reply-continuity- captain-hold- ctl-; do
+          case "$decision" in "$prefix"*) reserved=1; break ;; esac
+        done
+        [ "$reserved" = 0 ] || continue
+        printf '%s\t%s\n' "$task" "$decision"
+      done < <(status_open_decisions_incremental "$status" '' timed)
+    done
+    exit 0
+    ;;
+  controller-spawn-result)
+    if spawn_quota_refused "$STEP_TARGET" "$STEP_EXCLUDE"; then
+      printf 'quota\n'
+    fi
+    exit 0
+    ;;
+  controller-action)
+    exec python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-action "$SCRIPT_DIR/fm-autolaunch.sh" "$STEP_TARGET"
+    ;;
+  controller-plan)
+    plan_owner=$(cat "$LOCK/pid" 2>/dev/null || true)
+    [ -n "${FM_CONTROLLER_PLAN_OWNER:-}" ] && [ "$plan_owner" = "$FM_CONTROLLER_PLAN_OWNER" ] \
+      && fm_lock_holder_alive "$LOCK" "$plan_owner" || exit 73
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-plan "$SCRIPT_DIR/fm-autolaunch.sh"
+    exit $?
+    ;;
+  controller-spawn-lock)
+    fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+    if fm_lock_try_acquire "$STATE/.spawn-$STEP_TARGET.lock"; then
+      fm_lock_release "$STATE/.spawn-$STEP_TARGET.lock"
+    else
+      printf '%s\n' "${FM_LOCK_HELD_PID:-}"
+    fi
+    exit 0
+    ;;
+  controller-inbox-due|controller-ring)
+    fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+    # shellcheck source=bin/fm-task-inbox-lib.sh
+    . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+    # shellcheck source=bin/fm-classify-lib.sh
+    . "$SCRIPT_DIR/fm-classify-lib.sh"
+    if [ "$ACTION" = controller-inbox-due ]; then
+      due=$(fm_task_inbox_due_action "$STATE" "$STEP_TARGET") || exit $?
+      if [ "${due%% *}" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$STEP_TARGET.status")" ]; then
+        printf quiet
+      else
+        printf '%s' "$due"
+      fi
+      exit 0
+    fi
+    if [ "$STEP_FAMILY" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$STEP_TARGET.status")" ]; then
+      exit 75
+    fi
+    meta="$STATE/$STEP_TARGET.meta"
+    window=$(sed -n 's/^window=//p' "$meta" | head -1)
+    backend=$(sed -n 's/^backend=//p' "$meta" | head -1)
+    harness=$(sed -n 's/^harness=//p' "$meta" | head -1)
+    # shellcheck source=bin/fm-busy-lib.sh
+    . "$SCRIPT_DIR/fm-busy-lib.sh"
+    if ! fm_control_submit_queue "$harness" && fm_busy_is_busy "${backend:-tmux}" "$window" "$harness" "$STEP_TARGET" "$STATE"; then
+      exit 75
+    fi
+    ring_rc=0
+    fm_task_inbox_ring "${backend:-tmux}" "$window" "$STEP_EXCLUDE" "fm-$STEP_TARGET" "$harness" || ring_rc=$?
+    if [ "$STEP_FAMILY" = retry ]; then
+      fm_task_inbox_clear_retry "$STATE" "$STEP_TARGET" "$STEP_EXCLUDE" || exit 1
+      exit 0
+    fi
+    fm_task_inbox_record_ring "$STATE" "$STEP_TARGET" "$STEP_EXCLUDE" || exit 1
+    exit "$ring_rc"
+    ;;
+  explain)
+    ids=$(ready_ids) || exit 1
+    for id in $ids; do
+      if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
+        printf '%s pass-lock-held\n' "$id"
+      elif check_item "$id"; then
+        printf '%s prepared\n' "$id"
+      else
+        printf '%s %s\n' "$id" "$CHECK_ERR"
+      fi
+    done
+    exit 0
+    ;;
+esac
 
 if [ "$ACTION" = step-family ]; then
   step_family "$STEP_TARGET" "$STEP_EXCLUDE"
@@ -788,7 +1093,7 @@ if [ "$ACTION" = steps ]; then
     python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" dry
     exit $?
   fi
-  if ! fm_lock_try_acquire "$LOCK"; then
+  if ! pass_lock_try; then
     echo "fm-autolaunch: another pass holds $LOCK; nothing done" >&2
     exit 0
   fi
@@ -830,7 +1135,33 @@ fi
 
 [ -d "$STATE" ] || { echo "fm-autolaunch: state directory $STATE is unavailable" >&2; exit 1; }
 if [ "$ACTION" = run ]; then
-  if ! fm_lock_try_acquire "$LOCK"; then
+  controller_rc=0
+  controller_enabled || controller_rc=$?
+  [ "$controller_rc" != 2 ] || exit 1
+  if [ "$controller_rc" = 0 ]; then
+    plan_rc=0
+    pass_acquired=0
+    if pass_lock_try; then
+      pass_acquired=1
+      LOCK_HELD=1
+      controller_now > "$LOCK/at" || exit 1
+      # Only the planning child is timed. Its parent releases the shared
+      # directory lock even when TERM/KILL ends that child.
+      plan_timeout=$(type -P gnutimeout || type -P timeout) || exit 1
+      FM_CONTROLLER_PLAN_OWNER="$BASHPID" "$plan_timeout" -k 5 20 bash "$SCRIPT_DIR/fm-autolaunch.sh" --controller-plan || plan_rc=$?
+      pass_lock_release
+      LOCK_HELD=0
+    else
+      echo "fm-autolaunch: another pass holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}; seat claims wait" >&2
+      plan_rc=73
+    fi
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" controller-effects "$SCRIPT_DIR/fm-autolaunch.sh" "$plan_rc" "$pass_acquired"
+    exit $?
+  fi
+fi
+
+if [ "$ACTION" = run ]; then
+  if ! pass_lock_try; then
     echo "fm-autolaunch: another pass holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}; nothing done" >&2
     exit 0
   fi
@@ -867,11 +1198,20 @@ for id in $ids; do
     continue
   fi
   HAD_PREPARED=1
+  if [ "$ACTION" = dry ] && { [ "${FM_CONTROLLER_PREPARED:-}" = 1 ] || [ "${FM_CONTROLLER_PREPARED:-}" = all ]; }; then
+    case ":${FM_CONTROLLER_PREPARED_SKIP:-}:" in
+      *":$id:"*) record "$slot" "$id" - 'refused:controller action pending or settled'; continue ;;
+    esac
+    if ! controller_project_admission "$id"; then
+      record "$slot" "$id" - "refused:$CONTROLLER_PROJECT_ERROR"
+      continue
+    fi
+  fi
   if ! dispatch_candidates "$P_KIND"; then
     record "$slot" "$id" - "refused:$DISPATCH_ERR"
     continue
   fi
-  outcome='' quota_reason='' model=-
+  outcome='' quota_reason='' model=- prepared_candidates=0
   while IFS= read -r line; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
@@ -883,11 +1223,20 @@ for id in $ids; do
     outcome=''
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
-      printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
-      printf ' %q' "${SPAWN_ARGV[@]}"
-      printf '\n'
+      if [ "${FM_CONTROLLER_PREPARED:-}" = 1 ] || [ "${FM_CONTROLLER_PREPARED:-}" = all ]; then
+        python3 -c 'import json,sys; print("would-argv: " + json.dumps(sys.argv[1:]))' "$SPAWN_BIN" "${SPAWN_ARGV[@]}"
+      else
+        printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
+        printf ' %q' "${SPAWN_ARGV[@]}"
+        printf '\n'
+      fi
       outcome=launched
       [ "$slot" != - ] || outcome=would-launch-when-a-lane-frees
+      if [ "${FM_CONTROLLER_PREPARED:-}" = all ]; then
+        record "$slot" "$id" "$model" "$outcome"
+        prepared_candidates=1
+        continue
+      fi
       break
     fi
     rc=0
@@ -907,6 +1256,10 @@ for id in $ids; do
     fi
     break
   done < "$TMPD/cands.tsv"
+  if [ "$prepared_candidates" = 1 ]; then
+    [ "$slot" = - ] || LANE=$((LANE + 1))
+    continue
+  fi
   [ -n "$outcome" ] || outcome="refused:quota: ${quota_reason:-no candidate profile launched}"
   record "$slot" "$id" "$model" "$outcome"
   case "$outcome" in
