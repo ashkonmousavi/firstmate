@@ -79,7 +79,7 @@ case "${1:-}" in
     fm_backlog_row_probe "${FM_DATA_OVERRIDE:-$FM_HOME/data}" "$id" \
       || { echo unknown; exit; }
     case "$FM_BACKLOG_ROW_STATE" in
-      done\ *) echo done; exit ;;
+      'done'\ *) echo 'done'; exit ;;
       'in_flight no no'|'queued no no') ;;
       *) echo held; exit ;;
     esac

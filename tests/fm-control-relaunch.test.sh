@@ -5462,7 +5462,7 @@ test_stopped_only_plan_stage_relaunch() {
   command -v tasks-axi >/dev/null 2>&1 || {
     fail "stopped-only guard proof requires tasks-axi"
   }
-  for phase in live paused captain-held held done capacity lock lease missing-brief parse stopped; do
+  for phase in live paused captain-held held 'done' capacity lock lease missing-brief parse stopped; do
     id="rl-stage-$phase"
     dir=$(new_case "stage-$phase" "$id")
     add_ship_task "$dir" "$id" claude
@@ -5476,7 +5476,7 @@ test_stopped_only_plan_stage_relaunch() {
       paused) printf 'paused: external declared wait\n' > "$dir/home/state/$id.status" ;;
       captain-held) printf 'captain-held: decision transferred to a separate held task\n' > "$dir/home/state/$id.status" ;;
       held) tasks-axi hold "$id" --reason "external stage hold" --kind external --file "$dir/home/data/backlog.md" >/dev/null ;;
-      done) tasks-axi done "$id" --file "$dir/home/data/backlog.md" >/dev/null ;;
+      'done') tasks-axi 'done' "$id" --file "$dir/home/data/backlog.md" >/dev/null ;;
       lock) fm_lock_try_acquire "$dir/home/state/.control-$id.lock" || fail "could not claim fixture control lock" ;;
       lease)
         printf '%s\n' "$$" > "$dir/home/state/.lock"
