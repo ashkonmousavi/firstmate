@@ -4505,3 +4505,21 @@ Real Herdr.app exercise on 2026-11-02: the official herdr-app 0.1.11 bundle (sha
 - A spawn with a real harness rather than the stand-in.
 - `send --wait`'s `started`/`working` proof against a real status-reporting harness; the lab run covered a non-reporting shell, whose verdict falls to the composer screen.
 - Native `status.state` reported by a real harness launched through `bin/fm-spawn.sh`.
+
+## Codex lane-profile MCP startup
+
+Verified 2026-11-05/06 on codex-cli 0.166.0 and 0.159.3, Linux x86_64, with `bash bin/fm-test-run.sh tests/fm-lane-profile-live-e2e.test.sh`.
+The 0.159.3 check used a byte-identical read-only copy of the server binary in an isolated local fixture, selected through `PATH`, without changing the server installation.
+The guard replays MCP overrides from real `fm-spawn.sh` launch artifacts against the installed Codex stdio app-server, with isolated local MCP fixture processes and no model turn.
+Native runtime inventory and live PID readback agreed:
+
+```text
+product-code: claude-context=connected, gitnexus=connected, retained=connected
+ci-tooling: claude-context=disabled, gitnexus=disabled, retained=connected
+governance: claude-context=disabled, gitnexus=disabled, retained=connected
+```
+
+The `retained` positive control prevents an empty startup from passing as successful reduction.
+The guard is token-free and default-on when Codex and Python are installed; `FM_LANE_PROFILE_LIVE` and the shared live gate own explicit opt-in or opt-out.
+This verifies vendor process startup with configured server IDs, not deployed fleet memory savings or host admission outcomes.
+[Lane profiles](../configuration.md#lane-profiles) owns supported launch paths and alias configuration.

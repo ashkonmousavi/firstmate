@@ -366,6 +366,7 @@ family_for_basename() {
     fm-codex-brief-typed-herdr-lab-e2e.test.sh|fm-codex-brief-typed-live-e2e.test.sh|\
     fm-codex-continuity-live-e2e.test.sh|fm-codex-hook-layer-live-e2e.test.sh|\
     fm-secondmate-restart-bg-shells-live-e2e.test.sh|\
+    fm-lane-profile-live-e2e.test.sh|\
     fm-grok-continuity-live-e2e.test.sh|\
     fm-cursor-primary-live-e2e.test.sh|fm-agy-primary-live-e2e.test.sh|\
     fm-grok-stop-live-e2e.test.sh|fm-harness-adapter-instructions-live-e2e.test.sh|\
@@ -401,7 +402,7 @@ family_for_basename() {
     fm-control.test.sh|fm-control-relaunch.test.sh|\
     fm-herdr-session-cleanup.test.sh|fm-send-resolve-key.test.sh|fm-send-strict.test.sh|\
     fm-send-inbox.test.sh|fm-spawn-batch.test.sh|\
-    fm-spawn-dispatch-profile.test.sh|fm-claude-trust.test.sh|\
+    fm-spawn-dispatch-profile.test.sh|fm-lane-profile.test.sh|fm-claude-trust.test.sh|\
     fm-worker-account.test.sh|\
     fm-git-strip-ai-trailers.test.sh|\
     fm-trace-context-spawn.test.sh|fm-spawn-worktree-settle.test.sh|\
@@ -1627,6 +1628,9 @@ families_for_changed_path() {
       printf '%s\n' backend-dispatch
       printf '%s\n' real-herdr-gated
       printf '%s\n' pure-contract-unit
+      ;;
+    bin/fm-lane-profile-lib.sh|tests/lane-profile-native.py)
+      printf '%s\n' __script__:fm-lane-profile.test.sh __script__:fm-lane-profile-live-e2e.test.sh __script__:fm-control-relaunch.test.sh
       ;;
     bin/fm-main-backstop.py)
       printf '%s\n' __script__:fm-main-backstop.test.sh __script__:fm-main-backstop-live-e2e.test.sh

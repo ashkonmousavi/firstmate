@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--continue-pr <N> | --no-forge-check <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait] [--no-defer-queue]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--continue-pr <N> | --no-forge-check <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--lane-profile <product-code|ci-tooling|governance>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--lane-profile <product-code|ci-tooling|governance>] [--herdr-resume-lock-wait] [--no-defer-queue]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -824,6 +824,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-exclude-tools-lib.sh
 . "$SCRIPT_DIR/fm-exclude-tools-lib.sh"
+# shellcheck source=bin/fm-lane-profile-lib.sh
+. "$SCRIPT_DIR/fm-lane-profile-lib.sh"
 fm_spawn_launch_env_admit || exit 1
 fm_spawn_config_admit || exit 1
 # Set by the forge agreement below for a forge=external ship.
@@ -915,6 +917,8 @@ TRACEPARENT_ARG=
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
+LANE_PROFILE=product-code
+LANE_PROFILE_SET=0
 BACKEND_SET=0
 MODE_SET=0
 YOLO_SET=0
@@ -953,6 +957,10 @@ for a in "$@"; do
     model)
       MODEL=$a
       MODEL_SET=1
+      ;;
+    lane-profile)
+      LANE_PROFILE=$a
+      LANE_PROFILE_SET=1
       ;;
     effort)
       EFFORT=$a
@@ -1029,6 +1037,8 @@ for a in "$@"; do
     MODEL=${a#--model=}
     MODEL_SET=1
     ;;
+  --lane-profile) want_value=lane-profile ;;
+  --lane-profile=*) LANE_PROFILE=${a#--lane-profile=}; LANE_PROFILE_SET=1 ;;
   --effort) want_value=effort ;;
   --effort=*)
     EFFORT=${a#--effort=}
@@ -1188,11 +1198,17 @@ case "$EFFORT" in
   ;;
 esac
 
+fm_lane_profile_check "$LANE_PROFILE" codex 0 ship || exit 1
+if [ "$KIND" = secondmate ]; then
+  fm_lane_profile_check "$LANE_PROFILE" codex 0 "$KIND" || exit 1
+fi
+
 # --relaunch takes identity from the existing task's record, including when
 # recreating a released copy, so the axes resolved for a fresh spawn come from that
 # task's own durable record below. Contradicting it on the command line is a
 # refusal rather than a silently-ignored flag.
 if [ "$RELAUNCH" -eq 1 ]; then
+  [ "$LANE_PROFILE_SET" = 0 ] || { echo "error: --relaunch reuses the recorded lane-profile" >&2; exit 1; }
   [ "$BACKEND_SET" -eq 0 ] || {
     echo "error: --relaunch reuses the task's recorded backend; --backend cannot override it" >&2
     exit 1
@@ -2031,6 +2047,7 @@ spawn_abort_cleanup() {
             echo "tasktmp=${TASK_TMP:-}"
             echo "model=${MODEL:-default}"
             echo "effort=${EFFORT:-default}"
+            [ "$KIND" = secondmate ] || echo "lane_profile=$LANE_PROFILE"
             echo "backend=orca"
             echo "orca_worktree_id=$ORCA_WORKTREE_ID"
             [ -z "${ORCA_TERMINAL:-}" ] || echo "terminal=$ORCA_TERMINAL"
@@ -2390,6 +2407,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   fi
   rc=0
   shared_args=()
+  [ "$LANE_PROFILE_SET" = 0 ] || shared_args+=(--lane-profile "$LANE_PROFILE")
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
   [ -z "$QUOTA_OVERRIDE" ] || shared_args+=(--quota-override "$QUOTA_OVERRIDE")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
@@ -2811,6 +2829,8 @@ if [ "$RELAUNCH" -eq 1 ]; then
       exit 1
       ;;
   esac
+  LANE_PROFILE=$(fm_meta_get "$RELAUNCH_META" lane_profile)
+  LANE_PROFILE=${LANE_PROFILE:-product-code}
   RELAUNCH_PRIOR_HARNESS=$(fm_meta_get "$RELAUNCH_META" harness)
   KIND=$(fm_meta_get "$RELAUNCH_META" kind)
   [ -n "$KIND" ] || KIND=ship
@@ -3040,7 +3060,7 @@ launch_template() {
   # codex bare and delivers `FIRSTMATE_OP: v1 launch-brief` through
   # fm_backend_send_text_submit once the composer is ready.
   codex)
-    printf '%s' 'codex __MODELFLAG____EFFORTFLAG____CODEXAPPROVALFLAG__'
+    printf '%s' 'codex __MODELFLAG____EFFORTFLAG____LANEPROFILE____CODEXAPPROVALFLAG__'
     if [ "$kind" != secondmate ]; then
       printf '%s' ' --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]"'
     fi
@@ -3400,6 +3420,8 @@ elif [ -n "$QUOTA_OVERRIDE" ] && { [ "$CODEX_DEFER_DEFAULT" = 0 ] || [ "$QUOTA_H
   echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
   exit 1
 fi
+
+fm_lane_profile_check "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" || exit 1
 
 # config/crew-exclude-tools (header above): refuse before worker provisioning
 # if this launch cannot honor the list. Secondmate agents are not covered.
@@ -6149,6 +6171,9 @@ agy)
   ;;
 esac
 
+# Resolve against the actual isolated cwd and already selected account.
+LANE_PROFILE_FLAGS=$(fm_lane_profile_flags "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" "$CONFIG" "$WT") || exit 1
+
 # Per-task temp root: /tmp/fm-<id>/ with Go's build temp nested at gotmp/. Go won't
 # create GOTMPDIR, so mkdir before it is used; fm-teardown removes the whole root.
 # Nested (not a bare /tmp/fm-<id>/gotmp) so other per-task temp can live alongside
@@ -7199,7 +7224,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id hc_session hc_terminal home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential quota_override quota_override_evidence claude_config_dir released_head released_branch released_pr", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort lane_profile opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id hc_session hc_terminal home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential quota_override quota_override_evidence claude_config_dir released_head released_branch released_pr", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -7233,6 +7258,7 @@ preserve_relaunch_meta() {
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_prefix=$EXTERNAL_BACKUP_PREFIX"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
+  [ "$KIND" = secondmate ] || echo "lane_profile=$LANE_PROFILE"
   # The detected OpenCode major, recorded so fm-control sends the exit key this
   # agent's TUI understands. Written only when a version was resolved, so a
   # non-opencode or undetectable task record stays byte-identical.
@@ -7454,6 +7480,7 @@ fi
 EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL" "$OPENCODE_MAJOR") || exit 1
 LAUNCH=${LAUNCH//__MODELFLAG__/$MODELFLAG}
 LAUNCH=${LAUNCH//__EFFORTFLAG__/$EFFORTFLAG}
+LAUNCH=${LAUNCH//__LANEPROFILE__/$LANE_PROFILE_FLAGS}
 # Relaunch session continuity. Computed here, where the adopted endpoint (T) is
 # known, and substituted only into the Pi-family template's `__PIRESUME__`
 # placeholder; an empty value leaves every other launch byte-identical.

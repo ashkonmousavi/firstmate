@@ -5455,6 +5455,57 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+# Lane-profile preflight must protect the still-running endpoint.
+test_lane_profile_relaunch_preflight() {
+  local dir out rc id profile
+  for profile in governance corrupt; do
+    id="lane-$profile"
+    dir=$(new_case "profile-$profile" "$id")
+    add_ship_task "$dir" "$id" codex
+    printf '%s\n' "lane_profile=$profile" >> "$dir/home/state/$id.meta"
+    cp "$dir/home/state/$id.meta" "$dir/prior.meta"
+    out=$(run_control "$dir" "$id" relaunch --harness claude --note 'retain footprint'); rc=$?
+    expect_code 1 "$rc" "incompatible or corrupt profile should refuse: $out"
+    if [ "$profile" = governance ]; then
+      assert_contains "$out" 'requires a canonical Codex ship/scout launch' 'refusal must name the supported profile boundary'
+    else
+      assert_contains "$out" 'unknown --lane-profile' 'corrupt metadata must name the invalid profile'
+    fi
+    cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail 'profile refusal changed metadata'
+    [ "$(cat "$dir/fake/command")" = claude ] || fail 'profile refusal stopped the modeled live agent'
+    assert_no_grep '/exit' "$dir/fake/literal" 'profile preflight must precede stopping'
+  done
+  pass 'lane-profile refusal preserves the current agent and its metadata'
+}
+
+test_lane_profile_relaunch_retains_selection() {
+  local dir out rc id=lane-retain
+  dir=$(new_case profile-retain "$id")
+  add_ship_task "$dir" "$id" codex
+  printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+  # The existing endpoint models Claude's exit; its replacement models Codex.
+  printf codex > "$dir/fake/becomes"
+  cat > "$dir/fakebin/codex" <<'CLI'
+#!/usr/bin/env bash
+printf '%s\n' '[{"name":"gitnexus"},{"name":"claude-context"}]'
+CLI
+  chmod +x "$dir/fakebin/codex"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain reduced tools'); rc=$?
+  expect_code 0 "$rc" "same-profile relaunch failed: $out"
+  [ "$(meta_field "$dir" "$id" lane_profile)" = governance ] || fail 'relaunch lost lane profile'
+  [ "$(grep -c '^lane_profile=' "$dir/home/state/$id.meta")" = 1 ] || fail 'relaunch duplicated lane profile'
+  assert_grep 'mcp_servers.gitnexus.enabled=false' "$dir/fake/literal" 'relaunch lost MCP override'
+  pass 'relaunch retains one durable lane profile and its actual launch override'
+}
+
+# Focused mode lets negative controls exercise these transaction boundaries
+# without replaying unrelated lifecycle cases.
+if [ "${1:-}" = --lane-profile-only ]; then
+  test_lane_profile_relaunch_preflight
+  test_lane_profile_relaunch_retains_selection
+  exit 0
+fi
+
 test_adapter_admission_preserves_running_agent
 test_relaunch_admission_refusal_preserves_running_agent
 test_configuration_admission_preserves_running_agent
@@ -5482,6 +5533,8 @@ test_recovery_eligibility_holds_the_lifecycle_lock
 test_recovery_rechecks_task_records_and_work
 
 test_relaunch_off_opencode_removes_tracked_wiring
+
+
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 
@@ -5600,3 +5653,7 @@ test_released_journal_publishes_its_staged_note_after_success
 test_released_snapshot_signals_preserve_complete_brief_and_record
 
 test_step_action_continuation
+
+
+test_lane_profile_relaunch_preflight
+test_lane_profile_relaunch_retains_selection
