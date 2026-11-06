@@ -367,37 +367,58 @@ SH
       rc=0
       wait_until_deadline 30 checks_progressed || rc=1
       grep -qF "pending fixture wake" state/.wake-queue || rc=1
+      stop=
       if [ "$rc" -eq 0 ]; then
+        watcher=$(cat state/.watch.lock/pid) || rc=1
         bin/fm-claude-stop-autoarm.sh > state/stop.out 2> state/stop.err <<EOF_PAYLOAD &
 {}
 EOF_PAYLOAD
         stop=$!
-        stop_finished() { ! kill -0 "$stop" 2>/dev/null; }
-        if wait_until_deadline 60 stop_finished; then
-          wait "$stop"; stop_rc=$?
-          [ "$stop_rc" -eq 2 ] || rc=1
-          grep -q "rearm-resurface" state/stop.err || rc=1
+        stop_attached_to_watcher() {
+          local record
+          for record in state/.supervision-host-arm.* state/.claude-autoarm-output.*; do
+            [ -f "$record" ] || continue
+            grep -qF "watcher: attached pid=$watcher " "$record" && return 0
+          done
+          return 1
+        }
+        supervisor_saw_pending_wake() {
+          stop_attached_to_watcher || return 1
+          bin/fm-wake-drain.sh > state/supervisor-drain.out 2> state/supervisor-drain.err || return 1
+          grep -qF "pending fixture wake" state/supervisor-drain.out
+        }
+        started=$SECONDS
+        if wait_until_deadline 60 supervisor_saw_pending_wake; then
+          [ $((SECONDS - started)) -le 60 ] || rc=1
+          [ "$(cat state/.watch.lock/pid)" = "$watcher" ] || rc=1
           grep -qF "pending fixture wake" state/.wake-queue || rc=1
         else
-          kill "$stop" 2>/dev/null || true
-          wait "$stop" 2>/dev/null || true
           rc=1
         fi
-      fi
-      if [ "$rc" -ne 0 ]; then
-        for record in state/owner.out state/stop.out state/stop.err state/checks state/.wake-queue state/.watcher-down state/.claude-watch-guard.*; do
-          [ ! -f "$record" ] || cat "$record"
-        done
       fi
       touch state/.afk
       kill "$owner" 2>/dev/null || true
       wait "$owner" 2>/dev/null || true
       bin/fm-watch-arm.sh --stop >/dev/null 2>&1
+      if [ -n "$stop" ]; then
+        stop_finished() { ! kill -0 "$stop" 2>/dev/null; }
+        if wait_until_deadline 60 stop_finished; then
+          wait "$stop"; stop_rc=$?
+          [ "$stop_rc" -eq 0 ] || rc=1
+        else
+          rc=1
+        fi
+      fi
+      if [ "$rc" -ne 0 ]; then
+        for record in state/owner.out state/stop.out state/stop.err state/supervisor-drain.out state/supervisor-drain.err state/checks state/.wake-queue state/.watcher-down state/.claude-watch-guard.*; do
+          [ ! -f "$record" ] || cat "$record"
+        done
+      fi
       [ "$rc" -eq 0 ] || { cat state/owner.out; exit 1; }
-    ' || fail "$mode starved checks or consumed the pending wake"
+    ' || fail "$mode hid the pending wake, restarted its healthy watcher, starved checks or failed cleanup"
   done
   done
-  pass "guard and repair continuations keep checks running; plain and hosted Stops deliver pending wakes"
+  pass "guard and repair keep checks running; supervisor drain surfaces pending wakes without restarting a healthy watcher"
 }
 
 test_scope() {
