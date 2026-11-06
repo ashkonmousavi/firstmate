@@ -698,9 +698,10 @@ test_watcher_keeps_diagnostics_separate_from_contribution_wakes() {
     body:"Please clarify the contract",html_url:"https://github.com/o/r/pull/8#issuecomment-12",
     updated_at:"2026-09-16T08:01:00Z",submitted_at:"2026-09-16T08:01:00Z"}]' > "$home/forge/comments.json"
   out="$home/watcher-diagnostics.out"
+  # Admit the default 30s check before asserting its diagnostic wake.
   rc=0
   with_home "$home" env FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 \
-    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 15 > "$out" 2> "$home/watcher-diagnostics.err" || rc=$?
+    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 40 > "$out" 2> "$home/watcher-diagnostics.err" || rc=$?
   [ "$rc" -eq 0 ] || fail "watcher did not surface contribution diagnostics: $(cat "$home/watcher-diagnostics.err")"
   diagnostic=$(awk -F '\t' -v key="$home/state/contributions.check.sh" '$3 == "check" && $4 == key { print $5 }' "$home/state/.wake-queue")
   [ "$diagnostic" = "check: $home/state/contributions.check.sh: contributions: 1 unreadable durable record(s)" ] \
@@ -742,9 +743,10 @@ test_watcher_surfaces_new_contribution_once() {
     body:"Please clarify the contract",html_url:"https://github.com/o/r/pull/8#issuecomment-12",
     updated_at:"2026-09-16T08:01:00Z",submitted_at:"2026-09-16T08:01:00Z"}]' > "$home/forge/comments.json"
   out="$home/watcher.out"
+  # Both runs must admit the default 30s check to exercise wake deduplication.
   rc=0
   with_home "$home" env FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 \
-    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 5 > "$out" 2> "$home/watcher.err" || rc=$?
+    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 40 > "$out" 2> "$home/watcher.err" || rc=$?
   [ "$rc" -eq 0 ] || fail "watcher did not surface the new contribution signal: $(cat "$home/watcher.err")"
   grep -E '^check: contributions delivery [0-9a-f]{64}$' "$out" >/dev/null \
     || fail "watcher did not surface the durable contribution wake: $(cat "$out")"
@@ -752,7 +754,7 @@ test_watcher_surfaces_new_contribution_once() {
   [ "$rows" = 1 ] || fail "one contribution signal created $rows durable check wakes"
   rc=0
   with_home "$home" env FM_WATCH_HANDLING_SUCCESSOR=1 FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 \
-    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 2 > "$home/watcher-repeat.out" 2> "$home/watcher-repeat.err" || rc=$?
+    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 40 > "$home/watcher-repeat.out" 2> "$home/watcher-repeat.err" || rc=$?
   [ "$rc" -eq 124 ] || fail "an already durable contribution signal re-rang the watcher: $(cat "$home/watcher-repeat.out")"
   rows=$(awk -F '\t' 'NF >= 5 && $3 == "check" { count++ } END { print count + 0 }' "$home/state/.wake-queue")
   [ "$rows" = 1 ] || fail "repeat contribution observation created $rows durable check wakes"

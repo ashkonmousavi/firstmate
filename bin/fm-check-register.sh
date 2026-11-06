@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Bind an intentional custom watcher check to its current bytes.
 # Usage: fm-check-register.sh <id>
+# An optional # FM_CHECK_TIMEOUT=<seconds> declaration belongs in the check;
+# bin/fm-check-lib.sh owns its format and validation.
 # Retire with fm-check-unregister.sh <id>; do not hand-compose an rm.
 set -u
 
@@ -29,6 +31,8 @@ fm_pr_private_file_valid "$CHECK" 700 "$STATE_DEVICE" \
   || { echo "error: custom check is unavailable" >&2; exit 1; }
 fm_pr_regular_destination_on_device_or_absent "$TRUST" "$STATE_DEVICE" \
   || { echo "error: custom check trust path is unavailable" >&2; exit 1; }
+fm_custom_check_timeout_read "$CHECK" \
+  || { echo "error: malformed custom check budget (FM_CHECK_TIMEOUT)" >&2; exit 2; }
 HASH=$(fm_custom_check_sha256 "$CHECK") || { echo "error: custom check hash is unavailable" >&2; exit 1; }
 umask 077
 TMP=$(mktemp "$STATE/.fm-custom-check-trust.XXXXXX") || exit 1

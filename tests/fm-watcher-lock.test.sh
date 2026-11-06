@@ -359,6 +359,66 @@ SH
     || fail 'pause helper froze a live holder whose pending child published a lock'
 )
 
+test_check_budget_preserves_watcher_health() {
+  local dir state fallback outcome wpid armpid i status out
+  for fallback in 0 1; do
+    for outcome in success timeout; do
+      dir=$(make_case "check-health-$fallback-$outcome")
+      state="$dir/state"
+      cat > "$state/slow.check.sh" <<'SH'
+#!/usr/bin/env bash
+# FM_CHECK_TIMEOUT=12
+touch "$FM_STATE_OVERRIDE/entered"
+printf 'check entered\n'
+while [ ! -e "$FM_STATE_OVERRIDE/release" ]; do sleep 0.1; done
+printf 'check completed\n'
+SH
+      chmod 0700 "$state/slow.check.sh"
+      FM_STATE_OVERRIDE="$state" bash "$ROOT/bin/fm-check-register.sh" slow >/dev/null \
+        || fail "could not register slow health check"
+      PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+        FM_POLL=1 FM_GUARD_GRACE=3 FM_WATCHER_STALL_BOUND=4 FM_CHECK_INTERVAL=0 \
+        FM_HEARTBEAT=999999 FM_CHECK_FORCE_FALLBACK="$fallback" \
+        bash "$WATCH" > "$dir/watch.out" 2> "$dir/watch.err" &
+      wpid=$!
+      i=0
+      while [ "$i" -lt 100 ] && [ ! -e "$state/entered" ]; do
+        sleep 0.1
+        i=$((i + 1))
+      done
+      [ -e "$state/entered" ] || fail "slow health check did not start"
+      PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+        FM_POLL=1 FM_GUARD_GRACE=3 FM_WATCHER_STALL_BOUND=4 \
+        FM_ARM_ATTACH_POLL=0.1 FM_ARM_SUCCESSOR_CONFIRM_TIMEOUT=1 \
+        bash "$WATCH_ARM" > "$dir/arm.out" 2> "$dir/arm.err" &
+      armpid=$!
+      sleep 5
+      FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_watcher_healthy "$2" "$3" 3 "$4"' \
+        _ "$LIB" "$state" "$WATCH" "$dir" || fail "admitted check lost watcher health"
+      out=$(PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+        FM_POLL=1 FM_GUARD_GRACE=3 FM_WATCHER_STALL_BOUND=4 bash "$WATCH" 2>&1)
+      status=$?
+      [ "$status" -eq 0 ] || fail "re-arm refused an admitted check: $out"
+      assert_contains "$out" "watcher: already running pid $wpid" "re-arm replaced the check owner"
+      assert_contains "$(cat "$dir/arm.out")" "watcher: attached pid=$wpid" "arm did not attach"
+      is_live_non_zombie "$armpid" || fail "attached arm abandoned an admitted check"
+      [ "$outcome" != success ] || touch "$state/release"
+      wait_for_exit "$wpid" 200 || fail "budgeted check watcher did not publish"
+      wait_for_exit "$armpid" 100 || fail "attached arm did not deliver the check result ($fallback/$outcome): $(cat "$dir/arm.out" "$dir/arm.err" "$dir/watch.out" "$dir/watch.err" "$state/.watch-deliveries.log" "$state/.watch-cycle-exits.log" 2>/dev/null)"
+      assert_grep 'check entered' "$state/.wake-queue" "check output was lost"
+      if [ "$outcome" = success ]; then
+        assert_grep 'check completed' "$state/.wake-queue" "successful check did not finish"
+        assert_no_grep 'timed out' "$state/.wake-queue" "successful check timed out"
+      else
+        assert_grep 'timed out after 12s (measured ' "$state/.wake-queue" "check did not retain its budget"
+        assert_grep 'failing tool: slow' "$state/.wake-queue" "timeout did not name its tool"
+      fi
+      assert_no_grep 'watcher: FAILED' "$dir/arm.out" "attached arm reported a stalled watcher"
+    done
+  done
+  pass "admitted check budgets preserve health, re-arm ownership, attached delivery, and timeout wakes"
+}
+
 test_pause_waits_for_pending_lock_publication() {
   local name
   for name in .pending.lock .pending.lock.steal pending.lock pending.lock.steal; do
@@ -2448,6 +2508,7 @@ test_stale_watch_reclaim_rejects_unwritable_downtime_marker
 test_stale_watch_reclaim_publishes_before_clear
 test_live_stale_watch_lock_is_actionable
 test_live_stalled_watch_lock_is_replaced_past_hard_bound
+test_check_budget_preserves_watcher_health
 test_watch_replaces_live_holder_with_legacy_local_time_identity
 test_watch_replaced_holder_stands_down_after_successor_exits
 test_guard_warnings

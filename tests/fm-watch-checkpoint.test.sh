@@ -375,11 +375,139 @@ SH
   FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" env-check >/dev/null \
     || fail "could not register checkpoint custom check"
   status=0
-  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 "$CHECKPOINT" --seconds 5 >"$out" 2>"$err" || status=$?
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 "$CHECKPOINT" --seconds 40 >"$out" 2>"$err" || status=$?
   expect_code 0 "$status" "check checkpoint exit"
   assert_contains "$(cat "$out")" "check:" "check wake was not passed through"
   assert_contains "$(cat "$out")" "FM_CHECK_INTERVAL=1" "watcher environment was not preserved"
   pass "checkpoint preserves watcher environment for registered custom checks"
+}
+
+test_checkpoint_admission_and_publication() {
+  local home status
+  home=$(make_home check-budget-backstop)
+  cat > "$home/state/budget.check.sh" <<'SH'
+#!/usr/bin/env bash
+# FM_CHECK_TIMEOUT=24
+sleep 2
+printf 'declared budget survived checkpoint backstop\n'
+SH
+  chmod 0700 "$home/state/budget.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" budget >/dev/null || fail "register checkpoint budget"
+  status=0
+  FM_HOME="$home" FM_POLL=0 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=1 \
+    "$CHECKPOINT" --seconds 30 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "declared budget checkpoint: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'declared budget survived' "outer backstop cut a valid check short"
+  home=$(make_home check-budget-timeout)
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=8\nsleep 12\n' > "$home/state/slow.check.sh"
+  chmod 0700 "$home/state/slow.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register checkpoint timeout"
+  status=0
+  FM_HOME="$home" FM_POLL=0 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=1 \
+    "$CHECKPOINT" --seconds 12 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "admitted timeout publication"
+  assert_contains "$(cat "$home/out.txt")" 'timed out after 8s (measured ' "checkpoint swallowed a late timeout"
+  assert_contains "$(cat "$home/state/.wake-queue")" 'failing tool: slow' "late timeout was not durably queued"
+  home=$(make_home check-budget-deferred)
+  # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=300\ntouch "$FM_HOME/ran"\n' > "$home/state/slow.check.sh"
+  chmod 0700 "$home/state/slow.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register deferred check"
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=0 \
+    "$CHECKPOINT" --seconds 3 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 124 "$status" "deferred-only checkpoint"
+  assert_absent "$home/ran" "oversized check ran in a quiet checkpoint"
+  assert_contains "$(cat "$home/err.txt")" 'slow.check.sh: deferred (budget 300s > remaining ' "quiet report lost its deferral"
+  pass "foreground checkpoints admit fitting checks and report oversized checks on quiet completion"
+}
+
+test_checkpoint_fast_checks_precede_oversized_checks() {
+  local home status pid id
+  home=$(make_home check-budget-progress)
+  fm_test_track_watcher_state "$home/state"
+  cat > "$home/state/a-slow.check.sh" <<'SH'
+#!/usr/bin/env bash
+# FM_CHECK_TIMEOUT=300
+touch "$FM_HOME/slow-entered"
+sleep 200
+SH
+  printf '#!/usr/bin/env bash\nprintf "fast check ran\\n"\n' > "$home/state/b-fast.check.sh"
+  for id in a-slow b-fast; do
+    chmod 0700 "$home/state/$id.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" "$id" >/dev/null || fail "register progress check"
+  done
+  FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=30 \
+    "$CHECKPOINT" --seconds 180 > "$home/out.txt" 2> "$home/err.txt" &
+  pid=$!
+  status=0
+  wait_for_exit "$pid" 200 || status=$?
+  if [ "$status" -ne 0 ] && [ -e "$home/slow-entered" ]; then
+    printf 'diagnostic: oversized check started before checkpoint progress\n'
+  fi
+  expect_code 0 "$status" "fast progress checkpoint: $(cat "$home/out.txt" "$home/err.txt")"
+  assert_absent "$home/slow-entered" "oversized check started before the fast check"
+  assert_contains "$(cat "$home/out.txt")" 'fast check ran' "default-budget check was starved"
+  grep -Eq 'a-slow.check.sh: deferred \(budget 300s > remaining [0-9]+s\)' "$home/err.txt" \
+    || fail "checkpoint did not name the oversized check and remaining window"
+  assert_grep 'fast check ran' "$home/state/.wake-queue" "fast check output was not durable"
+  pass "a 180-second checkpoint runs the default-budget check and defers the 300-second check"
+}
+
+test_checkpoint_orders_fitting_budgets_and_names() {
+  local home id budget status
+  home=$(make_home check-budget-order)
+  for id in a-slow c-fast b-fast; do
+    case "$id" in a-slow) budget=100 ;; *) budget=20 ;; esac
+    # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
+    printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=%s\nprintf "%%s\\n" %s >> "$FM_HOME/order"\nprintf "%%s\\n" %s\n' \
+      "$budget" "$id" "$id" > "$home/state/$id.check.sh"
+    chmod 0700 "$home/state/$id.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" "$id" >/dev/null || fail "register ordering check"
+  done
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=0 \
+    "$CHECKPOINT" --seconds 180 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "fitting-budget checkpoint"
+  assert_equals $'b-fast\nc-fast\na-slow' "$(cat "$home/order")" "fitting checks must run by budget, then name"
+  pass "fitting foreground checks execute by budget ascending with ties by name"
+}
+
+test_normal_watcher_retains_oversized_budget() {
+  local home status
+  home=$(make_home normal-check-budget)
+  fm_test_track_watcher_state "$home/state"
+  # shellcheck disable=SC2016 # the generated check expands FM_CHECK_TIMEOUT in its own shell
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=300\nsleep 2\nprintf "normal budget=%%s\\n" "$FM_CHECK_TIMEOUT"\n' > "$home/state/slow.check.sh"
+  chmod 0700 "$home/state/slow.check.sh"
+  FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register normal check"
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=0 FM_CHECK_TIMEOUT=1 \
+    "$ROOT/bin/fm-watch.sh" > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "ordinary watcher budget"
+  assert_contains "$(cat "$home/out.txt")" 'normal budget=300' "ordinary watcher lost the full authenticated budget"
+  pass "ordinary watchers execute with the full authenticated budget"
+}
+
+test_checkpoint_rechecks_remaining_window() {
+  local home id status
+  home=$(make_home check-budget-remaining)
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=5\nsleep 2\nprintf "first check finished\\n"\n' > "$home/state/a-first.check.sh"
+  # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
+  printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=9\ntouch "$FM_HOME/second-ran"\n' > "$home/state/b-second.check.sh"
+  for id in a-first b-second; do
+    chmod 0700 "$home/state/$id.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" "$id" >/dev/null || fail "register remaining-window check"
+  done
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=0 \
+    "$CHECKPOINT" --seconds 10 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+  expect_code 0 "$status" "remaining-window checkpoint"
+  assert_grep 'first check finished' "$home/out.txt" "fitting first check was skipped"
+  assert_absent "$home/second-ran" "check exceeded the remaining window"
+  grep -Eq 'b-second.check.sh: deferred \(budget 9s > remaining [0-8]s\)' "$home/err.txt" \
+    || fail "admission used the original window instead of the remaining window"
+  pass "foreground admission rechecks the remaining window for each check"
 }
 
 test_existing_singleton_watcher_is_not_success() {
@@ -513,6 +641,11 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
+test_checkpoint_fast_checks_precede_oversized_checks
+test_checkpoint_orders_fitting_budgets_and_names
+test_checkpoint_rechecks_remaining_window
+test_normal_watcher_retains_oversized_budget
+test_checkpoint_admission_and_publication
 test_checkpoint_honors_cleanup_bound_before_escalating
 test_gnu_timeout_runs_the_host_bound
 test_non_gnu_timeout_uses_gnu_gtimeout

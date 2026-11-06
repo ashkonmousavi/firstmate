@@ -208,8 +208,10 @@ With `state/.afk` absent the daemon lock proves nothing and the strict watcher p
 
 ### Guard grace and the poll cadence
 
-`bin/fm-watch.sh` touches `state/.last-watcher-beat` once per cycle, immediately before its terminal wait (`event_wait_or_sleep`) as well as at the top of the next cycle.
-A healthy watcher's beacon can therefore legitimately age up to `FM_POLL` seconds between touches.
+`bin/fm-watch.sh` touches `state/.last-watcher-beat` at the top of each cycle.
+While an admitted check runs within its budget, the watcher also refreshes the beacon once per second after verifying that it still holds the singleton lock.
+This keeps a long check healthy without extending the stale-holder bound; `tests/fm-watcher-lock.test.sh` covers health, re-arm attachment, and result delivery across that bound.
+The terminal wait (`event_wait_or_sleep`) can leave the beacon up to `FM_POLL` seconds older before the next cycle refreshes it.
 
 A fixed 300-second grace default stops correctly bounding staleness once a home's `FM_POLL` reaches or exceeds it.
 A perfectly healthy watcher mid-wait would then read stale at the edge of every full poll cycle by definition.

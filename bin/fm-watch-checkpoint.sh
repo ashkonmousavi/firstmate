@@ -2,6 +2,10 @@
 # Run one bounded foreground watcher checkpoint for harnesses that should not
 # rely on background-task completion to wake the model.
 #
+# For direct watcher checkpoints, --help owns check admission and ordering.
+# An admitted check completing at or after the quiet boundary gets five seconds
+# to acquire the wake-queue lock and publish its result before returning control.
+#
 # SUPERVISION HOST. A home opted in with config/supervision-host
 # (docs/configuration.md "Supervision host" owns the gate;
 # config/supervision-host-off opts out, and a Codex home without the file does not run the host) runs
@@ -32,6 +36,7 @@ Usage: fm-watch-checkpoint.sh [--seconds <n>]
 Run bin/fm-watch.sh in the foreground for a bounded checkpoint.
 On an actionable watcher wake, pass through the watcher output and exit 0.
 On a quiet checkpoint, print "checkpoint: no actionable wake within <n>s" and exit 124.
+Checks run by budget ascending, then name; checks exceeding the remaining window are reported as deferred.
 EOF
 }
 
@@ -195,9 +200,22 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
   exit "$RC"
 fi
 
+CHECKPOINT_HAS_CHECKS=0
+for checkpoint_check in "$STATE"/*.check.sh; do
+  [ -f "$checkpoint_check" ] || continue
+  CHECKPOINT_HAS_CHECKS=1
+  break
+done
 set +e
 # Interrupt the checkpoint's active check group so the watcher's native EXIT cleanup can release its lock; ordinary watcher shutdown still uses TERM.
-run_bounded "$SECONDS_ARG" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+if [ "$CHECKPOINT_HAS_CHECKS" -eq 1 ]; then
+  # An admitted check owns its budget and five seconds to publish afterward.
+  # The watcher closes its quiet boundary and starts no check beyond it.
+  FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
+    run_bounded "$((SECONDS_ARG + 10))" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+else
+  run_bounded "$SECONDS_ARG" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+fi
 RC=$?
 set -e
 
@@ -215,6 +233,7 @@ if grep -E '^watcher: already running' "$OUT" "$ERR" >/dev/null 2>&1; then
 fi
 
 if [ "$RC" -eq 124 ]; then
+  [ ! -s "$ERR" ] || cat "$ERR" >&2
   printf 'checkpoint: no actionable wake within %ss\n' "$SECONDS_ARG"
   exit 124
 fi

@@ -1558,7 +1558,7 @@ SH
 }
 
 test_each_timed_out_custom_check_run_wakes() {
-  local backend dir state fakebin force_fallback rc expected
+  local backend dir state fakebin force_fallback rc expected elapsed
   for backend in installed-timeout fallback-timeout; do
     dir=$(make_case "timed-out-custom-$backend")
     state="$dir/home/state"
@@ -1584,10 +1584,12 @@ SH
       ack_watcher_cycle "$state" || return 1
     }
 
-    expected="check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)"
     rc=0
     sweep "$dir/watch1.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the first sweep (rc=$rc): $(cat "$dir/watch.err")"
+    elapsed=$(sed -n 's/^.* (measured \([1-9][0-9]*\)s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)$/\1/p' "$dir/watch1.out")
+    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds: $(cat "$dir/watch1.out"); stderr: $(cat "$dir/watch.err")"
+    expected="check: $state/slow.check.sh: timed out after 1s (measured ${elapsed}s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)"
     [ "$(cat "$dir/watch1.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for a check killed at the bound: $(cat "$dir/watch1.out")"
     [ "$(cat "$dir/watch1.out.queue")" = "$expected" ] \
@@ -1596,6 +1598,9 @@ SH
     rc=0
     sweep "$dir/watch2.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the repeat sweep (rc=$rc)"
+    elapsed=$(sed -n 's/^.* (measured \([1-9][0-9]*\)s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)$/\1/p' "$dir/watch2.out")
+    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds: $(cat "$dir/watch2.out"); stderr: $(cat "$dir/watch.err")"
+    expected="check: $state/slow.check.sh: timed out after 1s (measured ${elapsed}s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)"
     [ "$(cat "$dir/watch2.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for the consecutive timed-out run: $(cat "$dir/watch2.out")"
     [ "$(cat "$dir/watch2.out.queue")" = "$expected" ] \
@@ -1761,7 +1766,7 @@ SH
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the timed-out check (rc=$rc): $(cat "$dir/watch.err")"
     grep -qxF "check: $state/custom.check.sh: finding before the cut" "$dir/watch.out" \
       || fail "$backend watcher dropped output printed before the timeout: $(cat "$dir/watch.out")"
-    grep -qxF 'timed out after 1s' "$dir/watch.out" \
+    grep -qxE 'timed out after 1s \(measured [1-9][0-9]*s; ❌ failing tool: custom; FM_CHECK_TIMEOUT\)' "$dir/watch.out" \
       || fail "$backend watcher kept a timed-out check silent: $(cat "$dir/watch.out")"
     ! grep -qF 'finding after the cut' "$dir/watch.out" || fail "$backend watcher let the check run past its timeout"
   done

@@ -1187,9 +1187,10 @@ test_armed_check_wakes_the_watcher_with_the_skew_report() {
   out="$home/out.txt"
   err="$home/err.txt"
   status=0
+  # The checkpoint must admit the armed check's default 30s budget.
   env FM_HOME="$home" PATH="$(fixture_path "$stale:$fresh")" FM_CHECK_TIMEOUT=30 FM_TOOL_UPDATE_INTERVAL=0 \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 \
-    "$CHECKPOINT" --seconds 10 >"$out" 2>"$err" || status=$?
+    "$CHECKPOINT" --seconds 40 >"$out" 2>"$err" || status=$?
   expect_code 0 "$status" "watcher checkpoint exit"
   assert_contains "$(cat "$out")" "check:" "the armed check did not reach the watcher as a check wake"
   assert_contains "$(cat "$out")" "tool updates: herdr update not in effect" "the wake did not carry the PATH skew report"

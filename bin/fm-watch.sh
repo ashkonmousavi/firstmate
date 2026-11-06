@@ -124,7 +124,7 @@
 #                          steering-inbox recovery; bin/fm-task-inbox-lib.sh owns
 #                          delivery-attempt, busy-deferral, and unavailable-endpoint policy
 #   check: <script>: <out> authenticated check result, always actionable;
-#                          docs/configuration.md's FM_CHECK_TIMEOUT default
+#                          docs/configuration.md "Environment variables"
 #                          owns custom-check failure and timeout wake formats
 #   check: pr-orphan-conflict: <url> (branch <head>) ...; owner: <owner>
 #                          an open pull request has carried the conflict label
@@ -356,12 +356,9 @@ fi
 # turn-ended signature, annotation staleness checks, and guarded bookkeeping writes.
 
 POLL=${FM_POLL:-15}                   # seconds between cycles
-# The liveness beacon is touched once per cycle, immediately before the
-# terminal wait below (event_wait_or_sleep) as well as at the top of the next
-# one, so a healthy cycle's beacon can legitimately age up to POLL seconds
-# between touches. fm_poll_derived_grace (bin/fm-wake-lib.sh, already sourced
-# transitively above) is the single owner of the max(300, poll+60)
-# derivation - see docs/turnend-guard.md "Guard grace and the poll cadence".
+# Beacon cadence is documented in docs/turnend-guard.md "Guard grace and the
+# poll cadence". fm_poll_derived_grace (bin/fm-wake-lib.sh, already sourced
+# transitively above) owns the grace derivation.
 # This recomputes the library default above now that the real configured
 # POLL is known.
 WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-$(fm_poll_derived_grace "$POLL")}}
@@ -375,7 +372,7 @@ WATCHER_STALL_BOUND=$(fm_watcher_stall_bound "$POLL")
 HEARTBEAT=${FM_HEARTBEAT:-600}        # base seconds between heartbeat scans
 HEARTBEAT_MAX=${FM_HEARTBEAT_MAX:-7200}  # heartbeat backoff cap
 CHECK_INTERVAL=${FM_CHECK_INTERVAL:-300}  # seconds between *.check.sh sweeps
-CHECK_TIMEOUT=${FM_CHECK_TIMEOUT:-30}     # seconds allowed per *.check.sh
+CHECK_TIMEOUT=${FM_CHECK_TIMEOUT:-30}     # default; per-check declarations: bin/fm-check-lib.sh
 HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
   ''|*[!0-9]*|0) HOME_SUMMARY_INTERVAL=300 ;;
@@ -3353,6 +3350,8 @@ procevent_surface_queued() {
 
 run_check_process() {
   local c=$1
+  local CHECK_TIMEOUT=${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}
+  export FM_CHECK_TIMEOUT=$CHECK_TIMEOUT
   shift
   if [ "${FM_CHECK_FORCE_FALLBACK:-0}" != 1 ] && command -v timeout >/dev/null 2>&1; then
     exec timeout "$CHECK_TIMEOUT" bash "$c" "$@"
@@ -3372,6 +3371,8 @@ FM_ACTIVE_CHECK_PID=
 FM_ACTIVE_CHECK_PGID=
 FM_CHECK_OUTPUT=
 FM_CHECK_RESULT=
+FM_CHECK_BUDGET=
+FM_CHECK_ELAPSED=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
@@ -3420,8 +3421,24 @@ watcher_stop_signals() {
   trap 'exit 1' INT
 }
 
+# Match the checkpoint clock's Linux/portable monotonic sources, retaining
+# milliseconds so whole-second sampling cannot erase a short timeout.
+fm_check_clock_ms() {
+  local uptime whole fraction
+  if [ -r /proc/uptime ]; then
+    read -r uptime _ < /proc/uptime || return 1
+    whole=${uptime%%.*}
+    fraction=${uptime#*.}000
+    printf '%s\n' "$((10#$whole * 1000 + 10#${fraction:0:3}))"
+  else
+    perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e \
+      'printf "%.0f\n", 1000 * clock_gettime(CLOCK_MONOTONIC)'
+  fi
+}
+
 run_check_capture() {
-  local pgid rc=0
+  local pgid rc=0 started finished next_beat
+  started=$(fm_check_clock_ms) || return 1
   fm_check_output_cleanup
   FM_CHECK_RESULT=
   FM_CHECK_EXIT_STATUS=0
@@ -3445,6 +3462,17 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
+  next_beat=$started
+  while kill -0 "$FM_ACTIVE_CHECK_PID" 2>/dev/null; do
+    finished=$(fm_check_clock_ms) || return 1
+    [ "$finished" -lt "$((started + ${FM_CHECK_BUDGET:-$CHECK_TIMEOUT} * 1000))" ] || break
+    if [ "$finished" -ge "$next_beat" ]; then
+      [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "$WATCHER_PID" ] || exit 0
+      touch "$BEAT" || return 1
+      next_beat=$((finished + 1000))
+    fi
+    sleep 0.1
+  done
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || rc=$?
   FM_CHECK_EXIT_STATUS=$rc
   FM_ACTIVE_CHECK_PID=
@@ -3455,10 +3483,12 @@ run_check_capture() {
     FM_CHECK_EXIT_STATUS=124
     rc=124
   fi
+  finished=$(fm_check_clock_ms) || return 1
+  FM_CHECK_ELAPSED=$(((finished - started + 999) / 1000))
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
   # Keep what the check printed before the cut, then report the cut itself.
-  [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${CHECK_TIMEOUT}s"
+  [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}s"
 }
 
 FM_CAPTURE_OUTPUT=
@@ -4224,7 +4254,53 @@ resurface_after_downtime() {
   wake "check: rearm-resurface"
 }
 
+# Keep its quiet boundary separate from a completed check's publication grace.
+WATCHER_CHECKPOINT_DEADLINE=
+if [ -n "${FM_WATCH_CHECKPOINT_SECONDS:-}" ]; then
+  # shellcheck source=bin/fm-timeout-lib.sh
+  . "$SCRIPT_DIR/fm-timeout-lib.sh"
+  fm_checkpoint_clock || exit 1
+  WATCHER_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + FM_WATCH_CHECKPOINT_SECONDS))
+fi
+checkpoint_deadline_passed() {
+  local FM_CHECKPOINT_DEADLINE=$WATCHER_CHECKPOINT_DEADLINE
+  fm_checkpoint_expired
+}
+
+checkpoint_checks() {
+  local check id budget
+  if [ -z "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+    printf '%s\n' "$STATE"/*.check.sh
+    return
+  fi
+  for check in "$STATE"/*.check.sh; do
+    [ -e "$check" ] || continue
+    budget=$CHECK_TIMEOUT
+    id=${check##*/}; id=${id%.check.sh}
+    if [ "$id" != x-watch ] && fm_custom_check_registered "$STATE" "$id"; then
+      budget=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
+    fi
+    printf '%s\t%s\n' "$budget" "$check"
+  done | LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2 | cut -f2-
+}
+
+checkpoint_check_admit() {
+  local check=$1 remaining
+  [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] || return 0
+  fm_checkpoint_clock || exit 1
+  remaining=$((WATCHER_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+  [ "$remaining" -ge 0 ] || remaining=0
+  if [ "$FM_CHECK_BUDGET" -gt "$remaining" ]; then
+    printf 'checkpoint: %s: deferred (budget %ss > remaining %ss)\n' \
+      "$check" "$FM_CHECK_BUDGET" "$remaining" >&2
+    check_sweep_deferred=1
+    return 1
+  fi
+  return 0
+}
+
 while :; do
+  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then exit 124; fi
   # Native Codex may tear down the async hook and its watchdog together.
   # fm-codex-stop-park.sh owns this optional identity binding. Self-expiry
   # closes the normal recovery generation and lets the arm/host exit too.
@@ -4473,12 +4549,20 @@ EOF
 $orphan_out
 EOF
     fi
-    for c in "$STATE"/*.check.sh; do
+    check_sweep_deferred=0
+    check_sweep=()
+    while IFS= read -r c; do
+      check_sweep+=("$c")
+    done < <(checkpoint_checks)
+    for c in "${check_sweep[@]:-}"; do
+      FM_CHECKPOINT_DEADLINE=
       [ -e "$c" ] || continue
       is_pr_poll=0
+      FM_CHECK_BUDGET=$CHECK_TIMEOUT
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
           && [ -f "$FM_ROOT/bin/fm-x-poll.sh" ] && [ ! -L "$FM_ROOT/bin/fm-x-poll.sh" ]; then
+          checkpoint_check_admit "$c" || continue
           FM_HOME="$FM_HOME" run_check_capture "$FM_ROOT/bin/fm-x-poll.sh" || exit 1
           out=$FM_CHECK_RESULT
         else
@@ -4503,6 +4587,7 @@ EOF
             triage_log "PR poll for $id changed before its validated check; skipping the stale snapshot"
             continue
           fi
+          checkpoint_check_admit "$c" || { pr_poll_control_release || exit 1; continue; }
           FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           if [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
@@ -4541,7 +4626,8 @@ EOF
           esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
-          custom_check_started=$(date +%s)
+          FM_CHECK_BUDGET=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
+          checkpoint_check_admit "$c" || { fm_custom_check_snapshot_cleanup; continue; }
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
           # A killed or failing run must not vanish: it wakes naming the check,
@@ -4549,9 +4635,9 @@ EOF
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             # Output printed before the cut stays, followed by the cut itself;
             # a silent cut names the bound that killed it.
-            [ "$out" != "timed out after ${CHECK_TIMEOUT}s" ] || out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+            out="${out%timed out after "${FM_CHECK_BUDGET}"s}timed out after ${FM_CHECK_BUDGET}s (measured ${FM_CHECK_ELAPSED}s; ❌ failing tool: $id; FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
-            out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
+            out="exited $FM_CHECK_EXIT_STATUS after ${FM_CHECK_ELAPSED}s${out:+: $out}"
           fi
           fm_custom_check_snapshot_cleanup
         else
@@ -4559,6 +4645,10 @@ EOF
           rejected_checks="$rejected_checks $c"
           continue
         fi
+      fi
+      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then
+        fm_checkpoint_clock || exit 1
+        FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 5))
       fi
       if [ -n "$out" ]; then
         if [ "$(basename "$c")" = contributions.check.sh ]; then
@@ -4623,7 +4713,15 @@ EOF
           [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
           continue
         fi
-        fm_wake_append check "$c" "$reason" || exit 1
+        if [ -n "$FM_CHECKPOINT_DEADLINE" ]; then
+          fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || exit 1
+          check_publish_rc=0
+          fm_wake_append_locked check "$c" "$reason" || check_publish_rc=$?
+          fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+          [ "$check_publish_rc" -eq 0 ] || exit 1
+        else
+          fm_wake_append check "$c" "$reason" || exit 1
+        fi
         if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
           fm_pr_conflict_episode_open "$STATE" "$id" \
             "$provider" "$host" "$path" "$number" "$conflict_added_at" || exit 1
@@ -4633,12 +4731,13 @@ EOF
       fi
       pr_poll_control_release || exit 1
     done
+    FM_CHECKPOINT_DEADLINE=
     if [ -n "$rejected_checks" ]; then
       reason="check: rejected unauthenticated state checks:$rejected_checks"
       fm_wake_append check unauthenticated-state-checks "$reason" || exit 1
       [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
     fi
-    touch "$STATE/.last-check"
+    [ "$check_sweep_deferred" -eq 1 ] || touch "$STATE/.last-check"
     # One wake carries the first printing check, otherwise a contribution
     # result, so the durable queue holds every actionable check result.
     if [ -n "$contribution_check_output" ]; then
