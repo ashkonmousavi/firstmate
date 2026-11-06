@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project' to release it.
+spawned live-selected-account harness=codex kind=scout window=lab:fm-live-selected-account worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account

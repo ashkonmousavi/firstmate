@@ -1,0 +1,16 @@
+window=lab:fm-live-alias
+endpoint_task_id=live-alias
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/5/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/live-alias
+tasktmp=/tmp/fm-live-alias
+model=gpt-5.4
+effort=default
+lane_profile=governance
+account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account
+spawn_gen=s1793930981.88897.21942

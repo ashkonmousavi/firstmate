@@ -1,0 +1,12 @@
+window=lab:fm-live-product-code
+endpoint_task_id=live-product-code
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-live-product-code
+model=default
+effort=default
+lane_profile=product-code
+spawn_gen=s1793930808.32994.28435

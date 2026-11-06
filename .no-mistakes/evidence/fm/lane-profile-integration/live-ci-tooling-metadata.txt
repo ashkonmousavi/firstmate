@@ -1,0 +1,12 @@
+window=lab:fm-live-ci-tooling
+endpoint_task_id=live-ci-tooling
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-live-ci-tooling
+model=default
+effort=default
+lane_profile=ci-tooling
+spawn_gen=s1793930800.5416.21334

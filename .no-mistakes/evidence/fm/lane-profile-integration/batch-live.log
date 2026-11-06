@@ -1,0 +1,38 @@
+$ tmux -L fm-lab -f /dev/null new-session -d -s lab -x 160 -y 45 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+exit=0
+$ tmux -L fm-lab set-option -g default-command 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},#{session_id}'
+~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/tmux/tmux-1000/fm-lab,14281,$0
+exit=0
+$ bin/fm-spawn.sh live-batch-one=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project live-batch-two=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --backend tmux --lane-profile ci-tooling
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/6/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/6/project' to release it.
+spawned live-batch-one harness=codex kind=scout window=lab:fm-live-batch-one worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/6/project account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/7/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/7/project' to release it.
+spawned live-batch-two harness=codex kind=scout window=lab:fm-live-batch-two worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/7/project account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account
+exit=0
+$ tmux -L fm-lab display-message -p -t lab:fm-live-batch-one '#{pane_pid}'
+20139
+exit=0
+{"scenario": "batch forwarding", "task": "live-batch-one", "profile": "ci-tooling", "codex_pids": [29438], "result": "pass"}
+$ bin/fm-control.sh live-batch-one exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-batch-one harness=codex backend=tmux endpoint=lab:fm-live-batch-one worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/6/project
+exit=0
+$ tmux -L fm-lab display-message -p -t lab:fm-live-batch-two '#{pane_pid}'
+44470
+exit=0
+{"scenario": "batch forwarding", "task": "live-batch-two", "profile": "ci-tooling", "codex_pids": [53041], "result": "pass"}
+$ bin/fm-control.sh live-batch-two exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-batch-two harness=codex backend=tmux endpoint=lab:fm-live-batch-two worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/7/project
+exit=0
+private tmux stop exit=0
+API stopped

@@ -1,0 +1,33 @@
+$ ['bin/fm-spawn.sh', 'live-refusal', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/project', '--scout', '--lane-profile', 'typo']
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home
+error: unknown --lane-profile 'typo'; expected product-code, ci-tooling, or governance
+exit=1
+$ ['bin/fm-spawn.sh', 'live-refusal', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/project', '--scout', '--lane-profile', '']
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home
+error: unknown --lane-profile ''; expected product-code, ci-tooling, or governance
+exit=1
+$ ['bin/fm-spawn.sh', 'live-refusal', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/project', '--scout', '--lane-profile', 'governance;false']
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home
+error: unknown --lane-profile 'governance;false'; expected product-code, ci-tooling, or governance
+exit=1
+PASS malformed profile names refuse before provisioning
+$ ['git', 'clone', '--quiet', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/refusal-project']
+exit=0
+$ ['tmux', '-L', 'fm-lab', '-f', '/dev/null', 'new-session', '-d', '-s', 'lab', '-x', '160', '-y', '45', '-c', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A', 'bash --noprofile --norc']
+exit=0
+$ ['tmux', '-L', 'fm-lab', 'set-option', '-g', 'default-shell', '/bin/bash']
+exit=0
+$ ['tmux', '-L', 'fm-lab', 'set-option', '-g', 'default-command', 'bash --noprofile --norc']
+exit=0
+$ ['tmux', '-L', 'fm-lab', 'display-message', '-p', '-t', 'lab', '#{socket_path},#{pid},#{session_id}']
+~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/tmux/tmux-1000/fm-lab,41891,$0
+exit=0
+$ ['bin/fm-spawn.sh', 'live-discovery-bad', '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/refusal-project', '--scout', '--backend', 'tmux', '--lane-profile', 'governance']
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/pool/.treehouse/refusal-project-59af00/1/refusal-project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/pool/.treehouse/refusal-project-59af00/1/refusal-project' to release it.
+error: lane-profile could not read a valid Codex MCP server list within 15 seconds; refusing before launch
+🌳 Worktree returned to pool.
+exit=1
+PASS native Codex discovery failure refuses reduced startup without publishing task metadata
+$ ['tmux', '-L', 'fm-lab', 'kill-server']
+exit=0

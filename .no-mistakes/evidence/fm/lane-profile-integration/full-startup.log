@@ -1,0 +1,356 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project init -q
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project add .
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project -c user.name=Lab -c user.email=lab@example.invalid commit -qm initial
+exit=0
+$ git clone --quiet --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/origin.git
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/origin.git
+exit=0
+$ tmux -L fm-lab -f /dev/null new-session -d -s lab -x 160 -y 45 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+exit=0
+$ tmux -L fm-lab set-option -g default-command 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},#{session_id}'
+~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/tmux/tmux-1000/fm-lab,27989,$0
+exit=0
+$ bin/fm-spawn.sh refusal ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --lane-profile typo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: unknown --lane-profile 'typo'; expected product-code, ci-tooling, or governance
+exit=1
+$ bin/fm-spawn.sh refusal ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --lane-profile ''
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: unknown --lane-profile ''; expected product-code, ci-tooling, or governance
+exit=1
+$ bin/fm-spawn.sh refusal ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --secondmate --lane-profile governance
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: --lane-profile governance requires a canonical Codex ship/scout launch; reduced MCP startup is not verified for codex/secondmate (raw=0)
+exit=1
+$ bin/fm-spawn.sh refusal ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project 'codex --model custom' --scout --lane-profile governance
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: --lane-profile governance requires a canonical Codex ship/scout launch; reduced MCP startup is not verified for codex/scout (raw=1)
+exit=1
+$ bin/fm-spawn.sh live-governance ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --backend tmux --lane-profile governance
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project' to release it.
+spawned live-governance harness=codex kind=scout window=lab:fm-live-governance worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+exit=0
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-governance -S -160
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+  permissions: YOLO mode
+
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those
+  instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet
+  supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-governance.inbox`; this exact path belongs
+  to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not reject it
+  as another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+{"profile": "governance", "spawn_exit": 0, "metadata_profile": "governance", "observed_mcp": ["retained"], "expected": ["retained"]}
+$ tmux -L fm-lab display-message -p -t lab:fm-live-governance '#{pane_pid}'
+35056
+exit=0
+$ bin/fm-control.sh live-governance relaunch --harness claude
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: --lane-profile governance requires a canonical Codex ship/scout launch; reduced MCP startup is not verified for claude/scout (raw=0)
+exit=1
+$ tmux -L fm-lab display-message -p -t lab:fm-live-governance '#{pane_pid}'
+35056
+exit=0
+refusal harness: metadata unchanged; original Codex PIDs alive [54987]
+$ bin/fm-control.sh live-governance relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: reduced lane-profile requires an explicit Codex worker account with config/launch-env-allowlist; cannot establish the worker configuration before launch
+exit=1
+$ tmux -L fm-lab display-message -p -t lab:fm-live-governance '#{pane_pid}'
+35056
+exit=0
+refusal filtered: metadata unchanged; original Codex PIDs alive [54987]
+$ bin/fm-control.sh live-governance relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+error: unknown --lane-profile 'typo'; expected product-code, ci-tooling, or governance
+exit=1
+$ tmux -L fm-lab display-message -p -t lab:fm-live-governance '#{pane_pid}'
+35056
+exit=0
+refusal corrupt: metadata unchanged; original Codex PIDs alive [54987]
+$ bin/fm-control.sh live-governance relaunch --note 'Retain governance MCP startup; no previous work to recover.'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+relaunched live-governance harness=codex from=codex model=default effort=default backend=tmux endpoint=lab:fm-live-governance worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+exit=0
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-governance -S -80
+bash-5.2$ treehouse get || printf '\n__FM_TREEHOUSE_GET_EXIT_32443__=1\n'
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project. Type 'exit' to r
+eturn.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+  supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-governance.inbox`; this exact path belongs
+  to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not reject it
+  as another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+
+  ## Progress note (2026-11-06T02:06:31Z)
+
+  This task was relaunched. Continue from here; the local copy and every
+  uncommitted change are exactly as the previous worker left them.
+
+  First, check your instruction inbox: list it with
+  `find '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-governance.inbox' -maxdepth 1 -name '*.msg' 2>/dev/null |
+  sort -V`, act on
+  each message in numeric order, then mv each handled file into
+  '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-governance.inbox/handled/'. A steer sent before the relaunch
+  survives there.
+
+  Retain governance MCP startup; no previous work to recover.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+$ bin/fm-control.sh live-governance exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-governance harness=codex backend=tmux endpoint=lab:fm-live-governance worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/1/project
+exit=0
+$ bin/fm-spawn.sh live-ci-tooling ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --backend tmux --lane-profile ci-tooling
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project' to release it.
+spawned live-ci-tooling harness=codex kind=scout window=lab:fm-live-ci-tooling worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project
+exit=0
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-ci-tooling -S -160
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project
+  permissions: YOLO mode
+
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those
+  instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet
+  supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-ci-tooling.inbox`; this exact path belongs
+  to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not reject it
+  as another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+{"profile": "ci-tooling", "spawn_exit": 0, "metadata_profile": "ci-tooling", "observed_mcp": ["retained"], "expected": ["retained"]}
+$ bin/fm-control.sh live-ci-tooling exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-ci-tooling harness=codex backend=tmux endpoint=lab:fm-live-ci-tooling worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/2/project
+exit=0
+$ bin/fm-spawn.sh live-product-code ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --backend tmux --lane-profile product-code
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project' to release it.
+spawned live-product-code harness=codex kind=scout window=lab:fm-live-product-code worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project
+exit=0
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-product-code -S -160
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project
+  permissions: YOLO mode
+
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those
+  instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet
+  supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-product-code.inbox`; this exact path
+  belongs to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not
+  reject it as another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+{"profile": "product-code", "spawn_exit": 0, "metadata_profile": "product-code", "observed_mcp": ["claude-context", "gitnexus", "retained"], "expected": ["claude-context", "gitnexus", "retained"]}
+$ bin/fm-control.sh live-product-code exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-product-code harness=codex backend=tmux endpoint=lab:fm-live-product-code worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/3/project
+exit=0
+$ bin/fm-spawn.sh live-selected-account ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project --scout --backend tmux --lane-profile governance
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project' to release it.
+spawned live-selected-account harness=codex kind=scout window=lab:fm-live-selected-account worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account
+exit=0
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-selected-account -S -160
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project
+  permissions: YOLO mode
+
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those
+  instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet
+  supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-selected-account.inbox`; this exact path
+  belongs to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not
+  reject it as another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+{"profile": "selected-account", "spawn_exit": 0, "metadata_profile": "governance", "observed_mcp": ["retained"], "expected": ["retained"]}
+selected-account exported root confirmed in metadata
+$ bin/fm-control.sh live-selected-account exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-selected-account harness=codex backend=tmux endpoint=lab:fm-live-selected-account worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/4/project
+exit=0
+API paths ["/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses", "/v1/responses"]
+private tmux stopped; API stopped

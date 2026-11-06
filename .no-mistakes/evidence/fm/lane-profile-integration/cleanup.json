@@ -1,0 +1,28 @@
+{
+  "owned_runtime_pids_checked": [
+    2132,
+    29438,
+    32694,
+    32849,
+    53041,
+    54864,
+    54942,
+    54987
+  ],
+  "surviving_owned_processes": [],
+  "removed_worktree_labs": [
+    ".l",
+    ".nm-live"
+  ],
+  "removed_emitted_task_scratch": [
+    "/tmp/fm-live-alias",
+    "/tmp/fm-live-batch-one",
+    "/tmp/fm-live-batch-two",
+    "/tmp/fm-live-ci-tooling",
+    "/tmp/fm-live-governance",
+    "/tmp/fm-live-product-code",
+    "/tmp/fm-live-released",
+    "/tmp/fm-live-selected-account"
+  ],
+  "server_and_http_children": "all awaited and stopped"
+}

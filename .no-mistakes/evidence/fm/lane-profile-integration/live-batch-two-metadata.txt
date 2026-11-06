@@ -1,0 +1,13 @@
+window=lab:fm-live-batch-two
+endpoint_task_id=live-batch-two
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/project-b5ff03/7/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-live-batch-two
+model=gpt-5.4
+effort=default
+lane_profile=ci-tooling
+account=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account
+spawn_gen=s1793931023.34480.27313

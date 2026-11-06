@@ -1,0 +1,22 @@
+{
+  "head": "588ca7d0e5b5307f041ba1cebc6e892394b59f6e",
+  "checked_at": "2026-11-06T02:13:00.627203+00:00",
+  "versions": {
+    "codex": "codex-cli 0.166.0",
+    "tmux": "tmux 3.4",
+    "treehouse": "v3.1.8"
+  },
+  "external_fixtures": [
+    "empty laboratory activity inventory",
+    "local model-response HTTP endpoint; no real model requests",
+    "local MCP transports with PID receipts",
+    "OPEN PR data supplied through a laboratory gh executable for the seeded released-copy scenario"
+  ],
+  "real_components": [
+    "Firstmate spawn and control CLIs",
+    "Git and local remotes",
+    "Treehouse worktree allocator",
+    "private tmux server",
+    "Codex TUI and stdio app-server"
+  ]
+}

@@ -1,0 +1,13 @@
+FM_TEST_BEGIN 2026-11-06T01:58:37Z tests/fm-lane-profile-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+process-readback product-code claude-context: 79877 78978 python3
+process-readback product-code gitnexus: 79805 78978 python3
+process-readback product-code retained: 79809 78978 python3
+native-runtime {"claude-context": "connected", "gitnexus": "connected", "retained": "connected"}
+ok - codex-cli 0.166.0 product-code: claude-context,gitnexus,retained; no model turn submitted
+process-readback ci-tooling retained: 92838 91762 python3
+native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
+process-readback governance retained: 3363  3060 python3
+native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 governance: retained; no model turn submitted
+FM_TEST_END 2026-11-06T01:58:48Z tests/fm-lane-profile-live-e2e.test.sh exit=0 duration_ms=11116 gate_skip=false

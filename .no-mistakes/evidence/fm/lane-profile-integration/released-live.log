@@ -1,0 +1,89 @@
+$ tmux -L fm-lab -f /dev/null new-session -d -s lab -x 160 -y 45 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+exit=0
+$ tmux -L fm-lab set-option -g default-command 'bash --noprofile --norc'
+exit=0
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},#{session_id}'
+~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/tmux/tmux-1000/fm-lab,68257,$0
+exit=0
+$ git clone --quiet ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/project ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/released-project
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/released-project remote set-url origin https://github.com/lab-fixture/repo.git
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/released-project config url.file://~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/origin.git.insteadOf https://github.com/lab-fixture/repo.git
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/released-project rev-parse HEAD
+5a85cae80a3eae0a06c472f4f7324f1444603a6f
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/released-project push origin HEAD:refs/heads/fm/live-released
+Everything up-to-date
+exit=0
+Seeded released-copy metadata; external forge fixture reports OPEN; all runtime tools real.
+$ bin/fm-control.sh live-released relaunch --model default --note 'Recreate released copy using the selected account and governance startup.'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/data/live-released/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-released
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/data/live-released/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: live-released ships mode=local-only while the standing posture for released-project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project' to release it.
+relaunched live-released harness=codex from=codex model=default effort=default backend=tmux endpoint=lab:fm-live-released worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project recreated-from=released-copy
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project rev-parse HEAD
+5a85cae80a3eae0a06c472f4f7324f1444603a6f
+exit=0
+{"scenario": "released default-model governance relaunch", "result": "pass", "account": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/account", "lane_profile": "governance", "worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project", "head": "5a85cae80a3eae0a06c472f4f7324f1444603a6f", "live_mcp": ["retained"]}
+$ tmux -L fm-lab capture-pane -p -t lab:fm-live-released -S -100
+  another home's state.
+  Never inspect or change any other home's endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for
+  the firstmate managing you: follow this brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-
+  guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/
+  worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.agents/skills/firstmate-coding-guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain's intent
+  Reply with lane-profile-lab-ok.
+
+  ## Firstmate spec
+  No tools and no file changes.
+  <!-- fm-pr-overlap:start -->
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+  ## Progress note (2026-11-06T02:08:56Z)
+
+  This task was relaunched on a recreated local copy: branch fm/live-released at
+  5a85cae80a3eae0a06c472f4f7324f1444603a6f, checked out fresh from its pull request's remote. Uncommitted
+  files, ignored files (installed dependencies, build output, caches) and
+  a no-mistakes run's local state from the previous copy were not carried
+  over; reinstall what you need, then continue from here.
+
+  First, check your instruction inbox: list it with
+  `find '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-released.inbox' -maxdepth 1 -name '*.msg' 2>/dev/null | sort
+  -V`, act on
+  each message in numeric order, then mv each handled file into
+  '~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/state/live-released.inbox/handled/'. A steer sent before the relaunch
+  survives there.
+
+  Recreate released copy using the selected account and governance startup.
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-5.4 default · ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project
+  ? for shortcuts                                                                                                                     ⚠ 2 warnings · f2 to view
+exit=0
+$ bin/fm-control.sh live-released exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l
+stopped live-released harness=codex backend=tmux endpoint=lab:fm-live-released worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.l/pool/.treehouse/released-project-f22dbc/1/released-project
+exit=0
+private tmux stop exit=0
+API stopped
