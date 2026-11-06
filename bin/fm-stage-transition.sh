@@ -58,21 +58,22 @@ case "${1:-}" in
     id=${2:-}
     fm_pr_task_id_valid "$id" || exit 2
     meta="$STATE/$id.meta"
-    fm_backend_validate_task_endpoint "$meta" "$id" >/dev/null 2>&1 \
-      || { echo unknown; exit; }
     [ "$(fm_meta_get "$meta" kind)" = ship ] \
       && [ -z "$(fm_meta_get "$meta" remote_host)" ] \
+      || { echo unknown; exit; }
+    fm_backlog_row_probe "${FM_DATA_OVERRIDE:-$FM_HOME/data}" "$id" \
+      || { echo unknown; exit; }
+    case "$FM_BACKLOG_ROW_STATE" in
+      done\ *) echo done; exit ;;
+      'in_flight no no'|'queued no no') ;;
+      *) echo held; exit ;;
+    esac
+    fm_backend_validate_task_endpoint "$meta" "$id" >/dev/null 2>&1 \
       || { echo unknown; exit; }
     line=$(status_current_line "$STATE/$id.status" ship)
     if status_is_paused_or_captain_held "$line"; then echo paused; exit; fi
     case "$(status_line_verb "$line")" in
       needs-decision|blocked) echo held; exit ;;
-    esac
-    fm_backlog_row_probe "${FM_DATA_OVERRIDE:-$FM_HOME/data}" "$id" \
-      || { echo unknown; exit; }
-    case "$FM_BACKLOG_ROW_STATE" in
-      'in_flight no no'|'queued no no') ;;
-      *) echo held; exit ;;
     esac
     current=$(FM_CREW_STATE_NO_FORGE=1 "$SCRIPT_DIR/fm-crew-state.sh" "$id")
     case "$current" in
@@ -126,10 +127,67 @@ class DependencyError(ValueError):
         self.code = code
 
 
+def typed(value, kind, label):
+    if type(value) is not kind:
+        raise ValueError('invalid ' + label + ': expected ' + kind.__name__)
+    return value
+
+
+def sha(value):
+    if not SHA.fullmatch(typed(value, str, 'head')):
+        raise ValueError('invalid head')
+    return value
+
+
 def read_json(path):
     if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
         raise ValueError('unavailable ordinary file: ' + path.name)
-    return json.loads(path.read_text())
+    return typed(json.loads(path.read_text()), dict, path.name)
+
+
+def load_ledger():
+    data = read_json(ledger) if ledger.exists() else {'schema': 1, 'home': str(home), 'tasks': {}}
+    if (typed(data.get('schema'), int, 'ledger schema') != 1
+            or typed(data.get('home'), str, 'ledger home') != str(home)):
+        raise ValueError('stage ledger schema/home mismatch')
+    typed(data.get('tasks'), dict, 'ledger tasks')
+    return data
+
+
+def task_record(value):
+    typed(value, dict, 'task record')
+    typed(value.get('closed'), bool, 'completion')
+    events = typed(value.get('events'), dict, 'events')
+    for key, event in events.items():
+        typed(event, dict, 'event')
+        if typed(event.get('key'), str, 'event key') != key:
+            raise ValueError('event key mismatch')
+        typed(event.get('trigger'), str, 'event trigger')
+        typed(event.get('time'), int, 'event time')
+        sha(event.get('head'))
+        if typed(event.get('outcome'), str, 'event outcome') not in {'reserved', 'relaunched', 'failed', 'capped'}:
+            raise ValueError('invalid event outcome')
+        if typed(event.get('duplicate_count'), int, 'duplicate count') < 0:
+            raise ValueError('invalid duplicate count')
+    for launch in typed(value.get('launches'), list, 'launches'):
+        typed(launch, dict, 'launch')
+        typed(launch.get('time'), int, 'launch time')
+        sha(launch.get('head'))
+        for trigger in typed(launch.get('triggers'), list, 'launch triggers'):
+            typed(trigger, str, 'launch trigger')
+    for field in ['task', 'pr', 'detail', 'next_step']:
+        if field in value:
+            typed(value[field], str, field)
+    for field in ['due', 'estimate']:
+        if field in value:
+            typed(value[field], int, field)
+    if 'head' in value:
+        sha(value['head'])
+    if 'identity' in value:
+        identity = typed(value['identity'], list, 'task identity')
+        if len(identity) != 2 or any(type(part) is not str for part in identity):
+            raise ValueError('invalid task identity')
+    return value
 
 
 def save(value):
@@ -169,7 +227,7 @@ def api(endpoint, query=None):
                '--jq', 'tojson | @base64', '--full']
     if query:
         command += ['--raw-field', 'query=' + query]
-    return json.loads(base64.b64decode(run(command), validate=True))
+    return typed(json.loads(base64.b64decode(run(command), validate=True)), dict, 'forge response')
 
 
 def metadata(task):
@@ -183,6 +241,8 @@ def metadata(task):
             values[key] = value
     if values.get('kind') != 'ship' or values.get('remote_host'):
         raise ValueError('not a local ship lead')
+    if any(not values.get(field) for field in ['worktree', 'branch', 'pr']):
+        raise ValueError('task identity or PR unavailable')
     return values
 
 
@@ -191,13 +251,16 @@ def receipt(check, task, head):
         return {'status': 'unknown', 'reason': 'no registered check configured'}
     if not isinstance(check, str) or not ID.fullmatch(check) or check == 'plan-stages':
         raise ValueError('invalid stage check id')
-    result = json.loads(run([scripts / 'fm-stage-transition.sh', '_receipt', check, task, head]))
-    if result.get('head') != head:
+    result = typed(json.loads(run([scripts / 'fm-stage-transition.sh', '_receipt', check, task, head])),
+                   dict, 'receipt ' + check)
+    if sha(result.get('head')) != head:
         raise ValueError('check result does not match merged head: ' + check)
-    if result.get('status') not in {'green', 'red', 'pending', 'unknown'}:
+    if typed(result.get('status'), str, 'receipt status') not in {'green', 'red', 'pending', 'unknown'}:
         raise ValueError('unreadable stage verdict: ' + check)
     if not isinstance(result.get('event'), str) or not result['event']:
         raise ValueError('stage check has no event identity: ' + check)
+    if 'reason' in result:
+        typed(result['reason'], str, 'receipt reason')
     return result
 
 
@@ -215,16 +278,14 @@ def observe(settings, task, meta):
         raise ValueError('no supported canonical PR recorded')
     repo, number = match.groups()
     row = api('/repos/' + repo + '/pulls/' + number)
-    if row['html_url'] != url or str(row['number']) != number:
+    if (typed(row['html_url'], str, 'PR URL') != url
+            or str(typed(row['number'], int, 'PR number')) != number):
         raise ValueError('PR identity mismatch')
-    head = row['head']['sha']
-    if not SHA.fullmatch(head):
-        raise ValueError('invalid PR head')
+    head = sha(typed(row['head'], dict, 'PR head')['sha'])
+    pr_state = typed(row['state'], str, 'PR state')
     events = []
-    if row['merged'] is True:
-        merged = row['merge_commit_sha']
-        if not isinstance(merged, str) or not SHA.fullmatch(merged):
-            raise ValueError('merged commit unavailable')
+    if typed(row['merged'], bool, 'merged'):
+        merged = sha(row['merge_commit_sha'])
         events.append(('merged', str(number), merged))
         deploy = proof(lambda: receipt(settings.get('deploy_check'), task, merged))
         installed = proof(lambda: receipt(settings.get('installed_check'), task, merged))
@@ -235,25 +296,34 @@ def observe(settings, task, meta):
         detail = 'deploy=' + deploy['status'].upper() + ' installed=' + installed['status'].upper()
         detail += '; ' + str(deploy.get('reason', '')) + '; ' + str(installed.get('reason', ''))
         return events, merged, green, detail
-    if row['state'] != 'open':
+    if pr_state != 'open':
         raise ValueError('PR closed without merge')
     unknown = []
     try:
         checks = api('/repos/' + repo + '/commits/' + head + '/check-runs?filter=latest&per_page=100')
-        for check in checks['check_runs']:
-            if check['head_sha'] != head:
+        for check in typed(checks['check_runs'], list, 'check runs'):
+            typed(check, dict, 'check run')
+            if sha(check['head_sha']) != head:
                 raise ValueError('PR check head mismatch')
-            if check['conclusion'] in RED:
-                events.append(('pr-red', str(check['id']) + ':' + str(check['completed_at']), head))
+            conclusion = check['conclusion']
+            check_id = typed(check['id'], int, 'check id')
+            completed_at = check['completed_at']
+            if completed_at is not None:
+                typed(completed_at, str, 'check completion')
+            if conclusion is not None and typed(conclusion, str, 'check conclusion') in RED:
+                events.append(('pr-red', str(check_id) + ':'
+                               + typed(completed_at, str, 'check completion'), head))
     except (ValueError, OSError, KeyError, TypeError) as exc:
         unknown.append(str(exc))
     try:
         statuses = api('/repos/' + repo + '/commits/' + head + '/status')
-        if statuses['sha'] != head:
+        if sha(statuses['sha']) != head:
             raise ValueError('commit status head mismatch')
-        for status in statuses['statuses']:
-            if status['state'] in RED:
-                events.append(('pr-red', 'status:' + str(status['id']), head))
+        for status in typed(statuses['statuses'], list, 'commit statuses'):
+            typed(status, dict, 'commit status')
+            status_id = typed(status['id'], int, 'status id')
+            if typed(status['state'], str, 'commit state') in RED:
+                events.append(('pr-red', 'status:' + str(status_id), head))
     except (ValueError, OSError, KeyError, TypeError) as exc:
         unknown.append(str(exc))
     owner, name = repo.split('/')
@@ -262,10 +332,15 @@ def observe(settings, task, meta):
              'itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes {'
              ' ... on RemovedFromMergeQueueEvent { id beforeCommit { oid } } } } } } }')
     try:
-        drops = api('graphql', query)['data']['repository']['pullRequest']['timelineItems']['nodes']
-        for drop in drops:
-            if (drop.get('beforeCommit') or {}).get('oid') == head:
-                events.append(('queue-drop', drop['id'], head))
+        timeline = api('graphql', query)
+        for field in ['data', 'repository', 'pullRequest', 'timelineItems']:
+            timeline = typed(timeline[field], dict, 'queue ' + field)
+        for drop in typed(timeline['nodes'], list, 'queue nodes'):
+            typed(drop, dict, 'queue event')
+            drop_id = typed(drop['id'], str, 'queue id')
+            commit = drop.get('beforeCommit')
+            if commit is not None and sha(typed(commit, dict, 'queue commit')['oid']) == head:
+                events.append(('queue-drop', drop_id, head))
     except (ValueError, OSError, KeyError, TypeError) as exc:
         unknown.append(str(exc))
     if settings.get('queue_check'):
@@ -297,7 +372,7 @@ def main():
             print(30)
         return
     settings = read_json(config)
-    if settings.get('schema') != 1 or not isinstance(settings.get('tasks'), dict):
+    if typed(settings.get('schema'), int, 'registry schema') != 1 or not isinstance(settings.get('tasks'), dict):
         raise ValueError('invalid plan-leads schema')
     tasks = settings['tasks']
     for task, item in tasks.items():
@@ -328,14 +403,12 @@ def main():
         return
     if action == 'can-close' and args[1] not in tasks:
         return
-    data = read_json(ledger) if ledger.exists() else {'schema': 1, 'home': str(home), 'tasks': {}}
-    if data.get('schema') != 1 or data.get('home') != str(home) or not isinstance(data.get('tasks'), dict):
-        raise ValueError('stage ledger schema/home mismatch')
+    data = load_ledger()
     if action == 'can-close':
         task = args[1]
         if task not in tasks:
             return
-        current = data['tasks'].get(task, {})
+        current = task_record(data['tasks'].get(task, {'events': {}, 'launches': [], 'closed': False}))
         meta = metadata(task)
         completion(tasks[task], task, current, meta)
         return
@@ -348,15 +421,20 @@ def main():
             fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        data = read_json(ledger) if ledger.exists() else data
+        data = load_ledger()
         for task, item in tasks.items():
             now = int(time.time())
             record = data['tasks'].setdefault(task, {'events': {}, 'launches': [], 'closed': False})
-            old = (record.get('detail'), record.get('next_step'), record.get('closed'))
-            record.update(task=task, due=now + 300, next_step='reconcile stage', estimate=300)
+            old = None
             try:
+                task_record(record)
+                old = (record.get('detail'), record.get('next_step'), record.get('closed'))
+                record.update(task=task, due=now + 300, next_step='reconcile stage', estimate=300)
                 meta = metadata(task)
-                if record.get('closed'):
+                eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], eligibility_timeout)
+                if eligibility not in {'done', 'eligible', 'held', 'paused', 'live', 'unknown'}:
+                    raise ValueError('unreadable stage eligibility')
+                if eligibility == 'done':
                     detail = completion(item, task, record, meta)
                     record.update(detail=detail, next_step='teardown after deploy and installed green', due=now)
                 else:
@@ -364,8 +442,10 @@ def main():
                     identity = [meta.get('worktree'), meta.get('branch')]
                     if record.get('identity', identity) != identity:
                         raise ValueError('task identity changed; explicit plan reconciliation required')
-                    record.update(identity=identity, pr=meta.get('pr'), closed=False)
-                    eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], eligibility_timeout)
+                    if eligibility != 'unknown':
+                        record['closed'] = False
+                    if not record['closed']:
+                        record.update(identity=identity, pr=meta.get('pr'))
                     if eligibility != 'eligible':
                         record.update(detail='deferred: ' + eligibility, next_step='wait for eligible ended worker')
                     else:
@@ -426,6 +506,9 @@ def main():
                         if green:
                             record.update(closed=True, next_step='teardown after deploy and installed green', due=now)
             except (ValueError, OSError, KeyError, TypeError) as exc:
+                if old is None:
+                    print(task + ': UNKNOWN: ' + str(exc))
+                    continue
                 record.update(detail='UNKNOWN: ' + str(exc), next_step='repair stage evidence')
             save(data)
             if (record['detail'], record['next_step'], record['closed']) != old:

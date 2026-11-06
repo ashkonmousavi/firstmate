@@ -12,21 +12,23 @@ Class inventory inspected on 2026-11-05 on Linux x86_64, Bash 5.2.21, Python 3.1
 The executable contract belongs to [fm-stage-transition.sh](../../bin/fm-stage-transition.sh), lifecycle admission to [fm-control.sh](../../bin/fm-control.sh), and new Done transitions to [fm-backlog-transition-lib.sh](../../bin/fm-backlog-transition-lib.sh).
 The focused refresh command is `bash tests/fm-stage-transition.test.sh && FM_CONTROL_STAGE_ONLY=1 bash tests/fm-control-relaunch.test.sh`.
 These regressions use real scripts, watcher processes, registered receipt snapshots and tasks-axi with fixture forge and endpoint adapters; they do not establish real-harness startup evidence.
-The latest stage-only refresh, `bash tests/fm-stage-transition.test.sh`, exited 0 after the extended task-completion regression reproduced lost completion on the preceding stage executable.
+The latest focused refresh exited 0 after the preceding stage executable reproduced suppression of open-lead repair and a sweep abort on malformed receipts.
 
 ```text
-Ran 25 tests in 107.465s
+Ran 30 tests in 187.933s
 
 OK
+ok - stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock
 ```
 
 | Axis | Affected classes and evidence boundary |
 | --- | --- |
 | Intake and observation | `fm-pr-check.sh arm`, the authenticated `plan-stages` watcher check, direct `check`, `budget` and `can-close`; stage regressions cover registration, diagnostics, siblings surviving invalid configuration and invalid budget output, and head-bound receipt consumption. |
-| Completion callers | Inactive reconciliation and `fm-tasks-axi.sh done`/`close` use `fm_backlog_done`; stage regressions refuse pending proof, accept both green receipts, retain acceptance through the next poll without relaunch, and execute accepted close bookkeeping after metadata removal. Unlisted/no-registry tasks retain ordinary behavior. Accepted identity and head remain bound while later receipt or API failures deny cleanup; restored evidence permits cleanup again. Already-Done artifact backfill is idempotent bookkeeping, not a new Done transition. Teardown and accepted-stage polls share the completion validator used by `can-close`. |
+| Completion callers | Inactive reconciliation and `fm-tasks-axi.sh done`/`close` use `fm_backlog_done`; stage regressions refuse pending proof, accept both green receipts, retain Done acceptance through later polls without relaunch, and execute accepted close bookkeeping after metadata removal. Open leads process new red events even when their ledger was closed. Unlisted/no-registry tasks retain ordinary behavior. Done identity and head remain bound while later receipt or API failures deny cleanup; restored evidence permits cleanup again. Already-Done artifact backfill is idempotent bookkeeping, not a new Done transition. Teardown and Done-stage polls share the completion validator used by `can-close`. |
 | Task kinds and placement | Only explicit local ship leads pass `_eligible`; missing metadata, remote ships, scouts and secondmates fail that gate. Unlisted tasks keep ordinary completion. The stage suite covers ship/secondmate rejection; the shared kind and remote-host checks were inspected for the other exclusions. |
 | Status and backlog | Live, paused, transferred `captain-held`, externally held and unknown tasks defer; the focused control regression uses the real status/backlog readers and confirms no lifecycle input, metadata change or journal on refusal. |
-| Relaunch outcomes | Exit 3 from stopped-only eligibility or pre-stop capacity admission releases the reservation for the next poll. A generic 75, launch error, timeout or interruption keeps its failure/reservation because publication is ambiguous. Stage regressions cover both paths and duplicate suppression; the control regression restores capacity and launches the same task. |
+| Relaunch outcomes | A parsed stopped-only command maps every nonzero refusal before replacement launch to exit 3 through its shared exit cleanup: parsing, metadata/capability/profile checks, eligibility, lease, control lock, capacity/admission and pre-launch transaction staging. Existing native refusal codes include 1, 2, 3, 6 and 75; ordinary commands keep their codes. A spawn admission exit 75 also defers when its transaction was not published; an unclassified spawn failure, published replacement, confirmation error, outer timeout or interrupted launch remains ambiguous and keeps its reservation. Focused control cases cover lock, live lease, capacity, missing brief and argument refusal, successful retry, Done refusal, and a failure after publication. |
+| JSON boundaries | Receipts, forge response objects and nested lists/objects are typed before field access, comparison or event construction. Ledger headers are checked whenever loaded, and each task record, event, launch and binding is checked before use. A malformed lead record is preserved and reported UNKNOWN while valid sibling leads continue. Null, array and malformed-field receipts, nested forge values and ledger records are replayed beside a healthy lead. An unreadable global ledger header cannot safely identify task records and refuses the whole stage check through the existing watcher diagnostic boundary. |
 | Trigger classes | PR check/status red, native and registered queue drop, merged, deploy receipt red and installed receipt red share reservation, batching, admission and cap handling. The stage suite exercises these triggers, exact heads, duplicate events, new heads and cap expiry. |
 | Deadlines and liveness | Initial eligibility allows sequential backlog/run-state reads; the lifecycle call includes a second eligibility check under its lock and launch confirmation. The stage budget scales with lead count. Real watcher fixtures cover two 16-second launches in one sweep, heartbeat progress, and the unchanged deadline for an ordinary custom check using the Perl runner. |
 | Harnesses | Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, omp, agy, Devin, Command Code, Polytoken, Cortex and Kiro share this outer stage boundary. No vendor key, status classifier or launch template changes. Codex's positional 120-second allowance, typed readiness plus processing, and control's 90-second confirmation were inspected; the ten-minute control default also includes repeated eligibility and preflight. Other existing startup gates remain inside that same deadline. |
@@ -39,6 +41,22 @@ Plausible rejected behaviors include closing immediately at merge, treating `cap
 The real-harness refresh entry points are `tests/fm-harness-liveness-drift-live-e2e.test.sh`, `tests/fm-launch-prompt-signals-live-e2e.test.sh`, `tests/fm-codex-brief-typed-live-e2e.test.sh` and `tests/fm-control-claude-busy-live-e2e.test.sh`; `tests/fm-control-herdr-smoke.test.sh` covers the real Herdr registry with stand-in processes.
 Those guards have narrower signal, prompt or transport scope and do not prove a complete plan-owner stage cycle.
 No real-harness, real deployment, installed-app, remote-home or machine-install guard is run by this focused review phase; registry and receipt-producer installation is the separately owned follow-up.
+
+The poll's completion matrix below uses the native backlog states and a merged head whose initial merged event has already been handled.
+Green means both head-bound receipts are green; red means at least one has a new red event; pending and unknown mean neither has an actionable new red event and both are not green.
+
+| Backlog state | Ledger closed before poll | Green | Red | Pending | Unknown |
+| --- | --- | --- | --- | --- | --- |
+| Queued | false | Close ledger | Relaunch, remain open | Remain open | Remain open |
+| Queued | true | Revalidate and close ledger | Clear closed and relaunch | Clear closed | Clear closed |
+| In flight | false | Close ledger | Relaunch, remain open | Remain open | Remain open |
+| In flight | true | Revalidate and close ledger | Clear closed and relaunch | Clear closed | Clear closed |
+| Done | false | UNKNOWN, no trusted completion | UNKNOWN, no launch | UNKNOWN, no launch | UNKNOWN, no launch |
+| Done | true | Revalidate completion, allow cleanup | Retain binding, deny cleanup, no launch | Retain binding, deny cleanup, no launch | Retain binding, deny cleanup, no launch |
+
+For either open backlog state, live workers and declared or structured holds veto receipt-driven actions for both ledger values and every verdict; a known non-Done deferral clears closed and a later eligible poll processes the event.
+An unreadable eligibility/backlog result preserves an existing checkpoint without changing its PR or head, reports the deferral and launches nothing; cleanup still requires the fresh completion validator.
+The stage regressions execute all 24 native-state/ledger/verdict combinations, orthogonal live/hold/unknown deferrals, and every supported red trigger after green.
 
 ## Treehouse acquisition failure diagnostics
 

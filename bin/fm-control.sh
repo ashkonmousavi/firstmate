@@ -288,6 +288,7 @@ CONTROL_LOCK=
 CONTROL_LOCK_HELD=0
 RELAUNCH_ACTIVE=0
 RELAUNCH_PHASE=start
+RELAUNCH_SPAWN_STARTED=0
 
 control_cleanup() {
   local status=$?
@@ -306,6 +307,10 @@ control_cleanup() {
   fi
   if declare -F fm_lease_guard_release >/dev/null 2>&1; then
     fm_lease_guard_release || true
+  fi
+  if [ "${VERB:-}" = relaunch ] && [ "${IF_STOPPED:-0}" = 1 ] \
+    && [ "$status" -ne 0 ] && [ "$RELAUNCH_SPAWN_STARTED" = 0 ]; then
+    exit 3
   fi
   return "$status"
 }
@@ -351,6 +356,7 @@ LANDED_WORK=0
 EXPECT_GEN=
 EXPECT_GEN_SET=0
 control_want_value=
+trap control_cleanup EXIT
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
     case "$control_arg" in
@@ -447,7 +453,6 @@ ID=$RAW_ID
 . "$SCRIPT_DIR/fm-lease-lib.sh"
 fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
-trap control_cleanup EXIT
 if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
   if [ "$RECOVER_ONLY" = 1 ] || [ "$IF_IDLE" = 1 ]; then
     echo "another lifecycle action is already running for task $ID" >&2
@@ -1736,13 +1741,7 @@ do_relaunch() {
     return
   fi
   safe_checkpoint
-  relaunch_admission_preflight || {
-    spawn_status=$?
-    if [ "$IF_STOPPED" = 1 ] && [ "$spawn_status" -eq 75 ]; then
-      return 3
-    fi
-    return "$spawn_status"
-  }
+  relaunch_admission_preflight || return $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"
@@ -1763,6 +1762,7 @@ do_relaunch() {
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
+  RELAUNCH_SPAWN_STARTED=1
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
@@ -1788,6 +1788,7 @@ do_relaunch() {
     [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ] \
       || RELAUNCH_META_PUBLISHED=1
     if [ "$spawn_status" = 75 ]; then
+      [ "$RELAUNCH_META_PUBLISHED" = 1 ] || RELAUNCH_SPAWN_STARTED=0
       echo "error: commit-phase failure: replacement spawn for $ID was deferred after its old agent stopped" >&2
       exit 75
     fi
@@ -1828,6 +1829,7 @@ do_relaunch_released() {
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
+  RELAUNCH_SPAWN_STARTED=1
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
     FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
@@ -1837,7 +1839,10 @@ do_relaunch_released() {
       die "the released relaunch of $ID failed; its current copy and record were kept because safe rollback was not proven. Inspect $(fm_meta_get "$META" worktree); the prior record is at $prior_stage"
     fi
     rm -f "$prior_stage"
-    [ "$spawn_status" -ne 75 ] || exit 75
+    if [ "$spawn_status" = 75 ]; then
+      RELAUNCH_SPAWN_STARTED=0
+      exit 75
+    fi
     die "the released copy of $ID could not be recreated and relaunched on $TARGET_HARNESS; its released record, instructions and journal are unchanged"
   fi
   mv -f "$note_stage" "$NOTE_FILE" \

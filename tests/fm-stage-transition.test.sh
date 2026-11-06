@@ -7,6 +7,7 @@ set -eu
 export FM_STAGE_TEST_ROOT="$ROOT"
 python3 - <<'PY'
 import base64
+import copy
 import json
 import os
 from pathlib import Path
@@ -65,6 +66,8 @@ elif '/check-runs?' in path: name='checks'
 elif path.endswith('/status'): name='statuses'
 elif path == 'graphql': name='queue'
 else: sys.exit(9)
+if '/repos/example/healthy/' in path or (path == 'graphql' and 'name:"healthy"' in sys.argv[-1]):
+    name = 'healthy-' + name
 print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
 ''')
         self.env = dict(os.environ, FM_HOME=str(self.home), FM_STATE_OVERRIDE=str(self.state),
@@ -512,7 +515,7 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.run_stage('check')
         self.tool(reconcile, 'scan', '--startup')
         self.assertEqual(self.backlog_state('lead'), 'done')
-        self.write('eligible', 'held')
+        self.write('eligible', 'done')
         calls = self.calls()
         self.run_stage('check')
         self.assertTrue(self.record()['closed'])
@@ -532,7 +535,7 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
             result = self.tool(wrapper, action, 'lead')
             self.assertTrue(result.stdout.strip())
             self.assertEqual(self.backlog_state('lead'), 'done')
-            self.write('eligible', 'held')
+            self.write('eligible', 'done')
             calls = self.calls()
             self.run_stage('check')
             self.assertTrue(self.record()['closed'])
@@ -558,7 +561,7 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.add_backlog('lead')
         self.accept_stage()
         self.tool(ROOT / 'bin/fm-tasks-axi.sh', 'done', 'lead')
-        self.write('eligible', 'held')
+        self.write('eligible', 'done')
         calls = self.calls()
         for defect in ['pr', 'branch', 'worktree', 'head', 'deploy', 'installed', 'api']:
             with self.subTest(defect=defect):
@@ -590,6 +593,172 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
                 self.assertTrue(self.record()['closed'])
                 self.run_stage('can-close', 'lead')
                 self.assertEqual(self.calls(), calls)
+
+    def reset_ledger(self, data=None):
+        if data is None:
+            data = {'schema': 1, 'home': str(self.home.resolve()), 'tasks': {}}
+        (self.state / '.stage-transitions.json').write_text(json.dumps(data))
+        self.write('calls', '')
+
+    def test_backlog_completion_receipt_matrix(self):
+        self.add_backlog('lead')
+        self.accept_stage()
+        baseline = json.loads((self.state / '.stage-transitions.json').read_text())
+        for state in ['queued', 'in_flight', 'done']:
+            self.tool('tasks-axi', 'reopen', 'lead', '--file', 'data/backlog.md')
+            if state != 'queued':
+                self.tool('tasks-axi', 'start', 'lead', '--file', 'data/backlog.md')
+            if state == 'done':
+                self.tool('tasks-axi', 'done', 'lead', '--file', 'data/backlog.md')
+            self.assertEqual(self.backlog_state('lead'), state)
+            for closed in [False, True]:
+                for verdict in ['green', 'red', 'pending', 'unknown']:
+                    with self.subTest(state=state, closed=closed, verdict=verdict):
+                        data = copy.deepcopy(baseline)
+                        data['tasks']['lead']['closed'] = closed
+                        self.reset_ledger(data)
+                        self.write('eligible', 'done' if state == 'done' else 'eligible')
+                        self.check('deploy', verdict, event='matrix-verdict')
+                        self.run_stage('check')
+                        if state == 'done':
+                            self.assertEqual(self.calls(), [])
+                            self.assertEqual(self.record()['closed'], closed)
+                            allowed = closed and verdict == 'green'
+                        else:
+                            self.assertEqual(self.calls(), ['lead'] if verdict == 'red' else [])
+                            allowed = verdict == 'green'
+                            self.assertEqual(self.record()['closed'], allowed)
+                        self.run_stage('can-close', 'lead', good=allowed)
+
+    def test_open_completed_lead_processes_every_new_red_trigger(self):
+        self.accept_stage()
+        baseline = json.loads((self.state / '.stage-transitions.json').read_text())
+        for trigger in ['deploy', 'installed', 'check', 'status', 'queue', 'queue-local']:
+            with self.subTest(trigger=trigger):
+                self.reset_ledger(copy.deepcopy(baseline))
+                self.pr(merged=trigger in ['deploy', 'installed'])
+                self.check('deploy', 'green')
+                self.check('installed', 'green')
+                self.put('checks', {'check_runs': []})
+                self.put('statuses', {'sha': HEAD, 'statuses': []})
+                self.queue()
+                self.settings['tasks']['lead'].pop('queue_check', None)
+                if trigger in ['deploy', 'installed']:
+                    self.check(trigger, 'red', event='after-green')
+                elif trigger == 'check':
+                    self.red(7)
+                elif trigger == 'status':
+                    self.put('statuses', {'sha': HEAD, 'statuses': [{'id': 7, 'state': 'failure'}]})
+                elif trigger == 'queue':
+                    self.queue('after-green')
+                else:
+                    self.settings['tasks']['lead']['queue_check'] = 'queue-local'
+                    self.check('queue-local', 'red', head=HEAD, event='after-green')
+                self.configure()
+                self.run_stage('check')
+                self.assertEqual(self.calls(), ['lead'])
+                self.assertFalse(self.record()['closed'])
+                self.run_stage('check')
+                self.assertEqual(self.calls(), ['lead'])
+
+    def test_open_lead_guards_preserve_deferral_before_receipt_actions(self):
+        self.accept_stage()
+        baseline = json.loads((self.state / '.stage-transitions.json').read_text())
+        for closed in [False, True]:
+            for guard in ['held', 'paused', 'live', 'unknown']:
+                for verdict in ['green', 'red']:
+                    with self.subTest(closed=closed, guard=guard, verdict=verdict):
+                        data = copy.deepcopy(baseline)
+                        data['tasks']['lead']['closed'] = closed
+                        self.reset_ledger(data)
+                        self.write('eligible', guard)
+                        self.check('deploy', verdict, event='guarded-result')
+                        self.run_stage('check')
+                        self.assertEqual(self.calls(), [])
+                        self.assertEqual(self.record()['closed'], closed if guard == 'unknown' else False)
+                        self.write('eligible', 'eligible')
+                        self.run_stage('check')
+                        self.assertEqual(self.calls(), ['lead'] if verdict == 'red' else [])
+                        self.assertEqual(self.record()['closed'], verdict == 'green')
+
+    def healthy_lead(self, merged):
+        url = URL.replace('/project/', '/healthy/')
+        self.settings['tasks']['healthy'] = {'deploy_check': 'healthy-deploy', 'installed_check': 'healthy-installed'}
+        self.configure()
+        (self.state / 'healthy.meta').write_text(self.meta.replace(URL, url).replace('/lead', '/healthy'))
+        for name in ['pr', 'checks', 'statuses', 'queue']:
+            data = json.loads((self.home / (name + '.json')).read_text())
+            if name == 'pr':
+                data['html_url'] = url
+                data['merged'] = merged
+                data['state'] = 'closed' if merged else 'open'
+            self.put('healthy-' + name, data)
+        self.check('healthy-deploy', 'green')
+        self.check('healthy-installed', 'green')
+
+    def test_non_object_receipts_leave_healthy_sibling_running(self):
+        for check in ['deploy', 'installed', 'queue-local']:
+            merged = check != 'queue-local'
+            self.pr(merged=merged)
+            self.healthy_lead(merged)
+            self.check('deploy', 'green')
+            self.check('installed', 'green')
+            if check == 'queue-local':
+                self.settings['tasks']['lead']['queue_check'] = check
+                self.configure()
+                self.red()
+                self.put('healthy-checks', json.loads((self.home / 'checks.json').read_text()))
+            else:
+                self.settings['tasks']['lead'].pop('queue_check', None)
+                self.configure()
+            for value in [None, [], 7, 'bad', {'head': MERGED, 'status': [], 'event': 'x'},
+                          {'head': MERGED, 'status': 'green', 'event': 'x', 'reason': []}]:
+                with self.subTest(check=check, value=value):
+                    self.check(check, 'green', head=MERGED if merged else HEAD)
+                    self.put(check, value)
+                    self.reset_ledger()
+                    self.run_stage('check')
+                    self.assertIn('UNKNOWN', self.record()['detail'])
+                    self.assertIn('healthy', self.calls())
+
+    def test_bad_forge_and_ledger_shapes_are_local_to_one_lead(self):
+        self.red()
+        self.healthy_lead(False)
+        cases = [('pr', None), ('pr', []),
+                 ('pr', {'html_url': URL, 'number': 42, 'head': None}),
+                 ('checks', None), ('checks', {'check_runs': None}), ('checks', {'check_runs': [None]}),
+                 ('checks', {'check_runs': [{'head_sha': HEAD, 'id': 1, 'conclusion': [], 'completed_at': None}]}),
+                 ('checks', {'check_runs': [{'head_sha': [], 'id': 1, 'conclusion': None, 'completed_at': None}]}),
+                 ('statuses', []), ('statuses', {'sha': HEAD, 'statuses': [None]}),
+                 ('statuses', {'sha': HEAD, 'statuses': [{'id': 1, 'state': []}]}),
+                 ('queue', {'data': None}), ('queue', {'data': {'repository': []}}),
+                 ('queue', {'data': {'repository': {'pullRequest': {'timelineItems': {'nodes': [None]}}}}}),
+                 ('queue', {'data': {'repository': {'pullRequest': {'timelineItems': {
+                     'nodes': [{'id': 'drop', 'beforeCommit': []}]}}}}})]
+        originals = {name: json.loads((self.home / (name + '.json')).read_text())
+                     for name in ['pr', 'checks', 'statuses', 'queue']}
+        for name, value in cases:
+            with self.subTest(source=name, value=value):
+                for source, original in originals.items():
+                    self.put(source, original)
+                self.put(name, value)
+                self.reset_ledger()
+                self.run_stage('check')
+                self.assertIn('UNKNOWN', self.record()['detail'])
+                self.assertIn('healthy', self.calls())
+        for source, original in originals.items():
+            self.put(source, original)
+        valid = {'events': {}, 'launches': [], 'closed': False}
+        bad_records = [None, [], dict(valid, events=None), dict(valid, launches=[None]),
+                       dict(valid, closed=[]), dict(valid, events={'bad': None}),
+                       dict(valid, identity=[None, []])]
+        for value in bad_records:
+            with self.subTest(ledger=value):
+                data = {'schema': 1, 'home': str(self.home.resolve()), 'tasks': {'lead': value}}
+                self.reset_ledger(data)
+                out = self.run_stage('check')
+                self.assertIn('lead: UNKNOWN:', out)
+                self.assertIn('healthy', self.calls())
 
     def test_unlisted_scout_completion_preserves_parent_and_json_output(self):
         self.add_backlog('survey')
