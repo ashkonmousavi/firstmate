@@ -1,0 +1,15 @@
+window=primary:fm-live29439productcode
+endpoint_task_id=live29439productcode
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/3/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/project
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/live29439productcode
+tasktmp=/tmp/fm-live29439productcode
+model=default
+effort=default
+lane_profile=product-code
+spawn_gen=s1793950248.37038.2082

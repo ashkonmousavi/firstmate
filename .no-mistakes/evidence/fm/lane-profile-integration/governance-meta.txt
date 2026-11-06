@@ -1,0 +1,15 @@
+window=primary:fm-live29439governance
+endpoint_task_id=live29439governance
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/2/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/project
+harness=codex
+approval_mode=bypass
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/live29439governance
+tasktmp=/tmp/fm-live29439governance
+model=default
+effort=default
+lane_profile=governance
+spawn_gen=s1793950216.26863.27331

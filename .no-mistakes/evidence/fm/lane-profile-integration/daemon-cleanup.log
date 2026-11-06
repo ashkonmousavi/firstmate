@@ -1,0 +1,16 @@
+SIGTERM owned lab daemon pid=22993: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/primary-codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+SIGTERM owned lab daemon pid=23900: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/primary-codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server daemon pid-update-loop
+SIGTERM owned lab daemon pid=24784: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-xqph68x3/codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+SIGTERM owned lab daemon pid=26134: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-xqph68x3/codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server daemon pid-update-loop
+SIGTERM owned lab daemon pid=31786: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/primary-codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+SIGTERM owned lab daemon pid=33650: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/primary-codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server daemon pid-update-loop
+SIGTERM owned lab daemon pid=42524: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-he7cpfxi/codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+SIGTERM owned lab daemon pid=44085: ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-he7cpfxi/codex/packages/app-server-daemon/releases/0.166.0-x86_64-unknown-linux-musl/bin/codex app-server daemon pid-update-loop
+confirmed owned daemon pid=22993 exited via pidfd
+confirmed owned daemon pid=23900 exited via pidfd
+confirmed owned daemon pid=24784 exited via pidfd
+confirmed owned daemon pid=26134 exited via pidfd
+confirmed owned daemon pid=31786 exited via pidfd
+confirmed owned daemon pid=33650 exited via pidfd
+confirmed owned daemon pid=42524 exited via pidfd
+confirmed owned daemon pid=44085 exited via pidfd

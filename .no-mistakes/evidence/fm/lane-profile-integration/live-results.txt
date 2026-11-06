@@ -1,0 +1,14 @@
+LIVE refusal: unknown profile; no task metadata
+LIVE malformed alias refused without metadata
+LIVE startup ci-tooling: retained
+LIVE startup governance: retained
+BEFORE refusal native Codex PIDs=[52416]
+AFTER refusal same native Codex PIDs=[52416]
+LIVE replacement refusal preserves task record and running endpoint
+LIVE successful relaunch preserves governance; replacement native Codex PIDs=[18514]
+LIVE relaunched governance: retained only
+LIVE startup product-code: claude-context,custom_index,gitnexus,retained
+LIVE startup ci-tooling: retained
+LIVE all requested tmux scenarios passed
+CLEANUP complete: lab server stopped; owned home and runtime temp paths removed
+FINAL cleanup: exact owned detached Codex daemons exited, confirmed through pidfds; no lab executable processes remain. See daemon-cleanup.log.

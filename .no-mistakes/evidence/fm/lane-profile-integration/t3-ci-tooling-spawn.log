@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8
+fm-t3-mcp: no T3 credential at ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/config/t3code-token; the captain signs in with: bin/fm-t3-mcp.mjs login --access full-access

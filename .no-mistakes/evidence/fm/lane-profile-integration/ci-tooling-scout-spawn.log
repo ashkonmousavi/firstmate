@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 4 at ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/4/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/4/project' to release it.
+spawned live29439citoolingscout harness=codex kind=scout window=primary:fm-live29439citoolingscout worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/4/project

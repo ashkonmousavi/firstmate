@@ -1,2 +1,87 @@
-fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home
-fm-t3-mcp: no T3 credential at ~/.no-mistakes/worktrees/049a88734b0e/01M6Q77424A407CBW237T5PJ6A/.nm-live/home/config/t3code-token; the captain signs in with: bin/fm-t3-mcp.mjs login --access full-access
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8 
+~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8
+ exit=0
+$ bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8 
+/tmp/fml.6LkNHz
+ exit=0
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project 
+ exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project add . 
+ exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project -c user.name=Lab -c user.email=lab@example.invalid commit -qm seed 
+ exit=0
+$ git clone -q --bare ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/origin.git 
+ exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project remote add origin ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/origin.git 
+ exit=0
+$ tmux -L fm-lab -f /dev/null new-session -d -s primary -n main -x 140 -y 45 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V -e FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8 env CODEX_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/primary-codex codex 
+ exit=0
+$ tmux -L fm-lab display-message -p #{socket_path},#{pid},0 
+/tmp/fml.6LkNHz/tmux-1000/fm-lab,19233,0
+ exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:main 
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V
+
+
+
+
+
+
+
+
+
+
+
+                                                                 ⣀⣤⣤⣤⣀⣀
+                                                              ⣠⣶⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣤⣤⣤⣤⣤⡀
+                                                            ⢀⣾⣿⣿⠿⠋⠉⠉⢉⣭⣿⣿⣿⣿⣿⠿⣿⣿⣿⣿⣷⣄
+                                                           ⣀⣾⣿⣿⠃ ⣀⣴⣾⣿⣿⡿⠟⠋ ⣀⡀ ⠈⠙⢿⣿⣿⣧
+                                                        ⣀⣶⣿⣿⣿⣿⡇ ⢸⣿⣿⡿⠛⠉⢀⣠⣴⣿⣿⣿⣷⣦⣀⠈⢻⣿⣿⡇
+                                                       ⣰⣿⣿⡿⢿⣿⣿⡇ ⢸⣿⣿⢀⣤⣶⣿⣿⣿⠟⠛⠻⣿⣿⣿⣿⣮⣿⣿⡷
+                                                      ⢰⣿⣿⡟⠁⢸⣿⣿⡇ ⢸⣿⣿⣿⣿⠿⠿⣿⣿⣿⣦⣄⡀⠈⠛⠿⣿⣿⣿⣧⡀
+                                                      ⣾⣿⣿⠃ ⢸⣿⣿⡇ ⢸⣿⣿⠋⠁  ⠈⠙⢻⣿⣿⣿⣶⣤⡀ ⠹⢿⣿⣷⡄
+                                                      ⢸⣿⣿⣇ ⠸⣿⣿⣷⣦⣼⣿⣿      ⢸⣿⣿⠻⢿⣿⣿⡇ ⠘⣿⣿⣿
+                                                      ⠈⢿⣿⣿⣦⡀⠈⠛⠿⣿⣿⣿⣿⣄⡀  ⢀⣠⣼⣿⣿  ⣿⣿⡇  ⣿⣿⣿⠇
+                                                        ⢻⣿⣿⣿⣷⣦⣀⠈⠙⠻⣿⣿⣿⣶⣶⣿⣿⣿⣿⣿  ⣿⣿⡇ ⣠⣿⣿⣿
+                                                        ⢸⣿⣿⡿⢿⣿⣿⣿⣦⣠⣴⣿⣿⣿⡿⠟⠋⢸⣿⣿  ⣿⣿⣷⣴⣿⣿⣿⠃
+                                                        ⠘⣿⣿⣷ ⠈⠛⢿⣿⣿⣿⠿⠋⠉ ⣠⣴⣿⣿⣿  ⣿⣿⣿⣿⣿⠟⠁
+                                                         ⠻⣿⣿⣿⣤⣀ ⠈⠉ ⢀⣤⣶⣿⣿⣿⠿⠟⠁ ⣰⣿⣿⡟⠋⠁
+                                                          ⠈⠿⣿⣿⣿⣿⣶⣾⣿⣿⣿⣿⠟⠋⠁  ⣠⣼⣿⣿⡟
+                                                             ⠙⠛⠛⠛⠻⠛⢿⣿⣿⣿⣿⣷⣾⣿⣿⣿⡿⠏
+                                                                    ⠈⠙⠛⠿⠿⠿⠿⠛⠉
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+
+  ? for shortcuts
+ exit=0
+$ bin/fm-spawn.sh live18974typo ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project --mode local-only --yolo off --lane-profile typo 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8
+error: unknown --lane-profile 'typo'; expected product-code, ci-tooling, or governance
+ exit=1
+LIVE refusal: unknown profile; no task metadata
+$ bin/fm-spawn.sh live18974t3citooling ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/project --mode local-only --yolo off --backend t3code --lane-profile ci-tooling 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8
+fm-t3-mcp: no T3 credential at ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8/config/t3code-token; the captain signs in with: bin/fm-t3-mcp.mjs login --access full-access
+ exit=1
+$ tmux -L fm-lab kill-server 
+ exit=0
+$ bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-1lyq4w_8 
+ exit=0
+CLEANUP complete: lab server stopped; owned home and runtime temp paths removed
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-driver.py", line 63, in <module>
+    assert p.returncode!=0 and 'backend=t3code cannot apply --lane-profile' in p.stdout
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

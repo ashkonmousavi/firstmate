@@ -1,0 +1,12 @@
+window=primary:fm-live29439citoolingscout
+endpoint_task_id=live29439citoolingscout
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/pool/.treehouse/project-8cd143/4/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6QTD3J1C5T56947M5XWP13V/.test-tmp/live-qlp4spt1/project
+harness=codex
+approval_mode=bypass
+kind=scout
+tasktmp=/tmp/fm-live29439citoolingscout
+model=default
+effort=default
+lane_profile=ci-tooling
+spawn_gen=s1793950263.61921.14536

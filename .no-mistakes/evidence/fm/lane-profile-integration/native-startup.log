@@ -1,13 +1,38 @@
-FM_TEST_BEGIN 2026-11-06T01:58:37Z tests/fm-lane-profile-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
-process-readback product-code claude-context: 79877 78978 python3
-process-readback product-code gitnexus: 79805 78978 python3
-process-readback product-code retained: 79809 78978 python3
-native-runtime {"claude-context": "connected", "gitnexus": "connected", "retained": "connected"}
-ok - codex-cli 0.166.0 product-code: claude-context,gitnexus,retained; no model turn submitted
-process-readback ci-tooling retained: 92838 91762 python3
-native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+process-readback product-code claude-context: 48526 44933 python3
+process-readback product-code custom_index: 48530 44933 python3
+process-readback product-code gitnexus: 48476 44933 python3
+process-readback product-code retained: 48465 44933 python3
+native-runtime {"claude-context": "connected", "custom_index": "connected", "gitnexus": "connected", "retained": "connected"}
+ok - codex-cli 0.166.0 product-code: claude-context,custom_index,gitnexus,retained; no model turn submitted
+process-readback product-code claude-context: 91591 72477 python3
+process-readback product-code custom_index: 91597 72477 python3
+process-readback product-code gitnexus: 91582 72477 python3
+process-readback product-code retained: 91705 72477 python3
+native-runtime {"claude-context": "connected", "custom_index": "connected", "gitnexus": "connected", "retained": "connected"}
+ok - codex-cli 0.166.0 product-code: claude-context,custom_index,gitnexus,retained; no model turn submitted
+process-readback product-code claude-context: 10006  6707 python3
+process-readback product-code custom_index: 10074  6707 python3
+process-readback product-code gitnexus: 10071  6707 python3
+process-readback product-code retained: 10063  6707 python3
+native-runtime {"claude-context": "connected", "custom_index": "connected", "gitnexus": "connected", "retained": "connected"}
+ok - codex-cli 0.166.0 product-code: claude-context,custom_index,gitnexus,retained; no model turn submitted
+process-readback ci-tooling retained: 24747 24225 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
 ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
-process-readback governance retained: 3363  3060 python3
-native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+process-readback ci-tooling retained: 46817 45549 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
+ok - codex-cli 0.166.0 ci-tooling: hidden project indexes refused before launch
+process-readback ci-tooling retained: 75644 75223 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
+process-readback governance retained: 89491 89052 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
 ok - codex-cli 0.166.0 governance: retained; no model turn submitted
-FM_TEST_END 2026-11-06T01:58:48Z tests/fm-lane-profile-live-e2e.test.sh exit=0 duration_ms=11116 gate_skip=false
+process-readback governance retained: 8503  7690 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 governance: retained; no model turn submitted
+ok - codex-cli 0.166.0 governance: hidden project indexes refused before launch
+process-readback governance retained: 42193 41406 python3
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 governance: retained; no model turn submitted

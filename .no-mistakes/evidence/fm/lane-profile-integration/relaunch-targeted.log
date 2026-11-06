@@ -1,0 +1,3 @@
+ok - lane-profile refusal preserves the current agent and its metadata
+ok - relaunch retains one durable lane profile and its actual launch override
+ok - Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree

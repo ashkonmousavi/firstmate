@@ -1,0 +1,11 @@
+ok - product-code default preserves MCP launch settings
+ok - both reduced profiles reach Codex ship and scout launches
+ok - unknown and empty names refuse before launch or metadata
+ok - unverified reduced-profile harness and raw routes refuse
+ok - failed and malformed native server discovery and layer inspection refuse
+ok - additional aliases and absent servers use valid per-launch configuration
+ok - batch dispatch forwards its explicit profile to every isolated task
+ok - profile replay is stable and malformed or unreadable alias sources refuse
+ok - reduced footprint never leaks into a secondmate primary
+ok - worker directory drives discovery and trust-dependent index additions refuse
+ok - reduced discovery and executed launch share a root or refuse filtered inheritance
