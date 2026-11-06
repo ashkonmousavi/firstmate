@@ -3440,7 +3440,7 @@ fm_check_clock_ms() {
 }
 
 run_check_capture() {
-  local pgid rc=0 started finished
+  local pgid rc=0 started finished next_beat
   started=$(fm_check_clock_ms) || return 1
   fm_check_output_cleanup
   FM_CHECK_RESULT=
@@ -3465,6 +3465,17 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
+  next_beat=$started
+  while kill -0 "$FM_ACTIVE_CHECK_PID" 2>/dev/null; do
+    finished=$(fm_check_clock_ms) || return 1
+    [ "$finished" -lt "$((started + ${FM_CHECK_BUDGET:-$CHECK_TIMEOUT} * 1000))" ] || break
+    if [ "$finished" -ge "$next_beat" ]; then
+      [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "$WATCHER_PID" ] || exit 0
+      touch "$BEAT" || return 1
+      next_beat=$((finished + 1000))
+    fi
+    sleep 0.1
+  done
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || rc=$?
   FM_CHECK_EXIT_STATUS=$rc
   FM_ACTIVE_CHECK_PID=
