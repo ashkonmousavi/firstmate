@@ -1,0 +1,9 @@
+{
+  "head": "006a63ca5fb93c6c10bc87bee51c774656d51379",
+  "reverted_commit": "4e4a338f1167b55826b81414070402bea7b9b34f",
+  "expected_parent": "af36cd4096fcef2604d391b8a4a5183528b09f56",
+  "target_tree": "4a4d1dc470afcd6a4582299260f144fdc434db84",
+  "expected_parent_tree": "4a4d1dc470afcd6a4582299260f144fdc434db84",
+  "diff_exit": 0,
+  "tracked_worktree_changes": ""
+}

@@ -1,0 +1,9 @@
+{
+  "base": "4e4a338f1167b55826b81414070402bea7b9b34f",
+  "target": "006a63ca5fb93c6c10bc87bee51c774656d51379",
+  "target_parent": "4e4a338f1167b55826b81414070402bea7b9b34f",
+  "expected_tree_before_reverted_commit": "4a4d1dc470afcd6a4582299260f144fdc434db84",
+  "actual_target_tree": "4a4d1dc470afcd6a4582299260f144fdc434db84",
+  "exact_historical_revert": true,
+  "extra_tree_changes": []
+}

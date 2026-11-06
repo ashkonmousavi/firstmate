@@ -1,0 +1,69 @@
+{
+  "head": "006a63ca5fb93c6c10bc87bee51c774656d51379",
+  "latest_subject_results": [
+    {
+      "duration_ms": 1133337,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-autolaunch.test.sh"
+    },
+    {
+      "duration_ms": 436092,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "session-bootstrap",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-backlog-atomicity.test.sh"
+    },
+    {
+      "duration_ms": 14194,
+      "exit": 0,
+      "expected_gate_skip": "optional-binary",
+      "family": "snapshot-bearings",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-fleet-snapshot-view.test.sh"
+    },
+    {
+      "duration_ms": 216400,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "session-bootstrap",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-session-start.test.sh"
+    },
+    {
+      "duration_ms": 7236,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pr-forge",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-pr-orphan-sweep.test.sh"
+    },
+    {
+      "duration_ms": 16136,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pr-forge",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-pr-triage.test.sh"
+    }
+  ],
+  "initial_setup_failures": "Nested fixture Git discovery and the intentional refusal of secondmate homes inside the repository; reruns used disposable toolchain directories under the authorized evidence path.",
+  "original_regression": "Reproduced on archived base; target passed in full autolaunch subject.",
+  "prior_retry_timeout": "Did not recur in the full target subject; retry state retained. This does not establish a root cause for the earlier intermittent timeout.",
+  "live_evidence": [
+    "round2-live-revert-transcript.log",
+    "round2-routing-live.log",
+    "round2-startup.txt"
+  ],
+  "isolation": "No source changes. Test fixtures removed; local API server stopped; detached startup worker exited with retained rc=0.",
+  "scope": "Local Test only; no pipeline, push, PR, or CI phase executed."
+}

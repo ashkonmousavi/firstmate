@@ -1,0 +1,7 @@
+{
+  "commit": "006a63ca5fb93c6c10bc87bee51c774656d51379",
+  "platform": "Linux x86_64",
+  "tasks_axi": "0.2.6",
+  "live_driver": "bash ~/.no-mistakes/evidence/01M6QG4GJ98YRTXTMHF63ZZK56/live-revert-check.sh",
+  "base_regression_driver": "bash ~/.no-mistakes/evidence/01M6QG4GJ98YRTXTMHF63ZZK56/reproduce-base-regression.sh"
+}

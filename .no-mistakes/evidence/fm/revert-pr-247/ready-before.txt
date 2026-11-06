@@ -1,0 +1,8 @@
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  free,queued,scout,proj,"a ready item, \"quoted, title\""
+  after-done,queued,scout,proj,completed blocker clears
+  after-missing,queued,scout,proj,absent blocker clears in restored readiness
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these

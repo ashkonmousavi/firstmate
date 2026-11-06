@@ -1,0 +1,46 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 436092,
+      "failed": 0,
+      "name": "session-bootstrap"
+    },
+    {
+      "count": 1,
+      "duration_ms": 1133337,
+      "failed": 0,
+      "name": "unclassified"
+    }
+  ],
+  "finished_at": "2026-11-06T05:05:47Z",
+  "run_id": "fm-test-run-1793939978255-39529",
+  "scripts": [
+    {
+      "duration_ms": 1133337,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-autolaunch.test.sh"
+    },
+    {
+      "duration_ms": 436092,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "session-bootstrap",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-backlog-atomicity.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-06T04:39:38Z",
+  "summary": {
+    "duration_ms": 1569491,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 2
+  }
+}

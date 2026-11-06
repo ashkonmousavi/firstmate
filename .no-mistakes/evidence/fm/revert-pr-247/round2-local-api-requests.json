@@ -1,0 +1,253 @@
+[
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner:String!,$name:String!,$endCursor:String){repository(owner:$owner,name:$name){pullRequests(states:OPEN,first:50,after:$endCursor,orderBy:{field:CREATED_AT,direction:ASC}){pageInfo{hasNextPage endCursor} nodes{number url title isDraft headRefName headRefOid baseRefName mergeable author{login} labels(first:50){nodes{name}} files(first:100){nodes{path}} commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/status"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/11"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/12"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/13"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/14"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner:String!,$name:String!,$endCursor:String){repository(owner:$owner,name:$name){pullRequests(states:OPEN,first:50,after:$endCursor,orderBy:{field:CREATED_AT,direction:ASC}){pageInfo{hasNextPage endCursor} nodes{number url title isDraft headRefName headRefOid baseRefName mergeable author{login} labels(first:50){nodes{name}} files(first:100){nodes{path}} commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/status"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/11"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/12"
+  },
+  {
+    "method": "GET",
+    "path": "/queue/show/14"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls?state=open&per_page=100"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/11"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/12"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/14"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls?state=open&per_page=100"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/11"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/12"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls/14"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/repos/o/r/pulls?state=open&per_page=100"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "POST",
+    "path": "/graphql",
+    "query": "query UserCurrent{viewer{login}}"
+  },
+  {
+    "method": "CONNECT",
+    "host": "api.github.com:443"
+  },
+  {
+    "method": "GET",
+    "path": "/"
+  }
+]

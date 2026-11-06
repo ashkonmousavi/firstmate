@@ -1,0 +1,139 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6
+
+--- Real task readiness before completing blocker ---
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  free,queued,scout,proj,"a ready item, \"quoted, title\""
+  after-done,queued,scout,proj,completed blocker clears
+  after-missing,queued,scout,proj,absent blocker clears in restored readiness
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+
+--- Scheduler prepared list excludes active blockers ---
+free
+after-done
+after-missing
+
+--- Real hold removes ready work from scheduler selection ---
+ok: hold free -> held (parked)
+task:
+  id: free
+  title: "a ready item, \"quoted, title\""
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: temporary verification hold
+  hold_kind: parked
+  hold_until: "-"
+  kind: scout
+  repo: proj
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold free` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+after-done
+after-missing
+ok: unhold free -> cleared
+task:
+  id: free
+  title: "a ready item, \"quoted, title\""
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: proj
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+--- Complete real task through wrapper ---
+ok: done active -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+count: 4
+ready[4]{id,state,kind,repo,title}:
+  free,queued,scout,proj,"a ready item, \"quoted, title\""
+  wait-live,queued,scout,proj,blocked by active work
+  after-done,queued,scout,proj,completed blocker clears
+  after-missing,queued,scout,proj,absent blocker clears in restored readiness
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+
+--- Restored snapshot dependency view ---
+[
+  {
+    "id": "wait-live",
+    "blocked_by_ids": [
+      "active"
+    ],
+    "unresolved_blocker_ids": []
+  },
+  {
+    "id": "after-done",
+    "blocked_by_ids": [
+      "finished"
+    ],
+    "unresolved_blocker_ids": []
+  },
+  {
+    "id": "after-missing",
+    "blocked_by_ids": [
+      "absent"
+    ],
+    "unresolved_blocker_ids": [
+      "absent"
+    ]
+  }
+]
+
+--- Real candidate producer reads native ready output ---
+count: 4
+ready[4]{id,state,kind,repo,title}:
+  free,queued,scout,proj,"a ready item, \"quoted, title\""
+  wait-live,queued,scout,proj,blocked by active work
+  after-done,queued,scout,proj,completed blocker clears
+  after-missing,queued,scout,proj,absent blocker clears in restored readiness
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+{
+  "schema": "fm-seat-candidates/v1",
+  "complete": false,
+  "tasks": {
+    "evidence_digest": "sha256:2151f235fdaa6c2433d20cd2f7483330b8e7d9302947c8c6517dbcdc41e9a32e",
+    "reason": "ready membership read completely",
+    "revision": "sha256:2151f235fdaa6c2433d20cd2f7483330b8e7d9302947c8c6517dbcdc41e9a32e",
+    "status": "ok"
+  },
+  "entries": [
+    "free",
+    "wait-live",
+    "after-done",
+    "after-missing"
+  ]
+}
+
+--- Incomplete production evidence must refuse selection ---
+{"entries": [], "homes": [{"home": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "reason": "candidate publication is incomplete", "status": "unavailable"}], "reasons": [{"code": "home-unavailable", "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "reason": "candidate publication is incomplete", "retry": "fresh complete publication", "scope": "machine"}], "schema": "join/v1", "status": "NO_PICK"}
+
+--- Malformed persisted publication must refuse selection ---
+{"entries": [], "homes": [{"home": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "reason": "Expecting value: line 1 column 62 (char 61)", "status": "unavailable"}], "reasons": [{"code": "home-unavailable", "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6QG4GJ98YRTXTMHF63ZZK56/.revert-lab.pe78l6", "reason": "Expecting value: line 1 column 62 (char 61)", "retry": "fresh complete publication", "scope": "machine"}], "schema": "join/v1", "status": "NO_PICK"}
+
+All real CLI observations matched the restored pre-cut-13 contracts. Lab removed on exit.

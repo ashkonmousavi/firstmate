@@ -1,0 +1,12 @@
+{
+  "normal": {
+    "exit": 0,
+    "output": "https://github.com/ashkonmousavi/firstmate.git\n"
+  },
+  "ceiling": {
+    "exit": 128,
+    "output": "fatal: not a git repository (or any of the parent directories): .git\n"
+  },
+  "explanation": "Without a ceiling, nested non-repository fixtures inherit the gate remote; with the ceiling Git refuses repository discovery at the fixture root. This is test setup, not a product patch.",
+  "source": "https://git-scm.com/docs/git#Documentation/git.txt-GITCEILINGDIRECTORIES"
+}
