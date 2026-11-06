@@ -3424,8 +3424,24 @@ watcher_stop_signals() {
   trap 'exit 1' INT
 }
 
+# Match the checkpoint clock's Linux/portable monotonic sources, retaining
+# milliseconds so whole-second sampling cannot erase a short timeout.
+fm_check_clock_ms() {
+  local uptime whole fraction
+  if [ -r /proc/uptime ]; then
+    read -r uptime _ < /proc/uptime || return 1
+    whole=${uptime%%.*}
+    fraction=${uptime#*.}000
+    printf '%s\n' "$((10#$whole * 1000 + 10#${fraction:0:3}))"
+  else
+    perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e \
+      'printf "%.0f\n", 1000 * clock_gettime(CLOCK_MONOTONIC)'
+  fi
+}
+
 run_check_capture() {
-  local pgid rc=0 started=$SECONDS
+  local pgid rc=0 started finished
+  started=$(fm_check_clock_ms) || return 1
   fm_check_output_cleanup
   FM_CHECK_RESULT=
   FM_CHECK_EXIT_STATUS=0
@@ -3459,7 +3475,8 @@ run_check_capture() {
     FM_CHECK_EXIT_STATUS=124
     rc=124
   fi
-  FM_CHECK_ELAPSED=$((SECONDS - started))
+  finished=$(fm_check_clock_ms) || return 1
+  FM_CHECK_ELAPSED=$(((finished - started + 999) / 1000))
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
   # Keep what the check printed before the cut, then report the cut itself.
@@ -3467,8 +3484,9 @@ run_check_capture() {
 }
 
 # Persist the just-completed check, without changing curated's per-run wakes.
-# budget_seconds and elapsed_seconds are whole seconds; identity authenticates
-# the executed custom snapshot or names the existing specialized poll path.
+# budget_seconds is the bound; elapsed_seconds rounds monotonic elapsed time
+# including cleanup up to whole seconds. Identity authenticates the executed
+# custom snapshot or names the existing specialized poll path.
 check_run_record() {
   local c=$1 identity=$2 result=failed record tmp
   record="$STATE/.check-run-$(basename "$c" .check.sh)"

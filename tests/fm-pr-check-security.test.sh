@@ -1588,7 +1588,7 @@ SH
     sweep "$dir/watch1.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the first sweep (rc=$rc): $(cat "$dir/watch.err")"
     elapsed=$(sed -n 's/^.* (measured \([1-9][0-9]*\)s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)$/\1/p' "$dir/watch1.out")
-    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds"
+    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds: $(cat "$dir/watch1.out"); stderr: $(cat "$dir/watch.err")"
     expected="check: $state/slow.check.sh: timed out after 1s (measured ${elapsed}s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)"
     [ "$(cat "$dir/watch1.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for a check killed at the bound: $(cat "$dir/watch1.out")"
@@ -1599,7 +1599,7 @@ SH
     sweep "$dir/watch2.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the repeat sweep (rc=$rc)"
     elapsed=$(sed -n 's/^.* (measured \([1-9][0-9]*\)s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)$/\1/p' "$dir/watch2.out")
-    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds"
+    [ -n "$elapsed" ] || fail "$backend timeout wake omitted positive measured seconds: $(cat "$dir/watch2.out"); stderr: $(cat "$dir/watch.err")"
     expected="check: $state/slow.check.sh: timed out after 1s (measured ${elapsed}s; ❌ failing tool: slow; FM_CHECK_TIMEOUT)"
     [ "$(cat "$dir/watch2.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for the consecutive timed-out run: $(cat "$dir/watch2.out")"
