@@ -26,8 +26,8 @@
 # A plain scheduler (cron or a systemd user timer, see --print-timer) runs one
 # pass every five minutes with FM_HOME set explicitly. Nothing here enables a
 # schedule; docs/configuration.md "Auto-launch" owns enabling it per machine.
-# The pass never rides the watcher's check sweep, whose 30 s bound a spawn does
-# not fit; only the companion throttle check bin/fm-autolaunch-check.sh does.
+# The pass never rides the watcher's check sweep, whose default 30 s budget a
+# spawn does not fit; only the companion throttle check bin/fm-autolaunch-check.sh does.
 #
 # CONTROLLER. CUT1 selects the bounded controller with config/autolaunch-sole
 # or an existing state/autolaunch-controller journal. A verified user manager

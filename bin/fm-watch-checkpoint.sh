@@ -2,6 +2,10 @@
 # Run one bounded foreground watcher checkpoint for harnesses that should not
 # rely on background-task completion to wake the model.
 #
+# For direct watcher checkpoints, --help owns check admission and ordering.
+# An admitted check completing at or after the quiet boundary gets five seconds
+# to acquire the wake-queue lock and publish its result before returning control.
+#
 # SUPERVISION HOST. A home opted in with config/supervision-host
 # (docs/configuration.md "Supervision host" owns the gate;
 # config/supervision-host-off opts out, and a Codex home without the file does not run the host) runs

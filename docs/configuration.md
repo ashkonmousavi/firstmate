@@ -2714,7 +2714,7 @@ Arm the check once per home with `bin/fm-tool-update-check.sh arm`.
 | `FM_TOOL_UPDATE_BUDGET_SECS` | 20 | Bounds a whole sweep. |
 
 - A sweep that runs out of budget says which tool it did not reach rather than reporting the rest as current.
-- The sweep must finish inside `FM_CHECK_TIMEOUT` (default 30); the watcher records and reports a killed run as a timeout failure.
+- The sweep must finish inside `FM_CHECK_TIMEOUT`; see [custom-check timeout behavior](#environment-variables).
 - So a budget larger than that timeout allows is cut down to what fits instead of being refused, and the cut is reported in the report line.
 - A budget that is not a whole number from 1 to 120 is still refused outright.
 
@@ -3824,7 +3824,8 @@ FM_INBOX_PROFILE=       # overrides config/inbox-profile; explicitly empty force
 ```
 
 Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
-Foreground checkpoint admission and deferral reporting are owned by [`bin/fm-watch-checkpoint.sh --help`](../bin/fm-watch-checkpoint.sh); ordinary watchers retain the full authenticated budget.
+The watcher exports the selected budget as `FM_CHECK_TIMEOUT` to that check's process.
+Foreground checkpoint admission, deferral reporting, and publication allowance are owned by the [`bin/fm-watch-checkpoint.sh` header and `--help`](../bin/fm-watch-checkpoint.sh); ordinary watchers retain the full authenticated budget.
 Each timed-out custom-check run emits one wake as `check: <path>: timed out after <budget>s (measured <elapsed>s; ❌ failing tool: <id>; FM_CHECK_TIMEOUT)`, preserving any output printed before the cut ahead of the timeout text.
 Each other custom-check run that exits nonzero emits one wake as `check: <path>: exited <code> after <elapsed>s`, appending `: <output>` when present.
 Exit-0 output wakes unchanged, with empty output silent.
