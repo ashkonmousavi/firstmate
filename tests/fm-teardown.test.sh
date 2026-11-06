@@ -5985,8 +5985,13 @@ test_release_refuses_when_the_head_is_only_on_the_gate_remote() {
       teardown_capture "$case_dir"
     fi
     expect_code 1 "$TEARDOWN_CAPTURE_RC" "$mode gate-only: a head only on the no-mistakes remote must keep the copy"$'\n'"$(cat "$case_dir/stderr")"
-    assert_grep "has work not on any remote and not landed" "$case_dir/stderr" \
-      "$mode gate-only: the refusal did not identify unlanded mirror-only work"
+    if [ "$mode" = keep-open ]; then
+      assert_grep "has head $(cat "$case_dir/forge-head") on the forge" "$case_dir/stderr" \
+        "$mode gate-only: the refusal did not name the forge head"
+    else
+      assert_grep "is still open; clean up after it merges" "$case_dir/stderr" \
+        "$mode gate-only: the refusal did not preserve the open pull request"
+    fi
     assert_present "$case_dir/wt" "$mode gate-only: the copy holding the unforged commit was removed"
     [ "$(cat "$case_dir/state/task-x1.meta")" = "$before" ] \
       || fail "$mode gate-only: the refused release rewrote the task record"
