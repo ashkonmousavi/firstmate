@@ -13,6 +13,9 @@
 #
 # --if-stopped refuses unless the plan-stage eligibility adapter confirms an
 # unheld, undeclared-wait task with no live agent, under the lifecycle lock.
+# Once parsed, it maps nonzero pre-launch refusals (including lock, lease and
+# admission) to exit 3. A spawn admission deferral also returns 3 if no replacement
+# record was published; ambiguous or post-publication failures keep their codes.
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
 # DATA plane: conversational text for the agent to read, always routing-marked

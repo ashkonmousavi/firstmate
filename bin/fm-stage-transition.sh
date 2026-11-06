@@ -10,6 +10,10 @@
 # Tasks are explicit local ship leads; unlisted tasks retain existing behavior.
 # Optional per-task relaunch_cap defaults to 3 attempts/hour/head/event class;
 # capped events become eligible again after their one-hour window expires.
+# check admits only unheld, unblocked Queued/In flight leads with no live
+# worker or declared wait; known non-Done deferrals clear ledger completion.
+# PR check/status red, queue drop, merge, deploy red and installed red trigger
+# bounded relaunches in the same task, branch and copy, batched once per poll.
 # due (epoch), next_step (text), task and estimate (seconds) are carried in
 # state/.stage-transitions.json for the plan owner's wait-line renderer.
 #
@@ -28,7 +32,18 @@
 # than risking a duplicate launch. Failed launches are recorded and surfaced,
 # never silently retried; proven admission deferrals remain eligible.
 # Duplicate observations increment duplicate_count.
-# Accepted completion is retained; cleanup revalidates its identity and receipts.
+# Both merged-head receipts green close the ledger only when no new relaunch
+# is owed. fm-backlog-transition-lib.sh gates new Done acceptance on can-close;
+# fm-teardown.sh also requires it, including with --force.
+# A Done row never relaunches and retains its accepted completion binding;
+# can-close and later Done polls revalidate the same PR, branch, copy and head
+# against fresh receipts. Still-open leads process new events even after green.
+# Malformed receipt/forge values or task ledger records read UNKNOWN locally;
+# an invalid registry or global ledger header refuses the entire stage sweep.
+# FM_STAGE_CONTROL_TIMEOUT defaults to 600 seconds per relaunch; eligibility
+# reads allow 60 seconds. budget returns 30 + lead_count * (control_timeout
+# + 60 + 60) seconds; fm-watch.sh uses at least that bound for plan-stages,
+# keeping its heartbeat fresh while waiting and other check deadlines unchanged.
 # _eligible and _receipt are internal shell-library adapters, also used by the
 # control plane for its under-lock stopped-only precondition.
 set -eu

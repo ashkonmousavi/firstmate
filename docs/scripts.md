@@ -184,6 +184,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-pr-health.sh`        | Opt-in: enroll owned PRs; wake once per latest commit for conflicts, failing checks, and author actions; record maintainer-gated CI and missing required reviews without waking the task, using GitHub notifications plus a fallback sweep (see [configuration.md](configuration.md#pr-health-monitor-configpr-health-monitor)) |
 | `fm-pr-check.sh`         | Record validated task `pr=` and `pr_head=` values, then atomically arm a static merge poll; refuses GitHub drafts and persistent secondmate records (see [architecture.md](architecture.md)) |
 | `fm-pr-check-rearm.sh` | Refresh authenticated PR poll generations after a code update and report failures |
+| [`fm-stage-transition.sh`](../bin/fm-stage-transition.sh) | Continue registered ended plan leads through owner stages ([setup](configuration.md#plan-owner-stage-continuation-configplan-leadsjson)) |
 | `fm-pr-poll-retire.sh` | Retire one named PR poll with a reason while preserving task work |
 | `fm-review-check.sh`    | Record a forge=external task's validated `review=` and `review_head=` without arming a merge watch ([design](external-review-forge.md)) |
 | `fm-external-review-lib.sh` | Shared readers for the forge=external review tool adapter, ready-URL pattern, backup remote, and remote URLs |

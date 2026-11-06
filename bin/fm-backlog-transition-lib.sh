@@ -60,6 +60,8 @@
 # first applies any supported retained artifact from the validated record, then
 # replay simply retires the record.
 # Scout-phase retention and report-based replay follow fm_backlog_retain below.
+# New Done transitions for configured plan leads require the completion proof
+# owned by bin/fm-stage-transition.sh; already-Done artifact backfill skips it.
 
 # Set by fm_backlog_transition_applies for a return-1 exemption.
 # shellcheck disable=SC2034 # Output global, read by the sourcing caller.

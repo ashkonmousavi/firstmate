@@ -34,6 +34,8 @@
 # ship-landing owns the acceptance procedure and
 # pending-proof resource release through fm-control.sh exit.
 # None of this loosens the landed-work gates below or the retained-task paths.
+# Configured plan leads additionally require bin/fm-stage-transition.sh's
+# can-close proof before any cleanup, including --force and --keep-open.
 # The close - and only the close - is replaced by `tasks-axi reopen` with the
 # deliverable recorded while the backlog item is still an open captain call
 # (bin/fm-captain-hold.sh `open` owns that predicate), because the policy holds

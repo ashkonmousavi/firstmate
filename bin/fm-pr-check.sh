@@ -22,6 +22,9 @@
 # skips this refusal, because its own merge-time draft refusal is authoritative.
 # The recorded pr= also frees the task's place in a declared project capacity
 # (bin/fm-project-capacity-lib.sh).
+# With config/plan-leads.json present, also arm the home-level continuation
+# owned by bin/fm-stage-transition.sh; its failure makes this command fail
+# after the PR record and merge poll have already been published.
 # Usage: fm-pr-check.sh <task-id> <pr-url>
 set -eu
 
