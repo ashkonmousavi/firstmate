@@ -1,0 +1,137 @@
+
+SCENARIO: Malformed, duplicate, and edited budgets cannot gain execution trust
+$ bin/fm-check-register.sh zero [home=registration]
+error: malformed custom check budget (FM_CHECK_TIMEOUT)
+exit=2; elapsed=0.02s
+
+$ bin/fm-check-register.sh leading [home=registration]
+error: malformed custom check budget (FM_CHECK_TIMEOUT)
+exit=2; elapsed=0.02s
+
+$ bin/fm-check-register.sh large [home=registration]
+error: malformed custom check budget (FM_CHECK_TIMEOUT)
+exit=2; elapsed=0.02s
+
+$ bin/fm-check-register.sh junk [home=registration]
+error: malformed custom check budget (FM_CHECK_TIMEOUT)
+exit=2; elapsed=0.02s
+
+$ bin/fm-check-register.sh duplicate [home=registration]
+error: malformed custom check budget (FM_CHECK_TIMEOUT)
+exit=2; elapsed=0.02s
+
+$ bin/fm-check-register.sh tamper [home=registration]
+registered: state/tamper.check.sh
+exit=0; elapsed=0.07s
+
+$ bin/fm-watch.sh [home=registration]
+check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/duplicate.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/junk.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/large.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/leading.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/tamper.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/zero.check.sh
+exit=0; elapsed=0.98s
+
+durable wake queue:
+1793928436	1	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/duplicate.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/junk.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/large.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/leading.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/tamper.check.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/registration/state/zero.check.sh
+
+
+SCENARIO: An undeclared check retains the 30-second default and publishes a named timeout
+$ bin/fm-check-register.sh default [home=default]
+registered: state/default.check.sh
+exit=0; elapsed=0.07s
+
+$ bin/fm-watch.sh [home=default]
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/default/state/default.check.sh: default budget=30
+timed out after 30s (measured 31s; ❌ failing tool: default; FM_CHECK_TIMEOUT)
+exit=0; elapsed=30.98s
+
+durable wake queue:
+1793928466	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/default/state/default.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/default/state/default.check.sh: default budget=30 timed out after 30s (measured 31s; ❌ failing tool: default; FM_CHECK_TIMEOUT)
+
+
+SCENARIO: A 40-second authenticated budget survives 32 seconds and re-arm preserves its healthy owner
+$ bin/fm-check-register.sh research-sources [home=extended]
+registered: state/research-sources.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-watch.sh [home=extended]
+watcher: already running pid 40938
+exit=0; elapsed=0.19s
+
+heartbeat age during admitted long check: 1.11s; same owner pid=40938
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/extended/state/research-sources.check.sh: entered budget=40
+completed beyond 30 seconds
+exit=0
+durable wake queue:
+1793928497	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/extended/state/research-sources.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/extended/state/research-sources.check.sh: entered budget=40 completed beyond 30 seconds
+
+
+SCENARIO: Portable timeout preserves partial output, reports positive elapsed time, resets the next budget, and unregisters
+$ bin/fm-check-register.sh a-timeout [home=portable]
+registered: state/a-timeout.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-check-register.sh b-default [home=portable]
+registered: state/b-default.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-watch.sh [home=portable]
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/portable/state/a-timeout.check.sh: partial before cut
+timed out after 2s (measured 3s; ❌ failing tool: a-timeout; FM_CHECK_TIMEOUT)
+exit=0; elapsed=3.32s
+
+durable wake queue:
+1793928499	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/portable/state/a-timeout.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/portable/state/a-timeout.check.sh: partial before cut timed out after 2s (measured 3s; ❌ failing tool: a-timeout; FM_CHECK_TIMEOUT)
+1793928499	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/portable/state/b-default.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/portable/state/b-default.check.sh: next default budget=30
+
+$ bin/fm-check-unregister.sh a-timeout [home=portable]
+unregistered: state/a-timeout.check.sh
+exit=0; elapsed=0.03s
+
+
+SCENARIO: Foreground checkpoints run fitting checks by budget and name and report oversized deferral
+$ bin/fm-check-register.sh a-slow [home=checkpoint]
+registered: state/a-slow.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-check-register.sh c-fast [home=checkpoint]
+registered: state/c-fast.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-check-register.sh b-fast [home=checkpoint]
+registered: state/b-fast.check.sh
+exit=0; elapsed=0.07s
+
+$ bin/fm-check-register.sh a-oversized [home=checkpoint]
+registered: state/a-oversized.check.sh
+exit=0; elapsed=0.07s
+
+$ bin/fm-watch-checkpoint.sh --seconds 180 [home=checkpoint]
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/b-fast.check.sh: b-fast
+checkpoint: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/a-oversized.check.sh: deferred (budget 300s > remaining 179s)
+exit=0; elapsed=1.58s
+
+durable wake queue:
+1793928501	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/b-fast.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/b-fast.check.sh: b-fast
+1793928501	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/c-fast.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/c-fast.check.sh: c-fast
+1793928501	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/a-slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/checkpoint/state/a-slow.check.sh: a-slow
+
+persisted execution order:
+b-fast
+c-fast
+a-slow
+
+
+SCENARIO: An admitted timeout completing past the quiet boundary still publishes its wake
+$ bin/fm-check-register.sh late [home=publication]
+registered: state/late.check.sh
+exit=0; elapsed=0.08s
+
+$ bin/fm-watch-checkpoint.sh --seconds 4 [home=publication]
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/publication/state/late.check.sh: partial before boundary
+cleanup after timeout
+timed out after 3s (measured 5s; ❌ failing tool: late; FM_CHECK_TIMEOUT)
+exit=0; elapsed=6.05s
+
+durable wake queue:
+1793928507	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/publication/state/late.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-live-checks/publication/state/late.check.sh: partial before boundary cleanup after timeout timed out after 3s (measured 5s; ❌ failing tool: late; FM_CHECK_TIMEOUT)
+
+Late timeout durably published after quiet boundary: elapsed=6.05s, quiet=4s
+Disposable homes removed; all owned watcher children reaped.

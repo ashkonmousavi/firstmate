@@ -1,0 +1,30 @@
+registered: state/a-slow.check.sh
+
+registered: state/b-fast.check.sh
+
+RED a91ca766: --seconds 180 admitted a-slow (budget 300s, sleep 200s) before b-fast; fast output absent. Independent expectation: b-fast runs and a-slow is deferred. Stopped after observing the wrong admission.
+baseline checkpoint stopped exit=143
+
+registered: state/a-slow.check.sh
+
+registered: state/c-fast.check.sh
+
+registered: state/b-fast.check.sh
+
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-checkpoint-mutation/lexical-mutant/state/a-slow.check.sh: a-slow
+exit=0
+Lexical mutant persisted execution order:
+a-slow
+b-fast
+c-fast
+Expected by accepted budget/name contract:
+b-fast
+c-fast
+a-slow
+
+MUTANT REJECTED by observable execution order. Target green proof is in live-checks.log and targeted-tests.log.
+registered: state/slow.check.sh
+
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q54Q4G4CN30RECS2RQBD3B/.gate-checkpoint-mutation/ordinary-full-budget/state/slow.check.sh: ordinary watcher budget=300
+exit=0
+Disposable product copy and homes removed; child exit statuses collected.

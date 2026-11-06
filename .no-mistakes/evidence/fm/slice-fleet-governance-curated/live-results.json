@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Malformed, duplicate, and edited budgets cannot gain execution trust",
+    "result": "pass"
+  },
+  {
+    "name": "An undeclared check retains the 30-second default and publishes a named timeout",
+    "result": "pass"
+  },
+  {
+    "name": "A 40-second authenticated budget survives 32 seconds and re-arm preserves its healthy owner",
+    "result": "pass"
+  },
+  {
+    "name": "Portable timeout preserves partial output, reports positive elapsed time, resets the next budget, and unregisters",
+    "result": "pass"
+  },
+  {
+    "name": "Foreground checkpoints run fitting checks by budget and name and report oversized deferral",
+    "result": "pass"
+  },
+  {
+    "name": "An admitted timeout completing past the quiet boundary still publishes its wake",
+    "result": "pass"
+  }
+]
