@@ -4523,3 +4523,21 @@ The `retained` positive control prevents an empty startup from passing as succes
 The guard is token-free and default-on when Codex and Python are installed; `FM_LANE_PROFILE_LIVE` and the shared live gate own explicit opt-in or opt-out.
 This verifies vendor process startup with configured server IDs, not deployed fleet memory savings or host admission outcomes.
 [Lane profiles](../configuration.md#lane-profiles) owns supported launch paths and alias configuration.
+
+Refreshed on 2026-11-06 with codex-cli 0.166.0 on Linux x86_64 using the canonical runner:
+
+```bash
+NO_MISTAKES_NO_UPDATE_CHECK=1 bash bin/fm-test-run.sh --jobs 1 --per-script-timeout-secs 1800 tests/fm-control-relaunch.test.sh tests/fm-lane-profile-live-e2e.test.sh
+```
+
+The run also supplied `--json` to retain private timing evidence and exited 0 with both subjects passing and no gate skips.
+The native guard reported:
+
+```text
+native-runtime {"claude-context": "connected", "gitnexus": "connected", "retained": "connected"}
+ok - codex-cli 0.166.0 product-code: claude-context,gitnexus,retained; no model turn submitted
+native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
+native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 governance: retained; no model turn submitted
+```
