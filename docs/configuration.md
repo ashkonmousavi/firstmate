@@ -881,7 +881,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 
 ## Auto-launch
 
-`bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
+`bin/fm-autolaunch.sh` deterministically selects backlog work to fill this machine's free lanes.
 Each pass launches prepared items in the order returned by `bin/fm-tasks-axi.sh ready` through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
@@ -896,13 +896,27 @@ On the other homes the commands are documented here only, and run there once the
 | Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 
 Held, parked, and blocked items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
-When a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority ranked unprepared item's own task row.
+On the legacy path, when a lane is free and no prepared item exists, the launcher starts one initial prep scout on the highest-priority ranked unprepared item's own task row.
 The [step engine header](../bin/fm-autolaunch-steps.py) owns catalogue ranking, unranked-item refusal, admission, preservation, retirement and receipt-owned retry without deferred queueing.
 Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
+The bounded controller is staged behind the existing rollout marker; its selection and continuity rules are owned by the [launcher header](../bin/fm-autolaunch.sh).
+The staged `--publish-candidates` and `--join` evidence interfaces are owned by the [candidate reader header](../bin/fm-next-in-line.py).
+They do not select, claim or launch work; production input completeness remains open until the catalogue, task/phase and claim/kick producer contracts are wired.
+Without activation evidence, installing this cut keeps the legacy scheduled pass and slice progression in place; carrier integration and production cadence are separate rollout prerequisites.
+Controller agent reconciliation matches `agent_root_pid`, `agent_root_start`, and `boot_id` from task metadata against the current kernel identity of that process.
+Publishing those fields remains the frozen plan's K2b dependency, owned by `fleet-ops:relaunch-preflight-fix`; fixture coverage does not establish production late-start recognition before that writer lands.
+Controller activation still requires lifecycle deadline classification for launches, relaunches and recovery inside leased slice effects; these effects currently share the enclosing step action's deadline.
+Diagnosis defaults are read-only Codex `gpt-6.1-sol` followed by Claude `claude-opus-5-5`, after ownership has already reached the technical responder.
+Scheduling and selection do not call a model; only the staged controller's diagnosis ladder does.
+A home may replace either command prefix with a nonempty JSON argv array named `rung3` or `rung4` in `config/controller-diagnosis`; the controller appends its diagnosis prompt and retains the 900-second bound.
+For example, `{"rung3":["codex","exec","-s","read-only","-m","gpt-6.1-sol","-c","model_reasoning_effort=high"]}` replaces only rung 3.
+The command must retain read-only permissions; configuration never authorizes a diagnosis to modify project or lifecycle state.
+
 Nothing enables a schedule automatically.
-To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
+To enable a legacy scheduled pass, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
 Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line, recording it in the machine inventory first; the [launcher header](../bin/fm-autolaunch.sh) owns the captured environment and optional slice-only scope.
+That legacy schedule does not establish the staged controller's timing bounds.
 Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
 The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
 The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
