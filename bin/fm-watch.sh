@@ -3445,6 +3445,10 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
+  while kill -0 "$FM_ACTIVE_CHECK_PID" 2>/dev/null; do
+    touch "$BEAT"
+    sleep 1
+  done
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || rc=$?
   FM_CHECK_EXIT_STATUS=$rc
   FM_ACTIVE_CHECK_PID=
@@ -4542,14 +4546,21 @@ EOF
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           custom_check_started=$(date +%s)
-          run_check_capture "$custom_snapshot" || exit 1
+          custom_check_timeout=$CHECK_TIMEOUT
+          if [ "$id" = plan-stages ]; then
+            custom_check_timeout=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+              "$SCRIPT_DIR/fm-stage-transition.sh" budget) || exit 1
+            case "$custom_check_timeout" in ''|*[!0-9]*|0) exit 1 ;; esac
+            [ "$custom_check_timeout" -ge "$CHECK_TIMEOUT" ] || custom_check_timeout=$CHECK_TIMEOUT
+          fi
+          CHECK_TIMEOUT=$custom_check_timeout run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
           # A killed or failing run must not vanish: it wakes naming the check,
           # its exit code and its duration. Exit 0 keeps the printed output.
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             # Output printed before the cut stays, followed by the cut itself;
             # a silent cut names the bound that killed it.
-            [ "$out" != "timed out after ${CHECK_TIMEOUT}s" ] || out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+            [ "$out" != "timed out after ${custom_check_timeout}s" ] || out="timed out after ${custom_check_timeout}s (FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
             out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
           fi

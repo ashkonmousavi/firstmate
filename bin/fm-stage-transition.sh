@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Reconcile ended plan leads through PR, deploy and installed-check stages.
-# Usage: fm-stage-transition.sh arm | check | can-close <task-id>
+# Usage: fm-stage-transition.sh arm | check | budget | can-close <task-id>
 # One authenticated watcher check per home; no daemon and no waiting worker.
 # fm-pr-check.sh arms it when config/plan-leads.json exists. The plan owner
 # supplies {"schema":1,"tasks":{"task-id":{"deploy_check":"check-id",
@@ -302,10 +302,12 @@ def observe(settings, task, meta):
 
 
 def main():
-    if not args or args[0] not in {'arm', 'check', 'can-close'}:
-        raise ValueError('usage: fm-stage-transition.sh arm | check | can-close <task>')
+    if not args or args[0] not in {'arm', 'check', 'budget', 'can-close'}:
+        raise ValueError('usage: fm-stage-transition.sh arm | check | budget | can-close <task>')
     action = args[0]
     if not config.exists() and not config.is_symlink():
+        if action == 'budget':
+            print(30)
         return
     settings = read_json(config)
     if settings.get('schema') != 1 or not isinstance(settings.get('tasks'), dict):
@@ -317,6 +319,10 @@ def main():
         cap = item.get('relaunch_cap', 3)
         if type(cap) is not int or not 1 <= cap <= 20:
             raise ValueError('invalid relaunch cap for ' + task)
+    control_timeout = max(1, int(os.environ.get('FM_STAGE_CONTROL_TIMEOUT', '300')))
+    if action == 'budget':
+        print(30 + len(tasks) * (control_timeout + 60))
+        return
     if action == 'arm':
         state.mkdir(mode=0o700, parents=True, exist_ok=True)
         shim = state / 'plan-stages.check.sh'
@@ -409,7 +415,7 @@ def main():
                                 'The registered plan-stages check owns deploy/installed observation.')
                         try:
                             run([scripts / 'fm-control.sh', task, 'relaunch', '--if-stopped', '--note', note],
-                                max(1, int(os.environ.get('FM_STAGE_CONTROL_TIMEOUT', '15'))))
+                                control_timeout)
                             outcome = 'relaunched'
                             record['detail'] += '; relaunched: ' + task
                         except DependencyError as exc:

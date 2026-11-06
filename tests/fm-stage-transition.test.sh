@@ -46,6 +46,8 @@ exec "$(dirname "$0")/fm-stage-real.sh" "$@"
         self.script('fm-control.sh', '''#!/usr/bin/env bash
 [ "$2" = relaunch ] && [ "$3" = --if-stopped ] || exit 9
 printf '%s\n' "$1" >> "$FM_HOME/calls"
+sleep "${FM_STAGE_TEST_CONTROL_SLEEP:-0}"
+printf '%s\n' "$1" >> "$FM_HOME/completed"
 exit "$(cat "$FM_HOME/control-rc")"
 ''')
         self.script('gh-axi', '''#!/usr/bin/env python3
@@ -117,7 +119,7 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
 
     def run_stage(self, *args, good=True):
         out = subprocess.run([str(self.bin / 'fm-stage-transition.sh'), *args], env=self.env,
-                             text=True, capture_output=True, timeout=20)
+                             text=True, capture_output=True, timeout=45)
         if good:
             self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         else:
@@ -130,6 +132,91 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
     def calls(self):
         path = self.home / 'calls'
         return path.read_text().splitlines() if path.exists() else []
+
+    def test_budget_covers_serial_startup_and_confirmation(self):
+        one = int(self.run_stage('budget'))
+        self.assertGreater(one, 120 + 90)
+        self.settings['tasks']['second'] = self.settings['tasks']['lead'].copy()
+        self.configure()
+        two = int(self.run_stage('budget'))
+        self.assertGreater(two, 2 * (120 + 90))
+        self.assertGreater(two, one)
+        self.env['FM_STAGE_CONTROL_TIMEOUT'] = '600'
+        self.assertGreater(int(self.run_stage('budget')), 2 * 600)
+
+    def test_control_timeout_remains_bounded_and_deduplicated(self):
+        self.red()
+        self.env.update(FM_STAGE_CONTROL_TIMEOUT='1', FM_STAGE_TEST_CONTROL_SLEEP='3')
+        self.run_stage('check')
+        self.assertEqual({e['outcome'] for e in self.record()['events'].values()}, {'failed'})
+        self.assertFalse((self.home / 'completed').exists())
+        self.run_stage('check')
+        self.assertEqual(self.calls(), ['lead'])
+
+    def prepare_watcher(self):
+        for source in (ROOT / 'bin').iterdir():
+            target = self.bin / source.name
+            if not target.exists():
+                target.symlink_to(source)
+        shutil.copy2(ROOT / 'bin/fm-watch.sh', self.bin / 'fm-watch-local.sh')
+        self.script('tmux', '#!/usr/bin/env bash\nexit 1\n')
+
+    def test_watcher_preserves_ordinary_check_deadline(self):
+        self.prepare_watcher()
+        (self.state / 'lead.meta').unlink()
+        check = self.state / 'zz-slow.check.sh'
+        check.write_text('#!/usr/bin/env bash\nsleep 3\ntouch "$FM_HOME/ordinary-completed"\n')
+        check.chmod(0o700)
+        registered = subprocess.run([str(self.bin / 'fm-check-register.sh'), 'zz-slow'],
+                                    env=self.env, text=True, capture_output=True)
+        self.assertEqual(registered.returncode, 0, registered.stdout + registered.stderr)
+        env = dict(self.env, FM_ROOT_OVERRIDE=str(self.home), FM_POLL='1',
+                   FM_CHECK_INTERVAL='1', FM_HEARTBEAT='999999',
+                   FM_CHECK_TIMEOUT='1', FM_CHECK_FORCE_FALLBACK='1')
+        result = subprocess.run([str(self.bin / 'fm-watch-local.sh')], env=env,
+                                text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        queue = (self.state / '.wake-queue').read_text()
+        self.assertIn('zz-slow.check.sh', queue)
+        self.assertIn('timed out after 1s', queue)
+        self.assertFalse((self.home / 'ordinary-completed').exists())
+
+    def test_watcher_finishes_two_slow_relaunches_in_one_poll(self):
+        self.prepare_watcher()
+        self.settings['tasks']['second'] = self.settings['tasks']['lead'].copy()
+        self.configure()
+        self.red()
+        self.run_stage('arm')
+        env = dict(self.env, FM_ROOT_OVERRIDE=str(self.home), FM_POLL='1',
+                   FM_CHECK_INTERVAL='1', FM_HEARTBEAT='999999',
+                   FM_STAGE_TEST_CONTROL_SLEEP='16')
+        with subprocess.Popen([str(self.bin / 'fm-watch-local.sh')], env=env,
+                              text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              start_new_session=True) as watcher:
+            try:
+                deadline = time.monotonic() + 20
+                while not (self.home / 'calls').exists() and watcher.poll() is None:
+                    self.assertLess(time.monotonic(), deadline)
+                    time.sleep(0.05)
+                self.assertIsNone(watcher.poll())
+                (self.state / 'second.meta').write_text(self.meta)
+                first_beat = (self.state / '.last-watcher-beat').stat().st_mtime_ns
+                time.sleep(2)
+                self.assertGreater((self.state / '.last-watcher-beat').stat().st_mtime_ns, first_beat)
+                out, err = watcher.communicate(timeout=50)
+                self.assertEqual(watcher.returncode, 0, out + err)
+            finally:
+                if watcher.poll() is None:
+                    os.killpg(watcher.pid, signal.SIGTERM)
+                    watcher.communicate(timeout=10)
+        self.assertEqual(self.calls(), ['lead', 'second'])
+        self.assertEqual((self.home / 'completed').read_text().splitlines(), ['lead', 'second'])
+        rows = json.loads((self.state / '.stage-transitions.json').read_text())['tasks']
+        for task in ['lead', 'second']:
+            self.assertEqual({e['outcome'] for e in rows[task]['events'].values()}, {'relaunched'})
+        self.env.pop('FM_STAGE_TEST_CONTROL_SLEEP', None)
+        self.run_stage('check')
+        self.assertEqual(self.calls(), ['lead', 'second'])
 
     def test_pr_red_replay_same_task_and_new_head(self):
         self.red()
