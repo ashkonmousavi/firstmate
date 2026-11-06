@@ -19,6 +19,9 @@ fm_claude_watch_owner_applies() {
   . "$libdir/fm-wake-lib.sh"
   # shellcheck source=bin/fm-session-lock-lib.sh
   . "$libdir/fm-session-lock-lib.sh"
+  # shellcheck source=bin/fm-session-lock-fork-lib.sh
+  . "$libdir/fm-session-lock-fork-lib.sh"
+  fm_session_lock_read_record "$state" || return 1
   fm_session_lock_owned_by_self "$state" || return 1
   session=$FM_SESSION_LOCK_PID
   identity=$(fm_session_pid_identity "$session") || return 1

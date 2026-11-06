@@ -35,6 +35,9 @@ printf '%s' "$PAYLOAD" | jq -e '(.transcript_path // "") | contains("/.pi/")' >/
 fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 # shellcheck source=bin/fm-session-lock-lib.sh
 . "$SCRIPT_DIR/fm-session-lock-lib.sh"
+# shellcheck source=bin/fm-session-lock-fork-lib.sh
+. "$SCRIPT_DIR/fm-session-lock-fork-lib.sh"
+fm_session_lock_read_record "$STATE" || exit 0
 fm_session_lock_owned_by_self "$STATE" || exit 0
 SESSION=$FM_SESSION_LOCK_PID
 fm_harness_pid_alive "$SESSION" && [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || exit 0
