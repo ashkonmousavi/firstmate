@@ -40,13 +40,13 @@
 # the prior body, preserving ordinary prose and earlier source/correction records.
 #
 # READY. `ready` (markdown backend) withholds every listed row that has an open
-# blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied - a blocker
-# absent from this home's backlog and done archive with no recorded mark, or one
-# named in another home as <home>:<id> - and prints those rows with the edge,
+# blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied (its header
+# owns the resolution rule) and prints those rows with the edge,
 # verdict, and evidence in a ready_withheld group after the ready rows; count:
 # and ready[N] then count only what remains. tasks-axi alone reads an absent
-# blocker as cleared. An unreadable backlog, archive, or mark ledger withholds
-# the whole list (exit 2) rather than clearing anything.
+# blocker as cleared. An unreadable backlog, archive, mark ledger, or fleet list,
+# or a malformed fleet header, withholds the whole list (exit 2) rather than
+# clearing anything.
 #
 # `show` (including `view`) and `list` decode stored hold reasons
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.

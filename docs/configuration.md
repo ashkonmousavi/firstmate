@@ -570,7 +570,7 @@ With it, an edge written `<home>:<id>` resolves against that home's rows; a qual
 Its rows also carry the full pull request URLs each row cites, which [`bin/fm-pr-owner.sh`](../bin/fm-pr-owner.sh) reads to name the home and task that own a pull request.
 Without a list, or when the list holds no row for the target id, a local done/archive row or mark cannot clear the edge; it is unknown unless a visible open row blocks it.
 A list older than the fixed six-hour limit (21600 seconds) is stale: its open rows still block and its done rows cannot satisfy a remote-qualified edge.
-The ready list and the digest keep printing a `blocked_by_fleet_list:` line for missing or stale data; a stale line names the generation time, age and covered homes.
+When an open task has a blocked-by edge, the ready list and the digest print a `blocked_by_fleet_list:` line for missing or stale data; a stale line names the generation time, age and covered homes.
 PR ownership is also UNKNOWN without a fresh list; only this home's matching rows can make it a candidate, and triage never launches a fix from incomplete fleet data.
 `bin/fm-blocked-by.sh verdicts` prints the verdict for every edge.
 
@@ -1054,17 +1054,14 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 `bin/fm-pr-triage.sh` is a plain script, with no model in the loop, that ranks one repository's open pull requests and acts on the top two ranks.
 Rank 1 is a pull request that unblocks others now: a CI or test-speed or red-main-repair class from the rules file, or one on the J-01 path of this home's backlog; rank 2 blocks at least one backlog item, most blocked first; rank 3 is the rest.
 A conflicting or red pull request in ranks 1 and 2 gets a fix worker for the task this home owns, through `bin/fm-control.sh relaunch` and so `bin/fm-spawn.sh`'s machine-lane admission, never beside a live worker and at most once per pull request head.
-When another registered home in `data/secondmates.md` holds the task open instead, the record names that home and that home gets one `bin/fm-send.sh --one-way` steer with the pull request URL per pull request head, under a request id hashed from the pull request number, head, home and message so a retried uncertain send of the same message deduplicates; no worker is spawned here for it.
-When no home holds the task open, nothing is launched or sent: the record says so on every pass; a task done in this home's backlog gets no fix worker.
-On a home without `data/secondmates.md`, every pull request whose task is not open in this home's backlog counts as unowned.
+Fix routing first resolves ownership under the [`fm-pr-owner.sh` rule](../bin/fm-pr-owner.sh); UNKNOWN ownership is recorded with candidate homes and causes no launch or steer.
+Only the selected home's task is checked for open work, so a done row here does not prevent routing to its owner elsewhere.
+The [`triage header`](../bin/fm-pr-triage.sh) owns selected-home checks and deduplicated steering through registered secondmates; an unregistered owning home is reported without a steer.
 A green one gets the `main-red` label and exactly one `@mergifyio queue` comment per pull request head, unless the real Mergify queue state, read with `mergify queue status` and `mergify queue show`, already has it queued; only a new push earns another comment.
 Every pull request gets one tab-separated record per pass in `state/pr-triage.log`: the time, pull request URL, rank, action, and the result or `refused:<reason>`.
 
-The refusal reasons are deliberate guards, chiefly against a duplicate spawn or a duplicate comment, and each leaves its own distinct record on every pass while it holds, which is the visible signal that a pull request is stuck:
-
-- fix: `no task branch`, `task done`, `no home owns <task>`, `owner unknown for <task>: unreadable <home>`, `owned by <home>: steered <task>`, `owned by <home>: already steered for head <sha>`, `owned by <home>: steer failed: <error>`, `no task record for <task>`, `fix already launched for head <sha>`, `worker live for <task>`, `lane release stopped <task> on purpose`, `worker liveness <posture> for <task>`, `spawn deferred pending for <task>`, `no capacity: <reason>`, `deferred: <reason>`, `launch error: <error>`; each also names the real queue state read (`queue=queued`, `queue=not queued` or `queue=unknown`).
-- queue: `queue state unreadable`, `queue paused`, `queue comment already made for head <sha>`, `label failed: <error>`, `comment failed: <error>`.
-- none: `merge-queue batch`, `draft (<class>)`, `mergeability <state>`, `checks <state>`.
+The refusal reasons are deliberate guards, chiefly against a duplicate spawn or a duplicate comment, and each leaves its own distinct record on every pass while it holds, which is the visible signal that a pull request is stuck.
+The [triage header](../bin/fm-pr-triage.sh) owns the current refusal and result vocabulary.
 
 The local, gitignored `config/pr-triage-rules` is required: `repo=` and `project=` name what to triage, and repeatable `title=`, `label=` and `path=` lines name the rank-1 classes.
 It is home-local and not inherited by secondmate homes.

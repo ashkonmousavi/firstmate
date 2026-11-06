@@ -46,9 +46,10 @@
 #   Skipped first, in this order: a merge-queue batch (author mergify or head
 #   mergify/merge-queue/), then a draft.
 #   CONFLICTING or a FAILURE/ERROR check rollup -> fix. The fix worker launches
-#   only for a task this home's backlog holds open. A task done in this
-#   home's backlog is refused as done. A task another registered home
-#   (data/secondmates.md) holds open is refused as owned by that home, which
+#   only for a task selected as owned here that this home's backlog holds open.
+#   A selected local task done in this home's backlog is refused as done.
+#   A selected remote task held open by a registered home
+#   (data/secondmates.md) is refused as owned by that home, which
 #   gets one bin/fm-send.sh --one-way steer naming the pull request per pull
 #   request head (state/pr-triage/steer-<n>), sent with an FM_SEND_REQUEST_ID
 #   hashed from the pull request number, head, home and message so an

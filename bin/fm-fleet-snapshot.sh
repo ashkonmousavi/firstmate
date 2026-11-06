@@ -25,10 +25,8 @@
 #     and hold_bucket fields.
 #     Repeated blocker tokens remain ordered; unresolved_blocker_ids holds each
 #     blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied (the
-#     same verdict `fm-tasks-axi.sh ready` applies), so a blocker done in this
-#     home's backlog or done archive, or marked with its merged pull request,
-#     resolves, while one open here, absent with no mark, or named in another
-#     home stays unresolved. A blocked-by token tasks-axi does not read as an
+#     same verdict `fm-tasks-axi.sh ready` applies); the library header owns
+#     the resolution rule. A blocked-by token tasks-axi does not read as an
 #     edge (one not at the end of its row) never blocks.
 #     There is no separate decision type: any captain-held task is the same
 #     primitive, whatever kind its row carries.
