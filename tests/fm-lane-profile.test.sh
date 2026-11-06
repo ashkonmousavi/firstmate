@@ -23,7 +23,9 @@ make_case() {
 case " $* " in
 *' mcp list --json '*)
   [ "${FM_PROFILE_LIST_FAIL:-0}" = 0 ] || exit 9
-  if [ "${FM_PROFILE_BY_CWD:-0}" = 1 ]; then
+  if [ "${FM_PROFILE_BY_HOME:-0}" = 1 ]; then
+    cat "$CODEX_HOME/servers.json"
+  elif [ "${FM_PROFILE_BY_CWD:-0}" = 1 ]; then
     if [ "${2:-}" = "$FM_PROFILE_WORKTREE" ]; then
       printf '%s\n' '[{"name":"custom_index"},{"name":"retained"}]'
     else
@@ -35,7 +37,10 @@ case " $* " in
     printf '%s\n' '[{"name":"gitnexus"},{"name":"claude-context"},{"name":"retained"}]'
   fi
   ;;
-*) printf '%s\n' "$@" ;;
+*)
+  [ -z "${FM_PROFILE_LAUNCH_RECEIPT:-}" ] || printf '%s\n' "$CODEX_HOME" > "$FM_PROFILE_LAUNCH_RECEIPT"
+  printf '%s\n' "$@"
+  ;;
 esac
 CLI
   chmod +x "$FAKEBIN_DIR/codex"
@@ -206,12 +211,44 @@ test_worktree() {
   pass 'actual isolated worker configuration wins over the primary checkout'
 }
 
-for subject in "${@:-default reduced unknown scope dependency custom_and_absent batch names_and_replay secondmate worktree}"; do
+test_environment() {
+  local out status profile root flags
+  for profile in ci-tooling governance; do
+    CASE_NAME="lane-filtered-$profile"
+    make_case "$CASE_NAME"
+    : > "$HOME_DIR/config/launch-env-allowlist"
+    out=$(CODEX_HOME="$CASE_DIR/parent-codex" spawn_case "$CASE_NAME" "$PROJ_DIR" --mode local-only --yolo off --lane-profile "$profile"); status=$?
+    assert_refused "$out" "$status" 'cannot establish the worker configuration'
+  done
+  CASE_NAME=lane-effective-home
+  make_case "$CASE_NAME"
+  root="$CASE_DIR/discovered codex"
+  mkdir -p "$root"
+  printf '%s\n' '[{"name":"gitnexus"},{"name":"retained"}]' > "$root/servers.json"
+  out=$(CODEX_HOME="$root" FM_PROFILE_BY_HOME=1 spawn_case "$CASE_NAME" "$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
+  expect_code 0 "$status" "$out"
+  out=$(cd "$WT_DIR" && PATH="$FAKEBIN_DIR:$PATH" CODEX_HOME="$CASE_DIR/destination-codex" \
+    FM_PROFILE_LAUNCH_RECEIPT="$CASE_DIR/receipt" bash "$LAUNCH_LOG"); status=$?
+  expect_code 0 "$status" "$out"
+  [ "$(cat "$CASE_DIR/receipt")" = "$root" ] || fail 'destination changed the discovered Codex root'
+  assert_contains "$out" 'mcp_servers.gitnexus.enabled=false' 'discovered index must be disabled at execution'
+  assert_not_contains "$out" 'mcp_servers.claude-context' 'absent index must not acquire a partial record'
+  : > "$HOME_DIR/config/launch-env-allowlist"
+  flags=$(PATH="$FAKEBIN_DIR:$PATH" FM_PROFILE_BY_HOME=1 bash -c '
+    . "$1/bin/fm-lane-profile-lib.sh"
+    root=$(fm_lane_profile_codex_home governance "$2" "$3") || exit 1
+    CODEX_HOME=$root fm_lane_profile_flags governance codex 0 ship "$2" "$4"
+  ' _ "$ROOT" "$HOME_DIR/config" "$root" "$WT_DIR") || fail 'explicit account must support filtered discovery'
+  assert_contains "$flags" 'mcp_servers.gitnexus.enabled=false' 'explicit account discovery missed its index'
+  pass 'reduced discovery and executed launch share a root or refuse filtered inheritance'
+}
+
+for subject in "${@:-default reduced unknown scope dependency custom_and_absent batch names_and_replay secondmate worktree environment}"; do
   # Word splitting here permits the default subject list; caller-supplied names
   # are restricted to this executable's declared cases.
   for name in $subject; do
     case "$name" in
-    default | reduced | unknown | scope | dependency | custom_and_absent | batch | names_and_replay | secondmate | worktree) "test_$name" ;;
+    default | reduced | unknown | scope | dependency | custom_and_absent | batch | names_and_replay | secondmate | worktree | environment) "test_$name" ;;
     *) fail "unknown test subject: $name" ;;
     esac
   done

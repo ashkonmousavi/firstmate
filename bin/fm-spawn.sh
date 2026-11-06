@@ -6172,7 +6172,8 @@ agy)
 esac
 
 # Resolve against the actual isolated cwd and already selected account.
-LANE_PROFILE_FLAGS=$(fm_lane_profile_flags "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" "$CONFIG" "$WT") || exit 1
+LANE_PROFILE_CODEX_HOME=$(fm_lane_profile_codex_home "$LANE_PROFILE" "$CONFIG" "$WORKER_ACCOUNT_ROOT") || exit 1
+LANE_PROFILE_FLAGS=$(CODEX_HOME=$LANE_PROFILE_CODEX_HOME fm_lane_profile_flags "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" "$CONFIG" "$WT") || exit 1
 
 # Per-task temp root: /tmp/fm-<id>/ with Go's build temp nested at gotmp/. Go won't
 # create GOTMPDIR, so mkdir before it is used; fm-teardown removes the whole root.
@@ -7719,6 +7720,8 @@ fi
 if [ "$WORKER_ACCOUNT_HARNESS" = codex ] && [ -n "$WORKER_ACCOUNT" ]; then
   # Explicit even on backends that do not forward the spawning process's env.
   LAUNCH="unset OPENAI_API_KEY CODEX_API_KEY; export CODEX_HOME=$(shell_quote "$WORKER_ACCOUNT_ROOT"); $LAUNCH"
+elif [ "$LANE_PROFILE" != product-code ]; then
+  LAUNCH="export CODEX_HOME=$(shell_quote "$LANE_PROFILE_CODEX_HOME"); $LAUNCH"
 fi
 LAUNCH="export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; $LAUNCH"
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's

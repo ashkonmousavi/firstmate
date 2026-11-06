@@ -8,6 +8,24 @@
 # secret-bearing MCP configuration is never returned to the caller or logged.
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fm-timeout-lib.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/fm-config-inherit-lib.sh"
+
+fm_lane_profile_codex_home() {
+  local profile=$1 config=$2 root=$3 filtered
+  [ "$profile" != product-code ] || return 0
+  if [ -z "$root" ]; then
+    filtered=$(fm_config_source_present "$config/launch-env-allowlist") || return 1
+    if [ "$filtered" = 1 ]; then
+      echo 'error: reduced lane-profile requires an explicit Codex worker account with config/launch-env-allowlist; cannot establish the worker configuration before launch' >&2
+      return 1
+    fi
+    root=${CODEX_HOME:-${HOME:+$HOME/.codex}}
+  fi
+  case "$root" in
+    /*) printf '%s\n' "$root" ;;
+    *) echo 'error: reduced lane-profile requires an absolute Codex configuration root' >&2; return 1 ;;
+  esac
+}
 
 fm_lane_profile_check() {
   local profile=$1 harness=$2 raw=$3 kind=$4

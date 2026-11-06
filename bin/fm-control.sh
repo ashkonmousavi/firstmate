@@ -1434,16 +1434,13 @@ resolve_relaunch_profile() {
     fi
   fi
   # A reduced task's replacement must honor its recorded tool footprint.
-  local lane_profile
+  local lane_profile lane_profile_codex_home
   lane_profile=$(fm_meta_get "$META" lane_profile)
   lane_profile=${lane_profile:-product-code}
   fm_lane_profile_check "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" || return 1
+  lane_profile_codex_home=$(fm_lane_profile_codex_home "$lane_profile" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$TARGET_CODEX_ROOT") || return 1
   if [ "$lane_profile" != product-code ] && [ "$RELEASED" = 0 ]; then
-    if [ -n "$TARGET_CODEX_ROOT" ]; then
-      CODEX_HOME=$TARGET_CODEX_ROOT fm_lane_profile_flags "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$WT" >/dev/null || return 1
-    else
-      fm_lane_profile_flags "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$WT" >/dev/null || return 1
-    fi
+    CODEX_HOME=$lane_profile_codex_home fm_lane_profile_flags "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$WT" >/dev/null || return 1
   fi
   # Likewise config/crew-exclude-tools: a malformed file, or a replacement
   # runtime that cannot hide the listed tools, refuses here, before the old

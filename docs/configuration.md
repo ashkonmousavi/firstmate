@@ -1643,6 +1643,8 @@ IDs may contain letters, digits, underscores, and hyphens; dotted IDs cannot be 
 This file adds to the built-in IDs and does not remove them.
 The file is machine-local configuration; configure aliases in each home that uses them.
 The launch owner reads only configured matching IDs from native Codex discovery under the selected worker account and project, so absent servers need no invalid partial transport records.
+Reduced shell launches explicitly export the same absolute `CODEX_HOME` used for discovery; without a selected worker account, this is the invoking process's `CODEX_HOME` or `HOME/.codex`.
+With `config/launch-env-allowlist` present, reduced profiles require a selected Codex worker account and otherwise refuse before launch or before stopping a worker for relaunch.
 Failed or malformed discovery refuses the reduced launch.
 REA, Serena, and unrelated MCP servers retain their existing configuration unless explicitly listed as an additional code-index server.
 No persistent Codex configuration is rewritten.

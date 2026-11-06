@@ -5458,18 +5458,29 @@ test_relaunch_admission_refusal_preserves_running_agent() {
 # Lane-profile preflight must protect the still-running endpoint.
 test_lane_profile_relaunch_preflight() {
   local dir out rc id profile
-  for profile in governance corrupt; do
+  for profile in governance corrupt filtered; do
     id="lane-$profile"
     dir=$(new_case "profile-$profile" "$id")
     add_ship_task "$dir" "$id" codex
-    printf '%s\n' "lane_profile=$profile" >> "$dir/home/state/$id.meta"
+    if [ "$profile" = filtered ]; then
+      printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+      : > "$dir/home/config/launch-env-allowlist"
+    else
+      printf '%s\n' "lane_profile=$profile" >> "$dir/home/state/$id.meta"
+    fi
     cp "$dir/home/state/$id.meta" "$dir/prior.meta"
-    out=$(run_control "$dir" "$id" relaunch --harness claude --note 'retain footprint'); rc=$?
+    if [ "$profile" = filtered ]; then
+      out=$(run_control "$dir" "$id" relaunch --note 'retain footprint'); rc=$?
+    else
+      out=$(run_control "$dir" "$id" relaunch --harness claude --note 'retain footprint'); rc=$?
+    fi
     expect_code 1 "$rc" "incompatible or corrupt profile should refuse: $out"
     if [ "$profile" = governance ]; then
       assert_contains "$out" 'requires a canonical Codex ship/scout launch' 'refusal must name the supported profile boundary'
-    else
+    elif [ "$profile" = corrupt ]; then
       assert_contains "$out" 'unknown --lane-profile' 'corrupt metadata must name the invalid profile'
+    else
+      assert_contains "$out" 'cannot establish the worker configuration' 'filtered environment must refuse before stopping'
     fi
     cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail 'profile refusal changed metadata'
     [ "$(cat "$dir/fake/command")" = claude ] || fail 'profile refusal stopped the modeled live agent'

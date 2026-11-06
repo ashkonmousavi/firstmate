@@ -35,7 +35,7 @@ command = "false"
 TOML
   printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$NATIVE_CODEX" > "$fakebin/codex"
   chmod +x "$fakebin/codex"
-  FM_FAKE_LAUNCH_LOG="$launchlog" fm_test_run_spawn "$home" "$worktree" "$fakebin" \
+  CODEX_HOME="$home/user-home/.codex" FM_FAKE_LAUNCH_LOG="$launchlog" fm_test_run_spawn "$home" "$worktree" "$fakebin" \
     "$id" "$project" --mode local-only --yolo off --lane-profile "$profile" >/dev/null ||
     fail "$CODEX_VERSION: failed to capture $profile spawn"
   python3 "$ROOT/tests/lane-profile-native.py" "$NATIVE_CODEX" "$profile" "$case_dir/native" "$launchlog" ||
