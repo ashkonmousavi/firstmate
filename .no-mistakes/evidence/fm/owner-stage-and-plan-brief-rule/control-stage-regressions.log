@@ -1,0 +1,1 @@
+ok - stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock

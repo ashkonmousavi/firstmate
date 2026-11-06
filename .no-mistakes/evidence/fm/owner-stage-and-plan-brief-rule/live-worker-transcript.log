@@ -1,0 +1,99 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l
+~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l
+exit=0
+
+$ tmux -L fm-lab new-session -d -s primary -n fm-lab-live -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H -e FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l codex --no-daemon -c features.hooks=false
+exit=0
+
+$ tmux -L fm-lab capture-pane -p -t primary
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H
+
+
+
+
+
+
+
+
+                                                       ⣀⣤⣤⣤⣀⣀
+                                                    ⣠⣶⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣤⣤⣤⣤⣤⡀
+                                                  ⢀⣾⣿⣿⠿⠋⠉⠉⢉⣭⣿⣿⣿⣿⣿⠿⣿⣿⣿⣿⣷⣄
+                                                 ⣀⣾⣿⣿⠃ ⣀⣴⣾⣿⣿⡿⠟⠋ ⣀⡀ ⠈⠙⢿⣿⣿⣧
+                                              ⣀⣶⣿⣿⣿⣿⡇ ⢸⣿⣿⡿⠛⠉⢀⣠⣴⣿⣿⣿⣷⣦⣀⠈⢻⣿⣿⡇
+                                             ⣰⣿⣿⡿⢿⣿⣿⡇ ⢸⣿⣿⢀⣤⣶⣿⣿⣿⠟⠛⠻⣿⣿⣿⣿⣮⣿⣿⡷
+                                            ⢰⣿⣿⡟⠁⢸⣿⣿⡇ ⢸⣿⣿⣿⣿⠿⠿⣿⣿⣿⣦⣄⡀⠈⠛⠿⣿⣿⣿⣧⡀
+                                            ⣾⣿⣿⠃ ⢸⣿⣿⡇ ⢸⣿⣿⠋⠁  ⠈⠙⢻⣿⣿⣿⣶⣤⡀ ⠹⢿⣿⣷⡄
+                                            ⢸⣿⣿⣇ ⠸⣿⣿⣷⣦⣼⣿⣿      ⢸⣿⣿⠻⢿⣿⣿⡇ ⠘⣿⣿⣿
+                                            ⠈⢿⣿⣿⣦⡀⠈⠛⠿⣿⣿⣿⣿⣄⡀  ⢀⣠⣼⣿⣿  ⣿⣿⡇  ⣿⣿⣿⠇
+                                              ⢻⣿⣿⣿⣷⣦⣀⠈⠙⠻⣿⣿⣿⣶⣶⣿⣿⣿⣿⣿  ⣿⣿⡇ ⣠⣿⣿⣿
+                                              ⢸⣿⣿⡿⢿⣿⣿⣿⣦⣠⣴⣿⣿⣿⡿⠟⠋⢸⣿⣿  ⣿⣿⣷⣴⣿⣿⣿⠃
+                                              ⠘⣿⣿⣷ ⠈⠛⢿⣿⣿⣿⠿⠋⠉ ⣠⣴⣿⣿⣿  ⣿⣿⣿⣿⣿⠟⠁
+                                               ⠻⣿⣿⣿⣤⣀ ⠈⠉ ⢀⣤⣶⣿⣿⣿⠿⠟⠁ ⣰⣿⣿⡟⠋⠁
+                                                ⠈⠿⣿⣿⣿⣿⣶⣾⣿⣿⣿⣿⠟⠋⠁  ⣠⣼⣿⣿⡟
+                                                   ⠙⠛⠛⠛⠻⠛⢿⣿⣿⣿⣿⣷⣾⣿⣿⣿⡿⠏
+                                                          ⠈⠙⠛⠿⠿⠿⠿⠛⠉
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+
+  ? for shortcuts
+exit=0
+
+$ tasks-axi add lab-live live guard fixture --kind ship --start --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l/data/backlog.md
+ok: added lab-live (ship) -> In flight
+task:
+  id: lab-live
+  title: live guard fixture
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi done lab-live --pr <url> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l/data/backlog.md` when it ships
+  - Run `tasks-axi block lab-live --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l/data/backlog.md` to record a dependency
+exit=0
+
+$ tmux -L fm-lab display-message -p -t primary #{socket_path},#{pid},0
+~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l/tmux/tmux-1000/fm-lab,13080,0
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh _eligible lab-live
+live
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-control.sh lab-live relaunch --if-stopped --note live refusal proof
+deferred: task lab-live stopped-only relaunch refused: live
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l
+exit=3
+
+$ tmux -L fm-lab has-session -t primary
+exit=0
+
+PASS: real Codex 0.166.0 remained alive; stopped-only relaunch deferred with exit 3 and unchanged metadata/no journal.
+
+$ tmux -L fm-lab kill-server
+exit=0
+
+$ tmux -L fm-lab has-session -t primary
+no server running on ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.l/tmux/tmux-1000/fm-lab
+exit=1

@@ -1,0 +1,1361 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab
+~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab
+exit=0
+
+$ tasks-axi add lab-no-mistakes-0 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/task-system | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-0 (ship) -> Queued
+task:
+  id: lab-no-mistakes-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/task-system | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-0 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-0/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-no-mistakes-1 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/lane-system | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-1 (ship) -> Queued
+task:
+  id: lab-no-mistakes-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/lane-system | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-1 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-1/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-no-mistakes-2 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/central-governance | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-2 (ship) -> Queued
+task:
+  id: lab-no-mistakes-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/central-governance | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-2 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-2/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-no-mistakes-3 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/red-main-loop | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-3 (ship) -> Queued
+task:
+  id: lab-no-mistakes-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/red-main-loop | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-3 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-3/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-no-mistakes-4 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/ci-v1 | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-4 (ship) -> Queued
+task:
+  id: lab-no-mistakes-4
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/ci-v1 | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-4 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-4 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-4 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-4/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-no-mistakes-5 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/live-app-check | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-no-mistakes-5 (ship) -> Queued
+task:
+  id: lab-no-mistakes-5
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/live-app-check | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-no-mistakes-5 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-no-mistakes-5 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-no-mistakes-5 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-no-mistakes-5/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-no-mistakes-0 lab brief --body A task without a declaration. --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-no-mistakes-0 -> Queued
+task:
+  id: negative-no-mistakes-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: A task without a declaration.
+help[2]:
+  - Run `tasks-axi start negative-no-mistakes-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-no-mistakes-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-no-mistakes-0 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-no-mistakes-0/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-no-mistakes-0's task body
+exit=0
+
+$ tasks-axi add negative-no-mistakes-1 lab brief --body SLICE: product/desk | ops/task-system is prose --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-no-mistakes-1 -> Queued
+task:
+  id: negative-no-mistakes-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: product/desk | ops/task-system is prose"
+help[2]:
+  - Run `tasks-axi start negative-no-mistakes-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-no-mistakes-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-no-mistakes-1 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-no-mistakes-1/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-no-mistakes-2 lab brief --body ```text
+SLICE: ops/task-system | example
+``` --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-no-mistakes-2 -> Queued
+task:
+  id: negative-no-mistakes-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: ops/task-system | example\n```"
+help[2]:
+  - Run `tasks-axi start negative-no-mistakes-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-no-mistakes-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-no-mistakes-2 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-no-mistakes-2/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-no-mistakes-2's task body
+exit=0
+
+$ tasks-axi add negative-no-mistakes-3 lab brief --body SLICE: opsish/task-system | different namespace --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-no-mistakes-3 -> Queued
+task:
+  id: negative-no-mistakes-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: opsish/task-system | different namespace"
+help[2]:
+  - Run `tasks-axi start negative-no-mistakes-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-no-mistakes-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-no-mistakes-3 sample --mode no-mistakes
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-no-mistakes-3/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+PASS no-mistakes: all six plans, both roles, and four negative classifications
+
+$ tasks-axi add lab-direct-PR-0 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/task-system | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-0 (ship) -> Queued
+task:
+  id: lab-direct-PR-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/task-system | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-0 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-0/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-direct-PR-1 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/lane-system | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-1 (ship) -> Queued
+task:
+  id: lab-direct-PR-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/lane-system | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-1 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-1/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-direct-PR-2 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/central-governance | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-2 (ship) -> Queued
+task:
+  id: lab-direct-PR-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/central-governance | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-2 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-2/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-direct-PR-3 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/red-main-loop | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-3 (ship) -> Queued
+task:
+  id: lab-direct-PR-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/red-main-loop | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-3 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-3/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-direct-PR-4 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/ci-v1 | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-4 (ship) -> Queued
+task:
+  id: lab-direct-PR-4
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/ci-v1 | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-4 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-4 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-4 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-4/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-direct-PR-5 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/live-app-check | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-direct-PR-5 (ship) -> Queued
+task:
+  id: lab-direct-PR-5
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/live-app-check | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-direct-PR-5 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-direct-PR-5 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-direct-PR-5 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-direct-PR-5/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-direct-PR-0 lab brief --body A task without a declaration. --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-direct-PR-0 -> Queued
+task:
+  id: negative-direct-PR-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: A task without a declaration.
+help[2]:
+  - Run `tasks-axi start negative-direct-PR-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-direct-PR-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-direct-PR-0 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-direct-PR-0/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-direct-PR-0's task body
+exit=0
+
+$ tasks-axi add negative-direct-PR-1 lab brief --body SLICE: product/desk | ops/task-system is prose --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-direct-PR-1 -> Queued
+task:
+  id: negative-direct-PR-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: product/desk | ops/task-system is prose"
+help[2]:
+  - Run `tasks-axi start negative-direct-PR-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-direct-PR-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-direct-PR-1 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-direct-PR-1/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-direct-PR-2 lab brief --body ```text
+SLICE: ops/task-system | example
+``` --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-direct-PR-2 -> Queued
+task:
+  id: negative-direct-PR-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: ops/task-system | example\n```"
+help[2]:
+  - Run `tasks-axi start negative-direct-PR-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-direct-PR-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-direct-PR-2 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-direct-PR-2/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-direct-PR-2's task body
+exit=0
+
+$ tasks-axi add negative-direct-PR-3 lab brief --body SLICE: opsish/task-system | different namespace --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-direct-PR-3 -> Queued
+task:
+  id: negative-direct-PR-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: opsish/task-system | different namespace"
+help[2]:
+  - Run `tasks-axi start negative-direct-PR-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-direct-PR-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-direct-PR-3 sample --mode direct-PR
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-direct-PR-3/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+PASS direct-PR: all six plans, both roles, and four negative classifications
+
+$ tasks-axi add lab-local-only-0 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/task-system | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-0 (ship) -> Queued
+task:
+  id: lab-local-only-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/task-system | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-local-only-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-0 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-0/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-local-only-1 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/lane-system | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-1 (ship) -> Queued
+task:
+  id: lab-local-only-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/lane-system | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-local-only-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-1 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-1/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-local-only-2 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/central-governance | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-2 (ship) -> Queued
+task:
+  id: lab-local-only-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/central-governance | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-local-only-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-2 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-2/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-local-only-3 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/red-main-loop | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-3 (ship) -> Queued
+task:
+  id: lab-local-only-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/red-main-loop | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-local-only-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-3 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-3/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-local-only-4 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/ci-v1 | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-4 (ship) -> Queued
+task:
+  id: lab-local-only-4
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/ci-v1 | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-local-only-4 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-4 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-4 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-4/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-local-only-5 lab brief --kind ship --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/live-app-check | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-local-only-5 (ship) -> Queued
+task:
+  id: lab-local-only-5
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/live-app-check | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-local-only-5 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-local-only-5 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-local-only-5 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-local-only-5/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-local-only-0 lab brief --body A task without a declaration. --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-local-only-0 -> Queued
+task:
+  id: negative-local-only-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: A task without a declaration.
+help[2]:
+  - Run `tasks-axi start negative-local-only-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-local-only-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-local-only-0 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-local-only-0/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-local-only-0's task body
+exit=0
+
+$ tasks-axi add negative-local-only-1 lab brief --body SLICE: product/desk | ops/task-system is prose --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-local-only-1 -> Queued
+task:
+  id: negative-local-only-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: product/desk | ops/task-system is prose"
+help[2]:
+  - Run `tasks-axi start negative-local-only-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-local-only-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-local-only-1 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-local-only-1/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-local-only-2 lab brief --body ```text
+SLICE: ops/task-system | example
+``` --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-local-only-2 -> Queued
+task:
+  id: negative-local-only-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: ops/task-system | example\n```"
+help[2]:
+  - Run `tasks-axi start negative-local-only-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-local-only-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-local-only-2 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-local-only-2/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-local-only-2's task body
+exit=0
+
+$ tasks-axi add negative-local-only-3 lab brief --body SLICE: opsish/task-system | different namespace --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-local-only-3 -> Queued
+task:
+  id: negative-local-only-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: opsish/task-system | different namespace"
+help[2]:
+  - Run `tasks-axi start negative-local-only-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-local-only-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-local-only-3 sample --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-local-only-3/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+PASS local-only: all six plans, both roles, and four negative classifications
+
+$ tasks-axi add lab-scout-0 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/task-system | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-0 (scout) -> Queued
+task:
+  id: lab-scout-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/task-system | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-scout-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-0 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-0/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-scout-1 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/lane-system | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-1 (scout) -> Queued
+task:
+  id: lab-scout-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/lane-system | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-scout-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-1 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-1/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-scout-2 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/central-governance | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-2 (scout) -> Queued
+task:
+  id: lab-scout-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/central-governance | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-scout-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-2 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-2/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-scout-3 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/red-main-loop | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-3 (scout) -> Queued
+task:
+  id: lab-scout-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/red-main-loop | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-scout-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-3 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-3/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-scout-4 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/ci-v1 | plan cut | role=owner --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-4 (scout) -> Queued
+task:
+  id: lab-scout-4
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/ci-v1 | plan cut | role=owner"
+help[2]:
+  - Run `tasks-axi start lab-scout-4 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-4 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-4 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-4/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add lab-scout-5 lab brief --kind scout --body ```text
+SLICE: product/example | example
+```
+SLICE: ops/live-app-check | plan cut | role=child --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-scout-5 (scout) -> Queued
+task:
+  id: lab-scout-5
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: product/example | example\n```\nSLICE: ops/live-app-check | plan cut | role=child"
+help[2]:
+  - Run `tasks-axi start lab-scout-5 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-scout-5 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh lab-scout-5 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/lab-scout-5/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-scout-0 lab brief --body A task without a declaration. --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-scout-0 -> Queued
+task:
+  id: negative-scout-0
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: A task without a declaration.
+help[2]:
+  - Run `tasks-axi start negative-scout-0 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-scout-0 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-scout-0 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-scout-0/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-scout-0's task body
+exit=0
+
+$ tasks-axi add negative-scout-1 lab brief --body SLICE: product/desk | ops/task-system is prose --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-scout-1 -> Queued
+task:
+  id: negative-scout-1
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: product/desk | ops/task-system is prose"
+help[2]:
+  - Run `tasks-axi start negative-scout-1 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-scout-1 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-scout-1 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-scout-1/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ tasks-axi add negative-scout-2 lab brief --body ```text
+SLICE: ops/task-system | example
+``` --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-scout-2 -> Queued
+task:
+  id: negative-scout-2
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "```text\nSLICE: ops/task-system | example\n```"
+help[2]:
+  - Run `tasks-axi start negative-scout-2 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-scout-2 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-scout-2 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-scout-2/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+note: no SLICE line in negative-scout-2's task body
+exit=0
+
+$ tasks-axi add negative-scout-3 lab brief --body SLICE: opsish/task-system | different namespace --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added negative-scout-3 -> Queued
+task:
+  id: negative-scout-3
+  title: lab brief
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: "SLICE: opsish/task-system | different namespace"
+help[2]:
+  - Run `tasks-axi start negative-scout-3 --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block negative-scout-3 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-brief.sh negative-scout-3 sample --scout
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/negative-scout-3/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+PASS scout: all six plans, both roles, and four negative classifications
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-check-register.sh deploy
+registered: state/deploy.check.sh
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh _receipt deploy lab-lead aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+{"head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "status": "pending", "event": "lab-attempt", "reason": "lab-lead"}
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh arm
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh budget
+750
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh can-close unlisted
+exit=0
+
+$ tasks-axi add lab-lead lab lead --kind ship --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: added lab-lead (ship) -> Queued
+task:
+  id: lab-lead
+  title: lab lead
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start lab-lead --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lab-lead --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to record a dependency
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh can-close lab-lead
+plan-stages: UNKNOWN: lab-lead: deploy and installed checks are not both green
+exit=1
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-tasks-axi.sh done lab-lead
+plan-stages: UNKNOWN: lab-lead: deploy and installed checks are not both green
+fm-tasks-axi: plan lead stage proof is incomplete for lab-lead
+exit=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-tasks-axi.sh show lab-lead
+task:
+  id: lab-lead
+  title: lab lead
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-05
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+
+$ tasks-axi done lab-lead --file ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md
+ok: done lab-lead -> Done
+help[1]:
+  - Run `tasks-axi ready --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to dispatch work unblocked by this
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh _eligible lab-lead
+done
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh check
+lab-lead: UNKNOWN: lab-lead: deploy and installed checks are not both green; next=repair stage evidence
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-tasks-axi.sh done negative-local-only-0
+ok: done negative-local-only-0 -> Done
+help[1]:
+  - Run `tasks-axi ready --file=~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/.lab/data/backlog.md` to dispatch work unblocked by this
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh budget
+30
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6QATZCFP0RNDVNFA21RW85H/bin/fm-stage-transition.sh can-close lab-lead
+exit=0
+
+PASS: registered receipt, arming/budget, incomplete-proof close refusal, unlisted completion, Done no-relaunch, absent-registry compatibility
