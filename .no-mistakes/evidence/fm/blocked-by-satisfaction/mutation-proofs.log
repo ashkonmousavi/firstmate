@@ -1,0 +1,41 @@
+ORACLE: an unresolved blocker must never be dispatchable (G9).
+$ fm-tasks-axi.sh ready
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  wait,queued,scout,"-",Wait
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+RED: unresolved-as-satisfied mutant rejected by readiness guard.
+$ fm-tasks-axi.sh ready
+count: 
+ready: 0 unblocked queued tasks
+ready_withheld[1]{id,target,verdict,evidence}:
+  wait,ghost,unknown,"id ghost absent from fleet list 2026-11-05T23:54Z"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+GREEN: target preserves UNKNOWN and withholds the dependent.
+
+ORACLE: shared branch ID belongs to the unique PR-citing home, regardless of row order.
+$ fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/shared
+known	local	shared	here	mutant first match wins
+[exit 0]
+RED: first-match-wins mutant rejected.
+$ fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/shared
+known	third	shared	elsewhere	branch fm/shared names rows in local,other,third; only third's cites the pull request
+[exit 0]
+GREEN: target selects third.
+
+ORACLE: a unique fm/<id> task row outranks a different PR-citing row.
+$ fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/branch-only
+known	third	citing	elsewhere	no row is named branch-only; only third:citing cites the pull request
+[exit 0]
+RED: ignore-branch-name mutant rejected.
+$ fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/branch-only
+known	other	branch-only	elsewhere	branch fm/branch-only names a row only in other
+[exit 0]
+GREEN: target selects branch-only in other.
+All three hand mutants rejected; target passed; disposable copies removed.

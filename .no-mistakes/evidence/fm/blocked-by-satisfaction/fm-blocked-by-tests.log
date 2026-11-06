@@ -1,0 +1,17 @@
+1..15
+ok - self-qualified marks retain their ledger identity, repeat safely, reverse, and respect open rows and fleet membership
+ok - a seven-hour list satisfies listed local done, archive and mark evidence while staying visible; a missing id stays unknown
+ok - a seven-hour list with remote open rows blocks local done, archive and mark evidence, including multiple owning homes
+ok - no list or unlisted local completion stays unknown; listed completion is restored with fleet evidence
+ok - archived blockers resolve citing PRs 2978 and 2700; the open one still blocks
+ok - an absent or other-home blocker is unknown: withheld from ready with its evidence, unresolved in the snapshot
+ok - a merged fm/ PR alone (PR 1218, blocker open elsewhere) never clears an absent blocker
+ok - mark records the merged PR, refuses open PRs, open rows and other homes, never beats a reopened row; unmark reverses it
+ok - ready, autolaunch --dry-run and the snapshot agree on every row
+ok - a second run gives the same result and the reads change nothing
+ok - an unreadable archive withholds the whole ready list; the snapshot stands with every blocker unresolved
+ok - the archive path follows .tasks.toml
+ok - the fleet list holds the four live cross-home edges in ready, autolaunch and the snapshot; without it ready says so
+ok - a <home>:<id> edge resolves from that home: done satisfies, absent or uncovered is unknown
+ok - a stale list is shown with its age and homes, its open rows still block and its done rows clear nothing; a malformed one is refused
+FM_TEST_COMPLETE

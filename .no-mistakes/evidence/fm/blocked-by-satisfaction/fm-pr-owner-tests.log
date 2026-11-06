@@ -1,0 +1,6 @@
+ok - a branch id held in several homes goes to the one home whose row cites the pull request, else UNKNOWN
+ok - a branch whose id has rows in exactly one home belongs to that home, archived rows included
+ok - citing rows match the full pull request URL, and two citing tasks are UNKNOWN with both homes
+ok - the fleet list's rows for this home are ignored; this home's own backlog is read instead
+ok - without --branch the head branch is read once from the forge; with it, never
+ok - an absent or stale fleet list preserves UNKNOWN and only local candidates; bad input is refused

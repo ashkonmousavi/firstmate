@@ -1,0 +1,237 @@
+
+$ FM_HOME=<disposable> fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/home
+[exit 0]
+
+SCENARIO autolaunch lists only genuinely ready prepared scouts
+
+$ FM_HOME=<disposable> fm-autolaunch.sh --list-prepared
+good
+[exit 0]
+
+$ FM_HOME=<disposable> fm-autolaunch.sh --list-prepared
+[exit 0]
+
+PASS autolaunch exposes the completed dependency only, then withholds it when another home holds it open
+
+SCENARIO real public conflicting PR dry-run routes to the unique citing home, never registry order or local done namesake
+
+$ FM_HOME=<disposable> fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/other
+~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/other
+[exit 0]
+
+$ FM_HOME=<disposable> fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/third
+~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/routing-d86e4_gb/third
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-triage.sh 
+would-run: env FM_SEND_REQUEST_ID=c1ed558e60b920c8b625d364805c6220 ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/bin/fm-send.sh third --one-way $'PR triage: https://github.com/cli/cli/pull/13798 belongs to your task add-json-jq-pr-create.\nPR triage ranks https://github.com/cli/cli/pull/13798 among the pull requests to move first, and it is conflicting.\nMerge origin/trunk into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once.\nDo not rebase.\nDo not force-push.\nReport done with the same pull request URL when its checks are green.'
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13798	1	fix	refused:owned by third: steered add-json-jq-pr-create (queue=unknown)
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/9847	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/10253	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/10273	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/10275	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/10423	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/10730	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/11388	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/11500	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/11569	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/11844	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/12682	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/12942	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13013	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13017	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13155	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13247	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13251	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13340	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13348	3	none	none
+would-record: 2026-11-05T23:53:44Z	https://github.com/cli/cli/pull/13364	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13400	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13450	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13505	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13506	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13602	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13665	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13697	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13707	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13758	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13781	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13788	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13894	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13899	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13947	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13948	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/13982	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14017	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14035	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14044	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14130	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14196	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14259	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14373	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14629	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14679	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14689	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14781	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14783	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14845	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14846	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14920	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14921	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14922	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14923	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14924	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14925	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14926	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14927	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14951	3	none	none
+would-record: 2026-11-05T23:53:45Z	https://github.com/cli/cli/pull/14952	3	none	none
+would-record: 2026-11-05T23:53:46Z	https://github.com/cli/cli/pull/14953	3	none	none
+would-record: 2026-11-05T23:53:46Z	https://github.com/cli/cli/pull/14954	3	none	none
+would-record: 2026-11-05T23:53:46Z	https://github.com/cli/cli/pull/14955	3	none	none
+would-record: 2026-11-05T23:53:46Z	https://github.com/cli/cli/pull/14956	3	none	none
+would-record: 2026-11-05T23:53:46Z	https://github.com/cli/cli/pull/14957	3	none	none
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-triage.sh 
+would-record: 2026-11-05T23:53:51Z	https://github.com/cli/cli/pull/13798	1	fix	refused:owner UNKNOWN for add-json-jq-pr-create, candidate homes local,other,third: task add-json-jq-pr-create names rows in local,other,third and 2 of them cite the pull request (queue=unknown)
+would-record: 2026-11-05T23:53:51Z	https://github.com/cli/cli/pull/9847	3	none	none
+would-record: 2026-11-05T23:53:51Z	https://github.com/cli/cli/pull/10253	3	none	none
+would-record: 2026-11-05T23:53:51Z	https://github.com/cli/cli/pull/10273	3	none	none
+would-record: 2026-11-05T23:53:51Z	https://github.com/cli/cli/pull/10275	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/10423	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/10730	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/11388	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/11500	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/11569	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/11844	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/12682	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/12942	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13013	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13017	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13155	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13247	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13251	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13340	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13348	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13364	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13400	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13450	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13505	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13506	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13602	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13665	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13697	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13707	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13758	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13781	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13788	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13894	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13899	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13947	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13948	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/13982	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14017	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14035	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14044	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14130	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14196	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14259	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14373	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14629	3	none	none
+would-record: 2026-11-05T23:53:52Z	https://github.com/cli/cli/pull/14679	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14689	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14781	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14783	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14845	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14846	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14920	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14921	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14922	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14923	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14924	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14925	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14926	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14927	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14951	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14952	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14953	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14954	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14955	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14956	3	none	none
+would-record: 2026-11-05T23:53:53Z	https://github.com/cli/cli/pull/14957	3	none	none
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-triage.sh 
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13798	1	fix	refused:owner UNKNOWN for add-json-jq-pr-create, candidate homes local: fleet list stale: generated 2026-11-05T16:53Z (age 7h), covers local,other,third; ownership is UNKNOWN until a fresh list is available (queue=unknown)
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/9847	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/10253	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/10273	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/10275	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/10423	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/10730	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/11388	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/11500	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/11569	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/11844	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/12682	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/12942	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13013	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13017	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13155	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13247	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13251	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13340	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13348	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13364	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13400	3	none	none
+would-record: 2026-11-05T23:53:57Z	https://github.com/cli/cli/pull/13450	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13505	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13506	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13602	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13665	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13697	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13707	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13758	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13781	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13788	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13894	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13899	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13947	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13948	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/13982	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14017	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14035	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14044	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14130	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14196	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14259	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14373	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14629	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14679	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14689	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14781	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14783	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14845	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14846	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14920	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14921	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14922	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14923	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14924	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14925	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14926	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14927	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14951	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14952	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14953	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14954	3	none	none
+would-record: 2026-11-05T23:53:58Z	https://github.com/cli/cli/pull/14955	3	none	none
+would-record: 2026-11-05T23:53:59Z	https://github.com/cli/cli/pull/14956	3	none	none
+would-record: 2026-11-05T23:53:59Z	https://github.com/cli/cli/pull/14957	3	none	none
+[exit 0]
+
+PASS real GitHub PR and real home backlogs: correct home selected; ambiguity and stale evidence refuse; no messages, workers, or GitHub writes
+
+ALL SCENARIOS PASSED; disposable homes removed

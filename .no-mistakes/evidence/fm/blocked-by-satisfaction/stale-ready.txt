@@ -1,0 +1,12 @@
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  wait-done,queued,ship,demo,Wait
+  wait-archive,queued,ship,demo,Wait
+  wait-self,queued,ship,demo,"Wait blocked-by: local:done-id"
+ready_withheld[2]{id,target,verdict,evidence}:
+  wait-unknown,ghost,unknown,"id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  wait-remote,"other:remote-id",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these

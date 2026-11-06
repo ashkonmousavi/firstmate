@@ -1,0 +1,1599 @@
+
+$ FM_HOME=<disposable> fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home
+[exit 0]
+
+SCENARIO archived x-person-region blockers clear; an open preference blocker remains
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+x-person-region	0	x-person-preferences	blocked	open row
+x-person-region	0	x-region-registry	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2978
+x-person-region	0	x-record-ux-data-compat	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2700
+[exit 0]
+
+$ FM_HOME=<disposable> fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-11-05T23:52:34Z",
+  "fm_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8",
+    "state": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/state",
+    "data": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data",
+    "config": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config",
+    "projects": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/projects"
+  },
+  "backlog": {
+    "present": true,
+    "records": [
+      {
+        "hold_reason": null,
+        "pr_url": null,
+        "current_role": "queued",
+        "kind": "ship",
+        "links": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "hold_set": null,
+        "hold_kind": null,
+        "blocked_by_ids": [
+          "x-person-preferences",
+          "x-region-registry",
+          "x-record-ux-data-compat"
+        ],
+        "body_lines": [],
+        "checked": false,
+        "order": 1,
+        "repo": "demo",
+        "merged": null,
+        "requires_child_metadata": false,
+        "id": "x-person-region",
+        "body_excerpt": null,
+        "since": null,
+        "raw": "- [ ] x-person-region - Wait blocked-by: x-person-preferences blocked-by: x-region-registry blocked-by: x-record-ux-data-compat (kind: ship) (repo: demo)",
+        "title": "Wait",
+        "blocked_reason": null,
+        "reported": null,
+        "state": "queued",
+        "structured": true,
+        "hold_until": null,
+        "local_note": null,
+        "captain_actionable": false,
+        "priority": null,
+        "unresolved_blocker_ids": [
+          "x-person-preferences"
+        ],
+        "hold_bucket": null,
+        "hold_age_days": null,
+        "done": null,
+        "report_path": null,
+        "blocked_by": "x-record-ux-data-compat"
+      },
+      {
+        "state": "queued",
+        "hold_until": null,
+        "structured": true,
+        "local_note": null,
+        "captain_actionable": false,
+        "unresolved_blocker_ids": [],
+        "priority": null,
+        "hold_bucket": null,
+        "hold_age_days": null,
+        "done": null,
+        "report_path": null,
+        "blocked_by": null,
+        "hold_reason": null,
+        "pr_url": null,
+        "kind": "ship",
+        "current_role": "queued",
+        "links": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "blocked_by_ids": [],
+        "body_lines": [],
+        "hold_kind": null,
+        "hold_set": null,
+        "checked": false,
+        "repo": null,
+        "merged": null,
+        "order": 2,
+        "requires_child_metadata": false,
+        "body_excerpt": null,
+        "id": "x-person-preferences",
+        "since": null,
+        "raw": "- [ ] x-person-preferences - Open (kind: ship)",
+        "title": "Open",
+        "blocked_reason": null,
+        "reported": null
+      }
+    ],
+    "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/backlog.md",
+    "blocked_by_error": null
+  },
+  "tasks": [],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-11-05T23:52:34Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  x-person-preferences,queued,ship,"-",Open
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  x-person-region,queued,ship,demo,Wait
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-11-05T23:52:34Z",
+  "fm_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8",
+    "state": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/state",
+    "data": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data",
+    "config": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config",
+    "projects": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/projects"
+  },
+  "backlog": {
+    "blocked_by_error": null,
+    "present": true,
+    "records": [
+      {
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "raw": "- [ ] x-person-region - Wait blocked-by: x-person-preferences blocked-by: x-region-registry blocked-by: x-record-ux-data-compat (kind: ship) (repo: demo)",
+        "current_role": "queued",
+        "blocked_by": "x-record-ux-data-compat",
+        "unresolved_blocker_ids": [],
+        "links": [],
+        "kind": "ship",
+        "since": null,
+        "hold_age_days": null,
+        "report_path": null,
+        "priority": null,
+        "hold_bucket": null,
+        "id": "x-person-region",
+        "checked": false,
+        "hold_reason": null,
+        "captain_actionable": false,
+        "requires_child_metadata": false,
+        "body_excerpt": null,
+        "blocked_reason": null,
+        "hold_kind": null,
+        "state": "queued",
+        "reported": null,
+        "local_note": null,
+        "repo": "demo",
+        "merged": null,
+        "blocked_by_ids": [
+          "x-person-preferences",
+          "x-region-registry",
+          "x-record-ux-data-compat"
+        ],
+        "body_lines": [],
+        "hold_set": null,
+        "title": "Wait",
+        "order": 1,
+        "done": null,
+        "pr_url": null,
+        "structured": true,
+        "hold_until": null
+      },
+      {
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "raw": "- [x] x-person-preferences - Done",
+        "current_role": "done",
+        "unresolved_blocker_ids": [],
+        "blocked_by": null,
+        "links": [],
+        "kind": null,
+        "since": null,
+        "hold_age_days": null,
+        "report_path": null,
+        "priority": null,
+        "hold_bucket": null,
+        "id": "x-person-preferences",
+        "checked": true,
+        "hold_reason": null,
+        "captain_actionable": false,
+        "requires_child_metadata": false,
+        "body_excerpt": null,
+        "blocked_reason": null,
+        "hold_kind": null,
+        "state": "done",
+        "reported": null,
+        "local_note": null,
+        "repo": null,
+        "merged": null,
+        "blocked_by_ids": [],
+        "body_lines": [],
+        "order": 2,
+        "hold_set": null,
+        "title": "Done",
+        "done": null,
+        "pr_url": null,
+        "structured": true,
+        "hold_until": null
+      }
+    ],
+    "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/backlog.md"
+  },
+  "tasks": [],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-11-05T23:52:34Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+x-person-region	0	x-person-preferences	satisfied	done row
+x-person-region	0	x-region-registry	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2978
+x-person-region	0	x-record-ux-data-compat	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2700
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+x-person-region	0	x-person-preferences	satisfied	done row
+x-person-region	0	x-region-registry	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2978
+x-person-region	0	x-record-ux-data-compat	satisfied	archive row https://github.com/ashkonmousavi/NOT_Q/pull/2700
+[exit 0]
+
+PASS archived evidence cites both PRs, open blocker stops readiness, closing it releases; repeated reads agree
+
+SCENARIO seven-hour list satisfies local completion but not absent IDs or remote open conflicts
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+wait-done	0	done-id	satisfied	done row
+wait-archive	0	archive-id	satisfied	archive row
+wait-unknown	0	ghost	unknown	id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing
+wait-remote	0	other:remote-id	unknown	names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing
+wait-self	0	local:done-id	satisfied	done row
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  wait-done,queued,ship,demo,Wait
+  wait-archive,queued,ship,demo,Wait
+  wait-self,queued,ship,demo,"Wait blocked-by: local:done-id"
+ready_withheld[2]{id,target,verdict,evidence}:
+  wait-unknown,ghost,unknown,"id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  wait-remote,"other:remote-id",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-session-start.sh --reemit
+RE-EMIT CUE: if this output ends with "Output too large ... Full output saved to <path>",
+read that whole file now, before acting. Otherwise read data/captain.md, data/captain-shared.md,
+and data/learnings.md under ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data now if any of them is missing below.
+
+================================================================================
+SESSION START (CONTEXT RE-EMIT) - ~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home
+================================================================================
+This session already took the helm at its own startup and has only lost its
+context. Lock ownership is re-verified and the durable records below are
+reprinted, but the sweeps startup already reconciled - project clone refresh,
+dead-crewmate relaunch, secondmate convergence and liveness, pending remote handoff
+retry, X-mode artifact writes, and stale Herdr child cleanup - are NOT repeated.
+Queued wakes ARE still drained: they arrived after startup and are this turn work.
+
+LOCK
+--------------------------------------------------------------------------------
+lock acquired: harness pid 58248
+
+HOME ROLE
+--------------------------------------------------------------------------------
+fm-role: user (default)
+
+BOOTSTRAP
+--------------------------------------------------------------------------------
+(silent - all good)
+
+WAKE QUEUE
+--------------------------------------------------------------------------------
+(no queued wakes)
+================================================================================
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex
+================================================================================
+Current state:
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: take the next foreground bin/fm-watch-checkpoint.sh checkpoint as directed below.
+
+Mode: Codex foreground checkpoint.
+
+When this session owns supervision and away mode is not active:
+1. Drain first with `bin/fm-wake-drain.sh`.
+   After handling all emitted wakes and reconciling open decisions and unread status lines, run the exact `--ack-through` command printed as `WAKE_ACK_REQUIRED`; until then the work remains durable for idempotent re-handling after interruption.
+2. Source `~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config/x-mode.env` first when Relay is active.
+3. First cycle: run one foreground watcher checkpoint with `bin/fm-watch-checkpoint.sh --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"`.
+4. Ordinary wake: if the command prints `signal:`, `stale:`, `check:`, or `heartbeat`, drain queued wakes, handle that wake, then start the next checkpoint.
+5. If the command prints `checkpoint:` or exits 124 with no wake, drain queued wakes anyway, process any queued user message now visible to Codex, then start the next checkpoint.
+6. Never use shell `&` or Codex background tasks for firstmate watcher supervision.
+7. Do not run `bin/fm-watch-arm.sh` as Codex's normal supervision command.
+   If it is ever shelled anyway, a backgrounded, piped, or bundled anti-pattern is denied automatically by the PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`) registered in `.codex/hooks.json`.
+8. Failure or missing cycle only: drain queued wakes, inspect the failure, then start a fresh foreground checkpoint.
+
+Codex cannot reason while a foreground tool call is running.
+The bounded checkpoint returns control regularly so user messages and queued wakes can be handled without relying on background-task wake semantics.
+
+
+================================================================================
+READ-ONCE CONTRACT
+================================================================================
+Everything below is printed in full for this session start: every state/*.meta,
+a compact data/backlog.md listing, a bounded tail of every state/*.status,
+data/projects.md, data/secondmates.md, data/captain.md, data/captain-shared.md,
+and data/learnings.md.
+Do NOT re-read any of them after reading this digest, and do NOT bulk-read
+data/backlog.md or state/*.status: re-reading everything defeats the entire
+point of this command.
+
+Go to a source directly only when:
+  - this digest flagged it ABSENT (then rebuild or create it per AGENTS.md),
+  - its contents looked unparseable or corrupt,
+  - an individual full status log is needed for older wake-event history, or a
+    status line was capped and its tail matters (each task's full log path is
+    printed with its tail),
+  - a full task body is needed (bin/fm-tasks-axi.sh show <id> --full, or data/backlog.md),
+  - the backlog listing disclosed omitted queued items and this turn needs them,
+  - the NETWORK CHECKS section reported its checks still IN PROGRESS and this
+    turn needs their verdict (bin/fm-startup-network.sh report),
+  - or a STARTUP TRUNCATED banner named the stage that would have printed it, in
+    which case that stage's sources were never emitted and must be reconciled,
+  - or a context re-emit opened with a read cue because the
+    harness cut the digest short.
+
+================================================================================
+FLEET STATE
+================================================================================
+
+data/backlog.md
+--------------------------------------------------------------------------------
+compact backlog listing (tasks-axi; done rows omitted; every in-flight, held, and blocked row shown in full; ready queued bounded to 20; task bodies omitted)
+
+in flight:
+count: 0
+tasks: 0 in_flight tasks in this backlog
+
+held (captain- or time-gated; an in-flight item that is also held appears in both groups):
+count: 0
+tasks: 0 held tasks in this backlog
+
+blocked queued:
+count: 0
+tasks: 0 blocked queued tasks in this backlog
+
+ready queued (dispatchable now):
+count: 3
+ready[3]{id,state,kind,repo,title}:
+  wait-done,queued,ship,demo,Wait
+  wait-archive,queued,ship,demo,Wait
+  wait-self,queued,ship,demo,"Wait blocked-by: local:done-id"
+ready_withheld[2]{id,target,verdict,evidence}:
+  wait-unknown,ghost,unknown,"id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  wait-remote,"other:remote-id",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+(shown 3 of 3 ready queued item(s))
+Full task bodies remain available on demand: bin/fm-tasks-axi.sh show <id> --full when compatible tasks-axi is available, or data/backlog.md.
+
+Work under way (state/*.meta)
+--------------------------------------------------------------------------------
+(none)
+
+Orphan status logs (state/*.status without matching .meta)
+--------------------------------------------------------------------------------
+(none)
+
+AFK
+--------------------------------------------------------------------------------
+absent
+
+================================================================================
+NETWORK CHECKS
+================================================================================
+completed off the startup path in 0s: GitHub authentication.
+(silent - no problems found)
+
+================================================================================
+CONTEXT
+================================================================================
+
+data/projects.md
+--------------------------------------------------------------------------------
+ABSENT
+
+data/secondmates.md
+--------------------------------------------------------------------------------
+ABSENT
+
+data/captain.md
+--------------------------------------------------------------------------------
+ABSENT
+
+data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)
+--------------------------------------------------------------------------------
+ABSENT
+
+data/learnings.md
+--------------------------------------------------------------------------------
+ABSENT
+
+================================================================================
+NEXT STEP
+================================================================================
+Follow the supervision operating instructions block above for harness 'codex'.
+This script never starts supervision itself.
+
+The digest above is complete for this session start. The READ-ONCE CONTRACT
+section near the top of it governs what may still be read from disk.
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+wait-done	0	done-id	blocked	open in other,third per fleet list 2026-11-05T16:52Z
+wait-archive	0	archive-id	blocked	open in other per fleet list 2026-11-05T16:52Z
+wait-unknown	0	ghost	unknown	id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing
+wait-remote	0	other:remote-id	unknown	names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing
+wait-self	0	local:done-id	blocked	open in other,third per fleet list 2026-11-05T16:52Z
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 
+ready: 0 unblocked queued tasks
+ready_withheld[5]{id,target,verdict,evidence}:
+  wait-done,done-id,blocked,"open in other,third per fleet list 2026-11-05T16:52Z"
+  wait-archive,archive-id,blocked,"open in other per fleet list 2026-11-05T16:52Z"
+  wait-unknown,ghost,unknown,"id ghost absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  wait-remote,"other:remote-id",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  wait-self,"local:done-id",blocked,"open in other,third per fleet list 2026-11-05T16:52Z"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-11-05T23:52:38Z",
+  "fm_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8",
+    "state": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/state",
+    "data": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data",
+    "config": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config",
+    "projects": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/projects"
+  },
+  "backlog": {
+    "blocked_by_error": null,
+    "records": [
+      {
+        "hold_until": null,
+        "hold_age_days": null,
+        "captain_actionable": false,
+        "title": "Wait",
+        "hold_bucket": null,
+        "checked": false,
+        "order": 1,
+        "body_lines": [],
+        "links": [],
+        "current_role": "queued",
+        "done": null,
+        "raw": "- [ ] wait-done - Wait blocked-by: done-id (kind: ship) (repo: demo)",
+        "reported": null,
+        "pr_url": null,
+        "state": "queued",
+        "requires_child_metadata": false,
+        "blocked_reason": null,
+        "since": null,
+        "hold_kind": null,
+        "id": "wait-done",
+        "blocked_by": "done-id",
+        "unresolved_blocker_ids": [
+          "done-id"
+        ],
+        "body_excerpt": null,
+        "kind": "ship",
+        "blocked_by_ids": [
+          "done-id"
+        ],
+        "hold_reason": null,
+        "report_path": null,
+        "hold_set": null,
+        "local_note": null,
+        "repo": "demo",
+        "priority": null,
+        "structured": true,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "merged": null
+      },
+      {
+        "blocked_reason": null,
+        "requires_child_metadata": false,
+        "state": "queued",
+        "id": "wait-archive",
+        "blocked_by": "archive-id",
+        "body_excerpt": null,
+        "unresolved_blocker_ids": [
+          "archive-id"
+        ],
+        "kind": "ship",
+        "since": null,
+        "hold_kind": null,
+        "hold_set": null,
+        "local_note": null,
+        "hold_reason": null,
+        "blocked_by_ids": [
+          "archive-id"
+        ],
+        "report_path": null,
+        "merged": null,
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "structured": true,
+        "repo": "demo",
+        "priority": null,
+        "hold_bucket": null,
+        "captain_actionable": false,
+        "title": "Wait",
+        "hold_age_days": null,
+        "hold_until": null,
+        "order": 2,
+        "body_lines": [],
+        "checked": false,
+        "done": null,
+        "raw": "- [ ] wait-archive - Wait blocked-by: archive-id (kind: ship) (repo: demo)",
+        "reported": null,
+        "links": [],
+        "current_role": "queued",
+        "pr_url": null
+      },
+      {
+        "pr_url": null,
+        "raw": "- [ ] wait-unknown - Wait blocked-by: ghost (kind: ship) (repo: demo)",
+        "done": null,
+        "reported": null,
+        "links": [],
+        "current_role": "queued",
+        "order": 3,
+        "body_lines": [],
+        "checked": false,
+        "hold_bucket": null,
+        "title": "Wait",
+        "captain_actionable": false,
+        "hold_age_days": null,
+        "hold_until": null,
+        "merged": null,
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "structured": true,
+        "priority": null,
+        "repo": "demo",
+        "local_note": null,
+        "hold_set": null,
+        "blocked_by_ids": [
+          "ghost"
+        ],
+        "hold_reason": null,
+        "report_path": null,
+        "id": "wait-unknown",
+        "blocked_by": "ghost",
+        "kind": "ship",
+        "unresolved_blocker_ids": [
+          "ghost"
+        ],
+        "body_excerpt": null,
+        "since": null,
+        "hold_kind": null,
+        "blocked_reason": null,
+        "requires_child_metadata": false,
+        "state": "queued"
+      },
+      {
+        "report_path": null,
+        "hold_reason": null,
+        "blocked_by_ids": [
+          "other:remote-id"
+        ],
+        "hold_set": null,
+        "local_note": null,
+        "repo": "demo",
+        "priority": null,
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "structured": true,
+        "merged": null,
+        "state": "queued",
+        "requires_child_metadata": false,
+        "blocked_reason": null,
+        "hold_kind": null,
+        "since": null,
+        "kind": "ship",
+        "unresolved_blocker_ids": [
+          "other:remote-id"
+        ],
+        "body_excerpt": null,
+        "id": "wait-remote",
+        "blocked_by": "other:remote-id",
+        "current_role": "queued",
+        "links": [],
+        "reported": null,
+        "done": null,
+        "raw": "- [ ] wait-remote - Wait blocked-by: other:remote-id (kind: ship) (repo: demo)",
+        "pr_url": null,
+        "hold_until": null,
+        "hold_age_days": null,
+        "captain_actionable": false,
+        "title": "Wait",
+        "hold_bucket": null,
+        "checked": false,
+        "body_lines": [],
+        "order": 4
+      },
+      {
+        "repo": "demo",
+        "priority": null,
+        "merged": null,
+        "structured": true,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "report_path": null,
+        "hold_reason": null,
+        "blocked_by_ids": [
+          "local:done-id"
+        ],
+        "local_note": null,
+        "hold_set": null,
+        "hold_kind": null,
+        "since": null,
+        "kind": "ship",
+        "unresolved_blocker_ids": [
+          "local:done-id"
+        ],
+        "body_excerpt": null,
+        "blocked_by": "local:done-id",
+        "id": "wait-self",
+        "state": "queued",
+        "blocked_reason": null,
+        "requires_child_metadata": false,
+        "pr_url": null,
+        "current_role": "queued",
+        "links": [],
+        "reported": null,
+        "done": null,
+        "raw": "- [ ] wait-self - Wait blocked-by: local:done-id (kind: ship) (repo: demo)",
+        "checked": false,
+        "body_lines": [],
+        "order": 5,
+        "hold_age_days": null,
+        "hold_until": null,
+        "hold_bucket": null,
+        "captain_actionable": false,
+        "title": "Wait"
+      },
+      {
+        "links": [],
+        "current_role": "done",
+        "done": null,
+        "raw": "- [x] done-id - Done",
+        "reported": null,
+        "pr_url": null,
+        "hold_age_days": null,
+        "hold_until": null,
+        "hold_bucket": null,
+        "captain_actionable": false,
+        "title": "Done",
+        "checked": true,
+        "order": 6,
+        "body_lines": [],
+        "blocked_by_ids": [],
+        "hold_reason": null,
+        "report_path": null,
+        "local_note": null,
+        "hold_set": null,
+        "repo": null,
+        "priority": null,
+        "merged": null,
+        "structured": true,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "state": "done",
+        "blocked_reason": null,
+        "requires_child_metadata": false,
+        "since": null,
+        "hold_kind": null,
+        "blocked_by": null,
+        "id": "done-id",
+        "unresolved_blocker_ids": [],
+        "kind": null,
+        "body_excerpt": null
+      }
+    ],
+    "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/backlog.md",
+    "present": true
+  },
+  "tasks": [],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-11-05T23:52:38Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+wait-done	0	done-id	satisfied	done row
+wait-archive	0	archive-id	satisfied	archive row
+wait-unknown	0	ghost	unknown	id ghost absent from fleet list 2026-11-05T23:52Z
+wait-remote	0	other:remote-id	satisfied	done row in other per fleet list 2026-11-05T23:52Z
+wait-self	0	local:done-id	satisfied	done row
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+wait-done	0	done-id	unknown	fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks
+wait-archive	0	archive-id	unknown	fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks
+wait-unknown	0	ghost	unknown	fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks
+wait-remote	0	other:remote-id	unknown	names home other; fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks
+wait-self	0	local:done-id	unknown	names home local; fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 
+ready: 0 unblocked queued tasks
+ready_withheld[5]{id,target,verdict,evidence}:
+  wait-done,done-id,unknown,"fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+  wait-archive,archive-id,unknown,"fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+  wait-unknown,ghost,unknown,"fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+  wait-remote,"other:remote-id",unknown,"names home other; fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+  wait-self,"local:done-id",unknown,"names home local; fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+blocked_by_fleet_list: "fleet list absent: visible open rows still block; every other edge is unknown, including local done rows, archive rows and recorded marks"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+wait-done	0	done-id	unknown	id done-id absent from fleet list 2026-11-05T23:52Z
+wait-archive	0	archive-id	unknown	id archive-id absent from fleet list 2026-11-05T23:52Z
+wait-unknown	0	ghost	unknown	id ghost absent from fleet list 2026-11-05T23:52Z
+wait-remote	0	other:remote-id	unknown	no row in other per fleet list 2026-11-05T23:52Z
+wait-self	0	local:done-id	unknown	id done-id absent from fleet list 2026-11-05T23:52Z
+[exit 0]
+
+PASS stale local completion stays visible; remote opens override it; absent list/ID and stale remote completions stay UNKNOWN
+
+SCENARIO real merged-PR marks are explicit, self-qualified, idempotent, reversible, and never override an open row
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+plain	0	old	unknown	no row in this home backlog or archive and no recorded mark
+self	0	local:old	unknown	no row in this home backlog or archive and no recorded mark
+remote	0	other:old	unknown	no row in other per fleet list 2026-11-05T23:52Z
+unmerged	0	closed	unknown	no row in this home backlog or archive and no recorded mark
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark unmerged closed --pr https://github.com/cli/cli/pull/14942
+fm-blocked-by: https://github.com/cli/cli/pull/14942 is CLOSED, not merged; nothing recorded
+[exit 1]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark plain old --pr https://github.com/cli/cli/pull/14918
+marked: plain blocked-by old satisfied by https://github.com/cli/cli/pull/14918
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark self local:old --pr https://github.com/cli/cli/pull/14918
+marked: self blocked-by local:old satisfied by https://github.com/cli/cli/pull/14918
+[exit 0]
+
+Persisted append-only ledger:
+mark	1793922759	plain	old	https://github.com/cli/cli/pull/14918
+mark	1793922759	self	local:old	https://github.com/cli/cli/pull/14918
+
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark self local:old --pr https://github.com/cli/cli/pull/14918
+already marked: self blocked-by local:old satisfied by https://github.com/cli/cli/pull/14918
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark remote other:old --pr https://github.com/cli/cli/pull/14918
+fm-blocked-by: remote: the edge other:old names another home; a mark here cannot satisfy it
+[exit 1]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 2
+ready[2]{id,state,kind,repo,title}:
+  plain,queued,ship,demo,Wait
+  self,queued,ship,demo,"Wait blocked-by: local:old"
+ready_withheld[2]{id,target,verdict,evidence}:
+  remote,"other:old",unknown,"no row in other per fleet list 2026-11-05T23:52Z"
+  unmerged,closed,unknown,"no row in this home backlog or archive and no recorded mark"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-11-05T23:52:40Z",
+  "fm_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8",
+    "state": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/state",
+    "data": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data",
+    "config": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config",
+    "projects": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/projects"
+  },
+  "backlog": {
+    "records": [
+      {
+        "captain_actionable": false,
+        "hold_reason": null,
+        "structured": true,
+        "state": "queued",
+        "hold_set": null,
+        "blocked_by_ids": [
+          "old"
+        ],
+        "pr_url": null,
+        "id": "plain",
+        "blocked_reason": null,
+        "reported": null,
+        "body_lines": [],
+        "checked": false,
+        "order": 1,
+        "current_role": "queued",
+        "raw": "- [ ] plain - Wait blocked-by: old (kind: ship) (repo: demo)",
+        "hold_until": null,
+        "done": null,
+        "unresolved_blocker_ids": [],
+        "title": "Wait",
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "hold_age_days": null,
+        "local_note": null,
+        "hold_kind": null,
+        "merged": null,
+        "body_excerpt": null,
+        "priority": null,
+        "requires_child_metadata": false,
+        "repo": "demo",
+        "since": null,
+        "links": [],
+        "report_path": null,
+        "hold_bucket": null,
+        "blocked_by": "old",
+        "kind": "ship"
+      },
+      {
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "hold_age_days": null,
+        "title": "Wait",
+        "hold_kind": null,
+        "local_note": null,
+        "merged": null,
+        "priority": null,
+        "body_excerpt": null,
+        "requires_child_metadata": false,
+        "links": [],
+        "repo": "demo",
+        "since": null,
+        "report_path": null,
+        "hold_bucket": null,
+        "kind": "ship",
+        "blocked_by": "local:old",
+        "hold_reason": null,
+        "captain_actionable": false,
+        "structured": true,
+        "state": "queued",
+        "hold_set": null,
+        "blocked_by_ids": [
+          "local:old"
+        ],
+        "pr_url": null,
+        "blocked_reason": null,
+        "id": "self",
+        "reported": null,
+        "order": 2,
+        "checked": false,
+        "body_lines": [],
+        "current_role": "queued",
+        "raw": "- [ ] self - Wait blocked-by: local:old (kind: ship) (repo: demo)",
+        "done": null,
+        "hold_until": null,
+        "unresolved_blocker_ids": []
+      },
+      {
+        "kind": "ship",
+        "blocked_by": "other:old",
+        "hold_bucket": null,
+        "report_path": null,
+        "links": [],
+        "repo": "demo",
+        "since": null,
+        "requires_child_metadata": false,
+        "priority": null,
+        "body_excerpt": null,
+        "merged": null,
+        "hold_kind": null,
+        "local_note": null,
+        "hold_age_days": null,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "title": "Wait",
+        "unresolved_blocker_ids": [
+          "other:old"
+        ],
+        "done": null,
+        "hold_until": null,
+        "raw": "- [ ] remote - Wait blocked-by: other:old (kind: ship) (repo: demo)",
+        "current_role": "queued",
+        "order": 3,
+        "body_lines": [],
+        "checked": false,
+        "reported": null,
+        "id": "remote",
+        "blocked_reason": null,
+        "pr_url": null,
+        "blocked_by_ids": [
+          "other:old"
+        ],
+        "state": "queued",
+        "hold_set": null,
+        "structured": true,
+        "captain_actionable": false,
+        "hold_reason": null
+      },
+      {
+        "blocked_reason": null,
+        "id": "unmerged",
+        "reported": null,
+        "blocked_by_ids": [
+          "closed"
+        ],
+        "pr_url": null,
+        "captain_actionable": false,
+        "structured": true,
+        "hold_reason": null,
+        "hold_set": null,
+        "state": "queued",
+        "unresolved_blocker_ids": [
+          "closed"
+        ],
+        "hold_until": null,
+        "done": null,
+        "current_role": "queued",
+        "raw": "- [ ] unmerged - Wait blocked-by: closed (kind: ship) (repo: demo)",
+        "checked": false,
+        "body_lines": [],
+        "order": 4,
+        "merged": null,
+        "body_excerpt": null,
+        "priority": null,
+        "title": "Wait",
+        "hold_age_days": null,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "local_note": null,
+        "hold_kind": null,
+        "hold_bucket": null,
+        "blocked_by": "closed",
+        "kind": "ship",
+        "report_path": null,
+        "repo": "demo",
+        "since": null,
+        "links": [],
+        "requires_child_metadata": false
+      }
+    ],
+    "blocked_by_error": null,
+    "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/backlog.md",
+    "present": true
+  },
+  "tasks": [],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-11-05T23:52:40Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 2
+ready[2]{id,state,kind,repo,title}:
+  plain,queued,ship,demo,Wait
+  self,queued,ship,demo,"Wait blocked-by: local:old"
+ready_withheld[2]{id,target,verdict,evidence}:
+  remote,"other:old",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  unmerged,closed,unknown,"no row in this home backlog or archive and no recorded mark"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh unmark self local:old
+unmarked: self blocked-by local:old
+[exit 0]
+
+$ FM_HOME=<disposable> fm-tasks-axi.sh ready
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  plain,queued,ship,demo,Wait
+ready_withheld[3]{id,target,verdict,evidence}:
+  self,"local:old",unknown,"no row in this home backlog or archive and no recorded mark"
+  remote,"other:old",unknown,"names home other; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+  unmerged,closed,unknown,"no row in this home backlog or archive and no recorded mark"
+blocked_by_fleet_list: "fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing"
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+[exit 0]
+
+$ FM_HOME=<disposable> fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-11-05T23:52:40Z",
+  "fm_home": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8",
+    "state": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/state",
+    "data": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data",
+    "config": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/config",
+    "projects": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/projects"
+  },
+  "backlog": {
+    "blocked_by_error": null,
+    "records": [
+      {
+        "blocked_reason": null,
+        "priority": null,
+        "since": null,
+        "body_lines": [],
+        "hold_bucket": null,
+        "state": "queued",
+        "done": null,
+        "local_note": null,
+        "hold_age_days": null,
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "raw": "- [ ] plain - Wait blocked-by: old (kind: ship) (repo: demo)",
+        "hold_set": null,
+        "hold_kind": null,
+        "merged": null,
+        "captain_actionable": false,
+        "kind": "ship",
+        "hold_reason": null,
+        "hold_until": null,
+        "current_role": "queued",
+        "title": "Wait",
+        "unresolved_blocker_ids": [],
+        "reported": null,
+        "blocked_by_ids": [
+          "old"
+        ],
+        "repo": "demo",
+        "requires_child_metadata": false,
+        "structured": true,
+        "id": "plain",
+        "order": 1,
+        "pr_url": null,
+        "report_path": null,
+        "checked": false,
+        "blocked_by": "old",
+        "links": [],
+        "body_excerpt": null
+      },
+      {
+        "raw": "- [ ] self - Wait blocked-by: local:old (kind: ship) (repo: demo)",
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "hold_set": null,
+        "hold_kind": null,
+        "priority": null,
+        "since": null,
+        "body_lines": [],
+        "blocked_reason": null,
+        "local_note": null,
+        "hold_age_days": null,
+        "hold_bucket": null,
+        "state": "queued",
+        "done": null,
+        "id": "self",
+        "pr_url": null,
+        "order": 2,
+        "requires_child_metadata": false,
+        "structured": true,
+        "blocked_by": "local:old",
+        "links": [],
+        "body_excerpt": null,
+        "report_path": null,
+        "checked": false,
+        "captain_actionable": false,
+        "merged": null,
+        "kind": "ship",
+        "hold_reason": null,
+        "unresolved_blocker_ids": [
+          "local:old"
+        ],
+        "blocked_by_ids": [
+          "local:old"
+        ],
+        "reported": null,
+        "repo": "demo",
+        "hold_until": null,
+        "current_role": "queued",
+        "title": "Wait"
+      },
+      {
+        "structured": true,
+        "requires_child_metadata": false,
+        "id": "remote",
+        "pr_url": null,
+        "order": 3,
+        "report_path": null,
+        "checked": false,
+        "blocked_by": "other:old",
+        "body_excerpt": null,
+        "links": [],
+        "kind": "ship",
+        "captain_actionable": false,
+        "merged": null,
+        "hold_reason": null,
+        "hold_until": null,
+        "title": "Wait",
+        "current_role": "queued",
+        "reported": null,
+        "blocked_by_ids": [
+          "other:old"
+        ],
+        "unresolved_blocker_ids": [
+          "other:old"
+        ],
+        "repo": "demo",
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "raw": "- [ ] remote - Wait blocked-by: other:old (kind: ship) (repo: demo)",
+        "hold_kind": null,
+        "hold_set": null,
+        "blocked_reason": null,
+        "priority": null,
+        "body_lines": [],
+        "since": null,
+        "hold_bucket": null,
+        "state": "queued",
+        "done": null,
+        "local_note": null,
+        "hold_age_days": null
+      },
+      {
+        "priority": null,
+        "body_lines": [],
+        "since": null,
+        "blocked_reason": null,
+        "local_note": null,
+        "hold_age_days": null,
+        "hold_bucket": null,
+        "state": "queued",
+        "done": null,
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "raw": "- [ ] unmerged - Wait blocked-by: closed (kind: ship) (repo: demo)",
+        "hold_kind": null,
+        "hold_set": null,
+        "kind": "ship",
+        "captain_actionable": false,
+        "merged": null,
+        "hold_reason": null,
+        "blocked_by_ids": [
+          "closed"
+        ],
+        "reported": null,
+        "unresolved_blocker_ids": [
+          "closed"
+        ],
+        "repo": "demo",
+        "hold_until": null,
+        "title": "Wait",
+        "current_role": "queued",
+        "id": "unmerged",
+        "pr_url": null,
+        "order": 4,
+        "structured": true,
+        "requires_child_metadata": false,
+        "blocked_by": "closed",
+        "links": [],
+        "body_excerpt": null,
+        "report_path": null,
+        "checked": false
+      }
+    ],
+    "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/backlog.md",
+    "present": true
+  },
+  "tasks": [],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6PYWK8CF5K753X1RN1KN9J8/.test-validation-tmp/live-n9ma368w/home/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-11-05T23:52:40Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh verdicts
+plain	0	old	blocked	open in other per fleet list 2026-11-05T16:52Z
+self	0	local:old	blocked	open in other per fleet list 2026-11-05T16:52Z
+remote	0	other:old	blocked	open in other per fleet list 2026-11-05T16:52Z
+unmerged	0	closed	unknown	id closed absent from fleet list 2026-11-05T16:52Z; fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; visible open rows still block; listed ids may be satisfied by local done rows, archive rows or recorded marks; remote done rows satisfy nothing
+[exit 0]
+
+$ FM_HOME=<disposable> fm-blocked-by.sh mark plain old --pr https://github.com/cli/cli/pull/14918
+fm-blocked-by: old has a visible open row; it still blocks plain
+[exit 1]
+
+PASS real merge verified; CLOSED refused; self qualifier retained; repeat is no-op; unmark and remote open restore blocking
+
+SCENARIO PR ownership selects the citing home or unique branch identity; ambiguous and incomplete evidence never guesses
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/same
+known	third	same	elsewhere	branch fm/same names rows in local,other,third; only third's cites the pull request
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14910 --branch fm/branch-only
+known	other	branch-only	elsewhere	branch fm/branch-only names a row only in other
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/same
+unknown	local,other,third	here	branch fm/same names rows in local,other,third and 2 of them cite the pull request
+[exit 3]
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/absent
+known	third	build	elsewhere	no row is named absent; only third:build cites the pull request
+[exit 0]
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/same
+unknown	local	here	fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; ownership is UNKNOWN until a fresh list is available
+fleet_list	fleet list stale: generated 2026-11-05T16:52Z (age 7h), covers local,other,third; ownership is UNKNOWN until a fresh list is available
+[exit 3]
+
+$ FM_HOME=<disposable> fm-pr-owner.sh https://github.com/cli/cli/pull/14918 --branch fm/same
+unknown	.	here	fleet list absent: ownership is UNKNOWN until a fresh list is available
+fleet_list	fleet list absent: ownership is UNKNOWN until a fresh list is available
+[exit 3]
+
+PASS branch identity, unique citation, ambiguous candidates, full URL matching, stale and absent ownership verified
+
+ALL SCENARIOS PASSED; disposable home removed

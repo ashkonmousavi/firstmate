@@ -1,0 +1,15 @@
+Live orphan-wake validation limit
+
+Required real input: an OPEN GitHub PR whose head starts literally fm/, with a conflict label applied at least 15 minutes earlier. The sweep lists the real forge and reads the label timeline through fm-pr-poll.sh --validated.
+
+Discovery command:
+gh search prs 'head:fm/ -user:ashkonmousavi' --label conflict --state open --limit 10 --json url,repository
+Observed output: [] (exit 0).
+
+The workspace-only write boundary prohibits creating a GitHub repository, PR, branch or label on a shared service. Operator-owned PRs and fleet homes were excluded from the candidate proof. A fixture gh response is not live proof.
+
+To drive this live, provide a disposable GitHub repo with an fm/<task-id> PR carrying an aged conflict label, readable with the existing login, or authorize creating those remote test records. No new login is needed for the public GitHub reader already exercised.
+
+Supplementary deterministic coverage executed successfully:
+TMPDIR="$PWD/.test-validation-tmp" bash tests/fm-pr-orphan-sweep.test.sh
+This exercises the real sweep, poll and durable wake queue with fixture forge responses, including UNKNOWN owners, candidate secondmates and repeated passes. It is not represented as live forge validation.
