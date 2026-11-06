@@ -8,6 +8,7 @@ FM_CUSTOM_CHECK_TIMEOUT=
 # Exactly one declaration, integer 1..86400 without leading zeroes; absent uses
 # FM_CHECK_TIMEOUT (default 30). Parse data only, never source the check.
 fm_custom_check_timeout_read() {
+  # shellcheck disable=SC2034 # Result is consumed by callers sourcing this library.
   FM_CUSTOM_CHECK_TIMEOUT=$(LC_ALL=C awk '
     /^# FM_CHECK_TIMEOUT([=[:space:]]|$)/ {
       count++
