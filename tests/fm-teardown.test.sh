@@ -5965,8 +5965,8 @@ test_interrupted_release_completes_after_merge() {
   test_released_copy_completes_after_merge 1
 }
 
-# The release rule: the no-mistakes gate is a remote, so a commit that reached
-# only the gate is "pushed" by --remotes, yet it is not on the forge.
+# The local mirror is excluded from landed-work proof, so a head only on
+# that mirror remains unpushed and cannot release the copy.
 test_release_refuses_when_the_head_is_only_on_the_gate_remote() {
   local case_dir mode before
   for mode in auto keep-open; do
@@ -5985,8 +5985,8 @@ test_release_refuses_when_the_head_is_only_on_the_gate_remote() {
       teardown_capture "$case_dir"
     fi
     expect_code 1 "$TEARDOWN_CAPTURE_RC" "$mode gate-only: a head only on the no-mistakes remote must keep the copy"$'\n'"$(cat "$case_dir/stderr")"
-    assert_grep "has head $(cat "$case_dir/forge-head") on the forge" "$case_dir/stderr" \
-      "$mode gate-only: the refusal did not name the forge head"
+    assert_grep "has work not on any remote and not landed" "$case_dir/stderr" \
+      "$mode gate-only: the refusal did not identify unlanded mirror-only work"
     assert_present "$case_dir/wt" "$mode gate-only: the copy holding the unforged commit was removed"
     [ "$(cat "$case_dir/state/task-x1.meta")" = "$before" ] \
       || fail "$mode gate-only: the refused release rewrote the task record"

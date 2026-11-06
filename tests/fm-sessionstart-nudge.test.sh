@@ -774,7 +774,7 @@ await waitDead(compactPid, "shutdown left the compaction child alive");
 await waitDead(compactGrandchild, "shutdown left a compaction grandchild alive");
 JS
   ) || status=$?
-  expect_code 0 "$status" "Pi session-start generation prerequisite"
+  expect_code 0 "$status" "Pi session-start generation prerequisite"$'\n'"$out"
   [ -z "$out" ] || fail "Pi session-start generation prerequisite printed output: $out"
   pass "Pi provider preflight owns one generation-bound startup prerequisite with deterministic fallback, replacement, cancellation, timeout, and truncation"
 }
