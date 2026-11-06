@@ -19,21 +19,6 @@ fm_custom_check_timeout_read() {
   ' "$1") || { FM_CUSTOM_CHECK_TIMEOUT=; return 1; }
 }
 
-# Longest authenticated declaration for a foreground checkpoint backstop.
-# The watcher still validates its private snapshot immediately before execution.
-fm_custom_check_timeout_max() {
-  local state=$1 maximum=$2 check id
-  for check in "$state"/*.check.sh; do
-    [ -f "$check" ] || continue
-    id=${check##*/}; id=${id%.check.sh}
-    fm_custom_check_registered "$state" "$id" || continue
-    fm_custom_check_timeout_read "$check" || continue
-    [ -n "$FM_CUSTOM_CHECK_TIMEOUT" ] || continue
-    [ "$FM_CUSTOM_CHECK_TIMEOUT" -le "$maximum" ] || maximum=$FM_CUSTOM_CHECK_TIMEOUT
-  done
-  printf '%s\n' "$maximum"
-}
-
 fm_custom_check_sha256() {
   local file=$1
   if command -v shasum >/dev/null 2>&1; then

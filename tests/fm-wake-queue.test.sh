@@ -3866,12 +3866,8 @@ check_leg() {
   CHECK_LEG_PID=$!
 }
 
-record_field() {  # <record> <field>
-  sed -n "s/^$2=//p" "$1"
-}
-
 test_custom_check_budgets() {
-  local dir state bad rc fallback record
+  local dir state bad rc fallback
   dir=$(make_case check-budget-invalid)
   state="$dir/state"
   # shellcheck disable=SC2016 # Malicious budget text must remain literal data.
@@ -3905,18 +3901,10 @@ SH
     check_leg "$dir" budget FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$fallback"
     wait_for_exit "$CHECK_LEG_PID" 140 || fail "budget watcher did not finish"
     grep -qF 'budget finished with bound=4' "$dir/watch-budget.out" || fail "declared budget was ignored or not exported"
-    record="$state/.check-run-a-budget"
-    [ "$(record_field "$record" result)" = ok ] || fail "declared-budget check timed out early"
-    [ "$(record_field "$record" budget_seconds)" = 4 ] || fail "declared budget missing from record"
-    # Whole-second telemetry allows one second of sampling granularity.
-    [ "$(record_field "$record" elapsed_seconds)" -ge 1 ] || fail "elapsed time was not measured"
-    [ "$(record_field "$state/.check-run-b-default" result)" = timed-out ] || fail "budget leaked to next check"
-    [ "$(record_field "$state/.check-run-c-fast" result)" = ok ] || fail "fast check changed"
     grep -qF 'fast finished' "$state/.wake-queue" || fail "later fast check was skipped"
-    record="$state/.check-run-d-budget-timeout"
-    [ "$(record_field "$record" result)" = timed-out ] || fail "declared budget was unbounded"
-    [ "$(record_field "$record" budget_seconds)" = 4 ] || fail "timeout used the global bound"
-    [ "$(record_field "$record" elapsed_seconds)" -ge 3 ] || fail "declared budget timed out early"
+    grep -Eq 'timed out after 4s \(measured ([4-9]|[1-9][0-9]+)s;.*failing tool: d-budget-timeout' "$state/.wake-queue" || fail "declared budget was not enforced and measured"
+    set -- "$state"/.check-run-*
+    [ ! -e "$1" ] || fail "check execution persisted an unrequested run record"
     grep -qF 'failing tool: b-default' "$state/.wake-queue" || fail "timeout did not name failing tool"
     grep -Eq 'timed out after 1s \(measured [1-9][0-9]*s;' "$state/.wake-queue" || fail "timeout omitted measured time"
   done

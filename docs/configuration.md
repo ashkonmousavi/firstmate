@@ -3822,6 +3822,7 @@ An operator can re-engage a capped window at once by deleting its `state/.wedge-
 Turning the cap back off takes effect at once: every cap marker is read only while the cap is configured, so a leftover from an earlier configured run cannot keep a window silent in a home that has turned the cap off.
 
 Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
+Foreground checkpoint admission and deferral reporting are owned by `bin/fm-watch-checkpoint.sh --help`; ordinary watchers retain the full authenticated budget.
 
 `fm-teardown.sh` retries only Git's `Unable to create '...index.lock': File exists` return failure up to `FM_TREEHOUSE_RETURN_LOCK_RETRIES` times.
 `FM_TREEHOUSE_RETURN_LOCK_RETRIES` accepts a nonnegative integer, and an unset, blank, or invalid value uses the default of 3.

@@ -3494,23 +3494,6 @@ run_check_capture() {
   [ "$rc" -ne 124 ] || FM_CHECK_RESULT="${FM_CHECK_RESULT:+$FM_CHECK_RESULT$'\n'}timed out after ${FM_CHECK_BUDGET:-$CHECK_TIMEOUT}s"
 }
 
-# Persist the just-completed check, without changing curated's per-run wakes.
-# budget_seconds is the bound; elapsed_seconds rounds monotonic elapsed time
-# including cleanup up to whole seconds. Identity authenticates the executed
-# custom snapshot or names the existing specialized poll path.
-check_run_record() {
-  local c=$1 identity=$2 result=failed record tmp
-  record="$STATE/.check-run-$(basename "$c" .check.sh)"
-  case "$FM_CHECK_EXIT_STATUS" in 0) result=ok ;; 124) result='timed-out' ;; esac
-  tmp=$(umask 077; mktemp "$record.tmp.XXXXXX") || return 0
-  if ! printf 'check=%s\nidentity=%s\nlast_run=%s\nexit=%s\nresult=%s\nbudget_seconds=%s\nelapsed_seconds=%s\n' \
-      "$c" "$identity" "$(date +%s)" "$FM_CHECK_EXIT_STATUS" "$result" "$FM_CHECK_BUDGET" "$FM_CHECK_ELAPSED" > "$tmp" \
-      || ! mv -f -- "$tmp" "$record"; then
-    rm -f -- "$tmp"
-    triage_log "check run record for $c could not be written"
-  fi
-}
-
 FM_CAPTURE_OUTPUT=
 WATCHER_CAPTURE=
 
@@ -4288,6 +4271,38 @@ checkpoint_deadline_passed() {
   fm_checkpoint_expired
 }
 
+checkpoint_checks() {
+  local check id budget
+  if [ -z "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+    printf '%s\n' "$STATE"/*.check.sh
+    return
+  fi
+  for check in "$STATE"/*.check.sh; do
+    [ -e "$check" ] || continue
+    budget=$CHECK_TIMEOUT
+    id=${check##*/}; id=${id%.check.sh}
+    if [ "$id" != x-watch ] && fm_custom_check_registered "$STATE" "$id"; then
+      budget=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
+    fi
+    printf '%s\t%s\n' "$budget" "$check"
+  done | LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2 | cut -f2-
+}
+
+checkpoint_check_admit() {
+  local check=$1 remaining
+  [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] || return 0
+  fm_checkpoint_clock || exit 1
+  remaining=$((WATCHER_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+  [ "$remaining" -ge 0 ] || remaining=0
+  if [ "$FM_CHECK_BUDGET" -gt "$remaining" ]; then
+    printf 'checkpoint: %s: deferred (budget %ss > remaining %ss)\n' \
+      "$check" "$FM_CHECK_BUDGET" "$remaining" >&2
+    check_sweep_deferred=1
+    return 1
+  fi
+  return 0
+}
+
 while :; do
   if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then exit 124; fi
   # Native Codex may tear down the async hook and its watchdog together.
@@ -4539,19 +4554,19 @@ $orphan_out
 EOF
     fi
     check_sweep_deferred=0
-    for c in "$STATE"/*.check.sh; do
+    check_sweep=()
+    while IFS= read -r c; do
+      check_sweep+=("$c")
+    done < <(checkpoint_checks)
+    for c in "${check_sweep[@]:-}"; do
       FM_CHECKPOINT_DEADLINE=
       [ -e "$c" ] || continue
-      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && checkpoint_deadline_passed; then
-        check_sweep_deferred=1
-        break
-      fi
       is_pr_poll=0
       FM_CHECK_BUDGET=$CHECK_TIMEOUT
-      check_identity=relay-poll
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
           && [ -f "$FM_ROOT/bin/fm-x-poll.sh" ] && [ ! -L "$FM_ROOT/bin/fm-x-poll.sh" ]; then
+          checkpoint_check_admit "$c" || continue
           FM_HOME="$FM_HOME" run_check_capture "$FM_ROOT/bin/fm-x-poll.sh" || exit 1
           out=$FM_CHECK_RESULT
         else
@@ -4564,7 +4579,6 @@ EOF
           || { rerecord_device_shifted_pr_poll "$id" \
             && fm_pr_poll_snapshot_capture "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh"; }; then
           is_pr_poll=1
-          check_identity=$FM_PR_POLL_SNAPSHOT_URL
           provider=$FM_PR_POLL_SNAPSHOT_PROVIDER
           url=$FM_PR_POLL_SNAPSHOT_URL
           host=$FM_PR_POLL_SNAPSHOT_HOST
@@ -4577,6 +4591,7 @@ EOF
             triage_log "PR poll for $id changed before its validated check; skipping the stale snapshot"
             continue
           fi
+          checkpoint_check_admit "$c" || { pr_poll_control_release || exit 1; continue; }
           FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           if [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
@@ -4616,7 +4631,7 @@ EOF
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           FM_CHECK_BUDGET=${FM_CUSTOM_CHECK_TIMEOUT:-$CHECK_TIMEOUT}
-          check_identity="sha256:$FM_CUSTOM_CHECK_HASH"
+          checkpoint_check_admit "$c" || { fm_custom_check_snapshot_cleanup; continue; }
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
           # A killed or failing run must not vanish: it wakes naming the check,
@@ -4639,7 +4654,6 @@ EOF
         fm_checkpoint_clock || exit 1
         FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 5))
       fi
-      check_run_record "$c" "$check_identity"
       if [ -n "$out" ]; then
         if [ "$(basename "$c")" = contributions.check.sh ]; then
           contribution_check_output=
