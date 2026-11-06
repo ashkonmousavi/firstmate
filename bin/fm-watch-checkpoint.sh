@@ -196,13 +196,13 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
 fi
 
 CHECK_BACKSTOP=0
-for check in "$STATE"/*.check.sh; do
-  [ -f "$check" ] || continue
+for checkpoint_check in "$STATE"/*.check.sh; do
+  [ -f "$checkpoint_check" ] || continue
   # shellcheck source=bin/fm-pr-lib.sh
   . "$SCRIPT_DIR/fm-pr-lib.sh"
   # shellcheck source=bin/fm-check-lib.sh
   . "$SCRIPT_DIR/fm-check-lib.sh"
-  id=${check##*/}; id=${id%.check.sh}
+  id=${checkpoint_check##*/}; id=${id%.check.sh}
   fm_custom_check_registered "$STATE" "$id" || continue
   CHECK_BACKSTOP=$(fm_custom_check_timeout_max "$STATE" "$(positive_or "${FM_CHECK_TIMEOUT:-}" 30)")
   break

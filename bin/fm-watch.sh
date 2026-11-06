@@ -3472,7 +3472,7 @@ run_check_capture() {
 check_run_record() {
   local c=$1 identity=$2 result=failed record tmp
   record="$STATE/.check-run-$(basename "$c" .check.sh)"
-  case "$FM_CHECK_EXIT_STATUS" in 0) result=ok ;; 124) result=timed-out ;; esac
+  case "$FM_CHECK_EXIT_STATUS" in 0) result=ok ;; 124) result='timed-out' ;; esac
   tmp=$(umask 077; mktemp "$record.tmp.XXXXXX") || return 0
   if ! printf 'check=%s\nidentity=%s\nlast_run=%s\nexit=%s\nresult=%s\nbudget_seconds=%s\nelapsed_seconds=%s\n' \
       "$c" "$identity" "$(date +%s)" "$FM_CHECK_EXIT_STATUS" "$result" "$FM_CHECK_BUDGET" "$FM_CHECK_ELAPSED" > "$tmp" \
@@ -4595,7 +4595,7 @@ EOF
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             # Output printed before the cut stays, followed by the cut itself;
             # a silent cut names the bound that killed it.
-            out="${out%timed out after ${FM_CHECK_BUDGET}s}timed out after ${FM_CHECK_BUDGET}s (measured ${FM_CHECK_ELAPSED}s; ❌ failing tool: $id; FM_CHECK_TIMEOUT)"
+            out="${out%timed out after "${FM_CHECK_BUDGET}"s}timed out after ${FM_CHECK_BUDGET}s (measured ${FM_CHECK_ELAPSED}s; ❌ failing tool: $id; FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
             out="exited $FM_CHECK_EXIT_STATUS after ${FM_CHECK_ELAPSED}s${out:+: $out}"
           fi
