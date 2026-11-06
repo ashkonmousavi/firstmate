@@ -7,7 +7,7 @@
 # Every routine firstmate backlog read or mutation goes through this command
 # rather than a bare `tasks-axi`; `fm-tasks-axi.sh <command> --help` prints
 # tasks-axi's own help. Apart from the owner-request custody, hold-release, ready filtering and
-# scout-phase completion handling below, arguments reach tasks-axi as given,
+# shared completion handling below, arguments reach tasks-axi as given,
 # with a rewrite that preserves file arguments: a relative
 # value of `--to` or any `--*-file` flag (`--body-file`, `--relation-file`, ...)
 # is made absolute against the caller's working directory, because tasks-axi
@@ -341,20 +341,11 @@ if [ "$help_requested" = 1 ]; then
   exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
 fi
 
-# Completion of a scout phase must use the same parent-row guard as teardown.
-# Preserve tasks-axi's ordinary arguments/output for every other completion.
+# Completion uses bin/fm-backlog-transition-lib.sh's shared guards.
 case "$subcommand" in
   done|close)
-    phase_status=0
-    fm_backlog_scout_phase "$DATA" "$first_positional" || phase_status=$?
-    case "$phase_status" in
-      0)
-        fm_backlog_done "$DATA" "${ARGS[@]:1}" || fail "$FM_BACKLOG_TRANSITION_ERROR"
-        exit 0
-        ;;
-      1) ;;
-      *) fail "$FM_BACKLOG_TRANSITION_ERROR" ;;
-    esac
+    FM_BACKLOG_MUTATE_STDOUT=1 fm_backlog_done "$DATA" "${ARGS[@]:1}" || fail "$FM_BACKLOG_TRANSITION_ERROR"
+    exit 0
     ;;
 esac
 

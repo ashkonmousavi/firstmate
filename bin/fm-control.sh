@@ -8,7 +8,14 @@
 #                                         [--effort <level>] [--if-recoverable]
 #                                         [--step-action <owner>:<action-id>]
 #                                         [--quota-override <reason>]
+#                                         [--if-stopped]
 #                                         (--note <text> | --note-file <path>)
+#
+# --if-stopped refuses unless the plan-stage eligibility adapter confirms an
+# unheld, undeclared-wait task with no live agent, under the lifecycle lock.
+# Once parsed, it maps nonzero pre-launch refusals (including lock, lease and
+# admission) to exit 3. A spawn admission deferral also returns 3 if no replacement
+# record was published; ambiguous or post-publication failures keep their codes.
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
 # DATA plane: conversational text for the agent to read, always routing-marked
@@ -284,6 +291,7 @@ CONTROL_LOCK=
 CONTROL_LOCK_HELD=0
 RELAUNCH_ACTIVE=0
 RELAUNCH_PHASE=start
+RELAUNCH_SPAWN_STARTED=0
 
 control_cleanup() {
   local status=$?
@@ -302,6 +310,10 @@ control_cleanup() {
   fi
   if declare -F fm_lease_guard_release >/dev/null 2>&1; then
     fm_lease_guard_release || true
+  fi
+  if [ "${VERB:-}" = relaunch ] && [ "${IF_STOPPED:-0}" = 1 ] \
+    && [ "$status" -ne 0 ] && [ "$RELAUNCH_SPAWN_STARTED" = 0 ]; then
+    exit 3
   fi
   return "$status"
 }
@@ -334,6 +346,7 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+IF_STOPPED=0
 QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
@@ -346,6 +359,7 @@ LANDED_WORK=0
 EXPECT_GEN=
 EXPECT_GEN_SET=0
 control_want_value=
+trap control_cleanup EXIT
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
     case "$control_arg" in
@@ -374,6 +388,7 @@ for control_arg in "$@"; do
     --if-idle) IF_IDLE=1 ;;
     --landed-work) LANDED_WORK=1 ;;
     --expect-spawn-gen) control_want_value=expect_gen ;;
+    --if-stopped) IF_STOPPED=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -407,7 +422,7 @@ fi
 
 if [ "$VERB" != relaunch ]; then
   [ -z "$STEP_ACTION" ] || die "--step-action applies to relaunch only"
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
+  [ "$IF_STOPPED" = 0 ] && [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
     || die "--harness, --model, --effort, --note, --quota-override, and --if-recoverable apply to 'relaunch' only"
 fi
 [ -z "$STEP_ACTION" ] || [ "$RECOVER_ONLY" = 1 ] || die "--step-action requires --if-recoverable"
@@ -441,7 +456,6 @@ ID=$RAW_ID
 . "$SCRIPT_DIR/fm-lease-lib.sh"
 fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
-trap control_cleanup EXIT
 if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
   if [ "$RECOVER_ONLY" = 1 ] || [ "$IF_IDLE" = 1 ]; then
     echo "another lifecycle action is already running for task $ID" >&2
@@ -1684,6 +1698,14 @@ do_relaunch() {
     *) die "task $ID's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on $BACKEND); refusing to relaunch" ;;
   esac
   require_state_verified_backend relaunch
+  if [ "$IF_STOPPED" = 1 ]; then
+    state=$("$SCRIPT_DIR/fm-stage-transition.sh" _eligible "$ID") \
+      || die "task $ID stopped-only relaunch eligibility is unknown"
+    if [ "$state" != eligible ]; then
+      echo "deferred: task $ID stopped-only relaunch refused: $state"
+      return 3
+    fi
+  fi
   fm_control_backend_relaunch_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, where a thread keeps its conversation and a new turn or provider change continues the same agent, so no fresh replacement can be launched into its endpoint; 'interrupt' ends its turn, and a fresh task needs a teardown and a new dispatch"
   if [ "$(agent_state)" = alive ]; then
@@ -1722,7 +1744,7 @@ do_relaunch() {
     return
   fi
   safe_checkpoint
-  relaunch_admission_preflight || exit $?
+  relaunch_admission_preflight || return $?
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"
@@ -1743,6 +1765,7 @@ do_relaunch() {
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
+  RELAUNCH_SPAWN_STARTED=1
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
@@ -1768,6 +1791,7 @@ do_relaunch() {
     [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ] \
       || RELAUNCH_META_PUBLISHED=1
     if [ "$spawn_status" = 75 ]; then
+      [ "$RELAUNCH_META_PUBLISHED" = 1 ] || RELAUNCH_SPAWN_STARTED=0
       echo "error: commit-phase failure: replacement spawn for $ID was deferred after its old agent stopped" >&2
       exit 75
     fi
@@ -1808,6 +1832,7 @@ do_relaunch_released() {
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
+  RELAUNCH_SPAWN_STARTED=1
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
     FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
@@ -1817,7 +1842,10 @@ do_relaunch_released() {
       die "the released relaunch of $ID failed; its current copy and record were kept because safe rollback was not proven. Inspect $(fm_meta_get "$META" worktree); the prior record is at $prior_stage"
     fi
     rm -f "$prior_stage"
-    [ "$spawn_status" -ne 75 ] || exit 75
+    if [ "$spawn_status" = 75 ]; then
+      RELAUNCH_SPAWN_STARTED=0
+      exit 75
+    fi
     die "the released copy of $ID could not be recreated and relaunched on $TARGET_HARNESS; its released record, instructions and journal are unchanged"
   fi
   mv -f "$note_stage" "$NOTE_FILE" \

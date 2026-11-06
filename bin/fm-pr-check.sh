@@ -22,6 +22,9 @@
 # skips this refusal, because its own merge-time draft refusal is authoritative.
 # The recorded pr= also frees the task's place in a declared project capacity
 # (bin/fm-project-capacity-lib.sh).
+# With config/plan-leads.json present, also arm the home-level continuation
+# owned by bin/fm-stage-transition.sh; its failure makes this command fail
+# after the PR record and merge poll have already been published.
 # Usage: fm-pr-check.sh <task-id> <pr-url>
 set -eu
 
@@ -318,4 +321,10 @@ case "$READY_RC" in
   0|1) ;;
   *) printf 'actionable: PR %s is registered but its ready line did not reach the parent channel (rc=%s)\n' "$URL" "$READY_RC" >&2 ;;
 esac
+# One home-level continuation survives retirement of this task's merge poll.
+# Its explicit plan-lead registry leaves ordinary task delivery unchanged.
+if [ -f "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/plan-leads.json" ]; then
+  "$SCRIPT_DIR/fm-stage-transition.sh" arm \
+    || { echo "error: plan-lead continuation could not be armed" >&2; exit 1; }
+fi
 printf 'armed: state/%s.check.sh\n' "$ID"

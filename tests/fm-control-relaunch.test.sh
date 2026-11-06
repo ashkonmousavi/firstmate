@@ -5455,6 +5455,87 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+test_stopped_only_plan_stage_relaunch() {
+  local dir id out rc phase
+  local -a stage_args
+  . "$ROOT/bin/fm-wake-lib.sh"
+  command -v tasks-axi >/dev/null 2>&1 || {
+    fail "stopped-only guard proof requires tasks-axi"
+  }
+  for phase in live paused captain-held held 'done' capacity lock lease missing-brief parse stopped; do
+    id="rl-stage-$phase"
+    dir=$(new_case "stage-$phase" "$id")
+    add_ship_task "$dir" "$id" claude
+    seed_backlog "$dir" "$id" in_flight
+    printf 'done: PR https://github.com/example/project/pull/42 ready\n' > "$dir/home/state/$id.status"
+    if [ "$phase" != live ]; then
+      printf zsh > "$dir/fake/command"
+    fi
+    stage_args=()
+    case "$phase" in
+      paused) printf 'paused: external declared wait\n' > "$dir/home/state/$id.status" ;;
+      captain-held) printf 'captain-held: decision transferred to a separate held task\n' > "$dir/home/state/$id.status" ;;
+      held) tasks-axi hold "$id" --reason "external stage hold" --kind external --file "$dir/home/data/backlog.md" >/dev/null ;;
+      'done') tasks-axi 'done' "$id" --file "$dir/home/data/backlog.md" >/dev/null ;;
+      lock) fm_lock_try_acquire "$dir/home/state/.control-$id.lock" || fail "could not claim fixture control lock" ;;
+      lease)
+        printf '%s\n' "$$" > "$dir/home/state/.lock"
+        FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" FM_LEASE_HOLDER_PID=$$ FM_SUPERVISION_ACTOR=branch \
+          "$ROOT/bin/fm-lease.sh" claim "$id" >/dev/null || fail "could not claim fixture branch lease"
+        ;;
+      missing-brief) mv "$dir/home/data/$id/brief.md" "$dir/saved-brief" ;;
+      parse) stage_args=(--bad-stage-flag) ;;
+      capacity) printf '0 0\n' > "$dir/home/config/lane-capacity" ;;
+    esac
+    cp "$dir/home/state/$id.meta" "$dir/before-meta"
+    rc=0
+    out=$(run_control "$dir" "$id" relaunch --if-stopped --note "stage transition" "${stage_args[@]+"${stage_args[@]}"}") || rc=$?
+    if [ "$phase" = stopped ]; then
+      expect_code 0 "$rc" "eligible ended lead must relaunch: $out"
+      assert_contains "$out" "relaunched $id" "stopped-only relaunch did not complete"
+    else
+      expect_code 3 "$rc" "a $phase task must defer without lifecycle writes: $out"
+      [ ! -s "$dir/fake/literal" ] || fail "$phase task received lifecycle input"
+      cmp -s "$dir/before-meta" "$dir/home/state/$id.meta" || fail "$phase task metadata changed"
+      assert_absent "$dir/home/state/$id.control-relaunch" "$phase refusal left a journal"
+      case "$phase" in
+        lock)
+          assert_contains "$out" 'another lifecycle action' "fixture did not reach control lock refusal"
+          fm_lock_release "$dir/home/state/.control-$id.lock"
+          ;;
+        lease)
+          assert_contains "$out" 'leased to the branch' "fixture did not reach live lease refusal"
+          FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" FM_SUPERVISION_ACTOR=branch \
+            "$ROOT/bin/fm-lease.sh" release "$id" || fail "could not release fixture branch lease"
+          ;;
+        missing-brief) mv "$dir/saved-brief" "$dir/home/data/$id/brief.md" ;;
+      esac
+      if [ "$phase" = capacity ] || [ "$phase" = lock ] || [ "$phase" = lease ] || [ "$phase" = missing-brief ] || [ "$phase" = parse ]; then
+        printf '999999 0\n' > "$dir/home/config/lane-capacity"
+        rc=0
+        out=$(run_control "$dir" "$id" relaunch --if-stopped --note "capacity available") || rc=$?
+        expect_code 0 "$rc" "admitted stopped-only retry must relaunch: $out"
+      fi
+    fi
+  done
+  id=rl-stage-published
+  dir=$(new_case stage-published "$id")
+  add_ship_task "$dir" "$id" claude
+  seed_backlog "$dir" "$id" in_flight
+  printf zsh > "$dir/fake/command"
+  printf codex > "$dir/fake/becomes"
+  printf 'done: PR https://github.com/example/project/pull/42 ready\n' > "$dir/home/state/$id.status"
+  rc=0
+  out=$(FM_FAKE_LAUNCH_TRANSPORT_FAIL_AFTER_START=1 \
+    run_control "$dir" "$id" relaunch --if-stopped --harness codex --note "published failure") || rc=$?
+  expect_code 1 "$rc" "a published replacement must not become a retryable deferral: $out"
+  [ -n "$(meta_field "$dir" "$id" control_relaunch_tx)" ] || fail "fixture did not publish the replacement"
+  pass "stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock"
+}
+
+test_stopped_only_plan_stage_relaunch
+[ "${FM_CONTROL_STAGE_ONLY:-0}" != 1 ] || exit 0
+
 test_adapter_admission_preserves_running_agent
 test_relaunch_admission_refusal_preserves_running_agent
 test_configuration_admission_preserves_running_agent

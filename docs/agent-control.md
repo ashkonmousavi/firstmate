@@ -37,6 +37,7 @@ A recorded `harness=` is not always an exact adapter name: a task launched from 
 | `relaunch` | Replace the agent on the exact recorded adapter or an explicitly chosen harness, model, and effort, reusing its local copy and surviving endpoint or [recreating a released copy](#relaunching-a-released-copy). | The new agent is alive on the endpoint the task's record now names, and that record names the harness that is actually running. |
 
 Automatic callers such as [lane release](../bin/fm-lane-release.sh) use unattended exit to avoid interrupting a running turn; the [`bin/fm-control.sh` header](../bin/fm-control.sh) owns its flags and refusal statuses.
+The [plan-stage continuation](configuration.md#plan-owner-stage-continuation-configplan-leadsjson) uses stopped-only relaunch; the same header owns its admission and retryable refusal contract.
 An exit that delivers lifecycle input but cannot prove the agent stopped fails with `exit=unconfirmed`, reports the observed agent state and any interrupt cancellation claim, and never claims that nothing changed.
 For Claude, both `exit` and the stopping stage of `relaunch` also clean up background sessions for the exact task worktree under the recorded launch account, even when the foreground agent is already stopped or its endpoint is proven gone.
 Cleanup verifies that session-owned carried work stops across respawns; a removal failure, surviving process, or surviving session listing fails the verb.

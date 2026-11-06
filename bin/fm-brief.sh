@@ -11,6 +11,8 @@
 # only whitespace after it; an unclosed fence keeps subsequent examples excluded.
 # Without a declaration, scaffolding succeeds with no Slice section and one
 # stderr note: "note: no SLICE line in <task-id>'s task body".
+# When that declaration's first token is an ops/<plan> slice (a plan lead or
+# cut), the scaffold also puts the research rule first in its Rules section.
 # This copy leaves the author-filled intent and spec sections unchanged;
 # secondmate charters do not perform the lookup.
 # For ordinary tasks, the standard Setup/Rules/Definition-of-done contract is
@@ -476,8 +478,8 @@ write_autolaunch_record() {
   fi
 }
 
-# Copy the task body's first SLICE line outside fences into the brief, for the spawn gate.
-append_slice_identity() {
+# Read the task body's first SLICE line outside fences once, into SLICE_LINE.
+read_slice_identity() {
   local line
   line=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" --full 2>/dev/null | python3 -c '
 import json,re,sys
@@ -490,8 +492,22 @@ for l in b.splitlines():
     elif marker[0]==f[0] and len(marker)>=len(f) and not rest.strip():f=""
   elif not f and re.match(r"\s*(#{1,6}\s+)?([-*]\s+)?(\*\*)?SLICE(\*\*)?:",l):print(l.strip());break
 ') || line=
-  [ -n "$line" ] || { echo "note: no SLICE line in $ID's task body" >&2; return 0; }
-  printf '\n# Slice\n%s\n' "$line" >> "$BRIEF"
+  SLICE_LINE=$line
+  [ -n "$line" ] || echo "note: no SLICE line in $ID's task body" >&2
+  PLAN_RESEARCH_RULE=''
+  if printf '%s\n' "$line" | awk '{
+      sub(/^[[:space:]]*(#+[[:space:]]+)?([-*][[:space:]]+)?(\*\*)?SLICE(\*\*)?:[[:space:]]*/, "")
+      exit ($1 ~ /^ops\/[^|[:space:]]+$/ ? 0 : 1)
+    }'; then
+    # shellcheck disable=SC2016 # Skill names are literal Markdown backticks.
+    PLAN_RESEARCH_RULE='- When a problem recurs or you are unsure, load `research` (research-book INDEX first, then 2026 primary sources) and/or run `grilling` (lists open questions) with `kun` answering them; do not ask the owner; save a research-book entry with the reading that proves the fix, and name it in each recurring-problem cut.'$'\n'
+  fi
+}
+
+# Copy that SLICE line into the brief, for the spawn gate.
+append_slice_identity() {
+  [ -n "$SLICE_LINE" ] || return 0
+  printf '\n# Slice\n%s\n' "$SLICE_LINE" >> "$BRIEF"
 }
 
 # Append the include as the last section of a ship or scout scaffold.
@@ -765,6 +781,8 @@ else
   SETUP_BASE="You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch."
 fi
 
+read_slice_identity
+
 if [ "$KIND" = scout ]; then
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox, write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled <source-id> <sequence> to conclude and retire your board.'
@@ -785,7 +803,7 @@ The worktree is your laboratory - install, run, edit, and make scratch commits f
 The report is the only thing that survives, so anything worth keeping must be in it.
 
 # Rules
-1. Never push to any remote and never open a PR.
+${PLAN_RESEARCH_RULE}1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; outside it, write only the report and status file below, except for the task's empty-inventory attestation through \`fm-captain-hold.sh complete --none\`, exactly as specified under Definition of done.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by running this command.
@@ -869,7 +887,7 @@ If the top-level path is the primary checkout or not the worktree you were launc
 1. First action: create your branch: \`git checkout -b $BRANCH_Q --\`$SETUP2
 
 # Rules
-$RULE1
+$PLAN_RESEARCH_RULE$RULE1
 2. Keep project edits inside this worktree; keep proof and scratch output outside it, under \`$DATA/$ID/\` or a temporary directory.
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.

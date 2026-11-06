@@ -520,6 +520,14 @@ Cleanup refuses to report success until its close bookkeeping or retention trans
 
 When a spawn is interrupted after launch delivery began, its exit path re-reads the paired task record and the backlog row under the same per-task lock as the commit, repairs a row the commit believed it had moved, and reports only what was verified or honestly attempted, never intent phrased as outcome ([`bin/fm-spawn.sh`](../bin/fm-spawn.sh); [`tests/fm-backlog-atomicity.test.sh`](../tests/fm-backlog-atomicity.test.sh)).
 
+### Plan-owner stage continuation (config/plan-leads.json)
+
+An opt-in plan-lead registry lets the existing watcher continue an ended owner through PR repair, merge, deployment and installed-app proof in the same task, branch and copy.
+Registration through `fm-pr-check.sh` arms this home-level check, which survives retirement of the task's merge poll; holds, declared waits and live workers defer automatic relaunch.
+The registry and authenticated receipt producers must be supplied by the operator; they are not installed by registering a PR.
+[`bin/fm-stage-transition.sh`'s header](../bin/fm-stage-transition.sh) owns registry and receipt formats, supported forge limits, event deduplication, retry caps, completion gates and the stage-check budget.
+Current regression coverage and live-proof limits are recorded in [runtime-backends.md](verification/runtime-backends.md#plan-owner-stage-continuation).
+
 ### Which backlog receives a transition
 
 Automatic transitions run from the configured data directory's parent, letting that home's effective tasks-axi configuration address its selected adapter while keeping relative scout-report links rooted there.
@@ -2318,7 +2326,7 @@ The task-specific text is the brief's `## Captain's intent` and `## Firstmate sp
 When the sections are sent from a scout brief, the line `Brief kind: scout (report only)` comes first, taken from the scaffold's scout contract line; ship briefs and briefs sent whole get no kind line.
 A ship brief's delivery mode is deliberately not sent, because in live runs naming it pushed a routine ship brief toward the hardest tier (see [the verification record](verification/dispatch-resolve.md)).
 
-The scaffold's standard setup, rules, and definition-of-done text is the same in every brief, so leaving it out keeps its safety language from reading as a signal about the task.
+Section-based extraction leaves out the scaffold's setup, rules and definition-of-done text, so generated safety language does not become a signal about the task.
 
 **Never-send list (config/dispatch-never-send)**
 
@@ -3688,7 +3696,7 @@ FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, a
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh
-FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
+FM_CHECK_TIMEOUT=30     # default seconds allowed per slow check script; plan-stages uses the greater of this and bin/fm-stage-transition.sh's computed budget; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
