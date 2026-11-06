@@ -1629,10 +1629,11 @@ Choose it explicitly at spawn according to the work, using the flags in [`fm-spa
 | Profile | Intended work | MCP startup |
 | --- | --- | --- |
 | `product-code` | Product implementation and work needing code indexes | Existing configuration, unchanged; also the default. |
-| `ci-tooling` | CI workflows, runner tooling, and delivery scripts | Codex ships and scouts omit the configured code-index servers. |
+| `ci-tooling` | CI workflows, runner tooling, and delivery scripts | Codex ships and scouts on shell-launch backends omit the configured code-index servers. |
 | `governance` | Fleet rules and operational tooling | Same reduced Codex footprint. |
 
-Reduced profiles are verified for canonical Codex ship/scout launches only.
+Reduced profiles are verified for canonical Codex ship/scout launches on shell-launch backends only.
+T3 Code refuses reduced profiles before provisioning because its provider launch bypasses shell arguments; its default `product-code` profile remains supported.
 Other harnesses, raw launch commands, and secondmate primaries refuse a reduced selection; their default profile remains supported.
 Relaunch preserves the task's recorded selection, with legacy absence meaning `product-code`.
 A harness switch that cannot honor that selection refuses before stopping the current worker.
@@ -1644,7 +1645,8 @@ This file adds to the built-in IDs and does not remove them.
 The file is machine-local configuration; configure aliases in each home that uses them.
 The launch owner reads only configured matching IDs from native Codex discovery under the selected worker account and project, so absent servers need no invalid partial transport records.
 Reduced shell launches explicitly export the same absolute `CODEX_HOME` used for discovery; without a selected worker account, this is the invoking process's `CODEX_HOME` or `HOME/.codex`.
-With `config/launch-env-allowlist` present, reduced profiles require a selected Codex worker account and otherwise refuse before launch or before stopping a worker for relaunch.
+With `config/launch-env-allowlist` present, reduced profiles require a selected Codex worker account.
+Retained-copy relaunch checks that root before stopping the worker; released-copy relaunch defers the root check until allocation and account selection in the recreated checkout.
 Failed or malformed discovery refuses the reduced launch.
 REA, Serena, and unrelated MCP servers retain their existing configuration unless explicitly listed as an additional code-index server.
 No persistent Codex configuration is rewritten.

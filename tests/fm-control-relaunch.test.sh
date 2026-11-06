@@ -3223,7 +3223,22 @@ case "${1:-} ${2:-}" in
     # A released relaunch allocates its copy through the pane's shell.
     case "${4:-}" in
       'treehouse get'*) [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd" ;;
+      'cd -- '*)
+        python3 - "$4" "$D/cwd" <<'PY' || exit $?
+import pathlib, shlex, sys
+args = shlex.split(sys.argv[1])
+assert args[:2] == ["cd", "--"] and len(args) == 3, args
+path = pathlib.Path(args[2])
+assert path.is_dir(), path
+pathlib.Path(sys.argv[2]).write_text(str(path.resolve()))
+PY
+        ;;
     esac
+    exit 0 ;;
+  'pane read')
+    if [ -f "$D/herdr-agent-live" ] && [ "$(cat "$D/becomes")" = codex ]; then
+      printf '%s\n' '• Working (1s • esc to interrupt)'
+    fi
     exit 0 ;;
   'workspace list')
     printf '{"result":{"workspaces":[]}}\n'
@@ -4343,9 +4358,9 @@ SH
 }
 
 test_codex_project_cwd_handoffs() {
-  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected launch_log
   for policy in enforced rank-only; do
-  for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
+  for lifecycle in ${1:-ordinary direct-ordinary released direct-released claim-released herdr-released}; do
     id="codex-cwd-$policy-$lifecycle"
     dir=$(new_case "$id" "$id")
     case "$lifecycle" in
@@ -4379,6 +4394,17 @@ PY
         ;;
     esac
     printf codex > "$dir/fake/becomes"
+    launch_log="$dir/fake/literal"
+    case "$lifecycle" in
+      *released)
+        printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+        : > "$dir/home/config/launch-env-allowlist"
+        ;;
+    esac
+    if [ "$lifecycle" = herdr-released ]; then
+      released_use_herdr "$dir" "$id"
+      launch_log="$dir/fake/launched-command"
+    fi
     marker=
     for root in "$dir/account-one" "$dir/account-two"; do
       mkdir -p "$root/rules"
@@ -4411,6 +4437,11 @@ PY
     cat > "$dir/fakebin/codex" <<'PY'
 #!/usr/bin/env python3
 import json, os, pathlib, sys
+if "mcp" in sys.argv:
+    root = pathlib.Path(os.environ["CODEX_HOME"])
+    (root / "discovery-cwd").write_text(sys.argv[sys.argv.index("-C") + 1])
+    print('[{"name":"gitnexus"},{"name":"retained"}]')
+    sys.exit(0)
 if "status" in sys.argv:
     sys.exit(0)
 root = pathlib.Path(os.environ["CODEX_HOME"])
@@ -4465,8 +4496,23 @@ SH
     if [ "$policy" = rank-only ]; then
       assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "$lifecycle notices exhausted quota"
     fi
-    assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
-    assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+    python3 - "$launch_log" <<'PY' || fail "$lifecycle must launch the project model"
+import pathlib, shlex, sys
+args = shlex.split(pathlib.Path(sys.argv[1]).read_text())
+if "/bin/sh" in args:
+    shell = args.index("/bin/sh")
+    assert args[shell + 1] == "-c", args
+    args = shlex.split(args[shell + 2])
+models = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--model"]
+assert models == ["project-default"], models
+PY
+    case "$lifecycle" in
+      *released)
+        assert_equals governance "$(meta_field "$dir" "$id" lane_profile)" "$lifecycle retains reduced startup"
+        assert_grep 'mcp_servers.gitnexus.enabled=false' "$launch_log" "$lifecycle must disable its index after allocation"
+        assert_equals "$wt" "$(cat "$selected/discovery-cwd")" "$lifecycle must discover in the selected account and recreated checkout"
+        ;;
+    esac
   done
   done
   pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
@@ -5514,6 +5560,7 @@ CLI
 if [ "${1:-}" = --lane-profile-only ]; then
   test_lane_profile_relaunch_preflight
   test_lane_profile_relaunch_retains_selection
+  test_codex_project_cwd_handoffs 'released herdr-released'
   exit 0
 fi
 

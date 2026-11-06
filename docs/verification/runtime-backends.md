@@ -4527,10 +4527,10 @@ This verifies vendor process startup with configured server IDs, not deployed fl
 Refreshed on 2026-11-06 with codex-cli 0.166.0 on Linux x86_64 using the canonical runner:
 
 ```bash
-NO_MISTAKES_NO_UPDATE_CHECK=1 bash bin/fm-test-run.sh --jobs 1 --per-script-timeout-secs 1800 tests/fm-control-relaunch.test.sh tests/fm-lane-profile-live-e2e.test.sh
+NO_MISTAKES_NO_UPDATE_CHECK=1 bash bin/fm-test-run.sh tests/fm-lane-profile.test.sh tests/fm-lane-profile-live-e2e.test.sh
 ```
 
-The run also supplied `--json` to retain private timing evidence and exited 0 with both subjects passing and no gate skips.
+Both subjects passed with no gate skips, including discovery-root pinning and native MCP PID readback.
 The native guard reported:
 
 ```text

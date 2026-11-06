@@ -2,7 +2,7 @@
 # Lane-profile validation and Codex per-launch MCP settings.
 # Sourced by fm-spawn.sh and fm-control.sh; docs/configuration.md owns the
 # operator contract. Default product-code does no discovery and emits no flags.
-# fm_lane_profile_check <profile> <harness> <raw 0|1> <kind>
+# fm_lane_profile_check <profile> <harness> <raw 0|1> <kind> [backend]
 # fm_lane_profile_flags <profile> <harness> <raw> <kind> <config-dir> <cwd>
 # Discovery is bounded to 15 seconds and filtered directly to server IDs;
 # secret-bearing MCP configuration is never returned to the caller or logged.
@@ -28,7 +28,7 @@ fm_lane_profile_codex_home() {
 }
 
 fm_lane_profile_check() {
-  local profile=$1 harness=$2 raw=$3 kind=$4
+  local profile=$1 harness=$2 raw=$3 kind=$4 backend=${5:-}
   case "$profile" in
   product-code) return 0 ;;
   ci-tooling | governance) ;;
@@ -36,6 +36,10 @@ fm_lane_profile_check() {
   esac
   if [ "$harness" != codex ] || [ "$raw" != 0 ] || [ "$kind" = secondmate ]; then
     echo "error: --lane-profile $profile requires a canonical Codex ship/scout launch; reduced MCP startup is not verified for $harness/$kind (raw=$raw)" >&2
+    return 1
+  fi
+  if [ "$backend" = t3code ]; then
+    echo "error: backend=t3code cannot apply --lane-profile $profile; provider launch bypasses the shell command" >&2
     return 1
   fi
 }

@@ -3421,7 +3421,7 @@ elif [ -n "$QUOTA_OVERRIDE" ] && { [ "$CODEX_DEFER_DEFAULT" = 0 ] || [ "$QUOTA_H
   exit 1
 fi
 
-fm_lane_profile_check "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" || exit 1
+fm_lane_profile_check "$LANE_PROFILE" "$HARNESS" "$RAW_LAUNCH" "$KIND" "$BACKEND" || exit 1
 
 # config/crew-exclude-tools (header above): refuse before worker provisioning
 # if this launch cannot honor the list. Secondmate agents are not covered.
