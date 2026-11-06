@@ -6,7 +6,7 @@
 #
 # Every routine firstmate backlog read or mutation goes through this command
 # rather than a bare `tasks-axi`; `fm-tasks-axi.sh <command> --help` prints
-# tasks-axi's own help. Apart from the owner-request custody, hold-release, ready filtering and
+# tasks-axi's own help. Apart from the owner-request custody, hold-release and
 # scout-phase completion handling below, arguments reach tasks-axi as given,
 # with a rewrite that preserves file arguments: a relative
 # value of `--to` or any `--*-file` flag (`--body-file`, `--relation-file`, ...)
@@ -38,15 +38,6 @@
 # An exact packet retry confirms the existing native full body without another
 # write; conflicting or unavailable confirmation refuses. Packet updates archive
 # the prior body, preserving ordinary prose and earlier source/correction records.
-#
-# READY. `ready` (markdown backend) withholds every listed row that has an open
-# blocked-by edge bin/fm-blocked-by-lib.sh does not judge satisfied (its header
-# owns the resolution rule) and prints those rows with the edge,
-# verdict, and evidence in a ready_withheld group after the ready rows; count:
-# and ready[N] then count only what remains. tasks-axi alone reads an absent
-# blocker as cleared. An unreadable backlog, archive, mark ledger, or fleet list,
-# or a malformed fleet header, withholds the whole list (exit 2) rather than
-# clearing anything.
 #
 # `show` (including `view`) and `list` decode stored hold reasons
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.
@@ -115,8 +106,6 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-hold-release-lib.sh"
-# shellcheck source=bin/fm-blocked-by-lib.sh disable=SC1091
-. "$SCRIPT_DIR/fm-blocked-by-lib.sh"
 
 HOLD_STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
@@ -325,15 +314,6 @@ fi
 case "$hold_release_on" in
   marker:*) DATA=$(fm_backlog_data_absolute "$DATA") || fail "cannot resolve writer data directory" ;;
 esac
-
-BLOCKED_BY_VERDICTS=
-BLOCKED_BY_FLEET_NOTE=
-if [ "$subcommand" = ready ] && [ "$help_requested" != 1 ] && [ -n "$FM_BACKLOG_AXI_FILE" ]; then
-  BLOCKED_BY_VERDICTS=$(fm_blocked_by_verdicts "${FM_BACKLOG_AXI_FILE%/*}") \
-    || fail "cannot decide this home's blocked-by edges; the ready list is withheld"
-  BLOCKED_BY_FLEET_NOTE=$(fm_blocked_by_fleet_note "${FM_BACKLOG_AXI_FILE%/*}") \
-    || fail "cannot read this home's blocked-by fleet list; the ready list is withheld"
-fi
 
 cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI_ROOT"
 
@@ -559,18 +539,6 @@ case "$subcommand" in
     set -o pipefail
     tasks-axi ${ARGS[@]+"${ARGS[@]}"} | fm_hold_reason_decode_stream
     exit $?
-    ;;
-  ready)
-    if [ -n "$FM_BACKLOG_AXI_FILE" ]; then
-      ready_out=$(tasks-axi ${ARGS[@]+"${ARGS[@]}"})
-      ready_rc=$?
-      if [ "$ready_rc" -ne 0 ]; then
-        [ -z "$ready_out" ] || printf '%s\n' "$ready_out"
-        exit "$ready_rc"
-      fi
-      printf '%s\n' "$ready_out" | fm_blocked_by_filter_ready "$BLOCKED_BY_VERDICTS" "$BLOCKED_BY_FLEET_NOTE"
-      exit $?
-    fi
     ;;
 esac
 exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}

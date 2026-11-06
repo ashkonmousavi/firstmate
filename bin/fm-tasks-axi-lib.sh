@@ -261,12 +261,6 @@ fm_tasks_axi_backend_available() {
   fm_tasks_axi_compatible
 }
 
-# fm_tasks_axi_dependency_edges <backlog-file>: one line per trailing
-# blocked-by, parent, or discovered-from edge, as
-# <row-id><TAB><closed 0|1><TAB><kind><TAB><target><TAB><note>, read from the end
-# of each row the way tasks-axi reads them. A target may name another home as
-# <home>:<id>; tasks-axi itself does not read that form, so
-# bin/fm-blocked-by-lib.sh is what decides such an edge.
 fm_tasks_axi_dependency_edges() {
   perl -ne '
     if (/^##\s+(.+?)\s*$/) { $done = lc($1) eq "done"; next }
@@ -280,7 +274,7 @@ fm_tasks_axi_dependency_edges() {
     my $marker = qr/(?:blocked-by|parent|discovered-from)/;
     while (1) {
       if ($tail =~ s/\s*\((?:since|merged|reported|done|closed)\s+\d{4}-\d{2}-\d{2}\)\s*$//) {
-      } elsif ($tail =~ s/\s*($marker):\s*((?:[A-Za-z0-9][A-Za-z0-9._-]*:)?[A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
+      } elsif ($tail =~ s/\s*($marker):\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
         unshift @edges, [$1, $2, $3 // ""];
       } elsif ($tail =~ s/\s*\((?:(?:[^()]*\+\s*)?repo:|kind:|priority:|hold:|hold-kind:|hold-until:)\s*[^)]*\)\s*$//) {
       } else { last }

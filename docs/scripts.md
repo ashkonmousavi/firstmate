@@ -141,7 +141,6 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-ff-lib.sh`           | Shared guarded fast-forward/reconcile helper for origin pulls and secondmate syncs, with durable divergence markers |
 | `fm-lock-lib.sh`         | Shared "is this git lock provably abandoned?" proof used by teardown and fleet-sync   |
 | `fm-config-inherit-lib.sh` | Shared primary-to-secondmate inherited local-material propagation and config-reread delivery |
-| `fm-blocked-by.sh`       | Show every blocked-by edge's verdict and record or reverse a merged-pull-request mark ([rule](../bin/fm-blocked-by-lib.sh)) |
 | `fm-tasks-axi.sh`        | Run `tasks-axi` against this home's backlog from any working directory, with the hold `--release-on` condition and the kind-external refusal |
 | `fm-tasks-axi-lib.sh`    | Shared backlog-backend selector and `tasks-axi` compatibility probe                  |
 | `fm-hold-release-lib.sh` | Structured hold release conditions: syntax, per-task records, evaluation, and the `hold condition met` keyed decision |
@@ -177,7 +176,6 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-pr-lib.sh`           | Own canonical task and PR validation, the branch-to-PR lookup shared by teardown and the PR health monitor, plus private atomic PR-poll publication, merge-notification identity, retirement, and the per-task conflict-episode marker |
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars, including a GitHub conflict-label observation |
 | `fm-pr-orphan-sweep.sh`  | Detect orphan GitHub conflicts during watcher check sweeps ([coverage, routing, and limits](../bin/fm-pr-orphan-sweep.sh)) |
-| `fm-pr-owner.sh`         | Name the home and task that own a pull request across this home's rows and the fleet list, or UNKNOWN with candidate homes ([ownership rule](../bin/fm-pr-owner.sh)) |
 | `fm-pr-triage.sh`        | Rank open pull requests and, for the top two ranks, launch a fix worker or label and queue them, one record per pull request per pass; [pass contract](../bin/fm-pr-triage.sh) |
 | `fm-pr-overlap.sh`       | Read-only: note open pull requests that touch a brief's SCOPE, FILES, or BLAST RADIUS paths, reporting unchecked comparisons; never blocks spawn |
 | `fm-contributions.sh`    | Observe owned publications, retain exact-head judgments, measure required actors, and wake on maintainer or configured review-bot signals |
