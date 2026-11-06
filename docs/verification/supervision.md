@@ -255,6 +255,66 @@ tests/fm-busy-adapter-wiring.test.sh
 tests/fm-crew-state.test.sh
 ```
 
+## No-mistakes run ledger and terminal run fields
+
+The terminal-reading precedence rules in `bin/fm-crew-state.sh`, which bound both failed and done readings, read the run ledger's rows and a terminal run's `pr` field, so both were confirmed against the installed CLI on 2026-09-04 with no-mistakes v1.60.2 (eb4e379).
+
+Column layout and newest-first ordering:
+
+```sh
+no-mistakes runs --limit 5
+```
+
+Observed result, abbreviated to two rows:
+
+```
+  cancelled    fm/fm-afk-inject-never-delivers eebd9498  2026-08-31 22:48  https://github.com/kunchenguid/firstmate/pull/3050
+  completed    fm/fm-stooddown-worker-false-wedge-alarms b387086f  2026-08-30 10:03  https://github.com/kunchenguid/firstmate/pull/3281
+```
+
+The date column stamps a run's START, not its end:
+
+```sh
+ls -la ~/.no-mistakes/logs/01M186HDY76G4RJHW5Z7CFHQDB
+```
+
+Observed result: `intent.log`, the run's first step, has mtime `30 Aug 10:03`, matching that run's ledger date `2026-08-30 10:03`, while `ci.log`, its last step, has mtime `30 Aug 11:13`.
+The column therefore cannot order a status-log record against the moment a run finished, which is why the reader orders the crew's own word against the run not at all and answers unknown where currency cannot be proven.
+
+A terminal run that never reached its `pr` step emits no `pr` field at all:
+
+```sh
+no-mistakes axi status --run 01M14G3F9BEYBSYSZRVRQJ9XYT
+```
+
+Observed result: `status: failed`, `review,failed` with `test` through `ci` still pending, `outcome: failed`, and no `pr:` line at all.
+The completed run above reports `pr: "https://github.com/kunchenguid/firstmate/pull/3281"` in the same field.
+That absence is what lets a terminal outcome take its pull-request identity from the same record as its state instead of an older recorded one.
+
+The ledger's first column is the RUN STATUS, not the axi outcome, established on 2026-09-19 against the installed no-mistakes v1.72.0 (9fcc865):
+
+```sh
+no-mistakes runs --limit 400 | awk 'NF{print $1}' | sort | uniq -c
+```
+
+Observed result: across the 313 stored runs the column holds only `running`, `completed`, `failed`, and `cancelled`.
+`checks-passed` is an axi OUTCOME and never appears in that column; a run still at its ci step, which has no outcome yet, reads `running` there.
+
+Every captured run record agrees with that column in its own `status:` field - `failed.toon` reports `status: failed`, `superseded.toon` `status: cancelled`, `completed.toon` `status: completed` - so the record already carries the ledger's vocabulary once.
+The reader therefore derives the status it compares against from that field alone, normalising the live words (`ci`, `running`, `fixing`, `awaiting_approval`, `fix_review`) to `running`, rather than keeping a second mapping keyed on the outcome word.
+
+That derivation change removes a second definition; it is not observable, and the shapes were traced rather than assumed:
+a record carrying any outcome is terminal under the run-selection contract, so beside a still-live ledger row it is answered `unknown` by the liveness cross-check before the comparison is reached, on both the inventory and the ledger-fallback path.
+Where the comparison IS reached, the overview row and the record report the same run from the same store and therefore the same status word, which is the word the derivation now uses.
+The only input that separates the two derivations is a record whose `status:` disagrees with its own overview row, which the CLI does not produce - so no regression test can distinguish them, and none is claimed.
+
+Deterministic entry points:
+
+```sh
+tests/fm-crew-state.test.sh
+tests/fm-inactive-reconcile.test.sh
+```
+
 ## Turn-end guard
 
 The blocking and bounded-follow-up mechanisms were validated across seven harnesses on 2026-07-08 through 2026-09-21, with Claude's replacement Stop-owned path revalidated on 2026-09-21, Cursor's stop-hook park validated on 2026-08-13, and omp's blocking `session_stop` hook validated on 2026-09-05.
@@ -394,53 +454,13 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 
 The recycled-helper-chain topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066; the coverage above is the structural predicate plus those executable fixtures, not a live pass of that topology.
 
-### Idle fork-resume lock handover
+### Fork lock readers
 
-An idle fork-resume successor may take that lock.
-The [`bin/fm-lock.sh` header](../../bin/fm-lock.sh) owns the sidecar format, including retention of the prior session after a same-process `/clear`.
-Both recorded histories must each be one readable regular transcript, with no user or assistant turn after the successor forked and none in the last 30 minutes.
-The fork is this process's `--fork-session` plus `--resume` of either recorded session, or both histories as prefixes of the successor transcript with at least one shared turn.
-`bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
-A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
-The Stop hook uses the same decision before it arms.
-Ownership and generation readers take `state/.lock.acquire` to snapshot the PID and session sidecar together, waiting through the existing bounded acquisition or deferred sweep rather than treating contention as lost ownership.
-Auto-arm claim inspection never waits on acquisition while holding its own mutex; an otherwise live claim remains deferred when acquisition is busy.
-The writer reuses its own mutex hold for confirmation; its preliminary nonblocking probe preserves the existing quick refusal while a startup sweep is finishing.
-Both startup and Stop acquisition use this same publication boundary.
-The final transcript scan runs under that mutex after staging the sidecar and immediately before its rename, comparing turn UUIDs and timestamps against the first scan.
-Any added turn aborts takeover, including a backdated row.
-UserPromptSubmit does not take the acquisition mutex: a normally sub-second scan-to-publication interval remains, and a scheduler stall can extend it; this is a revalidation bound, not atomic admission of physical input.
-Both acquisition paths serialize task-lease handover with lease commands and preserve the actor and epoch when moving leases to the new holder.
-Every uncommitted takeover restores the predecessor PID and sidecar before releasing claim and lease serialization; reverse lease movement is needed only after leases started moving.
-The backstop uses one classified holder report for the note identity, deduplication key and episode retirement.
-A proven dead or non-harness PID retains normal primary recovery; an unknown report suppresses nudges and preserves any existing episode.
-When the watcher has been silent and a verified live harness holds the lock, `bin/fm-main-backstop.py` queues one inbox ask after 15 minutes with its pid, tty, and idle time, suppressing the silence nudge.
-The working main session drains that inbox and tells the owner; queueing is not direct owner notification.
-A foreground terminal holder follows the same rule as a detached holder.
-Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.
-The portable proof below uses Claude-shaped processes and fixture transcripts.
-The [current class inventory](../../tests/captures/fm-idle-holder-review-inventory.json) lists call paths, adapters, lifecycle transitions, regressions and evidence gaps.
-The [live idle-holder guard](runtime-backends.md#idle-holder-takeover-live-guard) exercises vendor-produced argv, hook identity and transcripts across startup and Stop takeover.
-A phone remote-continue is that fork-resume background copy of the idle terminal.
-A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each completed switch leaves one recorded holder.
-A phone turn inside the last 30 minutes keeps the phone as that one holder.
-The portable acquisition-boundary regression pauses publication with the predecessor alive and successor session published, probes both ownership verdicts, and verifies committed ownership for startup and Stop.
-The focused portable checks ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3, after `mkdir -p .review-evidence/tmp`, using `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh`, `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-claude-stop-autoarm.test.sh` (all exit 0).
-The prior-session matrix covers 18 startup/Stop cases; the sweep regression separately checks Stop and generation admission after six-second holds.
-Their output included:
-
-```text
-ok - session-lock: a partial lease move rolls back and keeps both actors excluded
-ok - session-lock: phone and terminal switches leave exactly one holder
-ok - session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover
-ok - session-lock: rekey A to empty B retains A; startup and Stop accept A or B and reject unrelated, recent, missing, or changed histories
-ok - session-lock: a bounded sweep longer than five seconds preserves Stop and generation admission
-test_handover_before_report_uses_reported_pid_for_deduplication (__main__.Backstop.test_handover_before_report_uses_reported_pid_for_deduplication) ... ok
-test_reused_nonharness_pid_keeps_stale_lock_recovery (__main__.Backstop.test_reused_nonharness_pid_keeps_stale_lock_recovery) ... ok
-test_unknown_holder_report_preserves_deduplicated_episode (__main__.Backstop.test_unknown_holder_report_preserves_deduplicated_episode) ... ok
-Ran 77 tests in 154.303s
-OK
-```
+[`bin/fm-session-lock-fork-lib.sh`](../../bin/fm-session-lock-fork-lib.sh) owns the additional guarded snapshot and holder idle-time readers used by fork supervision consumers.
+The stock session-lock library and acquisition script retain ownership and reclaim decisions.
+The backstop uses one classified holder report for note identity, deduplication and episode retirement.
+A proven dead or non-harness PID retains normal primary recovery; an unknown report suppresses nudges and preserves an existing episode.
+The existing [`tests/fm-main-backstop.test.sh`](../../tests/fm-main-backstop.test.sh) suite exercises those holder reports with fake transports and real fixture processes.
 
 [`sessionstart-nudge.md`](../sessionstart-nudge.md#shared-wrapper-and-safety) owns the nudge wrapper's separate ancestry check and its redundant-nudge behavior after helper-chain recycling.
 `tests/fm-watch-arm.test.sh` runs real watcher and arm cycles against durable on-disk state to verify that a delivered reason survives until post-handling acknowledgement and stops replaying after acknowledgement, while an unrelated queue append cannot make a watcher cycle that delivered nothing look successful.

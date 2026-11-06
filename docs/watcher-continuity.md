@@ -113,13 +113,15 @@ The check does not change other harnesses' supervision models or away/quiet poli
 
 The hook handles the session lock as follows:
 
-- A session-lock owner, including a tagged `win:<pid>` holder on Windows/Git Bash, that fails the shared `fm_harness_pid_alive` predicate is reclaimed through `bin/fm-lock.sh` before auto-arm state changes.
-- An eligible idle fork-resume successor also delegates takeover to `bin/fm-lock.sh`; [the lock reference](verification/supervision.md#idle-fork-resume-lock-handover) owns the eligibility and safety limits for startup and Stop.
-- Any other live foreign owner, an absent lock, or an unusable lock keeps the competing hook inert.
+- A well-formed session-lock owner is a numeric PID, or a tagged `win:<pid>` value on a Cygwin-family Git Bash host.
+  The shared `fm_session_lock_pid_blocks_reclaim` verdict in `bin/fm-session-lock-lib.sh` is the one decision every recovery caller applies to that identity: an all-zero, proven-dead, reused non-harness, or live-but-unsignalable record stays reclaimable, while a readable verified harness and a live owner whose identity cannot be read keep recovery inert.
+  That library also owns the process-info fallback used when the `ps` binary cannot execute.
+- An absent lock keeps the competing hook inert: with no recorded owner there is nothing stale to recover.
+- A malformed, empty, or otherwise unusable record is not an identity, so it never reaches that verdict: the competing hook stays inert, and a later `bin/fm-lock.sh` acquisition replaces the record.
 
 Whether the session owns that lock is the shared `fm_session_lock_owned_by_self` verdict in `bin/fm-session-lock-lib.sh`.
 [`turnend-guard.md`](turnend-guard.md#guard-predicates) owns the Claude guard's behavior when that live owner is genuinely another session.
-Both stale-owner recovery and idle-holder takeover occur only after the existing AFK and supervision-need gates pass, and ownership is re-verified before arming.
+Stale-owner recovery occurs only after the existing AFK and supervision-need gates pass, and ownership is re-verified before arming.
 
 ### Claude arm failures
 
@@ -129,7 +131,7 @@ The beacon is `state/.last-watcher-beat`, which only the watcher process touches
 - A cycle-end failure is benign when that live-watcher predicate is true.
   In that case the hook suppresses the arm output and continues silently.
 
-[`turnend-guard.md`](turnend-guard.md#failure-progression-and-block-budget) owns the failure-notice commit contract, monotonic failure progression, attended-alarm writers, suppression reasons, and positive recovery reset.
+[`turnend-guard.md`](turnend-guard.md#failure-progression-and-block-budget) owns the failure-notice commit contract, monotonic failure progression, attended-alarm writers, suppression reasons, positive recovery reset, and session-bound interruption isolation.
 
 ### Supervision host
 
@@ -557,13 +559,14 @@ It checks that a newly appended keyed decision is classified without rereading e
 - Supersession of a dead session's orphaned claim by the replacement session's first Stop, including a resumed session that carries the dead one's conversation id, and a claim with no readable session lock.
 - A recycled background bridge keeping its live claim on the trusted session id pinned to the lock holder's recorded session-lock identity.
 - The Windows/Git Bash session-lock readers for the supervision-host key, claim read-back, and mid-turn health, plus untagged-value parity with the numeric helpers, in `tests/fm-session-lock-windows-consumers.test.sh`.
+- The ps-free identity route and its fail-closed refusals when the `ps` binary cannot execute, in `tests/fm-session-lock-ps-denied.test.sh`.
 - Bounded failure retries.
 - Benign live-watcher cycle ends.
 - One-notice failure episodes.
 - Exit-2 translation.
 - The handling successor an ended attached cycle starts with the closed arm as its predecessor and that outlives the rewake.
 - An unconfirmed successor reported in the banner without withholding the wake.
-- Host-timeout HUP/TERM/INT translation into the same durable failure handoff.
+- The [session-bound HUP/TERM/INT failure handoff](turnend-guard.md#failure-progression-and-block-budget) and replacement-session notice isolation.
 
 It also covers generation-claim single-flight, stuck-claim supersession, superseded-owner silence, notice-marker refusal and retry, ownership-atomic episode reset, and the legacy upgrade shim.
 [`turnend-guard.md`](turnend-guard.md) owns those behavior contracts.

@@ -774,7 +774,7 @@ await waitDead(compactPid, "shutdown left the compaction child alive");
 await waitDead(compactGrandchild, "shutdown left a compaction grandchild alive");
 JS
   ) || status=$?
-  expect_code 0 "$status" "Pi session-start generation prerequisite"
+  expect_code 0 "$status" "Pi session-start generation prerequisite"$'\n'"$out"
   [ -z "$out" ] || fail "Pi session-start generation prerequisite printed output: $out"
   pass "Pi provider preflight owns one generation-bound startup prerequisite with deterministic fallback, replacement, cancellation, timeout, and truncation"
 }
@@ -925,6 +925,12 @@ test_pi_large_sessionstart_digest_is_delivered_loudly() {
   cp "$ROOT/.pi/extensions/lib/fm-operational-input.ts" \
     "$ROOT/.pi/extensions/lib/fm-sessionstart-supervisor.mjs" "$fixture/.pi/extensions/lib/"
   cp "$ROOT/bin/fm-sessionstart-run.sh" "$ROOT/bin/fm-sessionstart-nudge.sh" \
+    "$ROOT/bin/fm-session-lock-lib.sh" \
+    "$ROOT/bin/fm-session-lock-fork-lib.sh" \
+    "$ROOT/bin/fm-cursor-lib.sh" \
+    "$ROOT/bin/fm-timeout-lib.sh" \
+    "$ROOT/bin/fm-wake-lib.sh" \
+    "$ROOT/bin/fm-path-lib.sh" \
     "$ROOT/bin/fm-primary-scope-lib.sh" "$ROOT/bin/fm-gate-refuse-lib.sh" \
     "$ROOT/bin/fm-hook-host-lib.sh" \
     "$ROOT/bin/fm-operational-input.sh" "$fixture/bin/"

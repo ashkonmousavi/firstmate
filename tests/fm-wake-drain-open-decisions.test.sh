@@ -268,7 +268,7 @@ test_newest_decisions_without_stale_rows() {
   printf 'needs-decision [key=legacy]: unstamped\nneeds-decision [key=older] [at=999]: earlier\nneeds-decision [key=newer] [at=10000]: later\nblocked [at=10001]: keyless latest\n' > "$state/task.status"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "fresh-only drain failed"
   rows=$(open_decision_rows "$out")
-  [ "$rows" = 'task blocked: keyless latest
+  [ "$rows" = 'task [key=default] blocked: keyless latest
 task [key=newer] needs-decision: later
 task [key=older] needs-decision: earlier
 task [key=legacy] needs-decision: unstamped' ] || fail "fresh-only rows not fully shown newest first"

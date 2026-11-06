@@ -10,7 +10,7 @@ When that silence has a verified live lock holder, suppress the silence nudge.
 After fifteen minutes queue one inbox ask naming its pid, tty and idle time;
 the working main session drains the inbox and tells the owner. A stale lock
 retains normal primary recovery; an unknown report preserves the episode and
-suppresses nudges. fm_session_lock_holder_report in bin/fm-session-lock-lib.sh
+suppresses nudges. fm_session_lock_holder_report in bin/fm-session-lock-fork-lib.sh
 supplies one classified holder snapshot for each pass.
 Successful nudges are at least five minutes apart.
 Nudges require the shared composer classifier to prove the input empty;
@@ -384,7 +384,7 @@ def format_idle(seconds):
 
 def holder_report(state, env):
     """pid, tty, and idle_seconds from the session-lock lib, or ProbeError."""
-    lib = Path(__file__).resolve().parent / 'fm-session-lock-lib.sh'
+    lib = Path(__file__).resolve().parent / 'fm-session-lock-fork-lib.sh'
     rc, out, _err = run_status(
         ['bash', '-c', '. "$1" || exit 1\nfm_session_lock_holder_report "$2"\n',
          'holder-report', str(lib), str(state)], env, timeout=5)

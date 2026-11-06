@@ -101,7 +101,7 @@ So `clear` or `compact` cannot skip startup sweeps after a truncated run.
 - A trusted same-session Claude id.
 
 So a proven `clear` or `compact` re-emit re-verifies ownership and proceeds.
-A lock another live session took meanwhile produces the ordinary read-only digest unless [idle fork-resume takeover](verification/supervision.md#idle-fork-resume-lock-handover) succeeds.
+A lock another live session took meanwhile produces the ordinary read-only digest under the [stock lock ownership contract](verification/supervision.md#fork-lock-readers).
 
 ### Nudge wrapper on a run-tier harness
 
@@ -211,6 +211,7 @@ It does this in its own separate, hard-coded loop, independent of two other owne
 - Pi's `lockOwnership()`.
 
 If the lock names a live pid in that ancestry, session start already ran in this harness session and the wrapper stays silent.
+That loop reads each parent link through the `ps` binary, so a host that refuses `ps` cannot confirm a numeric lock's ancestry and the wrapper prints the nudge even for a session that already holds the lock.
 On Windows/Git Bash, a lock holding a tagged `win:<pid>` identity is outside this process table, so the wrapper instead asks the library's `fm_session_lock_owned_by_self`, whose Windows process-boundary bridge owns that identity.
 
 ### Exit codes

@@ -1023,6 +1023,30 @@ It captures the launch `bin/fm-spawn.sh` actually builds and confirms that the i
 It does not claim that a managed policy cannot re-enable hooks after launch.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the requested hook-disablement flag for crewmates and its omission for secondmates, which run primary sessions on this repository's own project hooks.
 
+### Stop response parsing
+
+Verified 2026-11-03 on Linux x86_64 with codex-cli 0.162.1.
+The existing live hook-layer guard exercises the installed app-server's `hook/completed` notifications against a loopback Responses fixture that returns fixed text and no tool calls.
+Each app-server has isolated config, hook trust, login files, and data; it neither uses a shared daemon nor contacts a model provider.
+The fixture trusts only its synthetic Stop handler's exact key/hash.
+
+```sh
+bash bin/fm-test-run.sh --jobs 1 tests/fm-turnend-guard.test.sh tests/fm-codex-hook-layer-live-e2e.test.sh
+```
+
+```text
+ok - .codex Stop wrapper: clean success JSON, inherited PATH, unchanged errors and continuation without logout output
+ok - codex codex-cli 0.162.1: Stop parser checked 12 isolated cases with clean wrapper JSON and bounded continuation
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=97428
+```
+
+The portable regression makes its login-shell logout emit terminal escape bytes and confirms that the fixture is effective before checking the tracked command's actual output.
+It also checks primary, child-worktree, and non-Firstmate scope, empty input, missing jq, malformed registration, a non-executable guard, inherited PATH, and unchanged error status/stderr.
+The optional native park's synchronous guard dispatch preserves its `--guard` argument, original payload, success JSON, and exit-2 stderr in an isolated executable fixture without registering a park.
+The live parser accepts both empty output and `{}`, rejects mixed diagnostics/JSON, malformed syntax, multiple objects, and a wrong field type, and preserves an ordinary nonzero error.
+The real copied supervision guard blocks once with its stderr reason, then allows the continuation's Stop; the fixture asserts both native hook verdicts and the two-request bound.
+These checks refresh the Codex adapter evidence; [the integration owner](../turnend-guard.md#harness-integrations) describes its current behavior.
+
 ## Codex automatic approval review
 
 Verified 2026-10-06 with codex-cli 0.160.1.
@@ -4227,39 +4251,6 @@ No live guard, credentialed session, or installed-harness version is claimed by 
 The terminal adapters expose separate reads and input calls, not an atomic conditional-exit protocol; action guards reject observed generation/sequence changes, and do not claim atomic exclusion of arbitrary concurrent physical keyboard input.
 Validation must retain current real-harness evidence for the installed eligible adapters, explicitly name unavailable adapters, and leave unsupported turn-history sources ineligible.
 
-## Idle-holder takeover live guard
-
-`FM_SESSION_LOCK_LIVE=1 bash tests/fm-session-lock-live-e2e.test.sh` refreshes the Claude-specific fork-resume evidence.
-The prompt-submitting guard belongs to `live-harness-optin` and uses `fm_live_gate` with the opt-in policy.
-It starts an interactive Claude in a private tmux server, submits a turn in session A, then invokes native `/clear` to session B in the same process.
-The real SessionStart hook must publish B and retain A in the existing sidecar.
-An empty B transcript file is created if Claude has not yet persisted it, solely to meet the readable-empty-history precondition; no user or assistant rows are fabricated.
-The guard creates a separate real conversation and refuses its unrelated detached fork before accepting a detached `--fork-session --resume A` successor and a return terminal fork through Stop.
-All vendor processes remain alive through both handovers.
-Hook identities, argv and user/assistant turn rows come from Claude; the guard never rewrites those rows.
-Each related fork first attempts acquisition against the recent predecessor and must refuse.
-The guard then advances only the lock-check clock by 3600 seconds to exercise quiet-holder startup acquisition and Stop recovery without a 30-minute sleep.
-It checks the completed lock pairs, the two recorded handovers and the Stop-owned arm against the independently known session ids and live process ids.
-The watcher-arm transport is a fixture, and real phone transport is outside this guard's proof.
-The [current class inventory](../../tests/captures/fm-idle-holder-review-inventory.json) records the affected axes and remaining evidence gaps.
-The [lock reference and portable proof](supervision.md#idle-fork-resume-lock-handover) own the takeover safety limits, lease and backstop regressions, and non-Claude behavior.
-The vendor CLI contract is documented in [Claude's CLI reference](https://code.claude.com/docs/en/cli-reference) and [Remote Control documentation](https://code.claude.com/docs/en/remote-control).
-
-Observed on 2026-10-31 with `env FM_SESSION_LOCK_LIVE=1 TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-live-e2e.test.sh` after `mkdir -p .review-evidence/tmp` (exit 0):
-
-```text
-# 2026-10-31 Claude 2.1.316 (Claude Code)
-ok - native /clear: same terminal pid=2088195 rekeyed A to readable empty B, prior A retained
-ok - unrelated-seed holder pid=2095116 tty=?
-ok - unrelated holder pid=2102532 tty=?
-ok - unrelated real fork refused after native A-to-B clear
-ok - phone holder pid=2105393 tty=?
-ok - return holder pid=2110669 tty=pts/37
-ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; native A-to-empty-B clear and unrelated-fork refusal; classifier clock advanced 3600s; vendor turns unmodified
-```
-
-The `unrelated` output tags describe live candidate processes; both were refused ownership, as the guard's following assertion records.
-The pane-only discovery proof is recorded under [Main backstop discovery guard](#main-backstop-discovery-guard-2026-10-20).
 
 ## OpenCode 2 launch and brief delivery
 
