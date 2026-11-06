@@ -21,12 +21,27 @@ make_case() {
   cat > "$FAKEBIN_DIR/codex" <<'CLI'
 #!/usr/bin/env bash
 case " $* " in
+*' app-server '*)
+  exec python3 -c '
+import json, pathlib, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    if "id" not in request:
+        continue
+    result = {}
+    if request["method"] == "config/read":
+        case = pathlib.Path(request["params"]["cwd"]).parent
+        layers = [{"name": {"type": "project"}, "disabledReason": "untrusted"}] if (case / "untrusted").exists() else []
+        result = {"layers": None if (case / "badlayers").exists() else layers}
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+'
+  ;;
 *' mcp list --json '*)
   [ "${FM_PROFILE_LIST_FAIL:-0}" = 0 ] || exit 9
   if [ "${FM_PROFILE_BY_HOME:-0}" = 1 ]; then
     cat "$CODEX_HOME/servers.json"
   elif [ "${FM_PROFILE_BY_CWD:-0}" = 1 ]; then
-    if [ "${2:-}" = "$FM_PROFILE_WORKTREE" ]; then
+    if [ "$PWD" = "$FM_PROFILE_WORKTREE" ]; then
       printf '%s\n' '[{"name":"custom_index"},{"name":"retained"}]'
     else
       printf '%s\n' '[]'
@@ -87,6 +102,7 @@ test_reduced() {
       assert_contains "$launch" 'mcp_servers.gitnexus.enabled=false' 'GitNexus must be disabled'
       assert_contains "$launch" 'mcp_servers.claude-context.enabled=false' 'Claude Context must be disabled'
       assert_not_contains "$launch" 'mcp_servers.retained' 'unrelated server must retain its setting'
+      assert_not_contains "$launch" 'trust_level' 'discovery trust must not reach the worker'
       assert_grep "lane_profile=$profile" "$HOME_DIR/state/$CASE_NAME.meta" 'reduced profile not recorded'
     done
   done
@@ -130,7 +146,12 @@ test_dependency() {
   make_case "$CASE_NAME"
   out=$(FM_PROFILE_SERVERS='{}' spawn_case "$CASE_NAME" "$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
   assert_refused "$out" "$status" 'lane-profile could not read a valid Codex MCP server list'
-  pass 'failed and malformed native server discovery refuse'
+  CASE_NAME=lane-layers-garbage
+  make_case "$CASE_NAME"
+  : > "$CASE_DIR/badlayers"
+  out=$(spawn_case "$CASE_NAME" "$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
+  assert_refused "$out" "$status" 'cannot establish stable project trust'
+  pass 'failed and malformed native server discovery and layer inspection refuse'
 }
 
 test_custom_and_absent() {
@@ -208,7 +229,12 @@ test_worktree() {
   expect_code 0 "$status" "$out"
   assert_contains "$(cat "$LAUNCH_LOG")" 'mcp_servers.custom_index.enabled=false' 'actual worker cwd must determine configured index servers'
   assert_not_contains "$(cat "$LAUNCH_LOG")" 'mcp_servers.gitnexus' 'absent worktree server must not acquire a partial transport override'
-  pass 'actual isolated worker configuration wins over the primary checkout'
+  CASE_NAME=lane-untrusted-worktree
+  make_case "$CASE_NAME"
+  : > "$CASE_DIR/untrusted"
+  out=$(spawn_case "$CASE_NAME" "$PROJ_DIR" --mode local-only --yolo off --lane-profile governance); status=$?
+  assert_refused "$out" "$status" 'stable project trust'
+  pass 'worker directory drives discovery and trust-dependent index additions refuse'
 }
 
 test_environment() {

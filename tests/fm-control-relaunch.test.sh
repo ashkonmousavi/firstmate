@@ -4439,7 +4439,7 @@ PY
 import json, os, pathlib, sys
 if "mcp" in sys.argv:
     root = pathlib.Path(os.environ["CODEX_HOME"])
-    (root / "discovery-cwd").write_text(sys.argv[sys.argv.index("-C") + 1])
+    (root / "discovery-cwd").write_text(os.getcwd())
     print('[{"name":"gitnexus"},{"name":"retained"}]')
     sys.exit(0)
 if "status" in sys.argv:
@@ -4460,7 +4460,7 @@ for line in sys.stdin:
         if cwd == (root / "trusted-cwd").read_text().strip():
             config = pathlib.Path(cwd) / ".codex/config.toml"
         model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
-        result = {"config": {"model": model}}
+        result = {"config": {"model": model}, "layers": []}
     else:
         sys.exit(2)
     print(json.dumps({"id": request["id"], "result": result}), flush=True)
@@ -4972,7 +4972,7 @@ for line in sys.stdin:
     elif method == "config/read":
         config = root / "config.toml"
         model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
-        result = {"config": {"model": model}}
+        result = {"config": {"model": model}, "layers": []}
     else:
         sys.exit(2)
     print(json.dumps({"id": request["id"], "result": result}), flush=True)
@@ -5504,18 +5504,32 @@ test_relaunch_admission_refusal_preserves_running_agent() {
 # Lane-profile preflight must protect the still-running endpoint.
 test_lane_profile_relaunch_preflight() {
   local dir out rc id profile
-  for profile in governance corrupt filtered; do
+  for profile in governance corrupt filtered untrusted; do
     id="lane-$profile"
     dir=$(new_case "profile-$profile" "$id")
     add_ship_task "$dir" "$id" codex
-    if [ "$profile" = filtered ]; then
+    if [ "$profile" = untrusted ]; then
+      printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+      cat > "$dir/fakebin/codex" <<'CLI'
+#!/usr/bin/env bash
+exec python3 -c '
+import json, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    if "id" in request:
+        result = {"layers": [{"name": {"type": "project"}, "disabledReason": "untrusted"}]}
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+'
+CLI
+      chmod +x "$dir/fakebin/codex"
+    elif [ "$profile" = filtered ]; then
       printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
       : > "$dir/home/config/launch-env-allowlist"
     else
       printf '%s\n' "lane_profile=$profile" >> "$dir/home/state/$id.meta"
     fi
     cp "$dir/home/state/$id.meta" "$dir/prior.meta"
-    if [ "$profile" = filtered ]; then
+    if [ "$profile" = filtered ] || [ "$profile" = untrusted ]; then
       out=$(run_control "$dir" "$id" relaunch --note 'retain footprint'); rc=$?
     else
       out=$(run_control "$dir" "$id" relaunch --harness claude --note 'retain footprint'); rc=$?
@@ -5525,6 +5539,8 @@ test_lane_profile_relaunch_preflight() {
       assert_contains "$out" 'requires a canonical Codex ship/scout launch' 'refusal must name the supported profile boundary'
     elif [ "$profile" = corrupt ]; then
       assert_contains "$out" 'unknown --lane-profile' 'corrupt metadata must name the invalid profile'
+    elif [ "$profile" = untrusted ]; then
+      assert_contains "$out" 'stable project trust' 'hidden index servers must refuse before stopping'
     else
       assert_contains "$out" 'cannot establish the worker configuration' 'filtered environment must refuse before stopping'
     fi
@@ -5544,7 +5560,18 @@ test_lane_profile_relaunch_retains_selection() {
   printf codex > "$dir/fake/becomes"
   cat > "$dir/fakebin/codex" <<'CLI'
 #!/usr/bin/env bash
-printf '%s\n' '[{"name":"gitnexus"},{"name":"claude-context"}]'
+case " $* " in
+*' app-server '*)
+  exec python3 -c '
+import json, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    if "id" in request:
+        print(json.dumps({"id": request["id"], "result": {"layers": []}}), flush=True)
+'
+  ;;
+*) printf '%s\n' '[{"name":"gitnexus"},{"name":"claude-context"}]' ;;
+esac
 CLI
   chmod +x "$dir/fakebin/codex"
   out=$(run_control "$dir" "$id" relaunch --note 'retain reduced tools'); rc=$?

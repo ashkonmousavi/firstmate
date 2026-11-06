@@ -37,11 +37,26 @@ def mcp_fixture():
         print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
 
 
-def check_startup(binary, profile, case, launch_file):
+def prepare(case, config_home, worktree, source):
     case = Path(case)
     case.mkdir(parents=True, exist_ok=True)
-    config_home = case / "codex-home"
-    config_home.mkdir()
+    config_home = Path(config_home)
+    config_home.mkdir(parents=True, exist_ok=True)
+    config = ['check_for_update_on_startup = false', 'approval_policy = "never"']
+    (config_home / "config.toml").write_text("\n".join(config) + "\n")
+    target = config_home if source == "global" else Path(worktree) / ".codex"
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("gitnexus", "claude-context", "custom_index", "retained"):
+        config.extend([
+            f'[mcp_servers."{name}"]',
+            f'command = {json.dumps(sys.executable)}',
+            f'args = {json.dumps([str(Path(__file__).resolve()), "mcp", name, str(case / (name + ".pid"))])}',
+        ])
+    (target / "config.toml").write_text("\n".join(config) + "\n")
+
+
+def check_startup(binary, profile, case, launch_file, config_home, worktree):
+    case = Path(case)
     # Only static argv from the emitted launch is read; no brief is evaluated.
     raw = Path(launch_file).read_text().split("codex ", 1)[1].split('"$(', 1)[0]
     args = shlex.split(raw)
@@ -49,15 +64,7 @@ def check_startup(binary, profile, case, launch_file):
     for i, arg in enumerate(args[:-1]):
         if arg in ("-c", "--config") and args[i + 1].startswith("mcp_servers."):
             overrides.extend([arg, args[i + 1]])
-    names = {"gitnexus", "claude-context", "retained"}
-    config = ['check_for_update_on_startup = false', 'approval_policy = "never"']
-    for name in sorted(names):
-        config.extend([
-            f'[mcp_servers."{name}"]',
-            f'command = {json.dumps(sys.executable)}',
-            f'args = {json.dumps([str(Path(__file__).resolve()), "mcp", name, str(case / (name + ".pid"))])}',
-        ])
-    (config_home / "config.toml").write_text("\n".join(config) + "\n")
+    names = {"gitnexus", "claude-context", "custom_index", "retained"}
     expected = names if profile == "product-code" else {"retained"}
     messages = queue.Queue()
     version = subprocess.check_output([binary, "--version"], text=True).strip()
@@ -65,7 +72,7 @@ def check_startup(binary, profile, case, launch_file):
     process = subprocess.Popen(
         [binary, *overrides, "app-server", "--stdio"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr,
-        text=True, cwd=case,
+        text=True, cwd=worktree,
         env={**os.environ, "CODEX_HOME": str(config_home), "HOME": str(case)},
         start_new_session=True,
     )
@@ -100,7 +107,7 @@ def check_startup(binary, profile, case, launch_file):
     try:
         rpc("initialize", {"clientInfo": {"name": "firstmate_lane_profile_guard", "version": "1.0"}})
         send({"method": "initialized", "params": {}})
-        thread = rpc("thread/start", {"cwd": str(case), "ephemeral": True})["thread"]["id"]
+        thread = rpc("thread/start", {"cwd": worktree, "ephemeral": True})["thread"]["id"]
         deadline = time.monotonic() + 45
         states = {}
         while time.monotonic() < deadline:
@@ -167,5 +174,7 @@ def check_startup(binary, profile, case, launch_file):
 if __name__ == "__main__":
     if sys.argv[1] == "mcp":
         mcp_fixture()
+    elif sys.argv[1] == "prepare":
+        prepare(*sys.argv[2:])
     else:
         check_startup(*sys.argv[1:])

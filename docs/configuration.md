@@ -1648,7 +1648,9 @@ The launch owner reads only configured matching IDs from native Codex discovery 
 Reduced shell launches explicitly export the same absolute `CODEX_HOME` used for discovery; without a selected worker account, this is the invoking process's `CODEX_HOME` or `HOME/.codex`.
 With `config/launch-env-allowlist` present, reduced profiles require a selected Codex worker account.
 Retained-copy relaunch checks that root before stopping the worker; released-copy relaunch defers the root check until allocation and account selection in the recreated checkout.
-Failed or malformed discovery refuses the reduced launch.
+Discovery runs from the actual worker directory, after native Codex configuration-layer inspection confirms that no project layer is disabled by trust.
+Failed or malformed discovery or layer inspection, or a disabled project layer, refuses the reduced launch.
+Establish project trust before requesting a reduced launch; no persistent trust configuration is rewritten.
 REA, Serena, and unrelated MCP servers retain their existing configuration unless explicitly listed as an additional code-index server.
 No persistent Codex configuration is rewritten.
 

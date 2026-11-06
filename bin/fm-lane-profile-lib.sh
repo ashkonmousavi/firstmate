@@ -4,7 +4,7 @@
 # operator contract. Default product-code does no discovery and emits no flags.
 # fm_lane_profile_check <profile> <harness> <raw 0|1> <kind> [backend]
 # fm_lane_profile_flags <profile> <harness> <raw> <kind> <config-dir> <cwd>
-# Discovery is bounded to 15 seconds and filtered directly to server IDs;
+# Discovery reads are bounded to 15 seconds and filtered directly to server IDs;
 # secret-bearing MCP configuration is never returned to the caller or logged.
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fm-timeout-lib.sh"
@@ -75,9 +75,13 @@ fm_lane_profile_flags() {
   [ "$profile" != product-code ] || return 0
   names=$(fm_lane_profile_server_names "$config") || return 1
   names=$(printf '%s\n' "$names" | jq -Rsc 'split("\n") | map(select(length > 0)) | unique') || return 1
+  cwd=$(cd -- "$cwd" && pwd -P) || return 1
+  python3 "$(dirname "${BASH_SOURCE[0]}")/fm-codex-accounts.py" lane-profile-preflight \
+    --folder "${CODEX_HOME:-$HOME/.codex}" --cwd "$cwd" || return 1
   selected=$(
+    cd -- "$cwd" || exit 1
     set -o pipefail
-    fm_run_timed 15 codex -C "$cwd" mcp list --json 2>/dev/null |
+    fm_run_timed 15 codex mcp list --json 2>/dev/null |
       jq -ce --argjson wanted "$names" '
         if type == "array" and all(.[]; type == "object" and (.name | type == "string"))
         then [.[] | .name as $name | select($wanted | index($name)) | .name] | unique

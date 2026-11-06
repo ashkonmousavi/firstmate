@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Opt-in Codex folders: selection, quota, duplicate guard and watcher checks.
 
-Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register,preflight} --help
+Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register,preflight,lane-profile-preflight} --help
 The config is one literal absolute folder per line, in preference order, with
 no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
@@ -191,6 +191,19 @@ def app_server_read(root, codex, method, params):
     except (OSError, ValueError, TypeError, AttributeError):
         pass
     return None
+
+
+def lane_profile_preflight(root, codex, cwd):
+    result = app_server_read(root, codex, "config/read", {"includeLayers": True, "cwd": cwd})
+    layers = (result or {}).get("layers")
+    if not isinstance(layers, list) or any(
+        not isinstance(layer, dict) or not isinstance(layer.get("name"), dict)
+        or not isinstance(layer["name"].get("type"), str)
+        for layer in layers
+    ):
+        raise ValueError("lane-profile cannot establish stable project trust from Codex configuration layers")
+    if any(layer["name"]["type"] == "project" and layer.get("disabledReason") for layer in layers):
+        raise ValueError("lane-profile requires stable project trust; disabled project configuration must be trusted before a reduced launch")
 
 
 def account_identity(root, codex):
@@ -418,7 +431,7 @@ def prepare(root, shared):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("select", "quota", "guard", "check", "maintain", "prepare", "register", "preflight"))
+    parser.add_argument("command", choices=("select", "quota", "guard", "check", "maintain", "prepare", "register", "preflight", "lane-profile-preflight"))
     parser.add_argument("--config", help="absolute codex-accounts list")
     parser.add_argument("--folder", help="one configured folder (or prepare destination)")
     parser.add_argument("--shared", help="prepare: shared non-auth configuration folder")
@@ -428,6 +441,11 @@ def main():
     parser.add_argument("--cwd", default=os.getcwd(), help="launch directory for effective project configuration")
     parser.add_argument("--gate", action="store_true", help="quota: return selected row as codex-home for the launch quota gate")
     args = parser.parse_args()
+    if args.command == "lane-profile-preflight":
+        if not args.folder or not Path(args.folder).is_absolute():
+            parser.error("lane-profile-preflight requires an absolute --folder")
+        lane_profile_preflight(args.folder, args.codex, args.cwd)
+        return
     if args.command == "prepare":
         if not args.folder or not args.shared:
             parser.error("prepare requires --folder and --shared")

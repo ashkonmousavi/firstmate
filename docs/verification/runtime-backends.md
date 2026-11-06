@@ -4541,3 +4541,26 @@ ok - codex-cli 0.166.0 ci-tooling: retained; no model turn submitted
 native-runtime {"claude-context": "disabled", "gitnexus": "disabled", "retained": "connected"}
 ok - codex-cli 0.166.0 governance: retained; no model turn submitted
 ```
+
+Refreshed on 2026-11-06 with codex-cli 0.166.0 on Linux x86_64 for worker-directory and project-trust discovery:
+
+```bash
+bash tests/fm-lane-profile.test.sh && bash tests/fm-control-relaunch.test.sh --lane-profile-only && FM_LANE_PROFILE_LIVE=1 bash tests/fm-lane-profile-live-e2e.test.sh
+```
+
+All three focused checks passed.
+The native guard uses the same account root, worktree, and local MCP configuration for discovery and startup, covering global configuration, trusted project-only configuration, and initially untrusted project-only configuration.
+The project cases include the configured `custom_index` alias alongside both built-in index IDs.
+Initially untrusted reduced launches refuse without publishing metadata or delivering a harness launch; after trust is established in the isolated fixture, the same tasks launch successfully.
+The default profile retains all four servers, and both reduced profiles retain only the unrelated positive control:
+
+```text
+native-runtime {"claude-context": "connected", "custom_index": "connected", "gitnexus": "connected", "retained": "connected"}
+native-runtime {"claude-context": "disabled", "custom_index": "disabled", "gitnexus": "disabled", "retained": "connected"}
+ok - codex-cli 0.166.0 ci-tooling: hidden project indexes refused before launch
+ok - codex-cli 0.166.0 governance: hidden project indexes refused before launch
+```
+
+Codex's [configuration loader](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/config/src/loader/mod.rs) records disabled project layers; native `config/read` inspection supplies the preflight refusal without changing persistent trust.
+The [MCP configuration builder](https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/cli/src/cloud_config.rs) uses the process directory, so the discovery subprocess changes to the actual worker directory.
+These primary sources were retrieved on 2026-11-06; the native guard is the executable check of the installed behavior.
