@@ -3660,7 +3660,7 @@ FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, a
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh
-FM_CHECK_TIMEOUT=30     # default seconds allowed per slow check script; timeout wakes name the check, its budget and measured elapsed seconds; nonzero exits keep their existing per-run wake
+FM_CHECK_TIMEOUT=30     # default seconds allowed per slow check script; custom-check budgets and results are described below
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
@@ -3809,6 +3809,12 @@ FM_INBOX_ASK_MODEL=     # overrides config/inbox-ask-model for fm-inbox.sh ask
 FM_INBOX_PROFILE=       # overrides config/inbox-profile; explicitly empty forces ambient credentials
 ```
 
+Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
+Foreground checkpoint admission and deferral reporting are owned by [`bin/fm-watch-checkpoint.sh --help`](../bin/fm-watch-checkpoint.sh); ordinary watchers retain the full authenticated budget.
+Each timed-out custom-check run emits one wake as `check: <path>: timed out after <budget>s (measured <elapsed>s; ❌ failing tool: <id>; FM_CHECK_TIMEOUT)`, preserving any output printed before the cut ahead of the timeout text.
+Each other custom-check run that exits nonzero emits one wake as `check: <path>: exited <code> after <elapsed>s`, appending `: <output>` when present.
+Exit-0 output wakes unchanged, with empty output silent.
+
 `FM_WEDGE_MAX_ESCALATIONS` bounds wedge escalations, not detection, so while its markers stand the dead-endpoint report is still consulted ahead of the short-circuit and reports a proven-gone endpoint exactly once per incarnation.
 The cap covers the wedge timer, which is where a BUSY pane whose agent is still generating output is escalated once its busy age crosses `FM_BUSY_TURN_MAX_SECS`, including the early crossing an opted-in model-stream silence causes.
 It does not cover the first-sight stale surfaces, so a pane that renders a new hash on every poll is re-classified rather than escalated and still emits one stale wake per hash.
@@ -3820,9 +3826,6 @@ That shared reset is what makes the release structural rather than a list of sit
 At the first-sight routes the reset is also opt-in per site: under a configured cap the count restarts with the released episode, while with the cap at its default 0 the count survives those routes exactly as the pre-cap watcher's did - the timer dropped and re-armed (or dropped alone), the escalation count standing - so a home that has not set anything keeps today's ladder, including the `demand-deep-inspection` prompt for a stuck pane.
 An operator can re-engage a capped window at once by deleting its `state/.wedge-permanent-<key>` marker, and a window silenced by a failed cap-state write by deleting its `state/.wedge-rollback-failed-<key>` sentinel; both files are safe to delete, and the window then escalates on the ordinary schedule again.
 Turning the cap back off takes effect at once: every cap marker is read only while the cap is configured, so a leftover from an earlier configured run cannot keep a window silent in a home that has turned the cap off.
-
-Per-check budget declarations and their authenticated validation are owned by [`bin/fm-check-lib.sh`](../bin/fm-check-lib.sh); `bin/fm-check-register.sh` refuses malformed declarations.
-Foreground checkpoint admission and deferral reporting are owned by `bin/fm-watch-checkpoint.sh --help`; ordinary watchers retain the full authenticated budget.
 
 `fm-teardown.sh` retries only Git's `Unable to create '...index.lock': File exists` return failure up to `FM_TREEHOUSE_RETURN_LOCK_RETRIES` times.
 `FM_TREEHOUSE_RETURN_LOCK_RETRIES` accepts a nonnegative integer, and an unset, blank, or invalid value uses the default of 3.
