@@ -6,6 +6,41 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Plan-owner stage continuation
+
+Class inventory inspected on 2026-11-05 on Linux x86_64, Bash 5.2.21, Python 3.12.3 and tasks-axi 0.2.6.
+The executable contract belongs to [fm-stage-transition.sh](../../bin/fm-stage-transition.sh), lifecycle admission to [fm-control.sh](../../bin/fm-control.sh), and new Done transitions to [fm-backlog-transition-lib.sh](../../bin/fm-backlog-transition-lib.sh).
+The focused refresh command is `bash tests/fm-stage-transition.test.sh && FM_CONTROL_STAGE_ONLY=1 bash tests/fm-control-relaunch.test.sh`.
+These regressions use real scripts, watcher processes, registered receipt snapshots and tasks-axi with fixture forge and endpoint adapters; they do not establish real-harness startup evidence.
+The focused refresh exited 0 with this result:
+
+```text
+Ran 24 tests in 94.811s
+
+OK
+ok - stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock
+```
+
+| Axis | Affected classes and evidence boundary |
+| --- | --- |
+| Intake and observation | `fm-pr-check.sh arm`, the authenticated `plan-stages` watcher check, direct `check`, `budget` and `can-close`; stage regressions cover registration, diagnostics, siblings surviving invalid configuration and invalid budget output, and head-bound receipt consumption. |
+| Completion callers | Inactive reconciliation and `fm-tasks-axi.sh done`/`close` use `fm_backlog_done`; stage regressions refuse pending proof, accept both green receipts, preserve unlisted/no-registry tasks, and execute accepted close bookkeeping after metadata removal. Already-Done artifact backfill is idempotent bookkeeping, not a new Done transition. Teardown retains its pre-cleanup `can-close` check. |
+| Task kinds and placement | Only explicit local ship leads pass `_eligible`; missing metadata, remote ships, scouts and secondmates fail that gate. Unlisted tasks keep ordinary completion. The stage suite covers ship/secondmate rejection; the shared kind and remote-host checks were inspected for the other exclusions. |
+| Status and backlog | Live, paused, transferred `captain-held`, externally held and unknown tasks defer; the focused control regression uses the real status/backlog readers and confirms no lifecycle input, metadata change or journal on refusal. |
+| Relaunch outcomes | Exit 3 from stopped-only eligibility or pre-stop capacity admission releases the reservation for the next poll. A generic 75, launch error, timeout or interruption keeps its failure/reservation because publication is ambiguous. Stage regressions cover both paths and duplicate suppression; the control regression restores capacity and launches the same task. |
+| Trigger classes | PR check/status red, native and registered queue drop, merged, deploy receipt red and installed receipt red share reservation, batching, admission and cap handling. The stage suite exercises these triggers, exact heads, duplicate events, new heads and cap expiry. |
+| Deadlines and liveness | Initial eligibility allows sequential backlog/run-state reads; the lifecycle call includes a second eligibility check under its lock and launch confirmation. The stage budget scales with lead count. Real watcher fixtures cover two 16-second launches in one sweep, heartbeat progress, and the unchanged deadline for an ordinary custom check using the Perl runner. |
+| Harnesses | Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, omp, agy, Devin, Command Code, Polytoken, Cortex and Kiro share this outer stage boundary. No vendor key, status classifier or launch template changes. Codex's positional 120-second allowance, typed readiness plus processing, and control's 90-second confirmation were inspected; the ten-minute control default also includes repeated eligibility and preflight. Other existing startup gates remain inside that same deadline. |
+| Backends | tmux, Herdr and Rex are admitted by the existing replacement capability table and share the new stage gates. T3 Code refuses replacement; Zellij, Orca, cmux, Paseo, Tern and hc lack the admitted stop/replacement contract. The focused control fixture exercises tmux; Herdr/Rex execution is a live-proof gap. |
+| Platforms | Linux/WSL and macOS use the same Bash/Python stage interface and POSIX advisory lock. Linux has portable fixture evidence; macOS execution and the `gtimeout` runner remain gaps. Native Windows is outside the Bash/POSIX execution contract. |
+| Accounts | No account pin or profile changes. Relaunch preserves the task's recorded harness/model/effort and existing Claude/Codex account-root resolution; the focused control fixture uses an isolated user home. Distinct signed-in accounts, provider profiles and managed-policy configurations remain real-launch gaps. |
+
+The independent oracles are the owner requirement that both receipts be green before a new close, the supervisor's one-hour cap release decision, the existing no-side-effects admission contract, and the startup allowances named above.
+Plausible rejected behaviors include closing immediately at merge, treating `captain-held` as eligible, permanently consuming a capacity refusal, permanently suppressing a capped event, killing a supported slow launch, and dropping unrelated checks after a malformed registry.
+The real-harness refresh entry points are `tests/fm-harness-liveness-drift-live-e2e.test.sh`, `tests/fm-launch-prompt-signals-live-e2e.test.sh`, `tests/fm-codex-brief-typed-live-e2e.test.sh` and `tests/fm-control-claude-busy-live-e2e.test.sh`; `tests/fm-control-herdr-smoke.test.sh` covers the real Herdr registry with stand-in processes.
+Those guards have narrower signal, prompt or transport scope and do not prove a complete plan-owner stage cycle.
+No real-harness, real deployment, installed-app, remote-home or machine-install guard is run by this focused review phase; registry and receipt-producer installation is the separately owned follow-up.
+
 ## Treehouse acquisition failure diagnostics
 
 `bash tests/fm-spawn-worktree-settle.test.sh` exercises the public spawn entrypoint with controlled cwd and capture responses, including failure confirmation, unreadable output, stale exit markers, 180 queued cwd-probe lines after acquisition output, bounded diagnostics and a healthy acquisition settling at the deadline.

@@ -4,12 +4,12 @@
 # One authenticated watcher check per home; no daemon and no waiting worker.
 # fm-pr-check.sh arms it when config/plan-leads.json exists. The plan owner
 # supplies {"schema":1,"tasks":{"task-id":{"deploy_check":"check-id",
-# "installed_check":"check-id","deploy_workflow":"deploy.yml"}}}.
-# deploy_check or deploy_workflow supplies deployment proof (not both).
+# "installed_check":"check-id"}}}.
 # Optional queue_check reads a non-GitHub queue's registered head-bound drop
 # verdict (red with a native event identity); native GitHub drops are also read.
 # Tasks are explicit local ship leads; unlisted tasks retain existing behavior.
-# Optional per-task relaunch_cap defaults to 3 attempts/hour/head/event class.
+# Optional per-task relaunch_cap defaults to 3 attempts/hour/head/event class;
+# capped events become eligible again after their one-hour window expires.
 # due (epoch), next_step (text), task and estimate (seconds) are carried in
 # state/.stage-transitions.json for the plan owner's wait-line renderer.
 #
@@ -26,8 +26,9 @@
 # A reservation is atomically saved before relaunch. A crash after reservation
 # leaves outcome=reserved (UNKNOWN), requiring operator reconciliation rather
 # than risking a duplicate launch. Failed launches are recorded and surfaced,
-# never silently retried. Duplicate observations increment duplicate_count.
-# Ledger completion licenses teardown; only teardown closes the backlog row.
+# never silently retried; proven admission deferrals remain eligible.
+# Duplicate observations increment duplicate_count.
+# Ledger completion licenses teardown and shared backlog completion.
 # _eligible and _receipt are internal shell-library adapters, also used by the
 # control plane for its under-lock stopped-only precondition.
 set -eu
@@ -63,7 +64,7 @@ case "${1:-}" in
       && [ -z "$(fm_meta_get "$meta" remote_host)" ] \
       || { echo unknown; exit; }
     line=$(status_current_line "$STATE/$id.status" ship)
-    if status_is_paused "$line"; then echo paused; exit; fi
+    if status_is_paused_or_captain_held "$line"; then echo paused; exit; fi
     case "$(status_line_verb "$line")" in
       needs-decision|blocked) echo held; exit ;;
     esac
@@ -108,7 +109,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib.parse import quote
 
 scripts, state, *args = sys.argv[1:]
 scripts, state = Path(scripts), Path(state)
@@ -201,29 +201,6 @@ def receipt(check, task, head):
     return result
 
 
-def deployment(settings, repo, task, head):
-    workflow = settings.get('deploy_workflow')
-    if not workflow:
-        return receipt(settings.get('deploy_check'), task, head)
-    if settings.get('deploy_check'):
-        raise ValueError('choose deploy_workflow or deploy_check')
-    result = api('/repos/' + repo + '/actions/workflows/' + quote(workflow, safe='')
-                 + '/runs?head_sha=' + head + '&per_page=1')
-    runs = result['workflow_runs']
-    if not runs:
-        return {'status': 'unknown', 'reason': 'no deploy run for merged head'}
-    row = runs[0]
-    if row['head_sha'] != head:
-        raise ValueError('deploy run does not match merged head')
-    verdict = 'pending'
-    if row['status'] == 'completed':
-        verdict = 'green' if row['conclusion'] == 'success' else (
-            'red' if row['conclusion'] in RED else 'unknown')
-    return {'status': verdict, 'head': head,
-            'event': str(row['id']) + ':' + str(row['run_attempt']),
-            'reason': 'workflow ' + workflow}
-
-
 def proof(call):
     try:
         return call()
@@ -249,7 +226,7 @@ def observe(settings, task, meta):
         if not isinstance(merged, str) or not SHA.fullmatch(merged):
             raise ValueError('merged commit unavailable')
         events.append(('merged', str(number), merged))
-        deploy = proof(lambda: deployment(settings, repo, task, merged))
+        deploy = proof(lambda: receipt(settings.get('deploy_check'), task, merged))
         installed = proof(lambda: receipt(settings.get('installed_check'), task, merged))
         for kind, result in [('deploy-red', deploy), ('installed-red', installed)]:
             if result['status'] == 'red':
@@ -319,9 +296,10 @@ def main():
         cap = item.get('relaunch_cap', 3)
         if type(cap) is not int or not 1 <= cap <= 20:
             raise ValueError('invalid relaunch cap for ' + task)
-    control_timeout = max(1, int(os.environ.get('FM_STAGE_CONTROL_TIMEOUT', '300')))
+    control_timeout = max(1, int(os.environ.get('FM_STAGE_CONTROL_TIMEOUT', '600')))
+    eligibility_timeout = 60
     if action == 'budget':
-        print(30 + len(tasks) * (control_timeout + 60))
+        print(30 + len(tasks) * (control_timeout + eligibility_timeout + 60))
         return
     if action == 'arm':
         state.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -378,7 +356,7 @@ def main():
                 if record.get('identity', identity) != identity:
                     raise ValueError('task identity changed; explicit plan reconciliation required')
                 record.update(identity=identity, pr=meta.get('pr'), closed=False)
-                eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], 10)
+                eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], eligibility_timeout)
                 if eligibility != 'eligible':
                     record.update(detail='deferred: ' + eligibility, next_step='wait for eligible ended worker')
                 else:
@@ -390,7 +368,7 @@ def main():
                     for kind, event, event_head in events:
                         key = task + '|' + kind + ':' + event + '|' + event_head
                         prior = record['events'].get(key)
-                        if prior:
+                        if prior and not (prior['outcome'] == 'capped' and prior['time'] <= now - 3600):
                             prior['duplicate_count'] += 1
                             if prior['outcome'] in {'reserved', 'failed', 'capped'}:
                                 record['detail'] += '; UNKNOWN action ' + prior['outcome'] + ': ' + kind
@@ -424,7 +402,7 @@ def main():
                                     del record['events'][key]
                                 record['launches'].pop()
                                 launch = []
-                                record['detail'] += '; deferred: eligibility changed'
+                                record['detail'] += '; deferred: pre-launch refusal'
                             else:
                                 outcome = 'failed'
                                 record['detail'] += '; UNKNOWN relaunch failed: ' + task

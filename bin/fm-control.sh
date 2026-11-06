@@ -1736,7 +1736,13 @@ do_relaunch() {
     return
   fi
   safe_checkpoint
-  relaunch_admission_preflight || exit $?
+  relaunch_admission_preflight || {
+    spawn_status=$?
+    if [ "$IF_STOPPED" = 1 ] && [ "$spawn_status" -eq 75 ]; then
+      return 3
+    fi
+    return "$spawn_status"
+  }
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
   journal_write checkpoint "${CHECKPOINT_LINES[@]}" "$note_line"

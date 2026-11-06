@@ -4548,12 +4548,24 @@ EOF
           custom_check_started=$(date +%s)
           custom_check_timeout=$CHECK_TIMEOUT
           if [ "$id" = plan-stages ]; then
-            custom_check_timeout=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
-              "$SCRIPT_DIR/fm-stage-transition.sh" budget) || exit 1
-            case "$custom_check_timeout" in ''|*[!0-9]*|0) exit 1 ;; esac
-            [ "$custom_check_timeout" -ge "$CHECK_TIMEOUT" ] || custom_check_timeout=$CHECK_TIMEOUT
+            FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+              run_check_capture "$SCRIPT_DIR/fm-stage-transition.sh" budget || exit 1
+            if [ "$FM_CHECK_EXIT_STATUS" -eq 0 ]; then
+              case "$FM_CHECK_RESULT" in
+                ''|*[!0-9]*|0)
+                  FM_CHECK_EXIT_STATUS=1
+                  FM_CHECK_RESULT="invalid stage check budget: $FM_CHECK_RESULT"
+                  ;;
+                *)
+                  custom_check_timeout=$FM_CHECK_RESULT
+                  [ "$custom_check_timeout" -ge "$CHECK_TIMEOUT" ] || custom_check_timeout=$CHECK_TIMEOUT
+                  CHECK_TIMEOUT=$custom_check_timeout run_check_capture "$custom_snapshot" || exit 1
+                  ;;
+              esac
+            fi
+          else
+            run_check_capture "$custom_snapshot" || exit 1
           fi
-          CHECK_TIMEOUT=$custom_check_timeout run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
           # A killed or failing run must not vanish: it wakes naming the check,
           # its exit code and its duration. Exit 0 keeps the printed output.

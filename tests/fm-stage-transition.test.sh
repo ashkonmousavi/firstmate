@@ -40,7 +40,11 @@ class Stages(unittest.TestCase):
         # Eligibility is an adapter here. Its real backend, hold and wait
         # behavior is additionally exercised in fm-control-relaunch.test.sh.
         self.script('fm-stage-transition.sh', '''#!/usr/bin/env bash
-if [ "${1:-}" = _eligible ]; then cat "$FM_HOME/eligible"; exit; fi
+if [ "${1:-}" = _eligible ]; then
+  sleep "${FM_STAGE_TEST_ELIGIBILITY_SLEEP:-0}"
+  cat "$FM_HOME/eligible"
+  exit
+fi
 exec "$(dirname "$0")/fm-stage-real.sh" "$@"
 ''')
         self.script('fm-control.sh', '''#!/usr/bin/env bash
@@ -60,7 +64,6 @@ if path.endswith('/pulls/42'): name='pr'
 elif '/check-runs?' in path: name='checks'
 elif path.endswith('/status'): name='statuses'
 elif path == 'graphql': name='queue'
-elif '/actions/workflows/' in path: name='workflow'
 else: sys.exit(9)
 print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
 ''')
@@ -153,6 +156,31 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.run_stage('check')
         self.assertEqual(self.calls(), ['lead'])
 
+    def test_eligibility_can_finish_sequential_dependency_reads(self):
+        self.red()
+        self.env['FM_STAGE_TEST_ELIGIBILITY_SLEEP'] = '11'
+        self.run_stage('check')
+        self.assertEqual(self.calls(), ['lead'])
+        self.assertEqual({e['outcome'] for e in self.record()['events'].values()}, {'relaunched'})
+
+    def test_admission_deferral_retries_but_ambiguous_failure_does_not(self):
+        self.red()
+        self.write('control-rc', '3')
+        self.run_stage('check')
+        self.assertFalse(self.record()['events'])
+        self.assertFalse(self.record()['launches'])
+        self.write('control-rc', '0')
+        self.run_stage('check')
+        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual({e['outcome'] for e in self.record()['events'].values()}, {'relaunched'})
+        self.red(2)
+        self.write('control-rc', '75')
+        self.run_stage('check')
+        self.write('control-rc', '0')
+        self.run_stage('check')
+        self.assertEqual(len(self.calls()), 3)
+        self.assertIn('failed', {e['outcome'] for e in self.record()['events'].values()})
+
     def prepare_watcher(self):
         for source in (ROOT / 'bin').iterdir():
             target = self.bin / source.name
@@ -180,6 +208,40 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.assertIn('zz-slow.check.sh', queue)
         self.assertIn('timed out after 1s', queue)
         self.assertFalse((self.home / 'ordinary-completed').exists())
+
+    def watcher_budget_failure(self, kind):
+        self.prepare_watcher()
+        self.run_stage('arm')
+        (self.state / 'lead.meta').unlink()
+        (self.state / 'deploy.check.sh').unlink()
+        (self.state / 'installed.check.sh').unlink()
+        check = self.state / 'zz-after.check.sh'
+        check.write_text('#!/usr/bin/env bash\ntouch "$FM_HOME/after-stage"\necho sibling-complete\n')
+        check.chmod(0o700)
+        registered = subprocess.run([str(self.bin / 'fm-check-register.sh'), 'zz-after'],
+                                    env=self.env, text=True, capture_output=True)
+        self.assertEqual(registered.returncode, 0, registered.stdout + registered.stderr)
+        env = dict(self.env, FM_ROOT_OVERRIDE=str(self.home), FM_POLL='1',
+                   FM_CHECK_INTERVAL='1', FM_HEARTBEAT='999999')
+        if kind == 'invalid-config':
+            (self.config / 'plan-leads.json').write_text('{')
+        else:
+            self.configure()
+            self.script('fm-stage-transition.sh', '#!/usr/bin/env bash\necho not-a-budget\n')
+        result = subprocess.run([str(self.bin / 'fm-watch-local.sh')], env=env,
+                                text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        queue = (self.state / '.wake-queue').read_text()
+        self.assertIn('plan-stages.check.sh', queue)
+        self.assertIn('UNKNOWN' if kind == 'invalid-config' else 'invalid stage check budget', queue)
+        self.assertIn('sibling-complete', queue)
+        self.assertTrue((self.home / 'after-stage').is_file())
+
+    def test_watcher_reports_bad_stage_config_and_continues_sweep(self):
+        self.watcher_budget_failure('invalid-config')
+
+    def test_watcher_reports_bad_stage_budget_and_continues_sweep(self):
+        self.watcher_budget_failure('invalid-output')
 
     def test_watcher_finishes_two_slow_relaunches_in_one_poll(self):
         self.prepare_watcher()
@@ -288,9 +350,24 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
             self.run_stage('check')
         self.assertEqual(len(self.calls()), 3)
         self.assertIn('capped', {e['outcome'] for e in self.record()['events'].values()})
-        self.queue('different-class')
+        self.run_stage('check')
+        self.assertEqual(len(self.calls()), 3)
+        ledger = self.state / '.stage-transitions.json'
+        data = json.loads(ledger.read_text())
+        row = data['tasks']['lead']
+        for launch in row['launches']:
+            launch['time'] -= 3601
+        for event in row['events'].values():
+            if event['outcome'] == 'capped':
+                event['time'] -= 3601
+        ledger.write_text(json.dumps(data))
         self.run_stage('check')
         self.assertEqual(len(self.calls()), 4)
+        self.run_stage('check')
+        self.assertEqual(len(self.calls()), 4)
+        self.queue('different-class')
+        self.run_stage('check')
+        self.assertEqual(len(self.calls()), 5)
 
     def test_missing_empty_wrong_head_skipped_and_untrusted_proof_are_unknown(self):
         self.pr(merged=True)
@@ -314,16 +391,18 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.assertFalse(self.record()['closed'])
         item = self.settings['tasks']['lead']
         del item['deploy_check']
-        item['deploy_workflow'] = 'deploy.yml'
         self.configure()
-        for runs in [[], [{'head_sha': OTHER, 'id': 1, 'run_attempt': 1, 'status': 'completed', 'conclusion': 'success'}],
-                     [{'head_sha': MERGED, 'id': 1, 'run_attempt': 1, 'status': 'completed', 'conclusion': 'skipped'}]]:
-            self.put('workflow', {'workflow_runs': runs})
+        self.run_stage('check')
+        self.assertFalse(self.record()['closed'])
+        self.assertIn('no registered check', self.record()['detail'])
+        item['deploy_check'] = 'deploy'
+        self.configure()
+        self.check('installed', 'green')
+        for status in ['pending', 'unknown', 'skipped']:
+            self.check('deploy', status)
             self.run_stage('check')
             self.assertFalse(self.record()['closed'])
-        self.check('installed', 'green')
-        self.put('workflow', {'workflow_runs': [{'head_sha': MERGED, 'id': 1, 'run_attempt': 1,
-                                               'status': 'completed', 'conclusion': 'success'}]})
+        self.check('deploy', 'green')
         self.run_stage('check')
         self.assertTrue(self.record()['closed'])
 
@@ -384,6 +463,91 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.run_stage('check')
         self.run_stage('check')
         self.assertEqual(self.calls(), ['lead'])
+
+    def tool(self, command, *args, good=True):
+        result = subprocess.run([str(command), *args], env=self.env, cwd=self.home,
+                                capture_output=True, text=True, timeout=45)
+        if good:
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+        return result
+
+    def add_backlog(self, task):
+        (self.home / 'data').mkdir(exist_ok=True)
+        self.tool('tasks-axi', 'add', task, 'stage fixture task', '--kind', 'ship',
+                  '--start', '--file', 'data/backlog.md')
+        self.tool('tasks-axi', 'update', task, '--body', 'PR ' + URL, '--file', 'data/backlog.md')
+
+    def backlog_state(self, task):
+        result = self.tool('tasks-axi', 'show', task, '--file', 'data/backlog.md')
+        return next(line.split(':', 1)[1].strip() for line in result.stdout.splitlines()
+                    if line.startswith('  state:'))
+
+    def accept_stage(self):
+        self.pr(merged=True)
+        self.run_stage('check')
+        self.check('deploy', 'green')
+        self.check('installed', 'green')
+        self.run_stage('check')
+        self.assertTrue(self.record()['closed'])
+
+    def test_inactive_reconciliation_waits_for_both_receipts(self):
+        self.add_backlog('lead')
+        self.pr(merged=True)
+        self.script('fm-crew-state.sh', '#!/usr/bin/env bash\necho "state: done · source: fixture"\n')
+        self.script('gh', '#!/usr/bin/env bash\necho \'{"state":"MERGED","mergedAt":"2026-11-05T01:00:00Z","closedAt":"2026-11-05T01:00:00Z"}\'\n')
+        self.env.update(FM_DATA_OVERRIDE=str(self.home / 'data'), FM_ROOT_OVERRIDE=str(self.home),
+                        FM_INACTIVE_CREW_STATE_BIN=str(self.bin / 'fm-crew-state.sh'),
+                        FM_INACTIVE_RECONCILE_BUDGET_SECS='30', FM_GH_CONDITIONAL='0')
+        reconcile = ROOT / 'bin/fm-inactive-reconcile.sh'
+        self.tool(reconcile, 'scan', '--startup')
+        self.assertEqual(self.backlog_state('lead'), 'in_flight')
+        self.run_stage('check')
+        self.check('deploy', 'green')
+        self.run_stage('check')
+        self.tool(reconcile, 'scan', '--startup')
+        self.assertEqual(self.backlog_state('lead'), 'in_flight')
+        self.check('installed', 'green')
+        self.run_stage('check')
+        self.tool(reconcile, 'scan', '--startup')
+        self.assertEqual(self.backlog_state('lead'), 'done')
+
+    def test_task_completion_aliases_and_accepted_close_replay(self):
+        self.add_backlog('lead')
+        wrapper = ROOT / 'bin/fm-tasks-axi.sh'
+        for action in ['done', 'close']:
+            self.tool(wrapper, action, 'lead', good=False)
+            self.assertEqual(self.backlog_state('lead'), 'in_flight')
+        self.accept_stage()
+        for action in ['done', 'close']:
+            if self.backlog_state('lead') == 'done':
+                self.tool('tasks-axi', 'reopen', 'lead', '--file', 'data/backlog.md')
+            result = self.tool(wrapper, action, 'lead')
+            self.assertTrue(result.stdout.strip())
+            self.assertEqual(self.backlog_state('lead'), 'done')
+        marker = self.state / 'lead.backlog-close'
+        marker.write_text('accepted cleanup\n')
+        self.tool('bash', '-c', '. "$1/bin/fm-tasks-axi-lib.sh"; . "$1/bin/fm-backlog-transition-lib.sh"; '
+                  'fm_backlog_close_transition "$2/lead.meta" "$2/lead.backlog-close" "$3" lead "$2" --note replay',
+                  '_', str(ROOT), str(self.state), str(self.home / 'data'))
+        self.assertFalse((self.state / 'lead.meta').exists())
+        self.assertFalse(marker.exists())
+        self.assertEqual(self.backlog_state('lead'), 'done')
+        self.add_backlog('ordinary')
+        self.tool(wrapper, 'done', 'ordinary')
+        self.assertEqual(self.backlog_state('ordinary'), 'done')
+        (self.config / 'plan-leads.json').unlink()
+        self.add_backlog('legacy')
+        self.tool(wrapper, 'close', 'legacy')
+        self.assertEqual(self.backlog_state('legacy'), 'done')
+
+    def test_unlisted_scout_completion_preserves_parent_and_json_output(self):
+        self.add_backlog('survey')
+        (self.state / 'survey.meta').write_text(self.meta.replace('kind=ship', 'kind=scout'))
+        result = self.tool(ROOT / 'bin/fm-tasks-axi.sh', 'done', 'survey', '--json')
+        self.assertIsInstance(json.loads(result.stdout), dict)
+        self.assertEqual(self.backlog_state('survey'), 'in_flight')
 
     def test_teardown_refuses_incomplete_stage_even_with_force(self):
         subject = os.environ.get('FM_STAGE_TEST_TEARDOWN_SUBJECT', str(ROOT / 'bin/fm-teardown.sh'))

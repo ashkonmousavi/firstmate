@@ -614,8 +614,27 @@ fm_backlog_scout_phase() {  # <data-dir> <id> [worker-kind; otherwise read this 
 
 fm_backlog_done() {  # <data-dir> <id> [flag...]
   local data=$1 id=$2 arg label previous_arg='' phase_status=0 report_present=0
+  local stage_home stage_config
   local -a done_args=()
   shift 2
+  stage_home=${FM_HOME:-$(dirname "$data")}
+  stage_config="${FM_CONFIG_OVERRIDE:-$stage_home/config}/plan-leads.json"
+  if [ -e "$stage_config" ] || [ -L "$stage_config" ]; then
+    fm_backlog_row_probe "$data" "$id" || {
+      FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR
+      return 1
+    }
+    case "$FM_BACKLOG_ROW_STATE" in
+      done\ *) ;;
+      *)
+        if ! FM_HOME="$stage_home" FM_STATE_OVERRIDE="${STATE:-${FM_STATE_OVERRIDE:-$stage_home/state}}" \
+          "${BASH_SOURCE[0]%/*}/fm-stage-transition.sh" can-close "$id"; then
+          FM_BACKLOG_TRANSITION_ERROR="plan lead stage proof is incomplete for $id"
+          return 1
+        fi
+        ;;
+    esac
+  fi
   fm_backlog_scout_phase "$data" "$id" || phase_status=$?
   case "$phase_status" in
     0)
@@ -627,9 +646,9 @@ fm_backlog_done() {  # <data-dir> <id> [flag...]
         esac
       done
       if [ "$report_present" = 1 ]; then
-        fm_backlog_retain "$data" "$id" "$@"
+        FM_BACKLOG_MUTATE_STDOUT=0 fm_backlog_retain "$data" "$id" "$@"
       else
-        fm_backlog_retain "$data" "$id" --report "$(fm_backlog_data_relative "$data")/$id/report.md" "$@"
+        FM_BACKLOG_MUTATE_STDOUT=0 fm_backlog_retain "$data" "$id" --report "$(fm_backlog_data_relative "$data")/$id/report.md" "$@"
       fi
       return $?
       ;;

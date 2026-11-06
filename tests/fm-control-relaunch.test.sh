@@ -5460,7 +5460,7 @@ test_stopped_only_plan_stage_relaunch() {
   command -v tasks-axi >/dev/null 2>&1 || {
     fail "stopped-only guard proof requires tasks-axi"
   }
-  for phase in live paused held stopped; do
+  for phase in live paused captain-held held capacity stopped; do
     id="rl-stage-$phase"
     dir=$(new_case "stage-$phase" "$id")
     add_ship_task "$dir" "$id" claude
@@ -5471,7 +5471,9 @@ test_stopped_only_plan_stage_relaunch() {
     fi
     case "$phase" in
       paused) printf 'paused: external declared wait\n' > "$dir/home/state/$id.status" ;;
+      captain-held) printf 'captain-held: decision transferred to a separate held task\n' > "$dir/home/state/$id.status" ;;
       held) tasks-axi hold "$id" --reason "external stage hold" --kind external --file "$dir/home/data/backlog.md" >/dev/null ;;
+      capacity) printf '0 0\n' > "$dir/home/config/lane-capacity" ;;
     esac
     cp "$dir/home/state/$id.meta" "$dir/before-meta"
     rc=0
@@ -5483,6 +5485,13 @@ test_stopped_only_plan_stage_relaunch() {
       expect_code 3 "$rc" "a $phase task must defer without lifecycle writes: $out"
       [ ! -s "$dir/fake/literal" ] || fail "$phase task received lifecycle input"
       cmp -s "$dir/before-meta" "$dir/home/state/$id.meta" || fail "$phase task metadata changed"
+      assert_absent "$dir/home/state/$id.control-relaunch" "$phase refusal left a journal"
+      if [ "$phase" = capacity ]; then
+        printf '999999 0\n' > "$dir/home/config/lane-capacity"
+        rc=0
+        out=$(run_control "$dir" "$id" relaunch --if-stopped --note "capacity available") || rc=$?
+        expect_code 0 "$rc" "admitted stopped-only retry must relaunch: $out"
+      fi
     fi
   done
   pass "stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock"
