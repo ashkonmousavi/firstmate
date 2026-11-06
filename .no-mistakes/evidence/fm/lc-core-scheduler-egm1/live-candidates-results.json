@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Publish an empty native backlog without claiming missing production coverage",
+    "result": "pass",
+    "calls": [
+      0,
+      2
+    ]
+  },
+  {
+    "name": "Publish native prepared and unprepared tasks atomically with isolated home overrides",
+    "result": "pass",
+    "calls": [
+      2,
+      5
+    ]
+  },
+  {
+    "name": "Join two valid empty homes without writing or starting work",
+    "result": "pass",
+    "calls": [
+      5,
+      6
+    ]
+  },
+  {
+    "name": "Distinguish eligible, denied and uncertain entries with uncertainty taking precedence",
+    "result": "pass",
+    "calls": [
+      6,
+      7
+    ]
+  },
+  {
+    "name": "Reject invalid consumed authority evidence while retaining valid exclusions and unused optional sources",
+    "result": "pass",
+    "calls": [
+      7,
+      19
+    ]
+  },
+  {
+    "name": "Keep stale revisions and changed prep or brief evidence UNKNOWN without blocking valid siblings",
+    "result": "pass",
+    "calls": [
+      19,
+      22
+    ]
+  },
+  {
+    "name": "Retain unavailable homes and readable descendants through missing state and parents",
+    "result": "pass",
+    "calls": [
+      22,
+      26
+    ]
+  },
+  {
+    "name": "Refuse expired, incomplete, malformed, nonregular and absent publications promptly",
+    "result": "pass",
+    "calls": [
+      26,
+      32
+    ]
+  },
+  {
+    "name": "Refuse duplicate or cross-home ownership rather than admitting either entry",
+    "result": "pass",
+    "calls": [
+      32,
+      34
+    ]
+  }
+]

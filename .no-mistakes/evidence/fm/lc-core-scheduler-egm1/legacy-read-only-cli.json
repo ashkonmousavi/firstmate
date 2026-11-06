@@ -1,0 +1,48 @@
+[
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--print-timer"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x",
+    "exit": 0,
+    "stdout": "# Proposed schedule for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x (not installed; see docs/configuration.md \"Auto-launch\").\n# Register the unit in the machine inventory and route pause/resume through\n# the fleet pause tool before enabling it.\n#\n# ~/.config/systemd/user/fm-autolaunch.service\n[Unit]\nDescription=Firstmate auto-launch pass for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\n\n[Service]\nType=oneshot\nEnvironment=\"PATH=~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0-linux/codex-arg00iOv5Q:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin\"\nEnvironment=\"FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\"\nExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/bin/fm-autolaunch.sh\n\n# ~/.config/systemd/user/fm-autolaunch.timer\n[Unit]\nDescription=Firstmate auto-launch every five minutes for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n\n[Install]\nWantedBy=timers.target\n\n# Or one crontab line instead of the two units:\n*/5 * * * * PATH=~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0-linux/codex-arg00iOv5Q:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/bin/fm-autolaunch.sh >/dev/null 2>&1\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--print-timer",
+      "--steps-only"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x",
+    "exit": 0,
+    "stdout": "# Proposed schedule for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x (not installed; see docs/configuration.md \"Auto-launch\").\n# Register the unit in the machine inventory and route pause/resume through\n# the fleet pause tool before enabling it.\n#\n# ~/.config/systemd/user/fm-autolaunch.service\n[Unit]\nDescription=Firstmate auto-launch pass for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\n\n[Service]\nType=oneshot\nEnvironment=\"PATH=~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0-linux/codex-arg00iOv5Q:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin\"\nEnvironment=\"FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\"\nExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/bin/fm-autolaunch.sh --steps-only\n\n# ~/.config/systemd/user/fm-autolaunch.timer\n[Unit]\nDescription=Firstmate auto-launch every five minutes for ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n\n[Install]\nWantedBy=timers.target\n\n# Or one crontab line instead of the two units:\n*/5 * * * * PATH=~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0-linux/codex-arg00iOv5Q:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/bin/fm-autolaunch.sh --steps-only >/dev/null 2>&1\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--steps-only"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--steps-only",
+      "--dry-run"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/legacy-cli-5qkgtg2x",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

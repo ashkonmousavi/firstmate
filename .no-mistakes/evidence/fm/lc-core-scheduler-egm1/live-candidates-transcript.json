@@ -1,0 +1,1909 @@
+[
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "complete": false,
+      "completed_at": 1793921496,
+      "entries": [],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+      "machine": "Pulse",
+      "publication_id": "bf00a53f-5354-499e-b263-3b9586aaade8",
+      "schema": "fm-seat-candidates/v1",
+      "sources": {
+        "catalogue": {
+          "evidence_digest": null,
+          "reason": "catalogue producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "claims": {
+          "evidence_digest": null,
+          "reason": "claims producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "prep": {
+          "evidence_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "reason": "preparation evidence attempts retained",
+          "revision": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "status": "ok"
+        },
+        "slice": {
+          "evidence_digest": null,
+          "reason": "slice producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "tasks": {
+          "evidence_digest": "sha256:5165fa8f847eb4bec45e09495ea1b8d7c6069d2114c8d6e3b85f9a98b6d3114b",
+          "reason": "ready membership read completely",
+          "revision": "sha256:5165fa8f847eb4bec45e09495ea1b8d7c6069d2114c8d6e3b85f9a98b6d3114b",
+          "status": "ok"
+        }
+      },
+      "valid_until": 1793921496
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "reason": "candidate publication is incomplete",
+          "status": "unavailable"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "reason": "candidate publication is incomplete",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "complete": false,
+      "completed_at": 1793921496,
+      "entries": [
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "prepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "existing preparation predicates satisfied",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "allow"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "prepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": "sha256:c58ace54c101d5544f24d1e7fad833ba0f33bac11f32b6d7749e5540caa5c857",
+            "digest": "sha256:f6ed416cdfeb3ec50a2f3e2db22fd787937254633c52592f1d25b310d62aa947",
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        },
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "unprepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "no brief data/unprepared/brief.md",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "unknown"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "unprepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": null,
+            "digest": null,
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        }
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+      "machine": "Pulse",
+      "publication_id": "273e4354-b783-4a37-96f5-74d39682e26e",
+      "schema": "fm-seat-candidates/v1",
+      "sources": {
+        "catalogue": {
+          "evidence_digest": null,
+          "reason": "catalogue producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "claims": {
+          "evidence_digest": null,
+          "reason": "claims producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "prep": {
+          "evidence_digest": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "reason": "preparation evidence attempts retained",
+          "revision": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "status": "ok"
+        },
+        "slice": {
+          "evidence_digest": null,
+          "reason": "slice producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "tasks": {
+          "evidence_digest": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "reason": "ready membership read completely",
+          "revision": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "status": "ok"
+        }
+      },
+      "valid_until": 1793921496
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "complete": false,
+      "completed_at": 1793921497,
+      "entries": [
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "prepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "existing preparation predicates satisfied",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "allow"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "prepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": "sha256:c58ace54c101d5544f24d1e7fad833ba0f33bac11f32b6d7749e5540caa5c857",
+            "digest": "sha256:f6ed416cdfeb3ec50a2f3e2db22fd787937254633c52592f1d25b310d62aa947",
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        },
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "unprepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "no brief data/unprepared/brief.md",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "unknown"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "unprepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": null,
+            "digest": null,
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        }
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+      "machine": "Pulse",
+      "publication_id": "f3209bd9-b6a2-4eab-9fd7-efff431d5bb0",
+      "schema": "fm-seat-candidates/v1",
+      "sources": {
+        "catalogue": {
+          "evidence_digest": null,
+          "reason": "catalogue producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "claims": {
+          "evidence_digest": null,
+          "reason": "claims producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "prep": {
+          "evidence_digest": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "reason": "preparation evidence attempts retained",
+          "revision": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "status": "ok"
+        },
+        "slice": {
+          "evidence_digest": null,
+          "reason": "slice producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "tasks": {
+          "evidence_digest": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "reason": "ready membership read completely",
+          "revision": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "status": "ok"
+        }
+      },
+      "valid_until": 1793921497
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--publish-candidates"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "complete": false,
+      "completed_at": 1793921497,
+      "entries": [
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "prepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "existing preparation predicates satisfied",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "allow"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "prepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": "sha256:c58ace54c101d5544f24d1e7fad833ba0f33bac11f32b6d7749e5540caa5c857",
+            "digest": "sha256:f6ed416cdfeb3ec50a2f3e2db22fd787937254633c52592f1d25b310d62aa947",
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        },
+        {
+          "actor": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "kind": "unknown",
+            "task": "unprepared"
+          },
+          "cut": null,
+          "facts": {
+            "claim": {
+              "authority": "claims",
+              "reason": "claim producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "dependencies": {
+              "authority": "tasks",
+              "reason": "dependencies producer evidence not supplied",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "unknown"
+            },
+            "phase": {
+              "authority": "slice",
+              "reason": "phase producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "placement": {
+              "authority": "catalogue",
+              "reason": "placement producer evidence not supplied",
+              "source_ref": null,
+              "verdict": "unknown"
+            },
+            "prep": {
+              "authority": "prep",
+              "reason": "no brief data/unprepared/brief.md",
+              "source_ref": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+              "verdict": "unknown"
+            },
+            "task": {
+              "authority": "tasks",
+              "reason": "task detail read",
+              "source_ref": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+              "verdict": "allow"
+            }
+          },
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "unprepared"
+          },
+          "owner_generation": null,
+          "phase": "unknown",
+          "prep": {
+            "brief_digest": null,
+            "digest": null,
+            "revision": null
+          },
+          "slice_id": null,
+          "source_refs": {
+            "catalogue": null,
+            "claims": null,
+            "prep": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+            "slice": null,
+            "tasks": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc"
+          }
+        }
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+      "machine": "Pulse",
+      "publication_id": "5845501d-c170-48f9-ab92-ff066ea0f3ac",
+      "schema": "fm-seat-candidates/v1",
+      "sources": {
+        "catalogue": {
+          "evidence_digest": null,
+          "reason": "catalogue producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "claims": {
+          "evidence_digest": null,
+          "reason": "claims producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "prep": {
+          "evidence_digest": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "reason": "preparation evidence attempts retained",
+          "revision": "sha256:bd5dbaf91bba09cd70a878317ec1f7e09431af6b40d77647ab499d46d36daba7",
+          "status": "ok"
+        },
+        "slice": {
+          "evidence_digest": null,
+          "reason": "slice producer contract not supplied",
+          "revision": null,
+          "status": "missing"
+        },
+        "tasks": {
+          "evidence_digest": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "reason": "ready membership read completely",
+          "revision": "sha256:2c8a528b569c3e5c1c279717ee46ab83c31cdaf5dc26dc758dbb8b56f8f3a0bc",
+          "status": "ok"
+        }
+      },
+      "valid_until": 1793921497
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "allowed"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "denied"
+          },
+          "reasons": [
+            "dependencies: accepted dependency still active"
+          ],
+          "result": "INELIGIBLE"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "uncertain"
+          },
+          "reasons": [
+            "claim: writer identity uncertain"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "claim fact authority/revision conflict",
+            "source claims lacks evidence digest"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "claim fact authority/revision conflict",
+            "source claims lacks not_applicable evidence"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "claim fact authority/revision conflict",
+            "source claims lacks revision"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "claim fact authority/revision conflict"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "extra fact authority/revision conflict",
+            "source extra lacks evidence digest"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "extra fact authority/revision conflict",
+            "source extra lacks not_applicable evidence"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "extra fact authority/revision conflict",
+            "source extra lacks revision"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "extra fact authority/revision conflict"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "assertion": "unused optional coverage remains optional; every consumed source validated",
+    "variants": [
+      [
+        "claims",
+        "missing-digest",
+        "UNKNOWN"
+      ],
+      [
+        "claims",
+        "missing-reason",
+        "UNKNOWN"
+      ],
+      [
+        "claims",
+        "missing-revision",
+        "UNKNOWN"
+      ],
+      [
+        "claims",
+        "missing-ref",
+        "UNKNOWN"
+      ],
+      [
+        "claims",
+        "valid-not-applicable",
+        "ELIGIBLE"
+      ],
+      [
+        "extra",
+        "missing-digest",
+        "UNKNOWN"
+      ],
+      [
+        "extra",
+        "missing-reason",
+        "UNKNOWN"
+      ],
+      [
+        "extra",
+        "missing-revision",
+        "UNKNOWN"
+      ],
+      [
+        "extra",
+        "missing-ref",
+        "UNKNOWN"
+      ],
+      [
+        "extra",
+        "valid-not-applicable",
+        "ELIGIBLE"
+      ]
+    ]
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "conflicting tasks source revision",
+            "dependencies fact authority/revision conflict",
+            "stale tasks source revision",
+            "task fact authority/revision conflict"
+          ],
+          "result": "UNKNOWN"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "sibling"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "prep.md changed since publication"
+          ],
+          "result": "UNKNOWN"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "sibling"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 0,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "brief.md changed since publication"
+          ],
+          "result": "UNKNOWN"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "sibling"
+          },
+          "reasons": [],
+          "result": "ELIGIBLE"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [],
+      "schema": "join/v1",
+      "status": "COMPLETE"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered home state unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/grandchild",
+          "publication_id": "lab-grandchild",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered home state unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/grandchild",
+          "publication_id": "lab-grandchild",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "status": "unavailable"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "registered local Firstmate home is unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "candidate publication is expired or has invalid times",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "candidate publication is expired or has invalid times",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "candidate publication is incomplete",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "candidate publication is incomplete",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "required source tasks lacks evidence digest",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "required source tasks lacks evidence digest",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "duplicate JSON member: complete",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "duplicate JSON member: complete",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "not a regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state/autolaunch-steps.candidates",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "not a regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state/autolaunch-steps.candidates",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "[Errno 2] No such file or directory: '~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state/autolaunch-steps.candidates'",
+          "status": "unavailable"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "home-unavailable",
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "owner": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "reason": "[Errno 2] No such file or directory: '~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child/state/autolaunch-steps.candidates'",
+          "retry": "fresh complete publication",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "ownership conflict"
+          ],
+          "result": "UNKNOWN"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "ownership conflict"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "ownership-conflict",
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reason": "owner identity published more than once or by another home",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-autolaunch.sh",
+      "--join"
+    ],
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+    "exit": 75,
+    "stdout": {
+      "entries": [
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "ownership conflict"
+          ],
+          "result": "UNKNOWN"
+        },
+        {
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reasons": [
+            "ownership conflict"
+          ],
+          "result": "UNKNOWN"
+        }
+      ],
+      "homes": [
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/child",
+          "publication_id": "lab-child",
+          "reason": "complete publication",
+          "status": "available"
+        },
+        {
+          "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+          "publication_id": "lab-root",
+          "reason": "complete publication",
+          "status": "available"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "ownership-conflict",
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reason": "owner identity published more than once or by another home",
+          "scope": "machine"
+        },
+        {
+          "code": "ownership-conflict",
+          "owner": {
+            "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/manual-0bwr2nk1/root",
+            "task": "target"
+          },
+          "reason": "owner identity published more than once or by another home",
+          "scope": "machine"
+        }
+      ],
+      "schema": "join/v1",
+      "status": "NO_PICK"
+    },
+    "stderr": ""
+  }
+]

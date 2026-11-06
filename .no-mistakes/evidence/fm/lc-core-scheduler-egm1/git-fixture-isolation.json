@@ -1,0 +1,18 @@
+{
+  "hypothesis": "Uninitialized fixture project discovers enclosing worktree. A process-local Git ceiling should make the project unrelated without modifying source, grants, or oracle bytes.",
+  "falsifier": "If discovery remains the worktree with the ceiling, this setup-only remedy is invalid.",
+  "sources": [
+    "https://git-scm.com/docs/git#Documentation/git.txt-codeGITCEILINGDIRECTORIEScode"
+  ],
+  "research_book": "No data/research-book exists in gate worktree; prohibited from consulting other project clones.",
+  "default": {
+    "exit": 0,
+    "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E\n",
+    "stderr": ""
+  },
+  "isolated": {
+    "exit": 128,
+    "stdout": "",
+    "stderr": "fatal: not a git repository (or any of the parent directories): .git\n"
+  }
+}

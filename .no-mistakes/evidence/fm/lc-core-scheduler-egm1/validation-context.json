@@ -1,0 +1,48 @@
+[
+  {
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exit": 0,
+    "stdout": "ae0cb8aea645442da31bc65eca280195e1135cac\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "uname",
+      "-sr"
+    ],
+    "exit": 0,
+    "stdout": "Linux 6.6.114.1-microsoft-standard-WSL2\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "Python 3.12.3\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "tasks-axi",
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "0.2.6\n",
+    "stderr": ""
+  }
+]

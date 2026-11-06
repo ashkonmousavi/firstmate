@@ -1,0 +1,9 @@
+PASS Publish an empty native backlog without claiming missing production coverage
+PASS Publish native prepared and unprepared tasks atomically with isolated home overrides
+PASS Join two valid empty homes without writing or starting work
+PASS Distinguish eligible, denied and uncertain entries with uncertainty taking precedence
+PASS Reject invalid consumed authority evidence while retaining valid exclusions and unused optional sources
+PASS Keep stale revisions and changed prep or brief evidence UNKNOWN without blocking valid siblings
+PASS Retain unavailable homes and readable descendants through missing state and parents
+PASS Refuse expired, incomplete, malformed, nonregular and absent publications promptly
+PASS Refuse duplicate or cross-home ownership rather than admitting either entry

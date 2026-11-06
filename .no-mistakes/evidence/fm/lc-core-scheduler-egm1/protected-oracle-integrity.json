@@ -1,0 +1,32 @@
+[
+  {
+    "block": "EGM1",
+    "sha256": "5bc94248e14b8508d035a13b337eaad3d7457f1b11beace12186276dc9ad5d0a",
+    "expected": "5bc94248e14b8508d035a13b337eaad3d7457f1b11beace12186276dc9ad5d0a",
+    "matches": true
+  },
+  {
+    "block": "EGM1-R2",
+    "sha256": "9c52b8f132a9890c509d2203ae4a1a5554162ed5cf6574bebea9db79ecb9cde2",
+    "expected": "9c52b8f132a9890c509d2203ae4a1a5554162ed5cf6574bebea9db79ecb9cde2",
+    "matches": true
+  },
+  {
+    "block": "EGM1-R3",
+    "sha256": "0b9ff9d8845f56d0995f3b7cb58fec6b5b441af279ca3371e34d59fa3ba12bf4",
+    "expected": "0b9ff9d8845f56d0995f3b7cb58fec6b5b441af279ca3371e34d59fa3ba12bf4",
+    "matches": true
+  },
+  {
+    "block": "EGM1-R4",
+    "sha256": "c14f028c157332396705dd5ce100ac032a4d2bd39b4cf7b42936bccdfefc1796",
+    "expected": "c14f028c157332396705dd5ce100ac032a4d2bd39b4cf7b42936bccdfefc1796",
+    "matches": true
+  },
+  {
+    "block": "K1",
+    "sha256": "c307f9e7f8d2088b174593e44fa83e1dc4d8de2a017978b9a5e96b6a7375bf60",
+    "expected": "c307f9e7f8d2088b174593e44fa83e1dc4d8de2a017978b9a5e96b6a7375bf60",
+    "matches": true
+  }
+]

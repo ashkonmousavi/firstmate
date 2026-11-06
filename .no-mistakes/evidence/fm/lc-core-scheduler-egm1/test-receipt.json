@@ -1,0 +1,17 @@
+{
+  "target": "ae0cb8aea645442da31bc65eca280195e1135cac",
+  "full_subject_exit": 0,
+  "gate_skips": 0,
+  "independent_egm_cases": {
+    "EGM1 ": 15,
+    "EGM1-R2 ": 4,
+    "EGM1-R3 ": 3,
+    "EGM1-R4 ": 3
+  },
+  "scratch_removed": true,
+  "git_status": "",
+  "source_edits": false,
+  "live_candidate_scenarios": 9,
+  "live_read_only_cli_scenarios": 1,
+  "systemd_canaries": "four OWED under the retained Firstmate030/036 exception"
+}

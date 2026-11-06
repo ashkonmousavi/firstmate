@@ -1,0 +1,56 @@
+[
+  {
+    "command": [
+      "systemctl",
+      "--user",
+      "show",
+      "-p",
+      "Version"
+    ],
+    "environment": {
+      "XDG_RUNTIME_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/systemd-runtime",
+      "DBUS_SESSION_BUS_ADDRESS": "unix:path=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.validation-tmp/systemd-runtime/bus"
+    },
+    "exit": 1,
+    "stdout": "",
+    "stderr": "Failed to connect to bus: Argument list too long\n"
+  },
+  {
+    "command": [
+      "unshare",
+      "--user",
+      "--map-root-user",
+      "--pid",
+      "--fork",
+      "true"
+    ],
+    "environment": {},
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "systemctl",
+      "--user",
+      "show",
+      "-p",
+      "Version"
+    ],
+    "environment": {
+      "XDG_RUNTIME_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.r",
+      "DBUS_SESSION_BUS_ADDRESS": "unix:path=~/.no-mistakes/worktrees/049a88734b0e/01M6Q0DRS6DKKAHX20S266GB9E/.r/bus"
+    },
+    "exit": 1,
+    "stdout": "",
+    "stderr": "Failed to connect to bus: No such file or directory\n"
+  },
+  {
+    "read_only_kernel_facts": {
+      "pid1": "systemd",
+      "self_cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/no-mistakes-daemon-3b6858c4.service/init.scope",
+      "cgroup_root_writable": false
+    },
+    "scope": "No shared-manager administration, installation, timer enablement, live-home mutation or live harness lifecycle. The recorded Firstmate030/036 exception retains four real-systemd scenarios as OWED. User namespaces are available, but that alone does not provide a disposable delegated systemd manager. This phase does not administer shared cgroups or activate a home."
+  }
+]
