@@ -1448,8 +1448,11 @@ test_watcher_exits_on_state_teardown_during_startup() {
     [ -e "$state/.watch.lock/watcher-path" ] && kill -STOP "$pid" 2>/dev/null && { stopped=1; break; }
   done
   [ "$stopped" -eq 1 ] || fail "watcher never finished claiming its lock: $(cat "$out")"
-  rm -rf "$state"
-  mkdir -p "$state"
+  # A stopped shell can still have an in-flight child writing here. Rename the
+  # old tree intact so recursive deletion cannot race that child and leave the
+  # original state directory in place.
+  mv "$state" "$dir/retired-state" || fail "could not retire the startup state directory"
+  mkdir -p "$state" || fail "could not recreate the startup state directory"
   kill -CONT "$pid" 2>/dev/null || true
   # wait_for_exit returns the watcher's own status, or TERMs a watcher that
   # kept running in the torn-down directory.

@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Codex approval review](#codex-automatic-approval-review), [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Codex permission mode](#codex-permission-mode-configcodex-permission-mode), [persistent managed-policy failover](#persistent-managed-policy-failover), [Codex account folders](#codex-account-folders-configcodex-accounts), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
+| Worker permissions, accounts, or environment | [Codex approval review](#codex-automatic-approval-review), [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Codex permission mode](#codex-permission-mode-configcodex-permission-mode), [persistent managed-policy failover](#persistent-managed-policy-failover), [Codex account folders](#codex-account-folders-configcodex-accounts), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [lane profiles](#lane-profiles), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), [record export](#record-export-configrecord-export-root), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Codex native Stop park](#codex-native-stop-park-configcodex-stop-park), [warm-cache compaction](#warm-cache-compaction-configwarm-compact), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1620,6 +1620,42 @@ Recovery uses the existing [lifecycle control plane](agent-control.md), respecti
 A `backend=t3code` task refuses before any change, because T3 already runs it at `full-access` and its spawns refuse both fallbacks; approve the pending request in T3 Code itself or choose another backend.
 Generic login failures do not establish a defeated bypass, and managed hook review remains a separate operator decision.
 Neither fallback is unrestricted execution, and Firstmate does not change vendor or security-agent settings.
+
+## Lane profiles
+
+A lane profile selects worker MCP startup independently of harness, model, effort, and delivery mode.
+Choose it explicitly at spawn according to the work, using the flags in [`fm-spawn.sh`](../bin/fm-spawn.sh).
+Unknown profile names refuse before worker provisioning.
+
+| Profile | Intended work | MCP startup |
+| --- | --- | --- |
+| `product-code` | Product implementation and work needing code indexes | Existing configuration, unchanged; also the default. |
+| `ci-tooling` | CI workflows, runner tooling, and delivery scripts | Codex ships and scouts on shell-launch backends omit the configured code-index servers. |
+| `governance` | Fleet rules and operational tooling | Same reduced Codex footprint. |
+
+Reduced profiles are verified for canonical Codex ship/scout launches on shell-launch backends only.
+T3 Code refuses reduced profiles before provisioning because its provider launch bypasses shell arguments; its default `product-code` profile remains supported.
+Other harnesses, raw launch commands, and secondmate primaries refuse a reduced selection; their default profile remains supported.
+Relaunch preserves the task's recorded selection, with legacy absence meaning `product-code`.
+A harness switch that cannot honor that selection refuses before stopping the current worker.
+
+The code-index server IDs are `gitnexus` and `claude-context`.
+An optional home-local `config/code-index-mcp-servers` adds aliases or other code-index server IDs, one per line, with blank lines and `#` comments allowed.
+IDs may contain letters, digits, underscores, and hyphens; dotted IDs cannot be addressed safely by the verified Codex CLI override parser and are refused.
+This file adds to the built-in IDs and does not remove them.
+The file is machine-local configuration; configure aliases in each home that uses them.
+The launch owner reads only configured matching IDs from native Codex discovery under the selected worker account and project, so absent servers need no invalid partial transport records.
+Reduced shell launches explicitly export the same absolute `CODEX_HOME` used for discovery; without a selected worker account, this is the invoking process's `CODEX_HOME` or `HOME/.codex`.
+With `config/launch-env-allowlist` present, reduced profiles require a selected Codex worker account.
+Retained-copy relaunch checks that root before stopping the worker; released-copy relaunch defers the root check until allocation and account selection in the recreated checkout.
+Discovery runs from the actual worker directory, after native Codex configuration-layer inspection confirms that no project layer is disabled by trust.
+Failed or malformed discovery or layer inspection, or a disabled project layer, refuses the reduced launch.
+Establish project trust before requesting a reduced launch; no persistent trust configuration is rewritten.
+REA, Serena, and unrelated MCP servers retain their existing configuration unless explicitly listed as an additional code-index server.
+No persistent Codex configuration is rewritten.
+
+Reduced startup is a process guarantee, not a promise that host swap pressure meets admission policy.
+Use the [installed-Codex guard](../tests/fm-lane-profile-live-e2e.test.sh) to refresh that guarantee, and measure host page-counter deltas under comparable workloads before claiming an admission improvement.
 
 ## Worker tool exclusions (config/crew-exclude-tools)
 

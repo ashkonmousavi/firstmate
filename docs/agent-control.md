@@ -103,7 +103,7 @@ For a secondmate, relaunch first honors the [owner-park contract](configuration.
    A harness change resets model and effort unless they are named too, because a model chosen for one adapter does not transfer to another.
    A Claude or Pi replacement must also pass the home's [worker account pin](configuration.md#worker-account-pin-configclaude-account-configpi-account), or a secondmate's own [per-secondmate account pin](configuration.md#per-secondmate-account-pins) when one is set, so a pin that no longer resolves or is signed out refuses before the old agent stops.
    An omp secondmate replacement likewise passes its [per-secondmate omp profile](configuration.md#per-secondmate-omp-profile) file check before the old agent stops.
-   Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
+   Ship and scout replacements also pass the [lane profile checks](configuration.md#lane-profiles) and [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
    An explicit `--harness` also passes the [explicit-harness quota gate](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) here; that contract owns home-level admission policy and per-launch overrides.
    A Codex replacement, a secondmate's included, resolves its [account folder and model](configuration.md#codex-account-folders-configcodex-accounts) in the recorded worktree here, so no usable folder refuses before the old agent stops.
 2. **Safe checkpoint and launch admission.**

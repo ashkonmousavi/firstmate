@@ -3223,7 +3223,22 @@ case "${1:-} ${2:-}" in
     # A released relaunch allocates its copy through the pane's shell.
     case "${4:-}" in
       'treehouse get'*) [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd" ;;
+      'cd -- '*)
+        python3 - "$4" "$D/cwd" <<'PY' || exit $?
+import pathlib, shlex, sys
+args = shlex.split(sys.argv[1])
+assert args[:2] == ["cd", "--"] and len(args) == 3, args
+path = pathlib.Path(args[2])
+assert path.is_dir(), path
+pathlib.Path(sys.argv[2]).write_text(str(path.resolve()))
+PY
+        ;;
     esac
+    exit 0 ;;
+  'pane read')
+    if [ -f "$D/herdr-agent-live" ] && [ "$(cat "$D/becomes")" = codex ]; then
+      printf '%s\n' '• Working (1s • esc to interrupt)'
+    fi
     exit 0 ;;
   'workspace list')
     printf '{"result":{"workspaces":[]}}\n'
@@ -4343,9 +4358,9 @@ SH
 }
 
 test_codex_project_cwd_handoffs() {
-  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected launch_log
   for policy in enforced rank-only; do
-  for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
+  for lifecycle in ${1:-ordinary direct-ordinary released direct-released claim-released herdr-released}; do
     id="codex-cwd-$policy-$lifecycle"
     dir=$(new_case "$id" "$id")
     case "$lifecycle" in
@@ -4379,6 +4394,17 @@ PY
         ;;
     esac
     printf codex > "$dir/fake/becomes"
+    launch_log="$dir/fake/literal"
+    case "$lifecycle" in
+      *released)
+        printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+        : > "$dir/home/config/launch-env-allowlist"
+        ;;
+    esac
+    if [ "$lifecycle" = herdr-released ]; then
+      released_use_herdr "$dir" "$id"
+      launch_log="$dir/fake/launched-command"
+    fi
     marker=
     for root in "$dir/account-one" "$dir/account-two"; do
       mkdir -p "$root/rules"
@@ -4411,6 +4437,11 @@ PY
     cat > "$dir/fakebin/codex" <<'PY'
 #!/usr/bin/env python3
 import json, os, pathlib, sys
+if "mcp" in sys.argv:
+    root = pathlib.Path(os.environ["CODEX_HOME"])
+    (root / "discovery-cwd").write_text(os.getcwd())
+    print('[{"name":"gitnexus"},{"name":"retained"}]')
+    sys.exit(0)
 if "status" in sys.argv:
     sys.exit(0)
 root = pathlib.Path(os.environ["CODEX_HOME"])
@@ -4429,7 +4460,7 @@ for line in sys.stdin:
         if cwd == (root / "trusted-cwd").read_text().strip():
             config = pathlib.Path(cwd) / ".codex/config.toml"
         model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
-        result = {"config": {"model": model}}
+        result = {"config": {"model": model}, "layers": []}
     else:
         sys.exit(2)
     print(json.dumps({"id": request["id"], "result": result}), flush=True)
@@ -4465,8 +4496,23 @@ SH
     if [ "$policy" = rank-only ]; then
       assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "$lifecycle notices exhausted quota"
     fi
-    assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
-    assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+    python3 - "$launch_log" <<'PY' || fail "$lifecycle must launch the project model"
+import pathlib, shlex, sys
+args = shlex.split(pathlib.Path(sys.argv[1]).read_text())
+if "/bin/sh" in args:
+    shell = args.index("/bin/sh")
+    assert args[shell + 1] == "-c", args
+    args = shlex.split(args[shell + 2])
+models = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--model"]
+assert models == ["project-default"], models
+PY
+    case "$lifecycle" in
+      *released)
+        assert_equals governance "$(meta_field "$dir" "$id" lane_profile)" "$lifecycle retains reduced startup"
+        assert_grep 'mcp_servers.gitnexus.enabled=false' "$launch_log" "$lifecycle must disable its index after allocation"
+        assert_equals "$wt" "$(cat "$selected/discovery-cwd")" "$lifecycle must discover in the selected account and recreated checkout"
+        ;;
+    esac
   done
   done
   pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
@@ -4926,7 +4972,7 @@ for line in sys.stdin:
     elif method == "config/read":
         config = root / "config.toml"
         model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
-        result = {"config": {"model": model}}
+        result = {"config": {"model": model}, "layers": []}
     else:
         sys.exit(2)
     print(json.dumps({"id": request["id"], "result": result}), flush=True)
@@ -5455,6 +5501,96 @@ test_relaunch_admission_refusal_preserves_running_agent() {
   pass 'replacement backlog and capacity refusals preserve the running agent and task'
 }
 
+# Lane-profile preflight must protect the still-running endpoint.
+test_lane_profile_relaunch_preflight() {
+  local dir out rc id profile
+  for profile in governance corrupt filtered untrusted; do
+    id="lane-$profile"
+    dir=$(new_case "profile-$profile" "$id")
+    add_ship_task "$dir" "$id" codex
+    if [ "$profile" = untrusted ]; then
+      printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+      cat > "$dir/fakebin/codex" <<'CLI'
+#!/usr/bin/env bash
+exec python3 -c '
+import json, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    if "id" in request:
+        result = {"layers": [{"name": {"type": "project"}, "disabledReason": "untrusted"}]}
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+'
+CLI
+      chmod +x "$dir/fakebin/codex"
+    elif [ "$profile" = filtered ]; then
+      printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+      : > "$dir/home/config/launch-env-allowlist"
+    else
+      printf '%s\n' "lane_profile=$profile" >> "$dir/home/state/$id.meta"
+    fi
+    cp "$dir/home/state/$id.meta" "$dir/prior.meta"
+    if [ "$profile" = filtered ] || [ "$profile" = untrusted ]; then
+      out=$(run_control "$dir" "$id" relaunch --note 'retain footprint'); rc=$?
+    else
+      out=$(run_control "$dir" "$id" relaunch --harness claude --note 'retain footprint'); rc=$?
+    fi
+    expect_code 1 "$rc" "incompatible or corrupt profile should refuse: $out"
+    if [ "$profile" = governance ]; then
+      assert_contains "$out" 'requires a canonical Codex ship/scout launch' 'refusal must name the supported profile boundary'
+    elif [ "$profile" = corrupt ]; then
+      assert_contains "$out" 'unknown --lane-profile' 'corrupt metadata must name the invalid profile'
+    elif [ "$profile" = untrusted ]; then
+      assert_contains "$out" 'stable project trust' 'hidden index servers must refuse before stopping'
+    else
+      assert_contains "$out" 'cannot establish the worker configuration' 'filtered environment must refuse before stopping'
+    fi
+    cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail 'profile refusal changed metadata'
+    [ "$(cat "$dir/fake/command")" = claude ] || fail 'profile refusal stopped the modeled live agent'
+    assert_no_grep '/exit' "$dir/fake/literal" 'profile preflight must precede stopping'
+  done
+  pass 'lane-profile refusal preserves the current agent and its metadata'
+}
+
+test_lane_profile_relaunch_retains_selection() {
+  local dir out rc id=lane-retain
+  dir=$(new_case profile-retain "$id")
+  add_ship_task "$dir" "$id" codex
+  printf '%s\n' 'lane_profile=governance' >> "$dir/home/state/$id.meta"
+  # The existing endpoint models Claude's exit; its replacement models Codex.
+  printf codex > "$dir/fake/becomes"
+  cat > "$dir/fakebin/codex" <<'CLI'
+#!/usr/bin/env bash
+case " $* " in
+*' app-server '*)
+  exec python3 -c '
+import json, sys
+for line in sys.stdin:
+    request = json.loads(line)
+    if "id" in request:
+        print(json.dumps({"id": request["id"], "result": {"layers": []}}), flush=True)
+'
+  ;;
+*) printf '%s\n' '[{"name":"gitnexus"},{"name":"claude-context"}]' ;;
+esac
+CLI
+  chmod +x "$dir/fakebin/codex"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain reduced tools'); rc=$?
+  expect_code 0 "$rc" "same-profile relaunch failed: $out"
+  [ "$(meta_field "$dir" "$id" lane_profile)" = governance ] || fail 'relaunch lost lane profile'
+  [ "$(grep -c '^lane_profile=' "$dir/home/state/$id.meta")" = 1 ] || fail 'relaunch duplicated lane profile'
+  assert_grep 'mcp_servers.gitnexus.enabled=false' "$dir/fake/literal" 'relaunch lost MCP override'
+  pass 'relaunch retains one durable lane profile and its actual launch override'
+}
+
+# Focused mode lets negative controls exercise these transaction boundaries
+# without replaying unrelated lifecycle cases.
+if [ "${1:-}" = --lane-profile-only ]; then
+  test_lane_profile_relaunch_preflight
+  test_lane_profile_relaunch_retains_selection
+  test_codex_project_cwd_handoffs 'released herdr-released'
+  exit 0
+fi
+
 test_adapter_admission_preserves_running_agent
 test_relaunch_admission_refusal_preserves_running_agent
 test_configuration_admission_preserves_running_agent
@@ -5482,6 +5618,8 @@ test_recovery_eligibility_holds_the_lifecycle_lock
 test_recovery_rechecks_task_records_and_work
 
 test_relaunch_off_opencode_removes_tracked_wiring
+
+
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 
@@ -5600,3 +5738,7 @@ test_released_journal_publishes_its_staged_note_after_success
 test_released_snapshot_signals_preserve_complete_brief_and_record
 
 test_step_action_continuation
+
+
+test_lane_profile_relaunch_preflight
+test_lane_profile_relaunch_retains_selection

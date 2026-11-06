@@ -1869,6 +1869,42 @@ test_spawn_codex_accepts_bypass_approval_mode() {
   pass "fm-spawn.sh --backend t3code codex: config/codex-approval-mode=bypass still launches"
 }
 
+test_spawn_lane_profiles() {
+  local profile id out rc create
+  local -a flags=()
+  for profile in ci-tooling governance implicit product-code; do
+    id=$(t3_uid "t3profile-$profile")
+    t3_case "spawn-profile-$profile"
+    t3_worker_setup "$id"
+    mkdir -p "$CASE_DIR/fakebin"
+    cat > "$CASE_DIR/fakebin/codex" <<'CLI'
+#!/usr/bin/env bash
+printf '%s\n' '[{"name":"gitnexus"}]'
+CLI
+    chmod +x "$CASE_DIR/fakebin/codex"
+    flags=()
+    [ "$profile" = implicit ] || flags=(--lane-profile "$profile")
+    out=$(t3_worker_spawn "$id" codex --model gpt-5.6-sol "${flags[@]+"${flags[@]}"}"); rc=$?
+    case "$profile" in
+      ci-tooling | governance)
+        expect_code 1 "$rc" "reduced T3 profile must refuse: $out"
+        assert_contains "$out" "backend=t3code cannot apply --lane-profile $profile" 'refusal must name the unsupported backend/profile'
+        [ -z "$(t3_dispatch_types)" ] || fail 'reduced profile mutated T3'
+        [ "$(t3_log_line_of 'r.tool === "treehouse"')" -eq 0 ] || fail 'reduced profile leased a worktree'
+        assert_absent "$CASE_DIR/state/$id.meta" 'reduced profile published metadata'
+        ;;
+      *)
+        expect_code 0 "$rc" "default T3 profile must still launch: $out"
+        assert_grep 'lane_profile=product-code' "$CASE_DIR/state/$id.meta" 'default profile changed'
+        [ "$(t3_dispatch_types)" = 't3_thread_launch t3_thread_send' ] || fail 'default T3 launch sequence changed'
+        create=$(t3_log_line_of 'r.tool === "t3_thread_launch"')
+        [ "$(t3_request "$create" 'r.arguments.modelSelection.model')" = gpt-5.6-sol ] || fail 'default model selection changed'
+        ;;
+    esac
+  done
+  pass 'T3 refuses reduced lane profiles before allocation and preserves default startup'
+}
+
 test_spawn_refuses_raw_launch_command() {
   local id out rc
   id=$(t3_uid t3rawz)
@@ -2794,6 +2830,7 @@ test_spawn_refuses_launch_settings_t3_cannot_honor claude-permission-mode auto "
 test_spawn_refuses_launch_settings_t3_cannot_honor codex-approval-mode approve-for-me "config/codex-approval-mode=approve-for-me" codex
 test_spawn_refuses_launch_settings_t3_cannot_honor codex-permission-mode restricted "config/codex-permission-mode=restricted" codex
 test_spawn_codex_accepts_bypass_approval_mode
+test_spawn_lane_profiles
 test_spawn_refuses_launch_settings_t3_cannot_honor launch-env-allowlist HOME "config/launch-env-allowlist"
 test_spawn_refuses_raw_launch_command
 test_spawn_abort_returns_lease_only_after_archive ok

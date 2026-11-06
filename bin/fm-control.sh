@@ -259,6 +259,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-omp-profile-lib.sh"
 # shellcheck source=bin/fm-exclude-tools-lib.sh
 . "$SCRIPT_DIR/fm-exclude-tools-lib.sh"
+# shellcheck source=bin/fm-lane-profile-lib.sh
+. "$SCRIPT_DIR/fm-lane-profile-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-quota-axi-lib.sh
@@ -1430,6 +1432,15 @@ resolve_relaunch_profile() {
           | grep -qxF "$(fm_polytoken_hooks_file "$WT")" \
         || fm_polytoken_require_hooks_free "$WT" || return 1
     fi
+  fi
+  # A reduced task's replacement must honor its recorded tool footprint.
+  local lane_profile lane_profile_codex_home
+  lane_profile=$(fm_meta_get "$META" lane_profile)
+  lane_profile=${lane_profile:-product-code}
+  fm_lane_profile_check "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" "$BACKEND" || return 1
+  if [ "$lane_profile" != product-code ] && [ "$RELEASED" = 0 ]; then
+    lane_profile_codex_home=$(fm_lane_profile_codex_home "$lane_profile" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$TARGET_CODEX_ROOT") || return 1
+    CODEX_HOME=$lane_profile_codex_home fm_lane_profile_flags "$lane_profile" "$TARGET_HARNESS" 0 "$KIND" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$WT" >/dev/null || return 1
   fi
   # Likewise config/crew-exclude-tools: a malformed file, or a replacement
   # runtime that cannot hide the listed tools, refuses here, before the old
