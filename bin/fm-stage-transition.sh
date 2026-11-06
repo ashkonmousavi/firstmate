@@ -28,7 +28,7 @@
 # than risking a duplicate launch. Failed launches are recorded and surfaced,
 # never silently retried; proven admission deferrals remain eligible.
 # Duplicate observations increment duplicate_count.
-# Ledger completion licenses teardown and shared backlog completion.
+# Accepted completion is retained; cleanup revalidates its identity and receipts.
 # _eligible and _receipt are internal shell-library adapters, also used by the
 # control plane for its under-lock stopped-only precondition.
 set -eu
@@ -278,6 +278,16 @@ def observe(settings, task, meta):
         '; UNKNOWN: ' + '; '.join(unknown) if unknown else '')
 
 
+def completion(settings, task, current, meta):
+    if (not current.get('closed') or current.get('pr') != meta.get('pr')
+            or current.get('identity') != [meta.get('worktree'), meta.get('branch')]):
+        raise ValueError(task + ': deploy and installed checks are not both green')
+    _, head, green, detail = observe(settings, task, meta)
+    if head != current.get('head') or not green:
+        raise ValueError(task + ': current deploy/installed evidence is not green for the closed head')
+    return detail
+
+
 def main():
     if not args or args[0] not in {'arm', 'check', 'budget', 'can-close'}:
         raise ValueError('usage: fm-stage-transition.sh arm | check | budget | can-close <task>')
@@ -327,12 +337,7 @@ def main():
             return
         current = data['tasks'].get(task, {})
         meta = metadata(task)
-        if (not current.get('closed') or current.get('pr') != meta.get('pr')
-                or current.get('identity') != [meta.get('worktree'), meta.get('branch')]):
-            raise ValueError(task + ': deploy and installed checks are not both green')
-        _, head, green, _ = observe(tasks[task], task, meta)
-        if head != current.get('head') or not green:
-            raise ValueError(task + ': current deploy/installed evidence is not green for the closed head')
+        completion(tasks[task], task, current, meta)
         return
     # A POSIX advisory lock dies with its owner, including on interrupted checks.
     lock = state / '.stage-transitions.lock'
@@ -351,73 +356,77 @@ def main():
             record.update(task=task, due=now + 300, next_step='reconcile stage', estimate=300)
             try:
                 meta = metadata(task)
-                # Missing/reused task identity must never inherit an old close.
-                identity = [meta.get('worktree'), meta.get('branch')]
-                if record.get('identity', identity) != identity:
-                    raise ValueError('task identity changed; explicit plan reconciliation required')
-                record.update(identity=identity, pr=meta.get('pr'), closed=False)
-                eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], eligibility_timeout)
-                if eligibility != 'eligible':
-                    record.update(detail='deferred: ' + eligibility, next_step='wait for eligible ended worker')
+                if record.get('closed'):
+                    detail = completion(item, task, record, meta)
+                    record.update(detail=detail, next_step='teardown after deploy and installed green', due=now)
                 else:
-                    events, head, green, detail = observe(item, task, meta)
-                    record.update(head=head, detail=detail, next_step='watch deploy and installed check')
-                    # Batch all triggers observed in one poll into one bounded
-                    # relaunch; later events wait while that worker is alive.
-                    launch = []
-                    for kind, event, event_head in events:
-                        key = task + '|' + kind + ':' + event + '|' + event_head
-                        prior = record['events'].get(key)
-                        if prior and not (prior['outcome'] == 'capped' and prior['time'] <= now - 3600):
-                            prior['duplicate_count'] += 1
-                            if prior['outcome'] in {'reserved', 'failed', 'capped'}:
-                                record['detail'] += '; UNKNOWN action ' + prior['outcome'] + ': ' + kind
-                            continue
-                        count = sum(e['time'] > now - 3600 and e['head'] == event_head
-                                    and kind in e['triggers'] for e in record['launches'])
-                        outcome = 'capped' if count >= item.get('relaunch_cap', 3) else 'reserved'
-                        record['events'][key] = dict(trigger=kind, key=key, time=now, head=event_head,
-                                                    outcome=outcome, duplicate_count=0)
-                        if outcome == 'capped':
-                            record['detail'] += '; relaunch cap reached: ' + task + ' ' + kind
-                        else:
-                            launch.append(key)
-                    if launch:
-                        record['launches'] = [e for e in record['launches'] if e['time'] > now - 3600]
-                        record['launches'].append(dict(time=now, head=head,
-                                                       triggers=list({record['events'][k]['trigger'] for k in launch})))
-                        save(data)
-                        note = ('Stage transition: ' + ', '.join(record['events'][k]['trigger'] for k in launch)
-                                + '; head=' + head + '. Continue this same task, branch and copy. '
-                                'Do bounded repair only; never deploy manually or idle-wait holding a seat. '
-                                'The registered plan-stages check owns deploy/installed observation.')
-                        try:
-                            run([scripts / 'fm-control.sh', task, 'relaunch', '--if-stopped', '--note', note],
-                                control_timeout)
-                            outcome = 'relaunched'
-                            record['detail'] += '; relaunched: ' + task
-                        except DependencyError as exc:
-                            if exc.code == 3:
-                                for key in launch:
-                                    del record['events'][key]
-                                record['launches'].pop()
-                                launch = []
-                                record['detail'] += '; deferred: pre-launch refusal'
+                    # Missing/reused task identity must never inherit an old close.
+                    identity = [meta.get('worktree'), meta.get('branch')]
+                    if record.get('identity', identity) != identity:
+                        raise ValueError('task identity changed; explicit plan reconciliation required')
+                    record.update(identity=identity, pr=meta.get('pr'), closed=False)
+                    eligibility = run([scripts / 'fm-stage-transition.sh', '_eligible', task], eligibility_timeout)
+                    if eligibility != 'eligible':
+                        record.update(detail='deferred: ' + eligibility, next_step='wait for eligible ended worker')
+                    else:
+                        events, head, green, detail = observe(item, task, meta)
+                        record.update(head=head, detail=detail, next_step='watch deploy and installed check')
+                        # Batch all triggers observed in one poll into one bounded
+                        # relaunch; later events wait while that worker is alive.
+                        launch = []
+                        for kind, event, event_head in events:
+                            key = task + '|' + kind + ':' + event + '|' + event_head
+                            prior = record['events'].get(key)
+                            if prior and not (prior['outcome'] == 'capped' and prior['time'] <= now - 3600):
+                                prior['duplicate_count'] += 1
+                                if prior['outcome'] in {'reserved', 'failed', 'capped'}:
+                                    record['detail'] += '; UNKNOWN action ' + prior['outcome'] + ': ' + kind
+                                continue
+                            count = sum(e['time'] > now - 3600 and e['head'] == event_head
+                                        and kind in e['triggers'] for e in record['launches'])
+                            outcome = 'capped' if count >= item.get('relaunch_cap', 3) else 'reserved'
+                            record['events'][key] = dict(trigger=kind, key=key, time=now, head=event_head,
+                                                        outcome=outcome, duplicate_count=0)
+                            if outcome == 'capped':
+                                record['detail'] += '; relaunch cap reached: ' + task + ' ' + kind
                             else:
+                                launch.append(key)
+                        if launch:
+                            record['launches'] = [e for e in record['launches'] if e['time'] > now - 3600]
+                            record['launches'].append(dict(time=now, head=head,
+                                                           triggers=list({record['events'][k]['trigger'] for k in launch})))
+                            save(data)
+                            note = ('Stage transition: ' + ', '.join(record['events'][k]['trigger'] for k in launch)
+                                    + '; head=' + head + '. Continue this same task, branch and copy. '
+                                    'Do bounded repair only; never deploy manually or idle-wait holding a seat. '
+                                    'The registered plan-stages check owns deploy/installed observation.')
+                            try:
+                                run([scripts / 'fm-control.sh', task, 'relaunch', '--if-stopped', '--note', note],
+                                    control_timeout)
+                                outcome = 'relaunched'
+                                record['detail'] += '; relaunched: ' + task
+                            except DependencyError as exc:
+                                if exc.code == 3:
+                                    for key in launch:
+                                        del record['events'][key]
+                                    record['launches'].pop()
+                                    launch = []
+                                    record['detail'] += '; deferred: pre-launch refusal'
+                                else:
+                                    outcome = 'failed'
+                                    record['detail'] += '; UNKNOWN relaunch failed: ' + task
+                            except (ValueError, OSError):
                                 outcome = 'failed'
                                 record['detail'] += '; UNKNOWN relaunch failed: ' + task
-                        except (ValueError, OSError):
-                            outcome = 'failed'
-                            record['detail'] += '; UNKNOWN relaunch failed: ' + task
-                        for key in launch:
-                            record['events'][key]['outcome'] = outcome
-                        # A relaunch is work owed, even if all checks just read
-                        # green. Wait for its bounded return before closure.
-                        green = False
-                    if green:
-                        record.update(closed=True, next_step='teardown after deploy and installed green', due=now)
+                            for key in launch:
+                                record['events'][key]['outcome'] = outcome
+                            # A relaunch is work owed, even if all checks just read
+                            # green. Wait for its bounded return before closure.
+                            green = False
+                        if green:
+                            record.update(closed=True, next_step='teardown after deploy and installed green', due=now)
             except (ValueError, OSError, KeyError, TypeError) as exc:
-                record.update(closed=False, detail='UNKNOWN: ' + str(exc), next_step='repair stage evidence')
+                record.update(detail='UNKNOWN: ' + str(exc), next_step='repair stage evidence')
             save(data)
             if (record['detail'], record['next_step'], record['closed']) != old:
                 print(task + ': ' + record['detail'] + '; next=' + record['next_step'])

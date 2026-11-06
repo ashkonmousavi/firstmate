@@ -12,19 +12,18 @@ Class inventory inspected on 2026-11-05 on Linux x86_64, Bash 5.2.21, Python 3.1
 The executable contract belongs to [fm-stage-transition.sh](../../bin/fm-stage-transition.sh), lifecycle admission to [fm-control.sh](../../bin/fm-control.sh), and new Done transitions to [fm-backlog-transition-lib.sh](../../bin/fm-backlog-transition-lib.sh).
 The focused refresh command is `bash tests/fm-stage-transition.test.sh && FM_CONTROL_STAGE_ONLY=1 bash tests/fm-control-relaunch.test.sh`.
 These regressions use real scripts, watcher processes, registered receipt snapshots and tasks-axi with fixture forge and endpoint adapters; they do not establish real-harness startup evidence.
-The focused refresh exited 0 with this result:
+The latest stage-only refresh, `bash tests/fm-stage-transition.test.sh`, exited 0 after the extended task-completion regression reproduced lost completion on the preceding stage executable.
 
 ```text
-Ran 24 tests in 94.811s
+Ran 25 tests in 107.465s
 
 OK
-ok - stopped-only plan stage control honors real hold/wait/live readers under its lifecycle lock
 ```
 
 | Axis | Affected classes and evidence boundary |
 | --- | --- |
 | Intake and observation | `fm-pr-check.sh arm`, the authenticated `plan-stages` watcher check, direct `check`, `budget` and `can-close`; stage regressions cover registration, diagnostics, siblings surviving invalid configuration and invalid budget output, and head-bound receipt consumption. |
-| Completion callers | Inactive reconciliation and `fm-tasks-axi.sh done`/`close` use `fm_backlog_done`; stage regressions refuse pending proof, accept both green receipts, preserve unlisted/no-registry tasks, and execute accepted close bookkeeping after metadata removal. Already-Done artifact backfill is idempotent bookkeeping, not a new Done transition. Teardown retains its pre-cleanup `can-close` check. |
+| Completion callers | Inactive reconciliation and `fm-tasks-axi.sh done`/`close` use `fm_backlog_done`; stage regressions refuse pending proof, accept both green receipts, retain acceptance through the next poll without relaunch, and execute accepted close bookkeeping after metadata removal. Unlisted/no-registry tasks retain ordinary behavior. Accepted identity and head remain bound while later receipt or API failures deny cleanup; restored evidence permits cleanup again. Already-Done artifact backfill is idempotent bookkeeping, not a new Done transition. Teardown and accepted-stage polls share the completion validator used by `can-close`. |
 | Task kinds and placement | Only explicit local ship leads pass `_eligible`; missing metadata, remote ships, scouts and secondmates fail that gate. Unlisted tasks keep ordinary completion. The stage suite covers ship/secondmate rejection; the shared kind and remote-host checks were inspected for the other exclusions. |
 | Status and backlog | Live, paused, transferred `captain-held`, externally held and unknown tasks defer; the focused control regression uses the real status/backlog readers and confirms no lifecycle input, metadata change or journal on refusal. |
 | Relaunch outcomes | Exit 3 from stopped-only eligibility or pre-stop capacity admission releases the reservation for the next poll. A generic 75, launch error, timeout or interruption keeps its failure/reservation because publication is ambiguous. Stage regressions cover both paths and duplicate suppression; the control regression restores capacity and launches the same task. |

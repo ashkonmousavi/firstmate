@@ -512,6 +512,12 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.run_stage('check')
         self.tool(reconcile, 'scan', '--startup')
         self.assertEqual(self.backlog_state('lead'), 'done')
+        self.write('eligible', 'held')
+        calls = self.calls()
+        self.run_stage('check')
+        self.assertTrue(self.record()['closed'])
+        self.run_stage('can-close', 'lead')
+        self.assertEqual(self.calls(), calls)
 
     def test_task_completion_aliases_and_accepted_close_replay(self):
         self.add_backlog('lead')
@@ -526,6 +532,12 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
             result = self.tool(wrapper, action, 'lead')
             self.assertTrue(result.stdout.strip())
             self.assertEqual(self.backlog_state('lead'), 'done')
+            self.write('eligible', 'held')
+            calls = self.calls()
+            self.run_stage('check')
+            self.assertTrue(self.record()['closed'])
+            self.run_stage('can-close', 'lead')
+            self.assertEqual(self.calls(), calls)
         marker = self.state / 'lead.backlog-close'
         marker.write_text('accepted cleanup\n')
         self.tool('bash', '-c', '. "$1/bin/fm-tasks-axi-lib.sh"; . "$1/bin/fm-backlog-transition-lib.sh"; '
@@ -541,6 +553,43 @@ print(base64.b64encode((h/(name+'.json')).read_bytes()).decode())
         self.add_backlog('legacy')
         self.tool(wrapper, 'close', 'legacy')
         self.assertEqual(self.backlog_state('legacy'), 'done')
+
+    def test_accepted_completion_revalidates_bindings_and_recovers_evidence(self):
+        self.add_backlog('lead')
+        self.accept_stage()
+        self.tool(ROOT / 'bin/fm-tasks-axi.sh', 'done', 'lead')
+        self.write('eligible', 'held')
+        calls = self.calls()
+        for defect in ['pr', 'branch', 'worktree', 'head', 'deploy', 'installed', 'api']:
+            with self.subTest(defect=defect):
+                if defect in ['pr', 'branch', 'worktree']:
+                    key = {'pr': 'pr=' + URL, 'branch': 'branch=fm/lead',
+                           'worktree': 'worktree=/isolated/lead'}[defect]
+                    (self.state / 'lead.meta').write_text(self.meta.replace(key, key + '-changed'))
+                elif defect == 'head':
+                    pr = json.loads((self.home / 'pr.json').read_text())
+                    pr['merge_commit_sha'] = OTHER
+                    self.put('pr', pr)
+                    self.check('deploy', 'green', head=OTHER)
+                    self.check('installed', 'green', head=OTHER)
+                elif defect in ['deploy', 'installed']:
+                    self.check(defect, 'red', event='later-failure')
+                else:
+                    self.write('api-down', '')
+                self.run_stage('check')
+                self.assertIn('UNKNOWN', self.record()['detail'])
+                self.run_stage('can-close', 'lead', good=False)
+                self.assertEqual(self.backlog_state('lead'), 'done')
+                self.assertEqual(self.calls(), calls)
+                (self.state / 'lead.meta').write_text(self.meta)
+                (self.home / 'api-down').unlink(missing_ok=True)
+                self.pr(merged=True)
+                self.check('deploy', 'green')
+                self.check('installed', 'green')
+                self.run_stage('check')
+                self.assertTrue(self.record()['closed'])
+                self.run_stage('can-close', 'lead')
+                self.assertEqual(self.calls(), calls)
 
     def test_unlisted_scout_completion_preserves_parent_and_json_output(self):
         self.add_backlog('survey')
