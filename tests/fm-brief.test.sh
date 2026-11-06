@@ -1869,8 +1869,74 @@ test_task_slice_matching_forms() {
   pass "fm-brief.sh: every ship mode and scouts preserve accepted Slice declaration forms"
 }
 
+# G1/G2/G4/G6/G8/G9/G10: the oracle is the plan-only rule in the task contract
+# (fleet-ops cut 21): an ops/<plan> SLICE in the task body puts the research rule
+# first in Rules for every ship mode and scouts; any other declaration leaves the
+# Rules section byte-identical to a scaffold with no SLICE.
+plan_rules_of() {  # <brief>: the Rules section, up to the next top-level heading
+  awk '/^# Rules$/ { grab=1 } grab && /^# / && !/^# Rules$/ { exit } grab { print }' "$1"
+}
+plan_scaffold() {  # <fixture> <id> <kind> <body>: prints the brief path
+  local fixture=$1 id=$2 kind=$3 body=$4 out
+  rm -rf "${fixture:?}/home/data/$id"
+  if [ "$kind" = scout ]; then
+    out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --scout 2>&1) \
+      || fail "$id scaffold failed: $out"
+  else
+    out=$(FM_SLICE_BODY="$body" FM_HOME="$fixture/home" bash "$fixture/bin/fm-brief.sh" "$id" sample --mode "$kind" 2>&1) \
+      || fail "$id scaffold failed: $out"
+  fi
+  printf '%s\n' "$fixture/home/data/$id/brief.md"
+}
+test_plan_research_rule() {
+  local fixture="$TMP_ROOT/plan quote's" kind role id brief baseline rules declaration body first
+  # shellcheck disable=SC2016 # Assert literal skill names in generated Markdown.
+  local expected='- When a problem recurs or you are unsure, load `research` (research-book INDEX first, then 2026 primary sources) and/or run `grilling` (lists open questions) with `kun` answering them; do not ask the owner; save a research-book entry with the reading that proves the fix, and name it in each recurring-problem cut.'
+  # shellcheck disable=SC2016 # Fences are literal Markdown.
+  local fenced=$'An example only:\n```text\nSLICE: ops/example | quoted example\n```\n~~~text\nSLICE: ops/example | another example\n~~~\n'
+  make_slice_brief_fixture "$fixture"
+  for kind in no-mistakes direct-PR local-only scout; do
+    for role in none owner child; do
+      id="custom-plan-$kind-$role"
+      brief=$(plan_scaffold "$fixture" "$id" "$kind" 'A task without a slice declaration.')
+      baseline=$(plan_rules_of "$brief")
+      assert_no_grep 'research-book INDEX first' "$brief" "$id without SLICE gained the plan rule"
+      for declaration in \
+        'SLICE: product/desk | build a plan editor | role=owner owner=fleet:plan' \
+        'SLICE: product/desk | ops/task-system role=child is only prose' \
+        'SLICE: product/desk | build a plan editor | role=child owner=fleet:plan' \
+        'SLICE: opsish/task-system | not the ops namespace' \
+        'Discuss SLICE: ops/task-system | not a declaration'; do
+        brief=$(plan_scaffold "$fixture" "$id" "$kind" "$declaration")
+        assert_no_grep 'research-book INDEX first' "$brief" "$id misclassified $declaration"
+        [ "$(plan_rules_of "$brief")" = "$baseline" ] || fail "$id changed a non-plan Rules section for $declaration"
+      done
+      brief=$(plan_scaffold "$fixture" "$id" "$kind" "$fenced")
+      assert_no_grep 'research-book INDEX first' "$brief" "$id classified a fenced example"
+      body="${fenced}SLICE: ops/task-system | plan lead or cut"
+      [ "$role" = none ] || body="$body | role=$role owner=fleet:task-system"
+      # No final newline also occurs in hand-filled task bodies.
+      brief=$(plan_scaffold "$fixture" "$id" "$kind" "$body")
+      rules=$(plan_rules_of "$brief")
+      [ "$(printf '%s\n' "$rules" | grep -Fxc -- "$expected")" -eq 1 ] \
+        || fail "$id must carry the complete research rule exactly once in Rules"
+      first=$(printf '%s\n' "$rules" | sed -n 2p)
+      [ "$first" = "$expected" ] || fail "$id must put the research rule first in Rules: $first"
+      [ "$(printf '%s\n' "$rules" | grep -Fxv -- "$expected")" = "$baseline" ] \
+        || fail "$id changed the rest of its Rules section"
+      first=$(cat "$brief")
+      brief=$(plan_scaffold "$fixture" "$id" "$kind" "$body")
+      [ "$(cat "$brief")" = "$first" ] || fail "$id second scaffold of the same task gave different bytes"
+    done
+  done
+  brief=$(plan_scaffold "$fixture" custom-plan-heading-form no-mistakes '## - **SLICE**: ops/task-system | heading and bold form')
+  [ "$(plan_rules_of "$brief" | grep -Fxc -- "$expected")" -eq 1 ] || fail "an accepted heading and bold form missed the plan rule"
+  pass "plan ship/scout Rules carry one complete research rule first; other declarations keep the Rules bytes"
+}
+
 test_task_slice_is_copied_into_ship_and_scout
 test_missing_or_fenced_task_slice_is_not_copied
+test_plan_research_rule
 test_task_slice_fence_boundaries
 test_task_slice_matching_forms
 test_script_parses
