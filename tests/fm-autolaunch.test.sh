@@ -55,6 +55,8 @@ LOG="$H/state/autolaunch.log"
 
 backlog() {  # writes the queued section lines given on stdin
   { printf '## In flight\n## Queued\n'; cat; printf '## Done\n- [x] old-done - finished (since 2026-10-01)\n'; } > "$H/data/backlog.md"
+  printf 'self\tlocal\ngenerated\t%s\nhomes\tlocal\nrow\tlocal\told-done\tdone\n' \
+    "$(date +%s)" > "$H/data/blocked-by-fleet-rows.tsv"
 }
 prep() {  # <id> <project> [extra key=value...]
   local id=$1 project=$2; shift 2
