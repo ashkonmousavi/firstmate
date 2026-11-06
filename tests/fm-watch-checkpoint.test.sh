@@ -409,6 +409,7 @@ SH
   assert_contains "$(cat "$home/out.txt")" 'timed out after 8s (measured ' "checkpoint swallowed a late timeout"
   assert_contains "$(cat "$home/state/.wake-queue")" 'failing tool: slow' "late timeout was not durably queued"
   home=$(make_home check-budget-deferred)
+  # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
   printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=300\ntouch "$FM_HOME/ran"\n' > "$home/state/slow.check.sh"
   chmod 0700 "$home/state/slow.check.sh"
   FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register deferred check"
@@ -458,6 +459,7 @@ test_checkpoint_orders_fitting_budgets_and_names() {
   home=$(make_home check-budget-order)
   for id in a-slow c-fast b-fast; do
     case "$id" in a-slow) budget=100 ;; *) budget=20 ;; esac
+    # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
     printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=%s\nprintf "%%s\\n" %s >> "$FM_HOME/order"\nprintf "%%s\\n" %s\n' \
       "$budget" "$id" "$id" > "$home/state/$id.check.sh"
     chmod 0700 "$home/state/$id.check.sh"
@@ -475,6 +477,7 @@ test_normal_watcher_retains_oversized_budget() {
   local home status
   home=$(make_home normal-check-budget)
   fm_test_track_watcher_state "$home/state"
+  # shellcheck disable=SC2016 # the generated check expands FM_CHECK_TIMEOUT in its own shell
   printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=300\nsleep 2\nprintf "normal budget=%%s\\n" "$FM_CHECK_TIMEOUT"\n' > "$home/state/slow.check.sh"
   chmod 0700 "$home/state/slow.check.sh"
   FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" slow >/dev/null || fail "register normal check"
@@ -490,6 +493,7 @@ test_checkpoint_rechecks_remaining_window() {
   local home id status
   home=$(make_home check-budget-remaining)
   printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=5\nsleep 2\nprintf "first check finished\\n"\n' > "$home/state/a-first.check.sh"
+  # shellcheck disable=SC2016 # the generated check expands FM_HOME in its own shell
   printf '#!/usr/bin/env bash\n# FM_CHECK_TIMEOUT=9\ntouch "$FM_HOME/second-ran"\n' > "$home/state/b-second.check.sh"
   for id in a-first b-second; do
     chmod 0700 "$home/state/$id.check.sh"
